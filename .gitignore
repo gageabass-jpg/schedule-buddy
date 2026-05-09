@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Firebase
+.firebase/
+*.log
+
+# Capacitor: web bundle is copied into ios/App/App/public on `npx cap sync`.
+# It's a build artifact — the source of truth lives in /public.
+ios/App/App/public/
+
+# Xcode user state (per-developer, not for the repo)
+**/xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode derived data / build output
+DerivedData/
+build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# CocoaPods (we're using SPM, but in case)
+Pods/
+*.xcworkspace/contents.xcworkspacedata.bak
+
+# Capacitor SPM checkouts (re-fetched on build)
+ios/App/CapApp-SPM/Package.resolved.bak
+
+# Editor cruft
+.vscode/
+.idea/
+*.swp
+*~
+
+# Env / secrets — none committed; placeholder
+.env
+.env.local

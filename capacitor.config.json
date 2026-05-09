@@ -1,0 +1,32 @@
+{
+  "appId": "com.gagebass.schedulebuddy",
+  "appName": "Schedule Buddy",
+  "webDir": "public",
+  "server": {
+    "url": "https://schedule-buddy-dd2cf.web.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false,
+    "scrollEnabled": true,
+    "backgroundColor": "#1c1c1e"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": true,
+      "backgroundColor": "#FFFFFF",
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["apple.com", "google.com"]
+    }
+  }
+}
