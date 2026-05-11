@@ -68,14 +68,39 @@
     }
   }
   * { box-sizing: border-box; }
+  html, body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    background: var(--bg);
+  }
   body {
     margin: 0;
-    padding: 24px;
+    padding:
+      max(env(safe-area-inset-top, 0px), 24px)
+      max(env(safe-area-inset-right, 0px), 24px)
+      max(env(safe-area-inset-bottom, 0px), 24px)
+      max(env(safe-area-inset-left, 0px), 24px);
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
     font-size: 14px;
     line-height: 1.5;
+  }
+  /* iOS status-bar safe-zone backdrop — keeps content readable when scrolled */
+  .ios-safe-top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: rgba(242, 242, 247, 0.85);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    z-index: 1000;
+    pointer-events: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .ios-safe-top { background: rgba(0, 0, 0, 0.85); }
   }
   .container { max-width: 1100px; margin: 0 auto; }
   h1 {
@@ -415,7 +440,9 @@
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
-    padding: 20px 24px 40px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0 24px max(env(safe-area-inset-bottom, 0px) + 24px, 40px);
   }
   .settings-drawer.open { transform: translateX(0); }
 
@@ -427,7 +454,7 @@
     position: sticky;
     top: 0;
     background: var(--bg);
-    padding: 8px 0 14px;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 0 14px;
     z-index: 1;
     border-bottom: 0.5px solid var(--sep);
   }
@@ -1555,7 +1582,9 @@
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
-    padding: 20px 24px 40px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0 24px max(env(safe-area-inset-bottom, 0px) + 24px, 40px);
   }
   .partner-drawer.open { transform: translateX(0); }
 
@@ -2540,7 +2569,13 @@
 
   /* ===== MOBILE OPTIMIZATION ===== */
   @media (max-width: 768px) {
-    body { padding: 12px 8px; }
+    body {
+      padding:
+        max(env(safe-area-inset-top, 0px), 12px)
+        max(env(safe-area-inset-right, 0px), 8px)
+        calc(env(safe-area-inset-bottom, 0px) + 100px)
+        max(env(safe-area-inset-left, 0px), 8px);
+    }
 
     /* Desktop-only hidden, mobile-only shown */
     .desktop-only { display: none !important; }
@@ -2655,7 +2690,10 @@
 
     /* Drawers — full width on mobile */
     .settings-drawer,
-    .partner-drawer { width: 100vw; padding: 12px 14px 30px; }
+    .partner-drawer {
+      width: 100vw;
+      padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 30px);
+    }
 
     /* Feedback chat */
     .feedback-panel { width: calc(100vw - 16px); right: 8px; bottom: 60px; }
@@ -2680,6 +2718,9 @@
 </style>
 </head>
 <body>
+
+<!-- iOS status-bar safe-zone backdrop (only visible on devices with a safe-area inset) -->
+<div class="ios-safe-top" aria-hidden="true"></div>
 
 <!-- ==================== SPLASH (shows briefly on first paint) ==================== -->
 <div id="splashScreen" class="splash-screen">

@@ -8,10 +8,10 @@
     "androidScheme": "https"
   },
   "ios": {
-    "contentInset": "always",
+    "contentInset": "never",
     "limitsNavigationsToAppBoundDomains": false,
     "scrollEnabled": true,
-    "backgroundColor": "#1c1c1e"
+    "backgroundColor": "#F2F2F7"
   },
   "plugins": {
     "SplashScreen": {
