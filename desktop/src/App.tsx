@@ -45,6 +45,7 @@ import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
+import { ChildcarePanel } from "./components/ChildcarePanel";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -104,6 +105,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
+  const [childcareOpen, setChildcareOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -132,6 +134,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // calendar — useful for first-run before a household has any shifts saved).
   const state: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
+
+  const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
 
   const eventsByDate: EventMap = useMemo(() => {
     const out: EventMap = {};
@@ -321,6 +325,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         syncStatus={syncStatus}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
+        onOpenChildcare={() => setChildcareOpen(true)}
+        pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
@@ -466,6 +472,16 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdId={householdId}
         state={state}
         shifts={shifts}
+      />
+      <ChildcarePanel
+        open={childcareOpen}
+        onClose={() => setChildcareOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        onSendCoverage={() => setCoverageModalOpen(true)}
       />
     </div>
   );

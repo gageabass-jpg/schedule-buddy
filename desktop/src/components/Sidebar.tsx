@@ -25,13 +25,15 @@ interface SidebarProps {
   onOpenScheduleImport: (id: string) => void;
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
+  onOpenChildcare: () => void;
+  pendingCoverageCount: number;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole, onSendCoverage,
+  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   return (
     <div
@@ -167,6 +169,17 @@ export function Sidebar({
             t={t}
           />
         ))}
+      </SidebarSection>
+
+      <SidebarSection label="Care" t={t}>
+        <ListRow
+          icon="🧒"
+          label="Childcare coverage"
+          count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
+          onClick={onOpenChildcare}
+          title="View all sent coverage requests and caregiver responses"
+          t={t}
+        />
       </SidebarSection>
 
       <div style={{ flex: 1 }} />

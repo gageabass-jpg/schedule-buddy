@@ -2687,6 +2687,25 @@
   }
   .bottom-tab.active { color: var(--color-g); }
   .bottom-tab.active .bt-label { color: var(--color-g); }
+  .bt-badge {
+    position: absolute;
+    top: 2px;
+    right: 18px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #FF453A;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .bottom-tab { position: relative; }
 
   /* Section visibility per mobile tab (phone only) */
   @media (max-width: 768px) {
@@ -2694,12 +2713,15 @@
     /* Default mobile = "schedule" tab: hide stats and profile panes */
     .pane-stats   { display: none; }
     .pane-profile { display: none; }
-    /* Schedule pane is hidden when on stats or profile tab */
-    body[data-mobile-tab="stats"]    .pane-schedule,
-    body[data-mobile-tab="profile"]  .pane-schedule { display: none; }
+    /* Schedule pane is hidden when on stats / childcare / profile tab */
+    body[data-mobile-tab="stats"]      .pane-schedule,
+    body[data-mobile-tab="childcare"]  .pane-schedule,
+    body[data-mobile-tab="profile"]    .pane-schedule { display: none; }
     /* Each tab makes its own pane visible */
-    body[data-mobile-tab="stats"]    .pane-stats   { display: block; }
-    body[data-mobile-tab="profile"]  .pane-profile { display: flex; }
+    body[data-mobile-tab="stats"]      .pane-stats     { display: block; }
+    body[data-mobile-tab="childcare"]  .pane-childcare { display: flex; }
+    body[data-mobile-tab="profile"]    .pane-profile   { display: flex; }
+    .pane-childcare { display: none; }
   }
 
   /* ===== Profile pane ===== */
@@ -3054,36 +3076,131 @@
     h1 { font-size: 16px; }
   }
 
+  /* ==================== Manager Childcare pane (iOS) ==================== */
+  .pane-childcare {
+    flex-direction: column;
+    gap: 12px;
+    padding: calc(env(safe-area-inset-top, 0px) + 14px) 14px 100px;
+  }
+  .mc-header { padding: 4px 4px 8px; }
+  .mc-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-dim); margin: 0 0 4px;
+  }
+  .mc-title {
+    margin: 0 0 4px; font-size: 24px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); line-height: 1.15;
+  }
+  .mc-sub { font-size: 13px; color: var(--text-dim); }
+  .mc-filters {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 4px 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mc-filter {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 0.5px solid var(--sep);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-filter.active { background: var(--text); color: var(--bg); border-color: transparent; }
+  .mc-list { display: flex; flex-direction: column; gap: 10px; }
+  .mc-card {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-left-width: 3px;
+  }
+  .mc-card.pending   { border-left-color: #5E5CE6; }
+  .mc-card.confirmed { border-left-color: #30D158; }
+  .mc-card.declined  { border-left-color: #FF453A; }
+  .mc-card.issue     { border-left-color: #FF9F0A; }
+  .mc-card-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  .mc-card-date { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .mc-pill {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .mc-pill.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
+  .mc-pill.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .mc-pill.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
+  .mc-pill.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+  .mc-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 8px; flex-wrap: wrap; }
+  .mc-meta b { color: var(--text); font-weight: 600; }
+  .mc-notes {
+    font-size: 12.5px; color: var(--text);
+    background: var(--bg);
+    padding: 8px 10px; border-radius: 8px;
+    border: 0.5px solid var(--sep);
+    line-height: 1.4;
+  }
+  .mc-cg-note {
+    font-size: 12.5px; color: var(--text2, var(--text-dim));
+    line-height: 1.4;
+    font-style: italic;
+  }
+  .mc-cg-note b { color: var(--text); font-style: normal; font-weight: 600; }
+  .mc-empty {
+    padding: 28px 18px; border-radius: 14px;
+    background: var(--panel); border: 0.5px solid var(--sep);
+    color: var(--text-dim); text-align: center; font-size: 13px;
+    line-height: 1.5;
+  }
+
   /* ==================== Caregiver-only screen (role: supporting) ==================== */
   .cg-screen {
     min-height: 100vh;
     min-height: 100dvh;
     background: var(--bg);
     color: var(--text);
-    padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+    /* env() can resolve to 0 in some Capacitor configs — use max() as a floor */
+    padding:
+      max(env(safe-area-inset-top, 0px), 44px) 16px
+      max(env(safe-area-inset-bottom, 0px), 16px);
+    padding-top: calc(max(env(safe-area-inset-top, 0px), 44px) + 16px);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     box-sizing: border-box;
   }
-  .cg-header { padding: 4px 2px 0; }
+  .cg-header {
+    padding: 2px 4px 8px;
+    border-bottom: 0.5px solid var(--sep);
+  }
   .cg-eyebrow {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-dim);
+    margin: 0 0 6px;
   }
   .cg-title {
-    margin: 4px 0 2px;
-    font-size: 26px;
+    margin: 0 0 6px;
+    font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.15;
   }
   .cg-sub {
     font-size: 13px;
     color: var(--text-dim);
     line-height: 1.4;
+    margin: 0;
   }
   .cg-list {
     display: flex;
@@ -3785,6 +3902,27 @@
     </details>
   </div><!-- /.pane-stats -->
 
+  <!-- ===== Childcare pane (manager-only view of every coverage request) ===== -->
+  <div class="pane-childcare">
+    <header class="mc-header">
+      <div class="mc-eyebrow">Childcare coverage</div>
+      <h1 class="mc-title">Assigned shifts</h1>
+      <div class="mc-sub" id="mcSubLine">Every request you've sent the caregiver — pending, accepted, declined, or flagged.</div>
+    </header>
+
+    <div class="mc-filters" id="mcFilters" role="tablist" aria-label="Filter by status">
+      <button type="button" class="mc-filter active" data-mc-filter="all">All</button>
+      <button type="button" class="mc-filter" data-mc-filter="pending">Pending</button>
+      <button type="button" class="mc-filter" data-mc-filter="confirmed">Accepted</button>
+      <button type="button" class="mc-filter" data-mc-filter="declined">Declined</button>
+      <button type="button" class="mc-filter" data-mc-filter="issue">Issue</button>
+    </div>
+
+    <div class="mc-list" id="mcList">
+      <div class="mc-empty">No coverage requests yet. Use the Manager on your Mac to send a batch.</div>
+    </div>
+  </div><!-- /.pane-childcare -->
+
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
   <div class="pane-profile">
     <div class="profile-hero">
@@ -3859,6 +3997,15 @@
         <path d="M5 21V11M12 21V3M19 21v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
       <span class="bt-label">Stats</span>
+    </button>
+    <button class="bottom-tab" data-tab="childcare" aria-label="Childcare">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M5 20c0-3.4 3.1-6 7-6s7 2.6 7 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="17.5" cy="6" r="1.5" fill="currentColor"/>
+      </svg>
+      <span class="bt-label">Childcare</span>
+      <span id="mcTabBadge" class="bt-badge" hidden></span>
     </button>
     <button class="bottom-tab" data-tab="profile" aria-label="Profile">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -4391,9 +4538,8 @@ async function deleteOwnPushTokenDoc() {
 
 // ==================== CAREGIVER VIEW (role: supporting) ====================
 function initCaregiverScreen() {
-  // Title placeholder until state/main lands with a real householdName.
-  const nameEl = document.getElementById("cgHouseholdName");
-  if (nameEl) nameEl.textContent = "Coverage requests";
+  // Title defaults to "Bass Household" from the markup and gets replaced
+  // by the real householdName as soon as state/main syncs.
   const greetEl = document.getElementById("cgGreeting");
   if (greetEl) {
     const first = (currentUser.displayName || currentUser.email || "there").split(/\s+/)[0];
@@ -4480,8 +4626,8 @@ function caregiverCardHTML(r) {
     ? `<div class="cg-notes">${escapeHtml(r.notes)}</div>`
     : "";
 
-  const caregiverNoteBlock = (status === "issue" && r.caregiverNote)
-    ? `<div class="cg-caregiver-note"><b>You reported:</b> ${escapeHtml(r.caregiverNote)}</div>`
+  const caregiverNoteBlock = r.caregiverNote
+    ? `<div class="cg-caregiver-note"><b>${status === "declined" ? "You said" : status === "issue" ? "You reported" : "You noted"}:</b> ${escapeHtml(r.caregiverNote)}</div>`
     : "";
 
   const actionsBlock = status === "pending"
@@ -4511,9 +4657,19 @@ async function handleCaregiverAction(id, action) {
   if (!householdId || !id) return;
   let nextStatus = null;
   let caregiverNote;
-  if (action === "accept")       nextStatus = "confirmed";
-  else if (action === "decline") nextStatus = "declined";
-  else if (action === "issue") {
+  if (action === "accept") {
+    nextStatus = "confirmed";
+  } else if (action === "decline") {
+    nextStatus = "declined";
+    // Declines require a reason so the manager knows why before they scramble.
+    caregiverNote = prompt("Why are you declining? (Required — the family needs to know)");
+    if (caregiverNote == null) return;          // cancelled
+    caregiverNote = caregiverNote.trim();
+    if (!caregiverNote) {
+      alert("Please add a reason — even a short one helps.");
+      return;
+    }
+  } else if (action === "issue") {
     nextStatus = "issue";
     caregiverNote = prompt("What's the issue? (e.g. running late, can't make it)");
     if (caregiverNote == null) return;          // cancelled
@@ -4545,6 +4701,100 @@ async function handleCaregiverAction(id, action) {
     alert("Couldn't update that request. Check your connection.");
   }
 }
+
+// ==================== MANAGER CHILDCARE PANE (iOS) ====================
+// Read-only view of every coverage request the household has sent. The
+// caregiver-only screen (role: supporting) is a separate top-level surface;
+// this pane lives inside the regular app for admins and partners.
+let _mcFilter = "all";
+
+function renderManagerChildcare(requests) {
+  const list = document.getElementById("mcList");
+  if (!list) return;
+  requests = Array.isArray(requests) ? requests : [];
+
+  // Pending count → bottom-tab badge
+  const pending = requests.filter(r => r && r.status === "pending").length;
+  const badge = document.getElementById("mcTabBadge");
+  if (badge) {
+    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    else { badge.hidden = true; }
+  }
+
+  const filtered = _mcFilter === "all"
+    ? requests.slice()
+    : requests.filter(r => r && r.status === _mcFilter);
+  filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="mc-empty">${
+      _mcFilter === "all"
+        ? "No coverage requests yet. Use the Manager on your Mac to send a batch."
+        : `No ${escapeHtml(_mcFilter)} requests.`
+    }</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(mcCardHTML).join("");
+}
+
+function mcCardHTML(r) {
+  const status = r.status || "pending";
+  const statusLabel =
+    status === "confirmed" ? "Accepted" :
+    status === "declined"  ? "Declined" :
+    status === "issue"     ? "Issue"    : "Pending";
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+      });
+    }
+  } catch (_) {}
+  const reason = r.reason;
+  const reasonLabel =
+    reason === "both-working"   ? "Both working"  :
+    reason === "work-and-sleep" ? "Work + sleep"  :
+    reason === "both-sleeping"  ? "Both sleeping" : null;
+
+  const notesBlock = r.notes
+    ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
+
+  const cgNoteBlock = r.caregiverNote
+    ? `<div class="mc-cg-note"><b>${
+        status === "declined" ? "Caregiver said:" :
+        status === "issue"    ? "Caregiver reported:" :
+                                 "Caregiver noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
+    : "";
+
+  return `
+    <article class="mc-card ${status}">
+      <div class="mc-card-head">
+        <div class="mc-card-date">${escapeHtml(dayLabel)}</div>
+        <span class="mc-pill ${status}">${statusLabel}</span>
+      </div>
+      <div class="mc-meta">
+        <span><b>${escapeHtml(r.startTime || "")}</b> → <b>${escapeHtml(r.endTime || "")}</b>${r.endsNextDay ? " +1d" : ""}</span>
+        ${r.arriveBy ? `<span>· arrive by <b>${escapeHtml(r.arriveBy)}</b></span>` : ""}
+        ${reasonLabel ? `<span>· ${reasonLabel}</span>` : ""}
+      </div>
+      ${notesBlock}
+      ${cgNoteBlock}
+    </article>`;
+}
+
+// Wire filter pills
+document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    _mcFilter = btn.getAttribute("data-mc-filter") || "all";
+    document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(b => {
+      b.classList.toggle("active", b === btn);
+    });
+    renderManagerChildcare((state && state.coverageRequests) || []);
+  });
+});
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -7348,6 +7598,7 @@ function renderAll() {
   renderAnalysis();
   renderMonthComparison();
   renderOTApprovals();
+  renderManagerChildcare((state && state.coverageRequests) || []);
 }
 
 function syncGlobalFields() {

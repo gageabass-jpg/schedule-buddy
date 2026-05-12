@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.2.0",
+    "@capacitor-firebase/messaging": "^8.2.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",

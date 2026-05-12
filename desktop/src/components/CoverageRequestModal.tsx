@@ -68,6 +68,7 @@ export function CoverageRequestModal({
         endsNextDay: r.endsNextDay,
         arriveBy: arriveByFromStart(r.startTime),
         notes: r.notes || undefined,
+        reason: r.reason,
       }));
       await addCoverageRequests(householdId, inputs);
       onClose();
@@ -172,6 +173,29 @@ export function CoverageRequestModal({
                         </div>
                         <div style={{ fontSize: 10.5, color: t.text3, marginTop: 2 }}>
                           {r.label}<span style={{ marginLeft: 8 }}>· arrives by {arriveByFromStart(r.startTime)}</span>
+                          {r.reason && (
+                            <span
+                              title={
+                                r.reason === "both-sleeping" ? "Both parents are post-shift sleeping" :
+                                r.reason === "work-and-sleep" ? "One parent is working while the other is sleeping" :
+                                "Both parents are working at the same time"
+                              }
+                              style={{
+                                marginLeft: 8,
+                                fontWeight: 600,
+                                color:
+                                  r.reason === "both-working"  ? palette.G   :
+                                  r.reason === "work-and-sleep"? "#FF9F0A"   :
+                                                                 "#5E5CE6",
+                              }}
+                            >
+                              · {
+                                r.reason === "both-working"  ? "both working"  :
+                                r.reason === "work-and-sleep"? "work + sleep"  :
+                                                               "both sleeping"
+                              }
+                            </span>
+                          )}
                         </div>
                       </Td>
                       <Td t={t}>

@@ -8,6 +8,15 @@ export interface ShiftType {
   start: string;        // "HH:MM" 24h
   end: string;          // "HH:MM" 24h
   crossesMidnight: boolean;
+  /**
+   * Hours of sleep needed AFTER this shift ends. Used by the coverage
+   * engine so a parent counts as "unavailable to watch the kid" during
+   * both their working window AND their post-shift sleep window.
+   *
+   * Typical night-shift values: 6–8. Day shifts: 0.
+   * Optional + absent both mean 0 (legacy types).
+   */
+  sleepHours?: number;
 }
 
 export interface OTShift {
@@ -110,6 +119,8 @@ export interface CoverageRequest {
   caregiverUid?: string;
   /** Free-text response from the caregiver when they accept / report an issue. */
   caregiverNote?: string;
+  /** Why coverage is needed — populated by the overlap engine. */
+  reason?: "both-working" | "work-and-sleep" | "both-sleeping";
 }
 
 export function generateCoverageId(): string {

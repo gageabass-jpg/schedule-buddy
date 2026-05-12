@@ -17,6 +17,9 @@ export interface CoverageRequestInput {
   endsNextDay?: boolean;
   arriveBy?: string;
   notes?: string;
+  /** Source of the coverage need — populated by the overlap engine so
+   *  the Childcare panel can show why each request was generated. */
+  reason?: "both-working" | "work-and-sleep" | "both-sleeping";
 }
 
 function validate(input: CoverageRequestInput): string | null {
@@ -51,6 +54,7 @@ function clean(input: CoverageRequestInput): Omit<CoverageRequest, "id" | "statu
   if (input.endsNextDay) out.endsNextDay = true;
   if (input.arriveBy) out.arriveBy = input.arriveBy;
   if (input.notes && input.notes.trim()) out.notes = input.notes.trim();
+  if (input.reason) out.reason = input.reason;
   return out;
 }
 
