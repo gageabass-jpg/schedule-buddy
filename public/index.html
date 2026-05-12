@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Schedule Buddy</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0a84ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -87,7 +87,11 @@
     font-family: var(--font);
     font-size: 14px;
     line-height: 1.5;
+    /* Disable pinch/double-tap zoom on iOS (paired with viewport meta). */
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
   }
+  html { touch-action: manipulation; }
   /* iOS status-bar safe-zone backdrop — keeps content readable when scrolled */
   .ios-safe-top {
     position: fixed;
@@ -3657,7 +3661,10 @@
       max(env(safe-area-inset-bottom, 0px), 16px);
     box-sizing: border-box;
     overflow-y: auto;
+    overflow-x: hidden;
     gap: 14px;
+    width: 100%;
+    max-width: 100vw;
   }
   body.cgr-open .cgr-backdrop { display: block; }
   body.cgr-open .cgr-modal    { display: flex; }
@@ -3672,7 +3679,7 @@
     font-size: 20px; cursor: pointer; padding: 4px;
     font-family: var(--font);
   }
-  .cgr-section { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+  .cgr-section { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; min-width: 0; }
   .cgr-label {
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--text-dim);
@@ -3700,6 +3707,8 @@
   }
   .cgr-input, .cgr-textarea {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
     background: var(--bg-elev);
@@ -3710,9 +3719,14 @@
     font-family: var(--font);
     outline: none;
     color-scheme: dark light;
+    /* WKWebView's native date/time pickers carry an intrinsic min-content
+       width — disabling appearance lets `width: 100%` actually win. */
+    -webkit-appearance: none;
+    appearance: none;
   }
   .cgr-textarea { resize: vertical; min-height: 80px; line-height: 1.4; }
-  .cgr-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cgr-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+  .cgr-time-row > .cgr-input { min-width: 0; }
   .cgr-err { font-size: 12px; color: #FF453A; padding: 0 4px; }
   .cgr-actions {
     display: flex; gap: 8px; padding: 4px 4px 8px;
@@ -4572,6 +4586,19 @@
 <!-- ==================== CAPACITOR NATIVE BRIDGE (only present in iOS app) ==================== -->
 <script>
   window.__isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  // Belt-and-suspenders zoom kill — viewport meta + CSS touch-action + JS gesture preventDefault.
+  // WKWebView ignores user-scalable=no on iOS 10+ for the document, but still respects these handlers.
+  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gestureend",    (e) => e.preventDefault(), { passive: false });
+  // Block double-tap zoom — track time between taps and cancel the second.
+  let __lastTouchEnd = 0;
+  document.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - __lastTouchEnd < 300) e.preventDefault();
+    __lastTouchEnd = now;
+  }, { passive: false });
 </script>
 
 <script>
