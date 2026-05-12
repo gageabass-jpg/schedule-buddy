@@ -66,7 +66,7 @@ const RAW: Array<[string, Array<[Who, string]>]> = [
   ["2026-06-27", [["G", "11p"]]],
 ];
 
-export const SHIFTS: ShiftMap = Object.fromEntries(
+export const DEMO_SHIFTS: ShiftMap = Object.fromEntries(
   RAW.map(([date, list]) => [date, list.map(([who, label]) => ({ who, label }))])
 );
 

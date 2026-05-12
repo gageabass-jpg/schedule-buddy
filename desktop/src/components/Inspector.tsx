@@ -1,4 +1,4 @@
-import { SHIFTS, dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3 } from "../data";
+import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type ShiftMap } from "../data";
 import { dayColors, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 
@@ -7,11 +7,14 @@ interface Props {
   palette: Palette;
   t: ThemeTokens;
   dark: boolean;
+  shifts: ShiftMap;
+  selfName: string;
+  partnerName: string;
 }
 
-export function Inspector({ selected, palette, t, dark }: Props) {
+export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfName, partnerName }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
-  const shifts = SHIFTS[selected];
+  const shifts = allShifts[selected];
   const kind = dayKindFromShifts(shifts);
   const colors = dayColors(kind, palette, dark);
   const accent = colors.accent;
@@ -87,8 +90,8 @@ export function Inspector({ selected, palette, t, dark }: Props) {
             : kind === "both"
               ? "Both working"
               : kind === "g"
-                ? "Gage works"
-                : "Kaylene works"}
+                ? `${selfName} works`
+                : `${partnerName} works`}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
           {(shifts ?? []).map((s, i) => {
@@ -108,7 +111,7 @@ export function Inspector({ selected, palette, t, dark }: Props) {
                 <PhotoAv who={s.who} size={26} palette={palette} dark={dark} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
-                    {s.who === "G" ? "Gage" : "Kaylene"}
+                    {s.who === "G" ? selfName : partnerName}
                   </div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>{s.label} – next morning</div>
                 </div>
