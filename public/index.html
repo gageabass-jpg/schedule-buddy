@@ -5000,6 +5000,7 @@ function enterApp() {
     showScreen("caregiver");
     initCaregiverScreen();
     initCaregiverFirestoreSync();
+    _drainPendingPushIntent();
     return;
   }
   showScreen("app");
@@ -5008,6 +5009,7 @@ function enterApp() {
   initFirestoreSync();
   initOTApprovalSync();
   initFeedbackSync();
+  _drainPendingPushIntent();
 }
 
 // ==================== PUSH NOTIFICATIONS (iOS) ====================
@@ -5050,6 +5052,13 @@ async function registerForPushNotifications() {
         FM.addListener("tokenReceived", async (ev) => {
           if (ev && ev.token) await writePushTokenDoc(ev.token).catch(() => {});
         });
+        // notificationActionPerformed fires when the user taps a notification
+        // (cold launch OR resume from background). The data payload carries
+        // { kind, householdId, requestId } — see functions/src/index.ts.
+        FM.addListener("notificationActionPerformed", (ev) => {
+          const data = (ev && ev.notification && ev.notification.data) || {};
+          handlePushTap(data);
+        });
         // notificationReceived fires in the foreground — the live snapshot
         // listener already re-renders, so we don't need to do anything UI-side.
       }
@@ -5070,6 +5079,80 @@ async function registerForPushNotifications() {
     }
   } catch (e) {
     console.warn("registerForPushNotifications:", e);
+  }
+}
+
+// ==================== PUSH NOTIFICATION TAP ROUTING ====================
+// Deep-link from a tapped notification to the right surface based on the
+// `kind` field set by the Cloud Function (functions/src/index.ts).
+//
+// Cold launches: enterApp() hasn't fully wired the screen yet when the
+// tap arrives, so we stash the intent and replay it once the appropriate
+// UI exists.
+let _pendingPushIntent = null;
+
+function handlePushTap(data) {
+  if (!data || typeof data !== "object") return;
+  // Defer until enterApp has resolved which screen we're on.
+  if (!currentUser || !householdId) {
+    _pendingPushIntent = data;
+    return;
+  }
+  _pendingPushIntent = null;
+  const kind = data.kind || "";
+  const requestId = data.requestId || "";
+
+  // --- Caregiver-bound (role: supporting) — new coverage requests. ---
+  if (kind === "new_pending" && userRole === "supporting") {
+    setCaregiverTab("schedule");
+    // If the request id is known, find the date and select it so the
+    // detail card pops open below the calendar.
+    if (requestId) {
+      const list = (state && state.coverageRequests) || [];
+      const hit = list.find(r => r && r.id === requestId);
+      if (hit && hit.date) {
+        const [y, m, d] = hit.date.split("-").map(Number);
+        if (y && m && d) {
+          _cgViewYear = y;
+          _cgViewMonth = m - 1;
+          _cgSelectedDate = hit.date;
+          if (typeof renderCaregiverCalendar === "function") renderCaregiverCalendar();
+        }
+      }
+    }
+    return;
+  }
+
+  // --- Manager-bound — caregiver status changes OR caregiver-authored requests. ---
+  if (userRole !== "supporting") {
+    // Switch to the Childcare bottom tab if we're on mobile.
+    if (document.body && document.body.dataset) document.body.dataset.mobileTab = "childcare";
+    document.querySelectorAll(".bottom-tab").forEach(b => {
+      b.classList.toggle("active", b.dataset.tab === "childcare");
+    });
+    // Briefly highlight the matching mc-card if we can find one.
+    setTimeout(() => {
+      const sel = `[data-mc-clear="${requestId}"], [data-mc-inbox-ack="${requestId}"], [data-mc-inbox-dismiss="${requestId}"]`;
+      const btn = requestId ? document.querySelector(sel) : null;
+      const card = btn ? btn.closest(".mc-card") : null;
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.transition = "box-shadow 0.4s ease";
+        card.style.boxShadow = "0 0 0 2px #30D158";
+        setTimeout(() => { card.style.boxShadow = ""; }, 1600);
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 200);
+  }
+}
+
+// Replay a pending push intent once enterApp has wired the screen.
+function _drainPendingPushIntent() {
+  if (_pendingPushIntent) {
+    const intent = _pendingPushIntent;
+    _pendingPushIntent = null;
+    setTimeout(() => handlePushTap(intent), 350);
   }
 }
 
@@ -5697,6 +5780,66 @@ function renderManagerInboxSection(caregiverRequests) {
   list.querySelectorAll("[data-mc-inbox-dismiss]").forEach(btn => {
     btn.addEventListener("click", () => handleManagerInboxAction(btn.getAttribute("data-mc-inbox-dismiss"), "dismissed"));
   });
+  list.querySelectorAll("[data-mc-inbox-convert]").forEach(btn => {
+    btn.addEventListener("click", () => handleManagerInboxConvert(btn.getAttribute("data-mc-inbox-convert")));
+  });
+}
+
+// Convert a "Shift Conflict" caregiver request into a real coverage
+// request in one tap. Single state-doc write so both the new coverage
+// row and the source-row acknowledgment land atomically.
+async function handleManagerInboxConvert(id) {
+  if (!householdId || !id || !currentUser) return;
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const cgList = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
+    const idx = cgList.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    const src = cgList[idx];
+    if (!src.date) { alert("Caregiver request is missing a date — refine on desktop."); return; }
+
+    if (!confirm(
+      `Create a coverage request for ${src.createdByName || "Caregiver"}?\n\n` +
+      `• ${src.date}` +
+      (src.startTime && src.endTime ? ` · ${src.startTime} → ${src.endTime}` : "") +
+      (src.notes ? `\n• ${src.notes}` : "") +
+      `\n\nYou can refine the time window on the desktop Manager.`
+    )) return;
+
+    // Build the coverage request.
+    const newId = `cov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    const startTime = src.startTime || "18:00";
+    const endTime = src.endTime || "22:00";
+    const cov = {
+      id: newId,
+      date: src.date,
+      startTime,
+      endTime,
+      status: "pending",
+      createdAt: Date.now(),
+      createdBy: currentUser.uid,
+    };
+    if (src.notes) cov.notes = src.notes;
+
+    const covList = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    covList.push(cov);
+
+    // Acknowledge the caregiver row.
+    cgList[idx] = {
+      ...src,
+      status: "acknowledged",
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: currentUser.uid,
+    };
+
+    await ref.set({ ...data, coverageRequests: covList, caregiverRequests: cgList });
+  } catch (e) {
+    console.error("convert failed:", e);
+    alert("Couldn't convert. Check your connection.");
+  }
 }
 
 function mcInboxRowHTML(r) {
@@ -5723,8 +5866,12 @@ function mcInboxRowHTML(r) {
   const notes = r.notes
     ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
 
+  const convertBtn = (status === "new" && r.type === "shift-conflict" && r.date)
+    ? `<button type="button" class="mc-clear-btn" style="border-color:#30D158;color:#30D158;" data-mc-inbox-convert="${escapeHtml(r.id || "")}">Convert to coverage</button>`
+    : "";
   const actions = status === "new"
-    ? `<div class="mc-actions" style="gap:6px;">
+    ? `<div class="mc-actions" style="gap:6px;flex-wrap:wrap;">
+         ${convertBtn}
          <button type="button" class="mc-clear-btn" data-mc-inbox-ack="${escapeHtml(r.id || "")}">Acknowledge</button>
          <button type="button" class="mc-clear-btn" data-mc-inbox-dismiss="${escapeHtml(r.id || "")}">Dismiss</button>
        </div>`
