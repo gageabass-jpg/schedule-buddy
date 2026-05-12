@@ -150,11 +150,22 @@ export const onCoverageRequestsChange = onDocumentUpdated(
       }
     }
 
-    if (newPending.length === 0 && statusChanges.length === 0) return;
+    if (newPending.length === 0 && statusChanges.length === 0) {
+      logger.info("No coverage diff to push", { householdId });
+      return;
+    }
+
+    logger.info("Coverage diff detected", {
+      householdId,
+      newPending: newPending.length,
+      statusChanges: statusChanges.length,
+      statusChangeSummary: statusChanges.map((c) => `${c.req.id}:${c.from}->${c.to}`),
+    });
 
     // 1. New pending requests → caregivers
     if (newPending.length > 0) {
       const tokens = await tokensForRoles(householdId, ["supporting"]);
+      logger.info("Caregiver tokens resolved", { householdId, tokens: tokens.length });
       if (tokens.length > 0) {
         const single = newPending[0];
         const body = newPending.length === 1
@@ -174,6 +185,7 @@ export const onCoverageRequestsChange = onDocumentUpdated(
     // 2. Status changes → managers (admin + partner)
     if (statusChanges.length > 0) {
       const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
+      logger.info("Manager tokens resolved", { householdId, tokens: tokens.length });
       if (tokens.length > 0) {
         for (const ch of statusChanges) {
           const verb =
