@@ -53,6 +53,37 @@ export async function acknowledgeCaregiverRequest(
   });
 }
 
+/** Acknowledge many rows in a single state-doc write. Skips rows that
+ *  aren't currently "new" so we don't accidentally re-stamp earlier
+ *  acknowledgments. */
+export async function bulkAcknowledgeCaregiverRequests(
+  householdId: string,
+  ids: string[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const targets = new Set(ids);
+  const current = await readState(householdId);
+  const list = [...(current.caregiverRequests ?? [])];
+  const now = Date.now();
+  const byUid = auth.currentUser?.uid;
+  let updated = 0;
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    if (!r || !targets.has(r.id) || r.status !== "new") continue;
+    list[i] = {
+      ...r,
+      status: "acknowledged",
+      acknowledgedAt: now,
+      ...(byUid ? { acknowledgedBy: byUid } : {}),
+    };
+    updated++;
+  }
+  if (updated > 0) {
+    await writeState(householdId, { ...current, caregiverRequests: list });
+  }
+  return updated;
+}
+
 export async function dismissCaregiverRequest(
   householdId: string,
   id: string,

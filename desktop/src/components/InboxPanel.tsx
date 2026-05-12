@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { CaregiverRequest, CaregiverRequestStatus, HouseholdState } from "../state";
 import {
   acknowledgeCaregiverRequest,
+  bulkAcknowledgeCaregiverRequests,
   caregiverRequestStatusLabel,
   caregiverRequestTypeLabel,
   deleteCaregiverRequest,
@@ -50,7 +51,13 @@ export function InboxPanel({
 }: Props) {
   const [filter, setFilter] = useState<Filter>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Clear the selection any time the modal opens or the filter changes —
+  // a stale selection from the "new" view shouldn't bleed into "all".
+  useEffect(() => { setSelected(new Set()); }, [open, filter]);
 
   const requests: CaregiverRequest[] = state?.caregiverRequests ?? [];
 
@@ -127,7 +134,7 @@ export function InboxPanel({
           >✕</button>
         </div>
 
-        <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 6, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
           {(["new", "all"] as const).map((key) => {
             const active = filter === key;
             const count = key === "new" ? newCount : requests.length;
@@ -154,7 +161,110 @@ export function InboxPanel({
               </button>
             );
           })}
+          {(() => {
+            const selectableIds = filtered.filter((r) => r.status === "new").map((r) => r.id);
+            const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+            const someSelected = selectableIds.some((id) => selected.has(id));
+            if (selectableIds.length === 0) return null;
+            return (
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginLeft: "auto",
+                  fontSize: 12,
+                  color: t.text2,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !allSelected && someSelected;
+                  }}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelected(new Set(selectableIds));
+                    else setSelected(new Set());
+                  }}
+                  style={{ margin: 0 }}
+                />
+                Select all{" "}
+                <span style={{ color: t.text3 }}>({selectableIds.length})</span>
+              </label>
+            );
+          })()}
         </div>
+
+        {selected.size > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              marginTop: 10,
+              padding: "8px 12px",
+              borderRadius: 10,
+              background: `${palette.G}1A`,
+              border: `0.5px solid ${palette.G}66`,
+            }}
+          >
+            <span style={{ fontSize: 12.5, color: t.text, fontWeight: 600 }}>
+              {selected.size} selected
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                disabled={bulkBusy}
+                style={{
+                  padding: "5px 10px",
+                  border: `0.5px solid ${t.sep}`,
+                  borderRadius: 6,
+                  background: "transparent",
+                  color: t.text2,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: bulkBusy ? "wait" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >Clear</button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={async () => {
+                  if (!householdId) return;
+                  setBulkBusy(true);
+                  try {
+                    await bulkAcknowledgeCaregiverRequests(householdId, Array.from(selected));
+                    setSelected(new Set());
+                  } catch (e) {
+                    window.alert(e instanceof Error ? e.message : "Couldn't acknowledge.");
+                  } finally {
+                    setBulkBusy(false);
+                  }
+                }}
+                style={{
+                  padding: "5px 12px",
+                  border: 0,
+                  borderRadius: 6,
+                  background: palette.G,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: bulkBusy ? "wait" : "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {bulkBusy ? "Acknowledging…" : `Acknowledge ${selected.size}`}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div
           style={{
@@ -178,7 +288,7 @@ export function InboxPanel({
                 ref={(el) => { rowRefs.current[r.id] = el; }}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr auto",
+                  gridTemplateColumns: r.status === "new" ? "auto 1fr auto" : "1fr auto",
                   gap: 12,
                   padding: "12px 14px",
                   borderRadius: 12,
@@ -188,6 +298,22 @@ export function InboxPanel({
                   opacity: busyId === r.id ? 0.5 : 1,
                 }}
               >
+                {r.status === "new" && (
+                  <input
+                    type="checkbox"
+                    aria-label={`Select request from ${r.createdByName || "caregiver"}`}
+                    checked={selected.has(r.id)}
+                    onChange={(e) => {
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(r.id);
+                        else next.delete(r.id);
+                        return next;
+                      });
+                    }}
+                    style={{ alignSelf: "center", margin: 0, cursor: "pointer" }}
+                  />
+                )}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span
