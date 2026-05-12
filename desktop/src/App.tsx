@@ -4,6 +4,27 @@ import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
 export type CalLayout = "day" | "week" | "month" | "year";
+export type ThemePref = "system" | "light" | "dark";
+
+const THEME_PREF_KEY = "sbm.theme";
+
+function readThemePref(): ThemePref {
+  try {
+    const v = localStorage.getItem(THEME_PREF_KEY);
+    if (v === "light" || v === "dark" || v === "system") return v;
+  } catch { /* ignore */ }
+  return "system";
+}
+function systemPrefersDark(): boolean {
+  return typeof window !== "undefined"
+    && !!window.matchMedia
+    && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function resolveDark(pref: ThemePref): boolean {
+  if (pref === "dark") return true;
+  if (pref === "light") return false;
+  return systemPrefersDark();
+}
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { buildShiftMap, type Event, type HouseholdState } from "./state";
@@ -27,18 +48,40 @@ import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
 const PALETTE: PaletteName = "modern";
-const DARK = true;
 const FLAT = false;
 
 export function App() {
+  const [themePref, setThemePref] = useState<ThemePref>(readThemePref);
+  const [dark, setDark] = useState<boolean>(() => resolveDark(readThemePref()));
+
+  useEffect(() => {
+    try { localStorage.setItem(THEME_PREF_KEY, themePref); } catch { /* ignore */ }
+    setDark(resolveDark(themePref));
+  }, [themePref]);
+
+  // Track OS preference changes while the user is in "system" mode.
+  useEffect(() => {
+    if (themePref !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (): void => setDark(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [themePref]);
+
   const auth = useAuth();
 
-  if (auth.status === "loading") return <Splash message="Connecting…" />;
-  if (auth.status === "signed-out") return <SignIn />;
-  return <ManagerApp />;
+  if (auth.status === "loading") return <Splash message="Connecting…" dark={dark} />;
+  if (auth.status === "signed-out") return <SignIn dark={dark} />;
+  return <ManagerApp dark={dark} themePref={themePref} onSetThemePref={setThemePref} />;
 }
 
-function ManagerApp() {
+interface ManagerAppProps {
+  dark: boolean;
+  themePref: ThemePref;
+  onSetThemePref: (pref: ThemePref) => void;
+}
+
+function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const auth = useAuth();
   const user = auth.status === "signed-in" ? auth.user : null;
   const householdStatus = useHousehold(user);
@@ -61,7 +104,7 @@ function ManagerApp() {
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
-  const t = themeTokens(DARK);
+  const t = themeTokens(dark);
 
   useEffect(() => {
     document.body.style.background = t.bg;
@@ -249,7 +292,7 @@ function ManagerApp() {
   };
 
   if (householdStatus.status === "no-household") {
-    return <JoinHousehold />;
+    return <JoinHousehold dark={dark} />;
   }
 
   return (
@@ -265,7 +308,7 @@ function ManagerApp() {
       <Sidebar
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         shifts={shifts}
         viewYear={viewYear}
         viewMonth={viewMonth}
@@ -295,7 +338,7 @@ function ManagerApp() {
       <MonthGrid
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         flat={FLAT}
         shifts={shifts}
         state={state}
@@ -323,7 +366,7 @@ function ManagerApp() {
         selected={selected}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         shifts={shifts}
         selfName={selfName}
         partnerName={partnerName}
@@ -338,7 +381,7 @@ function ManagerApp() {
         onClose={() => setNewShiftOpen(false)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
         defaultDate={selected}
@@ -348,7 +391,7 @@ function ManagerApp() {
         onClose={() => setTemplateOpen(false)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
       />
@@ -357,7 +400,7 @@ function ManagerApp() {
         onClose={() => setEditTarget(null)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
       />
@@ -366,7 +409,7 @@ function ManagerApp() {
         onClose={() => setShiftTypesOpen(false)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
       />
@@ -376,7 +419,7 @@ function ManagerApp() {
         onNeedApiKey={() => setApiKeyOpen(true)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
         today={today}
@@ -393,7 +436,7 @@ function ManagerApp() {
         onClose={() => setEventModalOpen(false)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         state={state}
         defaultDate={selected}
@@ -404,17 +447,19 @@ function ManagerApp() {
         onClose={() => setFamilyConsoleOpen(false)}
         palette={palette}
         t={t}
-        dark={DARK}
+        dark={dark}
         householdId={householdId}
         household={householdStatus.status === "ready" ? householdStatus.household : null}
         state={state}
+        themePref={themePref}
+        onSetThemePref={onSetThemePref}
       />
     </div>
   );
 }
 
-function Splash({ title, message, showSignOut }: { title?: string; message: string; showSignOut?: boolean }) {
-  const t = themeTokens(DARK);
+function Splash({ title, message, showSignOut, dark = true }: { title?: string; message: string; showSignOut?: boolean; dark?: boolean }) {
+  const t = themeTokens(dark);
   const palette = getPalette(PALETTE);
   return (
     <div
@@ -431,7 +476,7 @@ function Splash({ title, message, showSignOut }: { title?: string; message: stri
         textAlign: "center",
       }}
     >
-      <BrandMark size={48} palette={palette} dark={DARK} />
+      <BrandMark size={48} palette={palette} dark={dark} />
       {title && <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{title}</div>}
       <div style={{ fontSize: 13, color: t.text2, maxWidth: 380, lineHeight: 1.5 }}>{message}</div>
       {showSignOut && (
