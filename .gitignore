@@ -45,3 +45,4 @@ ios/App/CapApp-SPM/Package.resolved.bak
 # Env / secrets — none committed; placeholder
 .env
 .env.local
+"desktop/dist-electron 2/"
