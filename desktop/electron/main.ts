@@ -2,9 +2,71 @@ import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell, type MenuItemCon
 import * as path from "node:path";
 import * as url from "node:url";
 import * as fs from "node:fs/promises";
+import * as fsSync from "node:fs";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === "development";
+
+// ───────────────── Production renderer host ─────────────────
+// Packaged Electron apps load the renderer from file://, but Firebase Auth's
+// OAuth flow refuses non-http(s) origins. So in production we spin up a tiny
+// static server on a random localhost port and load that — localhost is
+// auto-whitelisted by Firebase Auth.
+
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js":   "application/javascript; charset=utf-8",
+  ".mjs":  "application/javascript; charset=utf-8",
+  ".css":  "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg":  "image/svg+xml",
+  ".png":  "image/png",
+  ".jpg":  "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico":  "image/x-icon",
+  ".woff2": "font/woff2",
+  ".woff":  "font/woff",
+};
+
+async function startRendererServer(rootDir: string): Promise<string> {
+  const server = http.createServer((req, res) => {
+    try {
+      const reqUrl = new URL(req.url ?? "/", "http://localhost");
+      let rel = decodeURIComponent(reqUrl.pathname);
+      if (rel === "/" || rel === "") rel = "/index.html";
+      // Strip the leading slash + reject path traversal.
+      const safeRel = path.normalize(rel).replace(/^[/\\]+/, "");
+      const filePath = path.join(rootDir, safeRel);
+      if (!filePath.startsWith(rootDir)) {
+        res.writeHead(403).end("forbidden");
+        return;
+      }
+      if (!fsSync.existsSync(filePath)) {
+        // SPA fallback: unknown paths get index.html (so client-side
+        // routing keeps working if we ever add it).
+        const indexPath = path.join(rootDir, "index.html");
+        if (fsSync.existsSync(indexPath)) {
+          res.writeHead(200, { "Content-Type": MIME[".html"] });
+          fsSync.createReadStream(indexPath).pipe(res);
+          return;
+        }
+        res.writeHead(404).end("not found");
+        return;
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      res.writeHead(200, { "Content-Type": MIME[ext] ?? "application/octet-stream" });
+      fsSync.createReadStream(filePath).pipe(res);
+    } catch (e) {
+      res.writeHead(500).end(String(e));
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const port = (server.address() as AddressInfo).port;
+  return `http://localhost:${port}`;
+}
 
 // ───────────────── API key storage via safeStorage ─────────────────
 // Encrypted at rest via OS keychain (macOS), DPAPI (Windows), or libsecret (Linux).
@@ -185,7 +247,7 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
   };
 });
 
-function createWindow() {
+async function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -233,8 +295,11 @@ function createWindow() {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    const indexPath = path.join(__dirname, "..", "dist", "index.html");
-    win.loadURL(url.pathToFileURL(indexPath).toString());
+    // Serve dist/ over a random localhost port instead of file:// — Firebase
+    // Auth refuses file:// origins for OAuth popups/redirects.
+    const distDir = path.join(__dirname, "..", "dist");
+    const origin = await startRendererServer(distDir);
+    win.loadURL(origin + "/");
   }
 }
 
