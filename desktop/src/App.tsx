@@ -12,6 +12,9 @@ import { JoinHousehold } from "./components/JoinHousehold";
 import { BrandMark } from "./components/BrandMark";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
+import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
+import { deleteShift } from "./lib/writeShift";
+import type { Shift } from "./data";
 
 const PALETTE: PaletteName = "modern";
 const DARK = true;
@@ -37,6 +40,7 @@ function ManagerApp() {
   const [viewMonth, setViewMonth] = useState<number>(tM - 1);
   const [newShiftOpen, setNewShiftOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditShiftTarget | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -88,6 +92,43 @@ function ManagerApp() {
     setViewYear(tY);
     setViewMonth(tM - 1);
     setSelected(fmtDate(tY, tM - 1, tD));
+  };
+
+  const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;
+
+  const handleEditShift = (date: string, shift: Shift) => {
+    if (!shift.source || !shift.shiftTypeId) return;
+    if (shift.source.kind === "template" || shift.source.kind === "alt-weekend") {
+      // Edit recurring shift for one date → write an override for this date.
+      setEditTarget({
+        date,
+        source: shift.source,
+        initialShiftTypeId: shift.shiftTypeId,
+        initialLabel: "",
+        who: shift.who,
+      });
+      return;
+    }
+    setEditTarget({
+      date,
+      source: shift.source,
+      initialShiftTypeId: shift.shiftTypeId,
+      initialLabel: "",
+      who: shift.who,
+    });
+  };
+
+  const handleDeleteShift = async (date: string, shift: Shift) => {
+    if (!householdId || !shift.source) return;
+    const recurring = shift.source.kind === "template" || shift.source.kind === "alt-weekend";
+    const verb = recurring ? "Mark this date off" : "Delete this shift";
+    const ok = window.confirm(`${verb}?`);
+    if (!ok) return;
+    try {
+      await deleteShift(householdId, date, shift.source);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Couldn't update the shift.");
+    }
   };
 
   if (householdStatus.status === "no-household") {
@@ -143,6 +184,8 @@ function ManagerApp() {
         shifts={shifts}
         selfName={selfName}
         partnerName={partnerName}
+        onEditShift={handleEditShift}
+        onDeleteShift={handleDeleteShift}
       />
       <NewShiftModal
         open={newShiftOpen}
@@ -150,7 +193,7 @@ function ManagerApp() {
         palette={palette}
         t={t}
         dark={DARK}
-        householdId={householdStatus.status === "ready" ? householdStatus.household.id : null}
+        householdId={householdId}
         state={state}
         defaultDate={selected}
       />
@@ -160,7 +203,16 @@ function ManagerApp() {
         palette={palette}
         t={t}
         dark={DARK}
-        householdId={householdStatus.status === "ready" ? householdStatus.household.id : null}
+        householdId={householdId}
+        state={state}
+      />
+      <EditShiftModal
+        target={editTarget}
+        onClose={() => setEditTarget(null)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdId}
         state={state}
       />
     </div>

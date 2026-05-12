@@ -1,6 +1,6 @@
 // Mirrors households/{id}/state/main — see BRIDGE.md §3.2 for the contract.
 
-import { fmtDate, type ShiftMap, type Who, type Shift } from "./data";
+import { fmtDate, type ShiftMap, type Who, type Shift, type ShiftSource } from "./data";
 
 export interface ShiftType {
   id: string;
@@ -97,31 +97,41 @@ function chipLabel(types: Record<string, ShiftType>, id: string | null | undefin
   return t ? compactTime(t.start) : null;
 }
 
+interface ResolvedSelfShift {
+  shiftTypeId: string | null;
+  source: ShiftSource;
+}
+
 // Self's shift for a given date, applying the template + alt-weekend pattern +
-// overrides. Returns the shiftTypeId or null (= off).
-function selfShiftId(state: HouseholdState, dateISO: string, types: Record<string, ShiftType>): string | null {
-  // Override wins.
+// overrides. Also reports which layer the value came from so the UI can know
+// whether the chip is template-derived or a one-off.
+function selfShiftId(state: HouseholdState, dateISO: string): ResolvedSelfShift {
   const ov = state.overrides.find((o) => o.date === dateISO);
-  if (ov !== undefined) return ov.shiftTypeId;
+  if (ov !== undefined) return { shiftTypeId: ov.shiftTypeId, source: { kind: "override" } };
 
   const [y, mo, d] = dateISO.split("-").map(Number);
   const dow = new Date(y, mo - 1, d).getDay();
-  const templateId = state.template[dow] ?? null;
 
-  // Alt-weekend pattern. If alt.enabled and the date is a working Sat/Sun in
-  // the alternation pattern, swap in alt.sat / alt.sun (and the off weeks fall
-  // back to no shift, regardless of template).
   if (state.alt?.enabled && state.alt.refSat) {
     const refMs = new Date(state.alt.refSat).getTime();
     const dateMs = new Date(dateISO).getTime();
     const weeksFromRef = Math.round((dateMs - refMs) / (1000 * 60 * 60 * 24 * 7));
     const onWorkingWeekend = weeksFromRef % 2 === 0;
-    if (dow === 6) return onWorkingWeekend ? state.alt.sat : null;
-    if (dow === 0) return onWorkingWeekend ? state.alt.sun : null;
+    if (dow === 6) {
+      return {
+        shiftTypeId: onWorkingWeekend ? state.alt.sat : null,
+        source: { kind: "alt-weekend" },
+      };
+    }
+    if (dow === 0) {
+      return {
+        shiftTypeId: onWorkingWeekend ? state.alt.sun : null,
+        source: { kind: "alt-weekend" },
+      };
+    }
   }
 
-  void types;
-  return templateId;
+  return { shiftTypeId: state.template[dow] ?? null, source: { kind: "template" } };
 }
 
 /**
@@ -145,22 +155,39 @@ export function buildShiftMap(
 
   for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
     const key = fmtDate(cur.getFullYear(), cur.getMonth(), cur.getDate());
-    const id = selfShiftId(state, key, types);
-    const label = chipLabel(types, id);
-    if (label) push(out, key, { who: "G", label });
+    const resolved = selfShiftId(state, key);
+    const label = chipLabel(types, resolved.shiftTypeId);
+    if (label && resolved.shiftTypeId) {
+      push(out, key, {
+        who: "G",
+        label,
+        source: resolved.source,
+        shiftTypeId: resolved.shiftTypeId,
+      });
+    }
   }
 
   // Accepted OT (self) — additive on top of template.
-  for (const o of state.ot) {
+  state.ot.forEach((o, index) => {
     const label = chipLabel(types, o.shiftTypeId);
-    if (label) push(out, o.date, { who: "G", label });
-  }
+    if (label) push(out, o.date, {
+      who: "G",
+      label,
+      source: { kind: "ot", index },
+      shiftTypeId: o.shiftTypeId,
+    });
+  });
 
   // Partner shifts.
-  for (const p of state.partner?.shifts ?? []) {
+  (state.partner?.shifts ?? []).forEach((p, index) => {
     const label = chipLabel(types, p.shiftTypeId);
-    if (label) push(out, p.date, { who: "K", label });
-  }
+    if (label) push(out, p.date, {
+      who: "K",
+      label,
+      source: { kind: "partner", index },
+      shiftTypeId: p.shiftTypeId,
+    });
+  });
 
   return out;
 }
