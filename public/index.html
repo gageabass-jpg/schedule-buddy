@@ -4377,6 +4377,15 @@ function mergeStateFromFirestore(data) {
       viewMonth:     typeof data.ui.viewMonth     === "string" ? data.ui.viewMonth     : undefined,
       viewWeekStart: typeof data.ui.viewWeekStart === "string" ? data.ui.viewWeekStart : undefined,
     } : undefined,
+    // Daisy + any future kids' schedules (set on desktop via photo import).
+    dependents: data.dependents && typeof data.dependents === "object" ? {
+      daisy: data.dependents.daisy && typeof data.dependents.daisy === "object" ? {
+        name: typeof data.dependents.daisy.name === "string" ? data.dependents.daisy.name : "Daisy",
+        shifts: Array.isArray(data.dependents.daisy.shifts) ? data.dependents.daisy.shifts : [],
+      } : undefined,
+    } : undefined,
+    // Audit trail of photo imports — surfaced by the desktop import flow.
+    imports: Array.isArray(data.imports) ? data.imports : [],
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);

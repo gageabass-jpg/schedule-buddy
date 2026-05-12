@@ -16,6 +16,8 @@ import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
 import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
+import { ScheduleImportModal } from "./components/ScheduleImportModal";
+import { ApiKeySettings } from "./components/ApiKeySettings";
 import { deleteShift } from "./lib/writeShift";
 
 const PALETTE: PaletteName = "modern";
@@ -45,6 +47,8 @@ function ManagerApp() {
   const [shiftTypesOpen, setShiftTypesOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditShiftTarget | null>(null);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
+  const [importScheduleId, setImportScheduleId] = useState<string | null>(null);
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -204,6 +208,7 @@ function ManagerApp() {
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
+        onOpenScheduleImport={(id) => setImportScheduleId(id)}
         onToggleThisWeek={() => {
           if (viewFilter === "this-week") {
             setViewFilter("all");
@@ -283,6 +288,22 @@ function ManagerApp() {
         dark={DARK}
         householdId={householdId}
         state={state}
+      />
+      <ScheduleImportModal
+        scheduleId={importScheduleId}
+        onClose={() => setImportScheduleId(null)}
+        onNeedApiKey={() => setApiKeyOpen(true)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdId}
+        state={state}
+      />
+      <ApiKeySettings
+        open={apiKeyOpen}
+        onClose={() => setApiKeyOpen(false)}
+        palette={palette}
+        t={t}
       />
     </div>
   );
