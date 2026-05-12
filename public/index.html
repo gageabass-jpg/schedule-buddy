@@ -1470,6 +1470,8 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
+    overflow: hidden;
   }
   .shift-pill {
     display: inline-flex;
@@ -5804,7 +5806,7 @@ function eventCSSColor(who) {
     default:      return "var(--text-2)";
   }
 }
-/** Outlined chip used inside Month cells + Agenda rows. */
+/** Outlined chip used in Agenda rows + Today ribbon (room for the full title). */
 function eventChipHTML(ev) {
   const color = eventCSSColor(ev.who);
   const initial = eventInitial(ev.who);
@@ -5812,6 +5814,15 @@ function eventChipHTML(ev) {
   return `<span class="ev-chip" style="border-color:${color};">
     <span class="ev-chip-letter" style="color:${color};">${initial}</span>
     <span class="ev-chip-text">${timePart}${escapeHTML(ev.title || "")}</span>
+  </span>`;
+}
+/** Compact chip used inside narrow Month cells. Hardcoded "<letter> - Event"
+ *  so long titles never push the cell beyond its grid column. Tap-day
+ *  tooltip / agenda / today ribbon still show the full title. */
+function eventCellChipHTML(ev) {
+  const color = eventCSSColor(ev.who);
+  return `<span class="ev-chip" style="border-color:${color};">
+    <span class="ev-chip-letter" style="color:${color};">${eventInitial(ev.who)} - Event</span>
   </span>`;
 }
 /** Compact list row used inside the tap-day tooltip. */
@@ -6178,7 +6189,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
 
     const pillsHTML = cell.labels.map(l => l.html).join("");
     const dayEvents = getEventsForDate(dISO);
-    const eventsHTML = dayEvents.slice(0, 2).map(eventChipHTML).join("");
+    const eventsHTML = dayEvents.slice(0, 2).map(eventCellChipHTML).join("");
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
 
     html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}"
