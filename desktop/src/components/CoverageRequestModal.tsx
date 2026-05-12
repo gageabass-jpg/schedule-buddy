@@ -17,9 +17,19 @@ interface Props {
 }
 
 interface DraftRow extends OverlapCandidate {
-  arriveBy: string;
   notes: string;
   skipped: boolean;
+}
+
+const ARRIVE_BY_OFFSET_MIN = 120;   // caregiver arrives 2 hours before coverage starts
+
+/** "19:00" - 2h → "17:00". Wraps within a 24h clock; the stored HH:MM is
+ *  intentionally context-free (no date) — both iOS and the caregiver UI
+ *  interpret it relative to the request's date. */
+function arriveByFromStart(startTime: string, offsetMin = ARRIVE_BY_OFFSET_MIN): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const total = ((h || 0) * 60 + (m || 0) - offsetMin + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 export function CoverageRequestModal({
@@ -34,7 +44,7 @@ export function CoverageRequestModal({
     if (!open) return;
     if (!state) { setRows([]); return; }
     const candidates = computeOverlapCandidates(shifts, state);
-    setRows(candidates.map((c) => ({ ...c, arriveBy: "", notes: "", skipped: false })));
+    setRows(candidates.map((c) => ({ ...c, notes: "", skipped: false })));
     setErr(null);
   }, [open, state, shifts]);
 
@@ -56,7 +66,7 @@ export function CoverageRequestModal({
         startTime: r.startTime,
         endTime: r.endTime,
         endsNextDay: r.endsNextDay,
-        arriveBy: r.arriveBy || undefined,
+        arriveBy: arriveByFromStart(r.startTime),
         notes: r.notes || undefined,
       }));
       await addCoverageRequests(householdId, inputs);
@@ -126,7 +136,6 @@ export function CoverageRequestModal({
                 <tr style={{ background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }}>
                   <Th>Date</Th>
                   <Th>Coverage window</Th>
-                  <Th>Arrive by</Th>
                   <Th>Notes</Th>
                   <Th />
                 </tr>
@@ -161,15 +170,9 @@ export function CoverageRequestModal({
                             <span style={{ fontSize: 10, color: t.text3, fontWeight: 600 }}>+1d</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 10.5, color: t.text3, marginTop: 2 }}>{r.label}</div>
-                      </Td>
-                      <Td t={t}>
-                        <input
-                          type="time"
-                          value={r.arriveBy}
-                          onChange={(e) => update(r.date, { arriveBy: e.target.value })}
-                          style={tdInput(t)}
-                        />
+                        <div style={{ fontSize: 10.5, color: t.text3, marginTop: 2 }}>
+                          {r.label}<span style={{ marginLeft: 8 }}>· arrives by {arriveByFromStart(r.startTime)}</span>
+                        </div>
                       </Td>
                       <Td t={t}>
                         <input
