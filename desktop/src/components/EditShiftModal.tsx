@@ -108,7 +108,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
               value={shiftTypeId}
               onChange={(e) => setShiftTypeId(e.target.value)}
               required
-              style={{ ...inputStyle(t), appearance: "auto" }}
+              style={selectStyle(t)}
             >
               {(state?.shiftTypes ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -169,6 +169,23 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     letterSpacing: "-0.01em",
     outline: "none",
     colorScheme: t.bg === "#000" ? "dark" : "light",
+  };
+}
+
+function selectStyle(t: ThemeTokens): React.CSSProperties {
+  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const chevron =
+    `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
+  return {
+    ...inputStyle(t),
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    paddingRight: 36,
+    backgroundImage: chevron,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 14px center",
+    backgroundSize: "12px 12px",
   };
 }
 

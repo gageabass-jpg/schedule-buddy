@@ -1,3 +1,6 @@
+/** Brand orange used for "Manager" wordmark + today highlight. iOS systemOrange. */
+export const MANAGER_ORANGE = "#FF9F0A";
+
 export type PaletteName = "modern" | "warm" | "garden" | "mono";
 
 export interface Palette {
