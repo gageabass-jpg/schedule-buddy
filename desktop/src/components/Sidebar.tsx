@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
-import type { Palette, ThemeTokens } from "../theme";
+import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
-
-const MANAGER_ORANGE = "#FF9F0A"; // iOS systemOrange — matches the desktop icon gradient family
 
 interface SidebarProps {
   palette: Palette;

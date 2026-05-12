@@ -120,7 +120,7 @@ export function TemplateEditor({ open, onClose, palette, t, dark, householdId, s
                   <select
                     value={value}
                     onChange={(e) => onChangeDay(dow, e.target.value)}
-                    style={inputStyle(t)}
+                    style={selectStyle(t)}
                   >
                     <option value="">Off</option>
                     {types.map((s) => (
@@ -163,6 +163,23 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     outline: "none",
     width: "100%",
     colorScheme: t.bg === "#000" ? "dark" : "light",
+  };
+}
+
+function selectStyle(t: ThemeTokens): React.CSSProperties {
+  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const chevron =
+    `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
+  return {
+    ...inputStyle(t),
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    paddingRight: 32,
+    backgroundImage: chevron,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
+    backgroundSize: "12px 12px",
   };
 }
 

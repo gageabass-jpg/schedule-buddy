@@ -1,5 +1,5 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
-import { dayColors, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
+import { dayColors, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 
 interface Props {
   palette: Palette;
@@ -170,7 +170,7 @@ export function MonthGrid({
                       boxShadow: isSel
                         ? `inset 0 0 0 2px ${colors.accent}`
                         : isToday
-                          ? `inset 0 0 0 1px ${colors.accent}`
+                          ? `inset 0 0 0 1.5px ${MANAGER_ORANGE}`
                           : "none",
                       display: "flex",
                       flexDirection: "column",
@@ -185,7 +185,7 @@ export function MonthGrid({
                           fontSize: 12,
                           fontWeight: isToday ? 700 : 600,
                           color: isToday ? "#fff" : t.text,
-                          background: isToday ? colors.accent : "transparent",
+                          background: isToday ? MANAGER_ORANGE : "transparent",
                           borderRadius: 999,
                           padding: isToday ? "1px 6px" : "1px 0",
                           letterSpacing: "-0.01em",
