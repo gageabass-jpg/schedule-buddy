@@ -4290,6 +4290,9 @@ document.getElementById("hhJoinCode").addEventListener("keydown", e => {
 
 // ==================== ENTER APP ====================
 function enterApp() {
+  // Push registration runs on every entry into the app (iOS only, fire-and-forget).
+  registerForPushNotifications().catch((e) => console.warn("push register failed:", e));
+
   // Supporting users (caregivers) see only the coverage-requests surface.
   if (userRole === "supporting") {
     showScreen("caregiver");
@@ -4303,6 +4306,87 @@ function enterApp() {
   initFirestoreSync();
   initOTApprovalSync();
   initFeedbackSync();
+}
+
+// ==================== PUSH NOTIFICATIONS (iOS) ====================
+// Registers for APNS via the @capacitor-firebase/messaging plugin, then
+// writes the resulting FCM token to households/{hid}/pushTokens/{uid}.
+// Cloud Functions read that doc to fan out coverage-request pushes.
+let _pushHandlersWired = false;
+async function registerForPushNotifications() {
+  if (!window.__isNativeApp || !window.Capacitor) return;
+  if (!householdId || !currentUser) return;
+
+  const FM = (window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging)
+    || (typeof window.Capacitor.registerPlugin === "function"
+        ? (function () { try { return window.Capacitor.registerPlugin("FirebaseMessaging"); } catch (_) { return null; } })()
+        : null);
+  if (!FM) {
+    console.info("FirebaseMessaging plugin not installed — skipping push registration.");
+    return;
+  }
+
+  try {
+    // 1. Ask for permission (iOS shows the system prompt on first call).
+    const perm = await FM.checkPermissions().catch(() => ({ receive: "prompt" }));
+    let receive = perm && perm.receive;
+    if (receive !== "granted") {
+      const req = await FM.requestPermissions();
+      receive = req && req.receive;
+    }
+    if (receive !== "granted") {
+      console.info("Push permission not granted:", receive);
+      return;
+    }
+
+    // 2. Get the FCM token.
+    const { token } = await FM.getToken();
+    if (!token) return;
+    await writePushTokenDoc(token);
+
+    // 3. Wire one-time refresh + foreground handlers.
+    if (!_pushHandlersWired) {
+      _pushHandlersWired = true;
+      if (typeof FM.addListener === "function") {
+        FM.addListener("tokenReceived", async (ev) => {
+          if (ev && ev.token) await writePushTokenDoc(ev.token).catch(() => {});
+        });
+        // notificationReceived fires in the foreground — the live snapshot
+        // listener already re-renders, so we don't need to do anything UI-side.
+      }
+    }
+  } catch (e) {
+    console.warn("registerForPushNotifications:", e);
+  }
+}
+
+async function writePushTokenDoc(token) {
+  if (!householdId || !currentUser || !token) return;
+  try {
+    const platform = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || "ios";
+    await db
+      .collection("households").doc(householdId)
+      .collection("pushTokens").doc(currentUser.uid)
+      .set({
+        token,
+        uid: currentUser.uid,
+        role: userRole || "partner",
+        platform,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (e) {
+    console.warn("writePushTokenDoc:", e);
+  }
+}
+
+async function deleteOwnPushTokenDoc() {
+  if (!householdId || !currentUser) return;
+  try {
+    await db
+      .collection("households").doc(householdId)
+      .collection("pushTokens").doc(currentUser.uid)
+      .delete();
+  } catch (_) { /* fine if absent */ }
 }
 
 // ==================== CAREGIVER VIEW (role: supporting) ====================
@@ -4482,7 +4566,12 @@ function updateUserBar() {
 }
 
 // Sign out (desktop header + drawer + profile tab)
-function doSignOut() { cleanupListeners(); auth.signOut(); }
+function doSignOut() {
+  // Stop pushing to a device that's vacating this household.
+  deleteOwnPushTokenDoc().catch(() => {});
+  cleanupListeners();
+  auth.signOut();
+}
 const soBtn = document.getElementById("signOutBtnDesktop");
 if (soBtn) soBtn.addEventListener("click", doSignOut);
 document.getElementById("drawerSignOut").addEventListener("click", () => { closeDrawer(); doSignOut(); });
@@ -4518,6 +4607,8 @@ async function doDeleteAccount() {
       } catch (e) {
         console.warn("Household cleanup failed (continuing):", e);
       }
+      // Also drop our push token row before auth is destroyed.
+      await deleteOwnPushTokenDoc().catch(() => {});
     }
 
     // 2. Stop snapshot listeners so they don't yell when the user vanishes.
