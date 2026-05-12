@@ -42,5 +42,16 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
     }
+
+    // Push notification tokens — one doc per user per household, doc id = uid.
+    // Members can read everyone's row (so the desktop can show "Daisy is
+    // reachable"). Writes are gated to self — Cloud Functions use the
+    // Admin SDK and bypass these rules anyway.
+    match /households/{householdId}/pushTokens/{tokenDocId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create, update, delete: if request.auth != null
+        && tokenDocId == request.auth.uid;
+    }
   }
 }

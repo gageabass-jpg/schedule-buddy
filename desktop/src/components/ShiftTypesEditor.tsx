@@ -23,7 +23,7 @@ interface Props {
 type Mode =
   | { kind: "list" }
   | { kind: "add" }
-  | { kind: "edit"; id: string; initial: { name: string; start: string; end: string } };
+  | { kind: "edit"; id: string; initial: { name: string; start: string; end: string; sleepHours?: number } };
 
 export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId, state }: Props) {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
@@ -82,7 +82,7 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
               setMode({
                 kind: "edit",
                 id: typ.id,
-                initial: { name: typ.name, start: typ.start, end: typ.end },
+                initial: { name: typ.name, start: typ.start, end: typ.end, sleepHours: typ.sleepHours ?? 0 },
               })
             }
             onClose={onClose}
@@ -180,6 +180,9 @@ function ListView({
                 <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>
                   {compactTime(typ.start)} → {compactTime(typ.end)}
                   {typ.crossesMidnight && " (next day)"}
+                  {typ.sleepHours && typ.sleepHours > 0 ? (
+                    <>{" · "}<span style={{ color: "#5E5CE6" }}>+{typ.sleepHours}h sleep</span></>
+                  ) : null}
                   {usage && usage.total > 0 && (
                     <>
                       {" · "}
@@ -234,10 +237,13 @@ function FormView({
   householdId: string | null;
   onBack: () => void;
 }) {
-  const initial = mode.kind === "edit" ? mode.initial : { name: "", start: "07:00", end: "19:30" };
+  const initial = mode.kind === "edit"
+    ? mode.initial
+    : { name: "", start: "07:00", end: "19:30", sleepHours: 0 };
   const [name, setName] = useState(initial.name);
   const [start, setStart] = useState(initial.start);
   const [end, setEnd] = useState(initial.end);
+  const [sleepHours, setSleepHours] = useState<number>(initial.sleepHours ?? 0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -250,10 +256,11 @@ function FormView({
     setErr(null);
     setBusy(true);
     try {
+      const sleepN = Number.isFinite(sleepHours) ? Math.max(0, sleepHours) : 0;
       if (mode.kind === "add") {
-        await addShiftType(householdId, { name, start, end });
+        await addShiftType(householdId, { name, start, end, sleepHours: sleepN });
       } else {
-        await updateShiftType(householdId, mode.id, { name, start, end });
+        await updateShiftType(householdId, mode.id, { name, start, end, sleepHours: sleepN });
       }
       onBack();
     } catch (e) {
@@ -308,6 +315,23 @@ function FormView({
         <div style={{ fontSize: 11.5, color: t.text3 }}>
           {crosses ? "End time is on the next day (crosses midnight)." : "Same-day shift."}
         </div>
+        <Field label="Sleep after (hours)" t={t}>
+          <input
+            type="number"
+            min={0}
+            max={24}
+            step={0.5}
+            value={sleepHours}
+            onChange={(e) => setSleepHours(Number(e.target.value))}
+            style={inputStyle(t)}
+          />
+          <div style={{ fontSize: 11.5, color: t.text3, marginTop: 4, lineHeight: 1.4 }}>
+            Hours of post-shift sleep. The coverage engine treats this window
+            the same as a working shift, so requests get generated when one
+            parent is sleeping while the other is working or sleeping too.
+            Typical: 0 for day shifts, 6–8 for night shifts.
+          </div>
+        </Field>
         {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
           <button type="button" onClick={onBack} style={secondaryBtn(t)} disabled={busy}>Cancel</button>

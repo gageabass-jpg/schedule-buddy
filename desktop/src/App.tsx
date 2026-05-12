@@ -45,6 +45,9 @@ import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
+import { ChildcarePanel } from "./components/ChildcarePanel";
+import { NewRequestModal } from "./components/NewRequestModal";
+import { InboxPanel } from "./components/InboxPanel";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -104,6 +107,16 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
+  const [childcareOpen, setChildcareOpen] = useState(false);
+  const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestPrefill, setNewRequestPrefill] = useState<{
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    notes?: string;
+  } | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxFocusId, setInboxFocusId] = useState<string | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -132,6 +145,9 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // calendar — useful for first-run before a household has any shifts saved).
   const state: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
+
+  const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
+  const inboxRequests = state?.caregiverRequests ?? [];
 
   const eventsByDate: EventMap = useMemo(() => {
     const out: EventMap = {};
@@ -321,6 +337,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         syncStatus={syncStatus}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
+        onOpenChildcare={() => setChildcareOpen(true)}
+        pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
@@ -364,6 +382,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         eventsByDate={eventsByDate}
         onNewEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
+        onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
+        inboxRequests={inboxRequests}
       />
       <Inspector
         selected={selected}
@@ -466,6 +486,46 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdId={householdId}
         state={state}
         shifts={shifts}
+      />
+      <ChildcarePanel
+        open={childcareOpen}
+        onClose={() => setChildcareOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        onSendBatch={() => setCoverageModalOpen(true)}
+        onSendSingle={() => setNewRequestOpen(true)}
+      />
+      <NewRequestModal
+        open={newRequestOpen}
+        onClose={() => { setNewRequestOpen(false); setNewRequestPrefill(null); }}
+        palette={palette}
+        t={t}
+        householdId={householdId}
+        defaultDate={selected}
+        prefill={newRequestPrefill}
+      />
+      <InboxPanel
+        open={inboxOpen}
+        onClose={() => setInboxOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        focusId={inboxFocusId}
+        onConvertToCoverage={(req) => {
+          setNewRequestPrefill({
+            date: req.date,
+            startTime: req.startTime,
+            endTime: req.endTime,
+            notes: req.notes,
+          });
+          setInboxOpen(false);
+          setNewRequestOpen(true);
+        }}
       />
     </div>
   );

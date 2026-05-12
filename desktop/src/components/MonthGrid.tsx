@@ -1,6 +1,7 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
-import type { Event as SbEvent, HouseholdState } from "../state";
+import type { CaregiverRequest, Event as SbEvent, HouseholdState } from "../state";
+import { InboxTray } from "./InboxTray";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
@@ -25,6 +26,8 @@ interface Props {
   onNewShift: () => void;
   onEditTemplate: () => void;
   onEditShiftTypes: () => void;
+  onOpenInbox: (focusId?: string) => void;
+  inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
@@ -44,7 +47,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onNewEvent, onEditEvent,
+  eventsByDate, onNewEvent, onEditEvent, onOpenInbox, inboxRequests,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -145,6 +148,13 @@ export function MonthGrid({
         >
           + Event
         </button>
+        <InboxTray
+          palette={palette}
+          t={t}
+          dark={dark}
+          requests={inboxRequests}
+          onOpenFullInbox={(focusId) => onOpenInbox(focusId)}
+        />
         <button
           type="button"
           onClick={onNewShift}

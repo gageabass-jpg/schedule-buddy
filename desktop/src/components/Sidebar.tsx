@@ -25,13 +25,15 @@ interface SidebarProps {
   onOpenScheduleImport: (id: string) => void;
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
+  onOpenChildcare: () => void;
+  pendingCoverageCount: number;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole, onSendCoverage,
+  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   return (
     <div
@@ -73,6 +75,20 @@ export function Sidebar({
         </div>
       </div>
 
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          // Slight inset so the scrollbar doesn't clip section labels
+          marginRight: -4,
+          paddingRight: 4,
+        }}
+      >
       <div
         style={{
           display: "flex",
@@ -169,7 +185,17 @@ export function Sidebar({
         ))}
       </SidebarSection>
 
-      <div style={{ flex: 1 }} />
+      <SidebarSection label="Care" t={t}>
+        <ListRow
+          icon="🧒"
+          label="Childcare coverage"
+          count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
+          onClick={onOpenChildcare}
+          title="View all sent coverage requests and caregiver responses"
+          t={t}
+        />
+      </SidebarSection>
+      </div>{/* /scrollable middle */}
 
       <button
         type="button"

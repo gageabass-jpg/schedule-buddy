@@ -8,6 +8,15 @@ export interface ShiftType {
   start: string;        // "HH:MM" 24h
   end: string;          // "HH:MM" 24h
   crossesMidnight: boolean;
+  /**
+   * Hours of sleep needed AFTER this shift ends. Used by the coverage
+   * engine so a parent counts as "unavailable to watch the kid" during
+   * both their working window AND their post-shift sleep window.
+   *
+   * Typical night-shift values: 6–8. Day shifts: 0.
+   * Optional + absent both mean 0 (legacy types).
+   */
+  sleepHours?: number;
 }
 
 export interface OTShift {
@@ -110,6 +119,49 @@ export interface CoverageRequest {
   caregiverUid?: string;
   /** Free-text response from the caregiver when they accept / report an issue. */
   caregiverNote?: string;
+  /** Why coverage is needed — populated by the overlap engine. */
+  reason?: "both-working" | "work-and-sleep" | "both-sleeping";
+  /**
+   * True once a manager has acknowledged a declined / issue response.
+   * Declined+!reviewed entries stay visible on the caregiver's Schedule
+   * pane (red) so they don't worry the family missed the news; once
+   * reviewed, the row falls off their schedule but stays in the
+   * manager's full history.
+   */
+  managerReviewed?: boolean;
+  managerReviewedAt?: number;
+  managerReviewedBy?: string;
+}
+
+export type CaregiverRequestType = "schedule-block" | "shift-conflict" | "other";
+export type CaregiverRequestStatus = "new" | "acknowledged" | "dismissed";
+
+/**
+ * A request authored by the *caregiver* and surfaced in the manager's
+ * Inbox. The three types map to common reasons a caregiver pings the
+ * family:
+ *   - schedule-block  → "I can't be available these days/hours"
+ *   - shift-conflict  → "Heads up about an existing coverage day"
+ *   - other           → free-form ask
+ */
+export interface CaregiverRequest {
+  id: string;
+  type: CaregiverRequestType;
+  date: string;                  // YYYY-MM-DD
+  startTime?: string;            // HH:MM
+  endTime?: string;              // HH:MM
+  notes?: string;
+  status: CaregiverRequestStatus;
+  createdAt: number;
+  createdBy: string;             // caregiver uid
+  createdByName?: string;        // display name snapshot
+  acknowledgedAt?: number;
+  acknowledgedBy?: string;       // manager uid
+}
+
+export function generateCaregiverRequestId(): string {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `cr_${Date.now().toString(36)}_${rand}`;
 }
 
 export function generateCoverageId(): string {
@@ -146,6 +198,9 @@ export interface HouseholdState {
   householdName?: string;
   /** Coverage requests authored by contributing members for caregivers. */
   coverageRequests?: CoverageRequest[];
+  /** Requests authored by caregivers — Schedule Block / Shift Conflict / Other.
+   *  Surfaced in the manager's Inbox. */
+  caregiverRequests?: CaregiverRequest[];
   _migrations: string[];
 }
 
@@ -153,7 +208,7 @@ export interface HouseholdMeta {
   id: string;
   memberUids: string[];
   memberNames: Record<string, string>;
-  roles: Record<string, "admin" | "partner">;
+  roles: Record<string, "admin" | "partner" | "supporting">;
   inviteCode: string;
   createdBy: string;
 }

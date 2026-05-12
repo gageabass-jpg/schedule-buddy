@@ -4,8 +4,11 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { ThemePref } from "../App";
 import { setHouseholdName } from "../lib/writeHouseholdMeta";
+import { createInviteCode } from "../lib/createInviteCode";
+import { removeHouseholdMember } from "../lib/removeHouseholdMember";
 import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
 import { doSignOut } from "../hooks/useAuth";
+import { auth } from "../firebase";
 import { PhotoAv } from "./PhotoAv";
 
 interface Props {
@@ -29,12 +32,20 @@ export function FamilyConsole({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [caregiverCode, setCaregiverCode] = useState<string | null>(null);
+  const [caregiverCopied, setCaregiverCopied] = useState(false);
+  const [caregiverBusy, setCaregiverBusy] = useState(false);
+  const [removingUid, setRemovingUid] = useState<string | null>(null);
+
+  const selfUid = auth.currentUser?.uid ?? null;
 
   useEffect(() => {
     if (!open) return;
     setDraftName(state?.householdName ?? defaultHouseholdName(household));
     setErr(null);
     setCopied(false);
+    setCaregiverCode(null);
+    setCaregiverCopied(false);
   }, [open, state?.householdName, household]);
 
   if (!open) return null;
@@ -157,6 +168,69 @@ export function FamilyConsole({
             </div>
           </Section>
 
+          {/* Caregiver invite */}
+          <Section title="Caregiver invite" t={t} hint="Generate a code that lands the redeemer as a Supporting account — they'll only see Coverage Requests, not the full schedule.">
+            {caregiverCode ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: t.bg,
+                    border: `0.5px solid ${t.sep}`,
+                    fontFamily: "var(--font-mono, ui-monospace, 'SF Mono', Menlo, monospace)",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    letterSpacing: "0.18em",
+                    textAlign: "center",
+                    userSelect: "all",
+                  }}
+                >
+                  {caregiverCode}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(caregiverCode); setCaregiverCopied(true); setTimeout(() => setCaregiverCopied(false), 1400); }
+                    catch { /* swallow */ }
+                  }}
+                  style={{ ...secondaryBtn(t), background: caregiverCopied ? "#34C759" : "transparent", color: caregiverCopied ? "#fff" : t.text, borderColor: caregiverCopied ? "#34C759" : t.sep }}
+                >
+                  {caregiverCopied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCaregiverCode(null); setCaregiverCopied(false); }}
+                  style={secondaryBtn(t)}
+                >
+                  New
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!householdId) { setErr("No household linked."); return; }
+                  setErr(null);
+                  setCaregiverBusy(true);
+                  try {
+                    const code = await createInviteCode(householdId, "supporting");
+                    setCaregiverCode(code);
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : "Couldn't generate a code.");
+                  } finally {
+                    setCaregiverBusy(false);
+                  }
+                }}
+                disabled={caregiverBusy || !householdId}
+                style={primaryBtn(palette.G, caregiverBusy)}
+              >
+                {caregiverBusy ? "Generating…" : "Generate caregiver code"}
+              </button>
+            )}
+          </Section>
+
           {/* Members */}
           <Section title={`Members (${members.length})`} t={t}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -166,6 +240,8 @@ export function FamilyConsole({
               {members.map((m) => {
                 const isG = m.name.toLowerCase().includes("gage");
                 const isK = m.name.toLowerCase().includes("kaylene") || m.name.toLowerCase().includes("kayl");
+                const isSelf = !!selfUid && m.uid === selfUid;
+                const isBusy = removingUid === m.uid;
                 return (
                   <div
                     key={m.uid}
@@ -177,6 +253,7 @@ export function FamilyConsole({
                       borderRadius: 8,
                       background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
                       border: `0.5px solid ${t.sep}`,
+                      opacity: isBusy ? 0.5 : 1,
                     }}
                   >
                     {isG ? <PhotoAv who="G" size={26} palette={palette} dark={dark} /> :
@@ -184,9 +261,11 @@ export function FamilyConsole({
                      <InitialDisc letter={m.name[0]?.toUpperCase() ?? "?"} color={palette.BOTH} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {m.name}
+                        {m.name}{isSelf ? <span style={{ color: t.text3, fontWeight: 500, marginLeft: 6 }}>(you)</span> : null}
                       </div>
-                      <div style={{ fontSize: 10.5, color: t.text3 }}>{m.role === "admin" ? "Admin" : "Partner"}</div>
+                      <div style={{ fontSize: 10.5, color: t.text3 }}>
+                        {m.role === "admin" ? "Admin" : m.role === "supporting" ? "Supporting" : "Partner"}
+                      </div>
                     </div>
                     <span
                       style={{
@@ -194,12 +273,51 @@ export function FamilyConsole({
                         fontWeight: 600,
                         padding: "2px 8px",
                         borderRadius: 999,
-                        background: m.role === "admin" ? `rgba(10,132,255,0.18)` : `rgba(142,142,147,0.18)`,
-                        color: m.role === "admin" ? palette.G : t.text2,
+                        background:
+                          m.role === "admin"      ? `rgba(10,132,255,0.18)`  :
+                          m.role === "supporting" ? `rgba(48,209,88,0.18)`   :
+                                                    `rgba(142,142,147,0.18)`,
+                        color:
+                          m.role === "admin"      ? palette.G  :
+                          m.role === "supporting" ? "#30D158"  :
+                                                    t.text2,
                       }}
                     >
                       {m.role}
                     </span>
+                    {!isSelf && (
+                      <button
+                        type="button"
+                        title={`Remove ${m.name} from this household`}
+                        disabled={isBusy}
+                        onClick={async () => {
+                          if (!householdId) return;
+                          const ok = window.confirm(
+                            `Remove ${m.name} from this household?\n\n` +
+                            `They'll lose access to the schedule, but their Firebase login itself ` +
+                            `is not deleted. To fully wipe a test account, sign in as them on iOS ` +
+                            `and use "Delete my account" in the Profile tab.`,
+                          );
+                          if (!ok) return;
+                          setErr(null);
+                          setRemovingUid(m.uid);
+                          try { await removeHouseholdMember(householdId, m.uid); }
+                          catch (e) { setErr(e instanceof Error ? e.message : "Couldn't remove."); }
+                          finally { setRemovingUid(null); }
+                        }}
+                        aria-label={`Remove ${m.name}`}
+                        style={{
+                          background: "transparent",
+                          border: 0,
+                          color: "#FF453A",
+                          fontSize: 16,
+                          cursor: isBusy ? "wait" : "pointer",
+                          padding: 4,
+                          lineHeight: 1,
+                          fontFamily: "inherit",
+                        }}
+                      >✕</button>
+                    )}
                   </div>
                 );
               })}

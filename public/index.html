@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Schedule Buddy</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0a84ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -87,7 +87,11 @@
     font-family: var(--font);
     font-size: 14px;
     line-height: 1.5;
+    /* Disable pinch/double-tap zoom on iOS (paired with viewport meta). */
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
   }
+  html { touch-action: manipulation; }
   /* iOS status-bar safe-zone backdrop — keeps content readable when scrolled */
   .ios-safe-top {
     position: fixed;
@@ -2687,6 +2691,25 @@
   }
   .bottom-tab.active { color: var(--color-g); }
   .bottom-tab.active .bt-label { color: var(--color-g); }
+  .bt-badge {
+    position: absolute;
+    top: 2px;
+    right: 18px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #FF453A;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .bottom-tab { position: relative; }
 
   /* Section visibility per mobile tab (phone only) */
   @media (max-width: 768px) {
@@ -2694,12 +2717,15 @@
     /* Default mobile = "schedule" tab: hide stats and profile panes */
     .pane-stats   { display: none; }
     .pane-profile { display: none; }
-    /* Schedule pane is hidden when on stats or profile tab */
-    body[data-mobile-tab="stats"]    .pane-schedule,
-    body[data-mobile-tab="profile"]  .pane-schedule { display: none; }
+    /* Schedule pane is hidden when on stats / childcare / profile tab */
+    body[data-mobile-tab="stats"]      .pane-schedule,
+    body[data-mobile-tab="childcare"]  .pane-schedule,
+    body[data-mobile-tab="profile"]    .pane-schedule { display: none; }
     /* Each tab makes its own pane visible */
-    body[data-mobile-tab="stats"]    .pane-stats   { display: block; }
-    body[data-mobile-tab="profile"]  .pane-profile { display: flex; }
+    body[data-mobile-tab="stats"]      .pane-stats     { display: block; }
+    body[data-mobile-tab="childcare"]  .pane-childcare { display: flex; }
+    body[data-mobile-tab="profile"]    .pane-profile   { display: flex; }
+    .pane-childcare { display: none; }
   }
 
   /* ===== Profile pane ===== */
@@ -2788,6 +2814,23 @@
   }
   .profile-secondary-btn:hover  { filter: brightness(1.05); }
   .profile-secondary-btn:active { transform: scale(0.98); }
+  .profile-danger-btn {
+    width: 100%;
+    padding: 12px 18px;
+    background: transparent;
+    color: #FF453A;
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    margin-top: 10px;
+    transition: filter 0.12s, transform 0.06s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .profile-danger-btn:hover  { background: rgba(255,69,58,0.08); }
+  .profile-danger-btn:active { transform: scale(0.98); }
 
   /* ===== Family code modal ===== */
   .code-modal-backdrop {
@@ -3036,6 +3079,681 @@
     .view-pill { padding: 3px 7px; font-size: 10px; }
     h1 { font-size: 16px; }
   }
+
+  /* ==================== Manager Childcare pane (iOS) ==================== */
+  .pane-childcare {
+    flex-direction: column;
+    gap: 12px;
+    /* body already provides the iOS safe-area top padding — no extra here. */
+    padding: 0 0 100px;
+  }
+  .mc-header { padding: 0 4px 6px; }
+  .mc-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-dim); margin: 0 0 2px;
+  }
+  .mc-title {
+    margin: 0 0 4px; font-size: 22px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); line-height: 1.15;
+  }
+  .mc-sub { font-size: 13px; color: var(--text-dim); }
+  .mc-filters {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 4px 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mc-filter {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 0.5px solid var(--sep);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-filter.active { background: var(--text); color: var(--bg); border-color: transparent; }
+  .mc-list { display: flex; flex-direction: column; gap: 10px; }
+  .mc-card {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-left-width: 3px;
+  }
+  .mc-card.pending   { border-left-color: #5E5CE6; }
+  .mc-card.confirmed { border-left-color: #30D158; }
+  .mc-card.declined  { border-left-color: #FF453A; }
+  .mc-card.issue     { border-left-color: #FF9F0A; }
+  .mc-card-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  .mc-card-date { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .mc-pill {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .mc-pill.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
+  .mc-pill.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .mc-pill.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
+  .mc-pill.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+  .mc-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 8px; flex-wrap: wrap; }
+  .mc-meta b { color: var(--text); font-weight: 600; }
+  .mc-notes {
+    font-size: 12.5px; color: var(--text);
+    background: var(--bg);
+    padding: 8px 10px; border-radius: 8px;
+    border: 0.5px solid var(--sep);
+    line-height: 1.4;
+  }
+  .mc-cg-note {
+    font-size: 12.5px; color: var(--text2, var(--text-dim));
+    line-height: 1.4;
+    font-style: italic;
+  }
+  .mc-cg-note b { color: var(--text); font-style: normal; font-weight: 600; }
+  .mc-empty {
+    padding: 28px 18px; border-radius: 14px;
+    background: var(--panel); border: 0.5px solid var(--sep);
+    color: var(--text-dim); text-align: center; font-size: 13px;
+    line-height: 1.5;
+  }
+  .mc-actions { display: flex; justify-content: flex-end; margin-top: 2px; }
+  .mc-clear-btn {
+    background: transparent;
+    border: 0.5px solid var(--sep);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-clear-btn:active { transform: scale(0.97); }
+  .mc-reviewed {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  /* ==================== Caregiver-only screen (role: supporting) ==================== */
+  .cg-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    /* body already supplies safe-area top/bottom padding. */
+    padding: 0;
+    /* Leave room at the bottom for the fixed caregiver tab bar. */
+    padding-bottom: 86px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+  }
+  .cg-header {
+    padding: 4px 4px 8px;
+    border-bottom: 0.5px solid var(--sep);
+  }
+  .cg-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 0 6px;
+  }
+  .cg-title {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.15;
+  }
+  .cg-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    margin: 0;
+  }
+  .cg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .cg-empty {
+    padding: 28px 18px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .cg-card {
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-radius: 16px;
+    padding: 14px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cg-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .cg-card-date {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .cg-card-date small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-top: 2px;
+    letter-spacing: 0;
+  }
+  .cg-status {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255,159,10,0.18);
+    color: #FF9F0A;
+  }
+  .cg-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .cg-status.declined  { background: rgba(255,69,58,0.18);  color: #FF453A; }
+  .cg-status.issue     { background: rgba(255,159,10,0.22); color: #FF9F0A; }
+  .cg-window {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .cg-window .arrow { color: var(--text-dim); margin: 0 6px; }
+  .cg-arrive {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .cg-arrive b { color: var(--text); font-weight: 600; }
+  .cg-notes {
+    font-size: 13px;
+    line-height: 1.45;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 8px 10px;
+    border: 0.5px solid var(--sep);
+  }
+  .cg-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .cg-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+  }
+  .cg-btn-accept  { background: #30D158; color: #fff; }
+  .cg-btn-decline { background: rgba(255,69,58,0.14); color: #FF453A; }
+  .cg-btn-issue   {
+    background: transparent;
+    color: var(--text-dim);
+    border: 0.5px solid var(--sep);
+    flex: 0 0 auto;
+    padding: 10px 14px;
+  }
+  .cg-caregiver-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  .cg-caregiver-note b { color: var(--text); font-style: normal; font-weight: 600; }
+  .cg-footer {
+    margin-top: auto;
+    padding-top: 12px;
+    display: flex;
+    justify-content: center;
+  }
+  .cg-signout {
+    background: transparent;
+    border: 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: inherit;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .cg-signout:active { color: var(--text); }
+
+  /* Caregiver: 3-pane structure (Schedule / Requests / Profile) */
+  .cg-pane { display: none; flex-direction: column; gap: 12px; padding: 0 16px; }
+
+  /* ===== Caregiver calendar (Schedule pane) ===== */
+  .cg-cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px 0;
+  }
+  .cg-cal-label {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .cg-cal-navbtn {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font);
+    display: inline-flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cg-cal-todaybtn {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: transparent;
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cg-cal-navbtn:active,
+  .cg-cal-todaybtn:active { transform: scale(0.97); }
+
+  .cg-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cg-cal-hdr {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 4px 0 2px;
+  }
+  .cg-cal-cell {
+    aspect-ratio: 1 / 1.05;
+    min-height: 48px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    padding: 5px 5px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: var(--font);
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+    text-align: left;
+    box-sizing: border-box;
+  }
+  .cg-cal-cell.has-req { cursor: pointer; }
+  .cg-cal-cell.has-req:active { transform: scale(0.97); }
+  .cg-cal-cell.outside { opacity: 0.34; }
+  .cg-cal-cell.today { box-shadow: inset 0 0 0 1.5px #30D158; }
+  .cg-cal-cell.selected {
+    background: rgba(48,209,88,0.10);
+    border-color: #30D158;
+  }
+  .cg-cal-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+  .cg-cal-cell.today .cg-cal-date { color: #30D158; }
+  .cg-cal-chips { display: flex; flex-direction: column; gap: 2px; }
+  .cg-cal-chip {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 4px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: #fff;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cg-cal-chip.pending   { background: #5E5CE6; }
+  .cg-cal-chip.confirmed { background: #30D158; }
+  .cg-cal-chip.declined  { background: #FF453A; }
+  .cg-cal-chip.issue     { background: #FF9F0A; }
+
+  /* Detail card below the calendar */
+  .cg-cal-detail {
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cg-cal-detail.has-content { display: flex; }
+  .cg-cal-detail-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  .cg-cal-detail-date {
+    font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .cg-cal-detail-row {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .cg-cal-detail-row b { font-weight: 600; }
+  .cg-cal-detail-row.dim { color: var(--text-dim); }
+  .cg-cal-detail-note {
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 8px;
+    padding: 8px 10px;
+    line-height: 1.45;
+  }
+  .cg-cal-detail-empty {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 16px 8px;
+  }
+  .cg-cal-legend {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; color: var(--text-dim);
+    padding: 2px 2px 0;
+  }
+  .cg-cal-legend span {
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .cg-cal-legend i {
+    display: inline-block;
+    width: 9px; height: 9px; border-radius: 2px;
+  }
+  .cg-cal-legend i.pending   { background: #5E5CE6; }
+  .cg-cal-legend i.confirmed { background: #30D158; }
+  .cg-cal-legend i.declined  { background: #FF453A; }
+  .cg-cal-legend i.issue     { background: #FF9F0A; }
+
+  .cg-screen[data-cg-tab="schedule"] .cg-pane-schedule { display: flex; }
+  .cg-screen[data-cg-tab="requests"] .cg-pane-requests { display: flex; }
+  .cg-screen[data-cg-tab="profile"]  .cg-pane-profile  { display: flex; }
+
+  /* Status pill (used in the calendar detail card) */
+  .cg-sched-status {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+  .cg-sched-status.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
+  .cg-sched-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .cg-sched-status.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
+  .cg-sched-status.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+
+  /* Caregiver profile pane */
+  .cg-profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 0 6px;
+  }
+  .cg-profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, #30D158, #34C7BE);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+    box-shadow: 0 6px 18px rgba(48,209,88,0.35);
+  }
+  .cg-profile-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .cg-profile-email { font-size: 13px; color: var(--text-dim); }
+  .cg-profile-row {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+    text-align: left;
+  }
+  .cg-profile-row.danger { color: #FF453A; }
+  .cg-profile-row.signout { color: var(--ot, #FF9F0A); }
+  .cg-profile-row:active { filter: brightness(0.95); }
+  .cg-profile-row.primary {
+    background: linear-gradient(135deg, #30D158, #34C7BE);
+    color: #fff;
+    border: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cg-profile-row-icon {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.18);
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .cg-profile-row-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .cg-profile-row-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .cg-profile-row-sub { font-size: 11.5px; font-weight: 500; opacity: 0.9; }
+
+  /* Bottom tab bar (only visible inside the caregiver screen) */
+  .cg-tabs {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 0;
+    padding: 6px 0 max(env(safe-area-inset-bottom, 0px), 6px);
+    background: linear-gradient(to bottom, rgba(0,0,0,0), var(--bg) 40%);
+    z-index: 5;
+  }
+  .cg-tabs-inner {
+    margin: 0 auto;
+    max-width: 460px;
+    display: flex;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 22px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  .cg-tab {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--text-dim);
+    font-family: var(--font);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .cg-tab .cg-tab-label {
+    font-size: 11px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .cg-tab.active { color: #30D158; }
+  .cg-tab .cg-tab-badge {
+    position: absolute;
+    top: 4px;
+    right: 14%;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #FF453A;
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .cg-tab .cg-tab-badge[hidden] { display: none; }
+
+  /* ===== Caregiver "Request Event" modal ===== */
+  .cgr-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 1100; display: none;
+  }
+  .cgr-modal {
+    position: fixed; inset: 0;
+    z-index: 1101;
+    display: none;
+    flex-direction: column;
+    background: var(--bg);
+    padding:
+      max(env(safe-area-inset-top, 0px), 18px) 16px
+      max(env(safe-area-inset-bottom, 0px), 16px);
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    gap: 14px;
+    width: 100%;
+    max-width: 100vw;
+  }
+  body.cgr-open .cgr-backdrop { display: block; }
+  body.cgr-open .cgr-modal    { display: flex; }
+  .cgr-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    padding: 6px 4px 0;
+  }
+  .cgr-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .cgr-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .cgr-close {
+    background: transparent; border: 0; color: var(--text-dim);
+    font-size: 20px; cursor: pointer; padding: 4px;
+    font-family: var(--font);
+  }
+  .cgr-section { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; min-width: 0; }
+  .cgr-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+  .cgr-type-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .cgr-type {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 0.5px solid var(--sep);
+    background: var(--bg-elev);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    text-align: center;
+  }
+  .cgr-type.active {
+    background: #30D158;
+    border-color: transparent;
+    color: #fff;
+  }
+  .cgr-input, .cgr-textarea {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    color-scheme: dark light;
+    /* WKWebView's native date/time pickers carry an intrinsic min-content
+       width — disabling appearance lets `width: 100%` actually win. */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .cgr-textarea { resize: vertical; min-height: 80px; line-height: 1.4; }
+  .cgr-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+  .cgr-time-row > .cgr-input { min-width: 0; }
+  .cgr-err { font-size: 12px; color: #FF453A; padding: 0 4px; }
+  .cgr-actions {
+    display: flex; gap: 8px; padding: 4px 4px 8px;
+    margin-top: auto;
+  }
+  .cgr-cancel, .cgr-submit {
+    flex: 1;
+    padding: 13px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: -0.01em;
+  }
+  .cgr-cancel {
+    background: transparent;
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+  }
+  .cgr-submit {
+    background: #30D158;
+    border: 0;
+    color: #fff;
+  }
+  .cgr-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -3612,6 +4330,33 @@
     </details>
   </div><!-- /.pane-stats -->
 
+  <!-- ===== Childcare pane (manager-only view of every coverage request) ===== -->
+  <div class="pane-childcare">
+    <header class="mc-header">
+      <div class="mc-eyebrow">Childcare coverage</div>
+      <h1 class="mc-title">Assigned shifts</h1>
+      <div class="mc-sub" id="mcSubLine">Every request you've sent the caregiver — pending, accepted, declined, or flagged.</div>
+    </header>
+
+    <div class="mc-filters" id="mcFilters" role="tablist" aria-label="Filter by status">
+      <button type="button" class="mc-filter active" data-mc-filter="all">All</button>
+      <button type="button" class="mc-filter" data-mc-filter="pending">Pending</button>
+      <button type="button" class="mc-filter" data-mc-filter="confirmed">Accepted</button>
+      <button type="button" class="mc-filter" data-mc-filter="declined">Declined</button>
+      <button type="button" class="mc-filter" data-mc-filter="issue">Issue</button>
+    </div>
+
+    <div class="mc-list" id="mcList">
+      <div class="mc-empty">No coverage requests yet. Use the Manager on your Mac to send a batch.</div>
+    </div>
+
+    <!-- Inbox section: caregiver-authored requests ack-able from iOS too -->
+    <div class="mc-inbox-section" id="mcInboxSection" hidden>
+      <div class="mc-eyebrow" style="margin-top: 14px;">From caregivers</div>
+      <div class="mc-list" id="mcInboxList"></div>
+    </div>
+  </div><!-- /.pane-childcare -->
+
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
   <div class="pane-profile">
     <div class="profile-hero">
@@ -3631,6 +4376,7 @@
 
     <button class="profile-secondary-btn" id="viewFamilyCodeBtn" type="button">View Family Code</button>
     <button class="profile-signout-btn" id="profileSignOutBtn" type="button">Sign Out</button>
+    <button class="profile-danger-btn" id="profileDeleteAccountBtn" type="button">Delete my account</button>
   </div>
 
   <!-- Family Code modal -->
@@ -3686,6 +4432,15 @@
       </svg>
       <span class="bt-label">Stats</span>
     </button>
+    <button class="bottom-tab" data-tab="childcare" aria-label="Childcare">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/>
+        <path d="M5 20c0-3.4 3.1-6 7-6s7 2.6 7 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="17.5" cy="6" r="1.5" fill="currentColor"/>
+      </svg>
+      <span class="bt-label">Childcare</span>
+      <span id="mcTabBadge" class="bt-badge" hidden></span>
+    </button>
     <button class="bottom-tab" data-tab="profile" aria-label="Profile">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/>
@@ -3698,6 +4453,131 @@
 
 </div><!-- end appScreen -->
 
+<!-- ==================== Caregiver-only screen (role: supporting) ==================== -->
+<section id="caregiverScreen" class="cg-screen" data-cg-tab="schedule" style="display:none;">
+  <header class="cg-header" style="padding-left:16px;padding-right:16px;">
+    <div class="cg-eyebrow" id="cgEyebrow">My schedule</div>
+    <h1 class="cg-title" id="cgHouseholdName">Bass Household</h1>
+    <div class="cg-sub" id="cgGreeting"></div>
+  </header>
+
+  <!-- SCHEDULE pane: month calendar with status-colored chips -->
+  <div class="cg-pane cg-pane-schedule" id="cgPaneSchedule">
+    <div class="cg-cal-nav">
+      <button type="button" class="cg-cal-navbtn" id="cgCalPrev" aria-label="Previous month">‹</button>
+      <span class="cg-cal-label" id="cgCalLabel">Month</span>
+      <button type="button" class="cg-cal-navbtn" id="cgCalNext" aria-label="Next month">›</button>
+      <button type="button" class="cg-cal-todaybtn" id="cgCalToday">Today</button>
+    </div>
+    <div class="cg-cal-legend">
+      <span><i class="pending"></i>Assigned</span>
+      <span><i class="confirmed"></i>Accepted</span>
+      <span><i class="declined"></i>Declined</span>
+      <span><i class="issue"></i>Issue</span>
+    </div>
+    <div class="cg-cal-grid" id="cgCalGrid"></div>
+    <div class="cg-cal-detail" id="cgCalDetail"></div>
+  </div>
+
+  <!-- REQUESTS pane: list with Accept / Decline / Issue actions -->
+  <div class="cg-pane cg-pane-requests" id="cgPaneRequests">
+    <div class="cg-list" id="cgRequestsList">
+      <div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>
+    </div>
+  </div>
+
+  <!-- PROFILE pane: name / email / actions / sign out / delete account -->
+  <div class="cg-pane cg-pane-profile" id="cgPaneProfile">
+    <div class="cg-profile-hero">
+      <span class="cg-profile-avatar" id="cgProfileAvatar">D</span>
+      <div class="cg-profile-name" id="cgProfileName">Caregiver</div>
+      <div class="cg-profile-email" id="cgProfileEmail"></div>
+    </div>
+    <button type="button" class="cg-profile-row primary" id="cgProfileRequestEvent">
+      <span class="cg-profile-row-icon" aria-hidden="true">＋</span>
+      <span class="cg-profile-row-body">
+        <span class="cg-profile-row-title">Request an event</span>
+        <span class="cg-profile-row-sub">Ask the family to plan around your availability</span>
+      </span>
+    </button>
+    <button type="button" class="cg-profile-row signout" id="cgProfileSignOut">Sign out</button>
+    <button type="button" class="cg-profile-row danger" id="cgProfileDelete">Delete my account</button>
+  </div>
+
+  <!-- Bottom tab bar for the caregiver -->
+  <nav class="cg-tabs" aria-label="Caregiver sections">
+    <div class="cg-tabs-inner">
+      <button type="button" class="cg-tab active" data-cg-tab-btn="schedule" aria-label="Schedule">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Schedule</span>
+      </button>
+      <button type="button" class="cg-tab" data-cg-tab-btn="requests" aria-label="Requests">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Requests</span>
+        <span class="cg-tab-badge" id="cgRequestsBadge" hidden></span>
+      </button>
+      <button type="button" class="cg-tab" data-cg-tab-btn="profile" aria-label="Profile">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Profile</span>
+      </button>
+    </div>
+  </nav>
+</section>
+
+<!-- ==================== Caregiver: Request Event modal ==================== -->
+<div class="cgr-backdrop" id="cgrBackdrop"></div>
+<div class="cgr-modal" id="cgrModal" role="dialog" aria-modal="true" aria-labelledby="cgrTitle">
+  <div class="cgr-head">
+    <div>
+      <div class="cgr-title" id="cgrTitle">Request an event</div>
+      <div class="cgr-sub">Tell the family about a block, conflict, or anything else.</div>
+    </div>
+    <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">✕</button>
+  </div>
+
+  <div class="cgr-section">
+    <span class="cgr-label">Type</span>
+    <div class="cgr-type-grid">
+      <button type="button" class="cgr-type active" data-cgr-type="schedule-block">Schedule Block</button>
+      <button type="button" class="cgr-type" data-cgr-type="shift-conflict">Shift Conflict</button>
+      <button type="button" class="cgr-type" data-cgr-type="other">Other</button>
+    </div>
+  </div>
+
+  <div class="cgr-section">
+    <span class="cgr-label">Date</span>
+    <input type="date" class="cgr-input" id="cgrDate">
+  </div>
+
+  <div class="cgr-section">
+    <span class="cgr-label">Time (optional)</span>
+    <div class="cgr-time-row">
+      <input type="time" class="cgr-input" id="cgrStart" placeholder="Start">
+      <input type="time" class="cgr-input" id="cgrEnd" placeholder="End">
+    </div>
+  </div>
+
+  <div class="cgr-section">
+    <span class="cgr-label">Comments</span>
+    <textarea class="cgr-textarea" id="cgrNotes" placeholder="What does the family need to know?"></textarea>
+  </div>
+
+  <div class="cgr-err" id="cgrErr" style="display:none;"></div>
+
+  <div class="cgr-actions">
+    <button type="button" class="cgr-cancel" id="cgrCancelBtn">Cancel</button>
+    <button type="button" class="cgr-submit" id="cgrSubmitBtn">Send to family</button>
+  </div>
+</div>
+
 <!-- ==================== FIREBASE SDK (compat) ==================== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -3706,6 +4586,19 @@
 <!-- ==================== CAPACITOR NATIVE BRIDGE (only present in iOS app) ==================== -->
 <script>
   window.__isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  // Belt-and-suspenders zoom kill — viewport meta + CSS touch-action + JS gesture preventDefault.
+  // WKWebView ignores user-scalable=no on iOS 10+ for the document, but still respects these handlers.
+  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gesturechange", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("gestureend",    (e) => e.preventDefault(), { passive: false });
+  // Block double-tap zoom — track time between taps and cancel the second.
+  let __lastTouchEnd = 0;
+  document.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - __lastTouchEnd < 300) e.preventDefault();
+    __lastTouchEnd = now;
+  }, { passive: false });
 </script>
 
 <script>
@@ -3973,6 +4866,8 @@ function showScreen(which) {
   $authScreen.style.display = which === "auth" ? "flex" : "none";
   $householdScreen.style.display = which === "household" ? "flex" : "none";
   $appScreen.style.display = which === "app" ? "block" : "none";
+  const $cgScreen = document.getElementById("caregiverScreen");
+  if ($cgScreen) $cgScreen.style.display = which === "caregiver" ? "flex" : "none";
   // (Feedback chat removed)
   // Hide the splash once a real screen is showing
   hideSplash();
@@ -4071,12 +4966,19 @@ document.getElementById("hhJoinBtn").addEventListener("click", async () => {
   try {
     const codeDoc = await db.collection("inviteCodes").doc(code).get();
     if (!codeDoc.exists) { errEl.textContent = "Invalid invite code."; return; }
-    const hhId = codeDoc.data().householdId;
+    const codeData = codeDoc.data() || {};
+    const hhId = codeData.householdId;
+    // Role baked into the code by the desktop manager: "supporting" lands the
+    // user as a caregiver; "contributing" or absent → standard "partner".
+    const role =
+      codeData.role === "supporting" ? "supporting" :
+      codeData.role === "contributing" ? "partner" :
+      "partner";
     const hhRef = db.collection("households").doc(hhId);
     await hhRef.update({
       memberUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
       [`memberNames.${currentUser.uid}`]: currentUser.displayName || "Partner",
-      [`roles.${currentUser.uid}`]: "partner",
+      [`roles.${currentUser.uid}`]: role,
     });
     await resolveHousehold(currentUser);
   } catch (e) {
@@ -4090,12 +4992,875 @@ document.getElementById("hhJoinCode").addEventListener("keydown", e => {
 
 // ==================== ENTER APP ====================
 function enterApp() {
+  // Push registration runs on every entry into the app (iOS only, fire-and-forget).
+  registerForPushNotifications().catch((e) => console.warn("push register failed:", e));
+
+  // Supporting users (caregivers) see only the coverage-requests surface.
+  if (userRole === "supporting") {
+    showScreen("caregiver");
+    initCaregiverScreen();
+    initCaregiverFirestoreSync();
+    return;
+  }
   showScreen("app");
   updateUserBar();
   applyRoleRestrictions();
   initFirestoreSync();
   initOTApprovalSync();
   initFeedbackSync();
+}
+
+// ==================== PUSH NOTIFICATIONS (iOS) ====================
+// Registers for APNS via the @capacitor-firebase/messaging plugin, then
+// writes the resulting FCM token to households/{hid}/pushTokens/{uid}.
+// Cloud Functions read that doc to fan out coverage-request pushes.
+let _pushHandlersWired = false;
+async function registerForPushNotifications() {
+  if (!window.__isNativeApp || !window.Capacitor) return;
+  if (!householdId || !currentUser) return;
+
+  const FM = (window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging)
+    || (typeof window.Capacitor.registerPlugin === "function"
+        ? (function () { try { return window.Capacitor.registerPlugin("FirebaseMessaging"); } catch (_) { return null; } })()
+        : null);
+  if (!FM) {
+    console.info("FirebaseMessaging plugin not installed — skipping push registration.");
+    return;
+  }
+
+  try {
+    // 1. Ask for permission (iOS shows the system prompt on first call).
+    const perm = await FM.checkPermissions().catch(() => ({ receive: "prompt" }));
+    let receive = perm && perm.receive;
+    if (receive !== "granted") {
+      const req = await FM.requestPermissions();
+      receive = req && req.receive;
+    }
+    if (receive !== "granted") {
+      console.info("Push permission not granted:", receive);
+      return;
+    }
+
+    // 2. Wire the tokenReceived listener FIRST so we don't miss the async
+    //    emission on cold launch — APNs sometimes takes a moment to assign
+    //    a device token, during which getToken() can return empty.
+    if (!_pushHandlersWired) {
+      _pushHandlersWired = true;
+      if (typeof FM.addListener === "function") {
+        FM.addListener("tokenReceived", async (ev) => {
+          if (ev && ev.token) await writePushTokenDoc(ev.token).catch(() => {});
+        });
+        // notificationReceived fires in the foreground — the live snapshot
+        // listener already re-renders, so we don't need to do anything UI-side.
+      }
+    }
+
+    // 3. Try to grab the FCM token now. Retry up to 3 times with a short
+    //    backoff so a still-warming APNs registration doesn't silently
+    //    cause us to skip the write.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { token } = await FM.getToken().catch(() => ({ token: "" }));
+      if (token) {
+        await writePushTokenDoc(token);
+        return;
+      }
+      // Wait a bit before retrying — APNs propagation on first install is
+      // usually <2s. The tokenReceived listener also covers us as a backstop.
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  } catch (e) {
+    console.warn("registerForPushNotifications:", e);
+  }
+}
+
+async function writePushTokenDoc(token) {
+  if (!householdId || !currentUser || !token) return;
+  try {
+    const platform = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || "ios";
+    await db
+      .collection("households").doc(householdId)
+      .collection("pushTokens").doc(currentUser.uid)
+      .set({
+        token,
+        uid: currentUser.uid,
+        role: userRole || "partner",
+        platform,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (e) {
+    console.warn("writePushTokenDoc:", e);
+  }
+}
+
+async function deleteOwnPushTokenDoc() {
+  if (!householdId || !currentUser) return;
+  try {
+    await db
+      .collection("households").doc(householdId)
+      .collection("pushTokens").doc(currentUser.uid)
+      .delete();
+  } catch (_) { /* fine if absent */ }
+}
+
+// ==================== CAREGIVER VIEW (role: supporting) ====================
+function initCaregiverScreen() {
+  // Title defaults to "Bass Household" from the markup and gets replaced
+  // by the real householdName as soon as state/main syncs.
+  const first = (currentUser.displayName || currentUser.email || "there").split(/\s+/)[0];
+  const greetEl = document.getElementById("cgGreeting");
+  if (greetEl) greetEl.textContent = `Hi ${first} — here's your latest from the family.`;
+
+  // Profile pane: name, email, avatar initial
+  const pName = document.getElementById("cgProfileName");
+  const pEmail = document.getElementById("cgProfileEmail");
+  const pAvatar = document.getElementById("cgProfileAvatar");
+  if (pName)  pName.textContent  = currentUser.displayName || currentUser.email || "Caregiver";
+  if (pEmail) pEmail.textContent = currentUser.email || "";
+  if (pAvatar) pAvatar.textContent = (first[0] || "?").toUpperCase();
+
+  // Tabs
+  document.querySelectorAll("[data-cg-tab-btn]").forEach((btn) => {
+    if (btn.__wired) return;
+    btn.__wired = true;
+    btn.addEventListener("click", () => setCaregiverTab(btn.getAttribute("data-cg-tab-btn")));
+  });
+
+  // Calendar navigation (prev / next / today)
+  wireCaregiverCalendarNav();
+
+  // Sign out + delete account
+  const out = document.getElementById("cgProfileSignOut");
+  if (out && !out.__wired) {
+    out.__wired = true;
+    out.addEventListener("click", doSignOut);
+  }
+  const del = document.getElementById("cgProfileDelete");
+  if (del && !del.__wired) {
+    del.__wired = true;
+    del.addEventListener("click", doDeleteAccount);
+  }
+
+  // Request Event button + modal
+  const reqBtn = document.getElementById("cgProfileRequestEvent");
+  if (reqBtn && !reqBtn.__wired) {
+    reqBtn.__wired = true;
+    reqBtn.addEventListener("click", openCaregiverRequestModal);
+  }
+  wireCaregiverRequestModal();
+}
+
+// ==================== CAREGIVER: REQUEST EVENT MODAL ====================
+let _cgrType = "schedule-block";
+
+function openCaregiverRequestModal() {
+  _cgrType = "schedule-block";
+  // Default date = today
+  const now = new Date();
+  const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const dateEl = document.getElementById("cgrDate");
+  const startEl = document.getElementById("cgrStart");
+  const endEl = document.getElementById("cgrEnd");
+  const notesEl = document.getElementById("cgrNotes");
+  const err = document.getElementById("cgrErr");
+  if (dateEl)  dateEl.value = iso;
+  if (startEl) startEl.value = "";
+  if (endEl)   endEl.value = "";
+  if (notesEl) notesEl.value = "";
+  if (err)     { err.style.display = "none"; err.textContent = ""; }
+  document.querySelectorAll("[data-cgr-type]").forEach(b => {
+    b.classList.toggle("active", b.getAttribute("data-cgr-type") === _cgrType);
+  });
+  document.body.classList.add("cgr-open");
+}
+
+function closeCaregiverRequestModal() {
+  document.body.classList.remove("cgr-open");
+}
+
+function wireCaregiverRequestModal() {
+  const backdrop = document.getElementById("cgrBackdrop");
+  const closeBtn = document.getElementById("cgrCloseBtn");
+  const cancelBtn = document.getElementById("cgrCancelBtn");
+  const submitBtn = document.getElementById("cgrSubmitBtn");
+
+  if (backdrop && !backdrop.__wired) {
+    backdrop.__wired = true;
+    backdrop.addEventListener("click", closeCaregiverRequestModal);
+  }
+  if (closeBtn && !closeBtn.__wired) {
+    closeBtn.__wired = true;
+    closeBtn.addEventListener("click", closeCaregiverRequestModal);
+  }
+  if (cancelBtn && !cancelBtn.__wired) {
+    cancelBtn.__wired = true;
+    cancelBtn.addEventListener("click", closeCaregiverRequestModal);
+  }
+  if (submitBtn && !submitBtn.__wired) {
+    submitBtn.__wired = true;
+    submitBtn.addEventListener("click", submitCaregiverRequest);
+  }
+  document.querySelectorAll("[data-cgr-type]").forEach(btn => {
+    if (btn.__wired) return;
+    btn.__wired = true;
+    btn.addEventListener("click", () => {
+      _cgrType = btn.getAttribute("data-cgr-type") || "schedule-block";
+      document.querySelectorAll("[data-cgr-type]").forEach(b => {
+        b.classList.toggle("active", b === btn);
+      });
+    });
+  });
+}
+
+async function submitCaregiverRequest() {
+  if (!householdId || !currentUser) return;
+  const dateEl = document.getElementById("cgrDate");
+  const startEl = document.getElementById("cgrStart");
+  const endEl = document.getElementById("cgrEnd");
+  const notesEl = document.getElementById("cgrNotes");
+  const err = document.getElementById("cgrErr");
+  const submit = document.getElementById("cgrSubmitBtn");
+
+  const showErr = (msg) => { if (err) { err.style.display = "block"; err.textContent = msg; } };
+  if (err) { err.style.display = "none"; err.textContent = ""; }
+
+  const date = (dateEl && dateEl.value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr("Pick a date."); return; }
+  const startTime = (startEl && startEl.value) || "";
+  const endTime = (endEl && endEl.value) || "";
+  const notes = (notesEl && notesEl.value || "").trim();
+  if (_cgrType === "other" && !notes) { showErr("Add a comment so the family knows what you mean."); return; }
+
+  if (submit) submit.disabled = true;
+  try {
+    // Read-modify-write so we don't clobber concurrent state edits.
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
+    const id = `cr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    const entry = {
+      id,
+      type: _cgrType,
+      date,
+      status: "new",
+      createdAt: Date.now(),
+      createdBy: currentUser.uid,
+      createdByName: currentUser.displayName || currentUser.email || "Caregiver",
+    };
+    if (startTime) entry.startTime = startTime;
+    if (endTime)   entry.endTime = endTime;
+    if (notes)     entry.notes = notes;
+    list.push(entry);
+    await ref.set({ ...data, caregiverRequests: list });
+    closeCaregiverRequestModal();
+  } catch (e) {
+    console.error("submitCaregiverRequest failed:", e);
+    showErr("Couldn't send. Check your connection and try again.");
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+}
+
+function setCaregiverTab(tab) {
+  const screen = document.getElementById("caregiverScreen");
+  if (!screen) return;
+  screen.setAttribute("data-cg-tab", tab);
+  document.querySelectorAll("[data-cg-tab-btn]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-cg-tab-btn") === tab);
+  });
+  // Eyebrow follows the active section
+  const eyebrow = document.getElementById("cgEyebrow");
+  if (eyebrow) {
+    eyebrow.textContent =
+      tab === "schedule" ? "My schedule" :
+      tab === "requests" ? "Coverage requests" :
+                            "Profile";
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Caregivers only need to read/write `coverageRequests`. We still load the
+// whole state/main doc (it's a single doc), but we only render that slice
+// and never push back unrelated keys — the write helper does a read‑modify‑
+// write so we don't clobber the desktop's edits.
+function initCaregiverFirestoreSync() {
+  if (!householdId) return;
+  const ref = db.collection("households").doc(householdId)
+    .collection("state").doc("main");
+  stateUnsubscribe = ref.onSnapshot(doc => {
+    if (!doc.exists) {
+      renderCaregiverScreen([]);
+      return;
+    }
+    const data = doc.data() || {};
+    state = mergeStateFromFirestore(data);
+    renderCaregiverScreen(state.coverageRequests || []);
+  }, err => {
+    console.warn("caregiver onSnapshot error:", err);
+  });
+}
+
+function renderCaregiverScreen(requests) {
+  const list = document.getElementById("cgRequestsList");
+  if (!list) return;
+  requests = Array.isArray(requests) ? requests : [];
+
+  // Reflect the live household name once the state doc has loaded.
+  const nameEl = document.getElementById("cgHouseholdName");
+  if (nameEl && state && state.householdName) nameEl.textContent = state.householdName;
+
+  // --- Requests tab badge (pending count) ---
+  const badge = document.getElementById("cgRequestsBadge");
+  const pending = requests.filter(r => r && r.status === "pending").length;
+  if (badge) {
+    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    else { badge.hidden = true; }
+  }
+
+  // --- Schedule pane: month calendar populated from scheduleable requests.
+  // Declines / issues that the manager has acknowledged drop off so the
+  // calendar stays focused on actionable / upcoming work.
+  _cgScheduleable = requests.filter(r => {
+    if (!r) return false;
+    if (r.status === "pending" || r.status === "confirmed") return true;
+    if ((r.status === "declined" || r.status === "issue") && !r.managerReviewed) return true;
+    return false;
+  });
+  renderCaregiverCalendar();
+
+  // --- Requests pane: every request, action buttons on pending ---
+  const sorted = requests.slice().sort((a, b) => {
+    const ap = (a.status || "pending") === "pending" ? 0 : 1;
+    const bp = (b.status || "pending") === "pending" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return (a.date || "").localeCompare(b.date || "");
+  });
+  if (sorted.length === 0) {
+    list.innerHTML = `<div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>`;
+    return;
+  }
+  list.innerHTML = sorted.map(r => caregiverCardHTML(r)).join("");
+  // Wire buttons
+  list.querySelectorAll("[data-cg-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-cg-id");
+      const action = btn.getAttribute("data-cg-action");
+      handleCaregiverAction(id, action);
+    });
+  });
+}
+
+// ==================== CAREGIVER CALENDAR (Schedule pane) ====================
+// Build a month-grid view of every assigned / accepted / declined-pending
+// request. State lives on a few module-scoped vars so prev/next/today and
+// tap-to-select don't have to thread through arguments.
+let _cgScheduleable = [];          // filtered requests (no reviewed declines)
+let _cgViewYear  = null;
+let _cgViewMonth = null;            // 0-based
+let _cgSelectedDate = null;         // YYYY-MM-DD
+
+function _cgInitViewIfNeeded() {
+  if (_cgViewYear == null || _cgViewMonth == null) {
+    const now = new Date();
+    _cgViewYear = now.getFullYear();
+    _cgViewMonth = now.getMonth();
+  }
+}
+
+function _cgMonthGridDays(year, month) {
+  // First day shown = the Sunday on or before the 1st of the month.
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();  // 0..6 (Sun..Sat)
+  const start = new Date(year, month, 1 - startOffset);
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+function _cgRequestsByDate() {
+  const map = {};
+  for (const r of _cgScheduleable) {
+    if (!r || !r.date) continue;
+    (map[r.date] ??= []).push(r);
+  }
+  return map;
+}
+
+function renderCaregiverCalendar() {
+  _cgInitViewIfNeeded();
+  const grid = document.getElementById("cgCalGrid");
+  const label = document.getElementById("cgCalLabel");
+  if (!grid || !label) return;
+
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  label.textContent = `${months[_cgViewMonth]} ${_cgViewYear}`;
+
+  const days = _cgMonthGridDays(_cgViewYear, _cgViewMonth);
+  const byDate = _cgRequestsByDate();
+  const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  // Day-of-week header
+  const header = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d =>
+    `<div class="cg-cal-hdr">${d}</div>`
+  ).join("");
+
+  const cells = days.map(d => {
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const outside = d.getMonth() !== _cgViewMonth;
+    const isToday = iso === todayIso;
+    const isSelected = iso === _cgSelectedDate;
+    const reqs = byDate[iso] || [];
+    const hasReq = reqs.length > 0;
+
+    // Chip per request — short label "hh:mm". Cap to 2 visible, "+N" for the rest.
+    const chips = reqs.slice(0, 2).map(r =>
+      `<div class="cg-cal-chip ${r.status || "pending"}" title="${escapeHtml(r.startTime || "")} → ${escapeHtml(r.endTime || "")}">${escapeHtml(r.startTime || "")}</div>`
+    ).join("");
+    const more = reqs.length > 2
+      ? `<div class="cg-cal-chip" style="background:transparent;color:var(--text-dim);font-weight:600;">+${reqs.length - 2}</div>`
+      : "";
+
+    const classes = [
+      "cg-cal-cell",
+      outside ? "outside" : "",
+      isToday ? "today" : "",
+      isSelected ? "selected" : "",
+      hasReq ? "has-req" : "",
+    ].filter(Boolean).join(" ");
+
+    return `<div class="${classes}" data-cg-date="${iso}" data-cg-has="${hasReq ? "1" : "0"}">
+      <div class="cg-cal-date">${d.getDate()}</div>
+      <div class="cg-cal-chips">${chips}${more}</div>
+    </div>`;
+  }).join("");
+
+  grid.innerHTML = header + cells;
+
+  grid.querySelectorAll('[data-cg-has="1"]').forEach(cell => {
+    cell.addEventListener("click", () => {
+      const iso = cell.getAttribute("data-cg-date");
+      _cgSelectedDate = (_cgSelectedDate === iso) ? null : iso;
+      renderCaregiverCalendar();
+    });
+  });
+
+  renderCaregiverCalendarDetail();
+}
+
+function renderCaregiverCalendarDetail() {
+  const el = document.getElementById("cgCalDetail");
+  if (!el) return;
+  if (!_cgSelectedDate) { el.className = "cg-cal-detail"; el.innerHTML = ""; return; }
+  const byDate = _cgRequestsByDate();
+  const reqs = byDate[_cgSelectedDate] || [];
+  if (reqs.length === 0) { el.className = "cg-cal-detail"; el.innerHTML = ""; return; }
+
+  let dayLabel = _cgSelectedDate;
+  try {
+    const [y, m, d] = _cgSelectedDate.split("-").map(Number);
+    dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: "long", month: "long", day: "numeric",
+    });
+  } catch (_) {}
+
+  el.className = "cg-cal-detail has-content";
+  el.innerHTML = reqs.map(r => {
+    const status = r.status || "pending";
+    const statusLabel =
+      status === "confirmed" ? "Accepted" :
+      status === "declined"  ? "Declined" :
+      status === "issue"     ? "Issue"    : "Assigned";
+    const nextDay = r.endsNextDay ? " +1d" : "";
+    const arrive = r.arriveBy ? `<div class="cg-cal-detail-row dim">Arrive by <b>${escapeHtml(r.arriveBy)}</b></div>` : "";
+    const notes = r.notes ? `<div class="cg-cal-detail-note">${escapeHtml(r.notes)}</div>` : "";
+    const cgNote = r.caregiverNote
+      ? `<div class="cg-cal-detail-row dim"><b>${
+          status === "declined" ? "You said:" :
+          status === "issue"    ? "You reported:" :
+                                   "You noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
+      : "";
+    return `
+      <div class="cg-cal-detail-head">
+        <div class="cg-cal-detail-date">${escapeHtml(dayLabel)}</div>
+        <span class="cg-sched-status ${status}">${statusLabel}</span>
+      </div>
+      <div class="cg-cal-detail-row"><b>${escapeHtml(r.startTime || "")}</b> → <b>${escapeHtml(r.endTime || "")}</b>${nextDay}</div>
+      ${arrive}
+      ${notes}
+      ${cgNote}`;
+  }).join('<hr style="border:0;border-top:0.5px solid var(--sep);margin:4px 0;">');
+}
+
+// Wire calendar navigation buttons once on init.
+function wireCaregiverCalendarNav() {
+  const prev = document.getElementById("cgCalPrev");
+  const next = document.getElementById("cgCalNext");
+  const today = document.getElementById("cgCalToday");
+  if (prev && !prev.__wired) {
+    prev.__wired = true;
+    prev.addEventListener("click", () => {
+      _cgInitViewIfNeeded();
+      _cgViewMonth -= 1;
+      if (_cgViewMonth < 0) { _cgViewMonth = 11; _cgViewYear -= 1; }
+      _cgSelectedDate = null;
+      renderCaregiverCalendar();
+    });
+  }
+  if (next && !next.__wired) {
+    next.__wired = true;
+    next.addEventListener("click", () => {
+      _cgInitViewIfNeeded();
+      _cgViewMonth += 1;
+      if (_cgViewMonth > 11) { _cgViewMonth = 0; _cgViewYear += 1; }
+      _cgSelectedDate = null;
+      renderCaregiverCalendar();
+    });
+  }
+  if (today && !today.__wired) {
+    today.__wired = true;
+    today.addEventListener("click", () => {
+      const now = new Date();
+      _cgViewYear = now.getFullYear();
+      _cgViewMonth = now.getMonth();
+      _cgSelectedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      renderCaregiverCalendar();
+    });
+  }
+}
+
+function caregiverCardHTML(r) {
+  const id = escapeHtml(r.id || "");
+  const status = r.status || "pending";
+  const statusLabel =
+    status === "confirmed" ? "Confirmed" :
+    status === "declined"  ? "Declined"  :
+    status === "issue"     ? "Issue"     : "Pending";
+  // Friendly date
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      const dt = new Date(y, m - 1, d);
+      dayLabel = dt.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    }
+  } catch (e) { /* fall back to raw date */ }
+  const startTime = escapeHtml(r.startTime || "");
+  const endTime = escapeHtml(r.endTime || "");
+  const arriveBy = escapeHtml(r.arriveBy || "");
+  const nextDay = r.endsNextDay ? `<span style="font-size:11px;color:var(--text-dim);font-weight:600;margin-left:6px;">+1d</span>` : "";
+
+  const notesBlock = r.notes
+    ? `<div class="cg-notes">${escapeHtml(r.notes)}</div>`
+    : "";
+
+  const caregiverNoteBlock = r.caregiverNote
+    ? `<div class="cg-caregiver-note"><b>${status === "declined" ? "You said" : status === "issue" ? "You reported" : "You noted"}:</b> ${escapeHtml(r.caregiverNote)}</div>`
+    : "";
+
+  const actionsBlock = status === "pending"
+    ? `<div class="cg-actions">
+         <button type="button" class="cg-btn cg-btn-accept"  data-cg-id="${id}" data-cg-action="accept">Accept</button>
+         <button type="button" class="cg-btn cg-btn-decline" data-cg-id="${id}" data-cg-action="decline">Decline</button>
+         <button type="button" class="cg-btn cg-btn-issue"   data-cg-id="${id}" data-cg-action="issue">Report issue</button>
+       </div>`
+    : "";
+
+  return `
+    <article class="cg-card">
+      <div class="cg-card-head">
+        <div class="cg-card-date">${escapeHtml(dayLabel)}<small>${escapeHtml(r.date || "")}</small></div>
+        <span class="cg-status ${status}">${statusLabel}</span>
+      </div>
+      <div class="cg-window">${startTime}<span class="arrow">→</span>${endTime}${nextDay}</div>
+      ${arriveBy ? `<div class="cg-arrive">Arrive by <b>${arriveBy}</b></div>` : ""}
+      ${notesBlock}
+      ${caregiverNoteBlock}
+      ${actionsBlock}
+    </article>
+  `;
+}
+
+async function handleCaregiverAction(id, action) {
+  if (!householdId || !id) return;
+  let nextStatus = null;
+  let caregiverNote;
+  if (action === "accept") {
+    nextStatus = "confirmed";
+  } else if (action === "decline") {
+    nextStatus = "declined";
+    // Declines require a reason so the manager knows why before they scramble.
+    caregiverNote = prompt("Why are you declining? (Required — the family needs to know)");
+    if (caregiverNote == null) return;          // cancelled
+    caregiverNote = caregiverNote.trim();
+    if (!caregiverNote) {
+      alert("Please add a reason — even a short one helps.");
+      return;
+    }
+  } else if (action === "issue") {
+    nextStatus = "issue";
+    caregiverNote = prompt("What's the issue? (e.g. running late, can't make it)");
+    if (caregiverNote == null) return;          // cancelled
+    caregiverNote = caregiverNote.trim();
+    if (!caregiverNote) return;
+  }
+  if (!nextStatus) return;
+
+  // Read-modify-write: don't clobber the desktop's edits to other state keys.
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    const updated = {
+      ...list[idx],
+      status: nextStatus,
+      caregiverUid: currentUser.uid,
+      caregiverActedAt: new Date().toISOString(),
+    };
+    if (caregiverNote != null) updated.caregiverNote = caregiverNote;
+    list[idx] = updated;
+    await ref.set({ ...data, coverageRequests: list });
+  } catch (e) {
+    console.error("caregiver action failed:", e);
+    alert("Couldn't update that request. Check your connection.");
+  }
+}
+
+// ==================== MANAGER CHILDCARE PANE (iOS) ====================
+// Read-only view of every coverage request the household has sent. The
+// caregiver-only screen (role: supporting) is a separate top-level surface;
+// this pane lives inside the regular app for admins and partners.
+let _mcFilter = "all";
+
+function renderManagerChildcare(requests) {
+  const list = document.getElementById("mcList");
+  if (!list) return;
+  requests = Array.isArray(requests) ? requests : [];
+
+  // Pending count → bottom-tab badge
+  const pending = requests.filter(r => r && r.status === "pending").length;
+  const badge = document.getElementById("mcTabBadge");
+  if (badge) {
+    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    else { badge.hidden = true; }
+  }
+
+  const filtered = _mcFilter === "all"
+    ? requests.slice()
+    : requests.filter(r => r && r.status === _mcFilter);
+  filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="mc-empty">${
+      _mcFilter === "all"
+        ? "No coverage requests yet. Use the Manager on your Mac to send a batch."
+        : `No ${escapeHtml(_mcFilter)} requests.`
+    }</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(mcCardHTML).join("");
+  list.querySelectorAll("[data-mc-clear]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-mc-clear");
+      handleManagerClear(id);
+    });
+  });
+
+  // Also render the caregiver-authored "From caregivers" inbox section.
+  renderManagerInboxSection((state && state.caregiverRequests) || []);
+}
+
+function renderManagerInboxSection(caregiverRequests) {
+  const section = document.getElementById("mcInboxSection");
+  const list = document.getElementById("mcInboxList");
+  if (!section || !list) return;
+  // Show only non-dismissed for the iOS surface; full audit still on Mac.
+  const visible = (caregiverRequests || []).filter(r => r && r.status !== "dismissed");
+  if (visible.length === 0) { section.hidden = true; list.innerHTML = ""; return; }
+  section.hidden = false;
+  // Newest first
+  visible.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  list.innerHTML = visible.map(mcInboxRowHTML).join("");
+  list.querySelectorAll("[data-mc-inbox-ack]").forEach(btn => {
+    btn.addEventListener("click", () => handleManagerInboxAction(btn.getAttribute("data-mc-inbox-ack"), "acknowledged"));
+  });
+  list.querySelectorAll("[data-mc-inbox-dismiss]").forEach(btn => {
+    btn.addEventListener("click", () => handleManagerInboxAction(btn.getAttribute("data-mc-inbox-dismiss"), "dismissed"));
+  });
+}
+
+function mcInboxRowHTML(r) {
+  const type =
+    r.type === "schedule-block" ? "Schedule block" :
+    r.type === "shift-conflict" ? "Shift conflict" :
+                                   "Other";
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+      });
+    }
+  } catch (_) {}
+  const status = r.status || "new";
+  const statusLabel = status === "acknowledged" ? "Acknowledged" : "New";
+  const stripeClass = status === "acknowledged" ? "confirmed" : "pending";
+  const who = r.createdByName || "Caregiver";
+  const time = (r.startTime && r.endTime)
+    ? `${escapeHtml(r.startTime)} → ${escapeHtml(r.endTime)}`
+    : "";
+  const notes = r.notes
+    ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
+
+  const actions = status === "new"
+    ? `<div class="mc-actions" style="gap:6px;">
+         <button type="button" class="mc-clear-btn" data-mc-inbox-ack="${escapeHtml(r.id || "")}">Acknowledge</button>
+         <button type="button" class="mc-clear-btn" data-mc-inbox-dismiss="${escapeHtml(r.id || "")}">Dismiss</button>
+       </div>`
+    : "";
+
+  return `
+    <article class="mc-card ${stripeClass}">
+      <div class="mc-card-head">
+        <div class="mc-card-date">${escapeHtml(who)}</div>
+        <span class="mc-pill ${stripeClass}">${statusLabel}</span>
+      </div>
+      <div class="mc-meta">
+        <span><b>${escapeHtml(type)}</b></span>
+        <span>· ${escapeHtml(dayLabel)}</span>
+        ${time ? `<span>· ${time}</span>` : ""}
+      </div>
+      ${notes}
+      ${actions}
+    </article>`;
+}
+
+async function handleManagerInboxAction(id, nextStatus) {
+  if (!householdId || !id || !currentUser) return;
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    list[idx] = {
+      ...list[idx],
+      status: nextStatus,
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: currentUser.uid,
+    };
+    await ref.set({ ...data, caregiverRequests: list });
+  } catch (e) {
+    console.error("inbox action failed:", e);
+    alert("Couldn't update that request. Check your connection.");
+  }
+}
+
+async function handleManagerClear(id) {
+  if (!householdId || !id || !currentUser) return;
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    list[idx] = {
+      ...list[idx],
+      managerReviewed: true,
+      managerReviewedAt: Date.now(),
+      managerReviewedBy: currentUser.uid,
+    };
+    await ref.set({ ...data, coverageRequests: list });
+  } catch (e) {
+    console.error("manager clear failed:", e);
+    alert("Couldn't mark reviewed. Check your connection.");
+  }
+}
+
+function mcCardHTML(r) {
+  const status = r.status || "pending";
+  const statusLabel =
+    status === "confirmed" ? "Accepted" :
+    status === "declined"  ? "Declined" :
+    status === "issue"     ? "Issue"    : "Pending";
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+      });
+    }
+  } catch (_) {}
+  const reason = r.reason;
+  const reasonLabel =
+    reason === "both-working"   ? "Both working"  :
+    reason === "work-and-sleep" ? "Work + sleep"  :
+    reason === "both-sleeping"  ? "Both sleeping" : null;
+
+  const notesBlock = r.notes
+    ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
+
+  const cgNoteBlock = r.caregiverNote
+    ? `<div class="mc-cg-note"><b>${
+        status === "declined" ? "Caregiver said:" :
+        status === "issue"    ? "Caregiver reported:" :
+                                 "Caregiver noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
+    : "";
+
+  const needsReview = (status === "declined" || status === "issue") && !r.managerReviewed;
+  const clearBtn = needsReview
+    ? `<button type="button" class="mc-clear-btn" data-mc-clear="${escapeHtml(r.id || "")}">Clear</button>`
+    : (status === "declined" || status === "issue") && r.managerReviewed
+      ? `<span class="mc-reviewed">Reviewed</span>` : "";
+
+  return `
+    <article class="mc-card ${status}">
+      <div class="mc-card-head">
+        <div class="mc-card-date">${escapeHtml(dayLabel)}</div>
+        <span class="mc-pill ${status}">${statusLabel}</span>
+      </div>
+      <div class="mc-meta">
+        <span><b>${escapeHtml(r.startTime || "")}</b> → <b>${escapeHtml(r.endTime || "")}</b>${r.endsNextDay ? " +1d" : ""}</span>
+        ${r.arriveBy ? `<span>· arrive by <b>${escapeHtml(r.arriveBy)}</b></span>` : ""}
+        ${reasonLabel ? `<span>· ${reasonLabel}</span>` : ""}
+      </div>
+      ${notesBlock}
+      ${cgNoteBlock}
+      ${clearBtn ? `<div class="mc-actions">${clearBtn}</div>` : ""}
+    </article>`;
+}
+
+// Wire filter pills
+document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    _mcFilter = btn.getAttribute("data-mc-filter") || "all";
+    document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(b => {
+      b.classList.toggle("active", b === btn);
+    });
+    renderManagerChildcare((state && state.coverageRequests) || []);
+  });
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
 }
 
 function updateUserBar() {
@@ -4112,12 +5877,85 @@ function updateUserBar() {
 }
 
 // Sign out (desktop header + drawer + profile tab)
-function doSignOut() { cleanupListeners(); auth.signOut(); }
+function doSignOut() {
+  // Stop pushing to a device that's vacating this household.
+  deleteOwnPushTokenDoc().catch(() => {});
+  cleanupListeners();
+  auth.signOut();
+}
 const soBtn = document.getElementById("signOutBtnDesktop");
 if (soBtn) soBtn.addEventListener("click", doSignOut);
 document.getElementById("drawerSignOut").addEventListener("click", () => { closeDrawer(); doSignOut(); });
 const profileSignOut = document.getElementById("profileSignOutBtn");
 if (profileSignOut) profileSignOut.addEventListener("click", doSignOut);
+
+// Delete-my-account — removes the caller from their household (if any),
+// then destroys the Firebase Auth user. Re-auths first if the session is
+// too stale (Firebase requires recent login for delete).
+async function doDeleteAccount() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const ok = confirm(
+    "Delete your account?\n\n" +
+    "This removes you from this household and permanently deletes your " +
+    "Schedule Buddy login. You'll be signed out and need a new invite code " +
+    "to rejoin. This can't be undone."
+  );
+  if (!ok) return;
+
+  try {
+    // 1. Remove self from household (if any) so the household doc isn't
+    //    stuck pointing at a deleted uid.
+    if (householdId && user.uid) {
+      try {
+        const hhRef = db.collection("households").doc(householdId);
+        await hhRef.update({
+          memberUids: firebase.firestore.FieldValue.arrayRemove(user.uid),
+          [`memberNames.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+          [`roles.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+        });
+      } catch (e) {
+        console.warn("Household cleanup failed (continuing):", e);
+      }
+      // Also drop our push token row before auth is destroyed.
+      await deleteOwnPushTokenDoc().catch(() => {});
+    }
+
+    // 2. Stop snapshot listeners so they don't yell when the user vanishes.
+    cleanupListeners();
+
+    // 3. Delete the auth user.
+    await user.delete();
+    // onAuthStateChanged will fire signed-out → showScreen("auth").
+  } catch (e) {
+    if (e && e.code === "auth/requires-recent-login") {
+      // Reprompt the original provider, then retry the delete.
+      const providerId = (user.providerData && user.providerData[0] && user.providerData[0].providerId) || "";
+      try {
+        if (providerId === "apple.com") {
+          const p = new firebase.auth.OAuthProvider("apple.com");
+          await user.reauthenticateWithPopup(p);
+        } else if (providerId === "google.com") {
+          await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+        } else {
+          alert("Please sign out and sign in again, then try Delete my account.");
+          return;
+        }
+        cleanupListeners();
+        await user.delete();
+      } catch (e2) {
+        console.error("Re-auth + delete failed:", e2);
+        alert("Couldn't delete account: " + (e2 && e2.message ? e2.message : e2));
+      }
+    } else {
+      console.error("Delete account failed:", e);
+      alert("Couldn't delete account: " + (e && e.message ? e.message : e));
+    }
+  }
+}
+const profileDeleteBtn = document.getElementById("profileDeleteAccountBtn");
+if (profileDeleteBtn) profileDeleteBtn.addEventListener("click", doDeleteAccount);
 
 // Request Event — stub for now. Real flow will let the user submit a proposed
 // shift to the household admin via a Firestore "requests" subcollection.
@@ -4467,6 +6305,7 @@ function mergeStateFromFirestore(data) {
     householdName: typeof data.householdName === "string" ? data.householdName : undefined,
     // Coverage requests sent to caregivers from the desktop manager.
     coverageRequests: Array.isArray(data.coverageRequests) ? data.coverageRequests : [],
+    caregiverRequests: Array.isArray(data.caregiverRequests) ? data.caregiverRequests : [],
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);
@@ -6821,6 +8660,7 @@ function renderAll() {
   renderAnalysis();
   renderMonthComparison();
   renderOTApprovals();
+  renderManagerChildcare((state && state.coverageRequests) || []);
 }
 
 function syncGlobalFields() {
