@@ -5041,12 +5041,9 @@ async function registerForPushNotifications() {
       return;
     }
 
-    // 2. Get the FCM token.
-    const { token } = await FM.getToken();
-    if (!token) return;
-    await writePushTokenDoc(token);
-
-    // 3. Wire one-time refresh + foreground handlers.
+    // 2. Wire the tokenReceived listener FIRST so we don't miss the async
+    //    emission on cold launch — APNs sometimes takes a moment to assign
+    //    a device token, during which getToken() can return empty.
     if (!_pushHandlersWired) {
       _pushHandlersWired = true;
       if (typeof FM.addListener === "function") {
@@ -5056,6 +5053,20 @@ async function registerForPushNotifications() {
         // notificationReceived fires in the foreground — the live snapshot
         // listener already re-renders, so we don't need to do anything UI-side.
       }
+    }
+
+    // 3. Try to grab the FCM token now. Retry up to 3 times with a short
+    //    backoff so a still-warming APNs registration doesn't silently
+    //    cause us to skip the write.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { token } = await FM.getToken().catch(() => ({ token: "" }));
+      if (token) {
+        await writePushTokenDoc(token);
+        return;
+      }
+      // Wait a bit before retrying — APNs propagation on first install is
+      // usually <2s. The tokenReceived listener also covers us as a backstop.
+      await new Promise((r) => setTimeout(r, 1500));
     }
   } catch (e) {
     console.warn("registerForPushNotifications:", e);
