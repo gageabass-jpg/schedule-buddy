@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
+import type { ThemePref } from "../App";
 import { setHouseholdName } from "../lib/writeHouseholdMeta";
 import { doSignOut } from "../hooks/useAuth";
 import { PhotoAv } from "./PhotoAv";
@@ -15,9 +16,14 @@ interface Props {
   householdId: string | null;
   household: HouseholdMeta | null;
   state: HouseholdState | null;
+  themePref: ThemePref;
+  onSetThemePref: (pref: ThemePref) => void;
 }
 
-export function FamilyConsole({ open, onClose, palette, t, dark, householdId, household, state }: Props) {
+export function FamilyConsole({
+  open, onClose, palette, t, dark, householdId, household, state,
+  themePref, onSetThemePref,
+}: Props) {
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -229,6 +235,47 @@ export function FamilyConsole({ open, onClose, palette, t, dark, householdId, ho
                   No dependents yet. Import Daisy's school schedule from the sidebar to add her.
                 </div>
               )}
+            </div>
+          </Section>
+
+          {/* Appearance */}
+          <Section title="Appearance" t={t} hint="Match macOS or pick a fixed mode.">
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: 2,
+                borderRadius: 8,
+                background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)",
+              }}
+            >
+              {(["system", "light", "dark"] as const).map((pref) => {
+                const active = themePref === pref;
+                return (
+                  <button
+                    key={pref}
+                    type="button"
+                    onClick={() => onSetThemePref(pref)}
+                    style={{
+                      flex: 1,
+                      padding: "7px 10px",
+                      border: 0,
+                      borderRadius: 6,
+                      background: active ? (dark ? "#3A3A3C" : "#fff") : "transparent",
+                      color: t.text,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      textTransform: "capitalize",
+                      boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {pref}
+                  </button>
+                );
+              })}
             </div>
           </Section>
 

@@ -3,8 +3,8 @@ import { signInWithGoogle, signInWithApple, signInWithEmail } from "../hooks/use
 import { themeTokens, getPalette } from "../theme";
 import { BrandMark } from "./BrandMark";
 
-export function SignIn() {
-  const t = themeTokens(true);
+export function SignIn({ dark = true }: { dark?: boolean }) {
+  const t = themeTokens(dark);
   const palette = getPalette("modern");
   const [mode, setMode] = useState<"choose" | "email">("choose");
   const [email, setEmail] = useState("");

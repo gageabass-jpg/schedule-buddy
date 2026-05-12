@@ -4,8 +4,8 @@ import { doSignOut } from "../hooks/useAuth";
 import { themeTokens, getPalette } from "../theme";
 import { BrandMark } from "./BrandMark";
 
-export function JoinHousehold() {
-  const t = themeTokens(true);
+export function JoinHousehold({ dark = true }: { dark?: boolean }) {
+  const t = themeTokens(dark);
   const palette = getPalette("modern");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
