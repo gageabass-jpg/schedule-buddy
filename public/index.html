@@ -6127,12 +6127,20 @@ async function doDeleteAccount() {
 const profileDeleteBtn = document.getElementById("profileDeleteAccountBtn");
 if (profileDeleteBtn) profileDeleteBtn.addEventListener("click", doDeleteAccount);
 
-// Request Event — stub for now. Real flow will let the user submit a proposed
-// shift to the household admin via a Firestore "requests" subcollection.
+// Profile → Request Event opens the same Schedule Block / Shift Conflict /
+// Other modal that Daisy uses on the caregiver Profile tab. Submissions
+// land in the same state.caregiverRequests array and surface in the
+// manager's Inbox tray for whoever is logged in elsewhere in the household.
 const reqEventBtn = document.getElementById("requestEventBtn");
-if (reqEventBtn) reqEventBtn.addEventListener("click", () => {
-  alert("Request Event\n\nThis will let you ask the schedule manager to add a shift on your behalf. Coming soon.");
-});
+if (reqEventBtn) {
+  reqEventBtn.addEventListener("click", () => {
+    // Make sure the modal's open/close + type pills are wired the first
+    // time a contributing member uses this — initCaregiverScreen wires
+    // them for caregivers, but contributing members never run that path.
+    wireCaregiverRequestModal();
+    openCaregiverRequestModal();
+  });
+}
 
 // View Family Code — opens a modal showing the household's invite code with
 // a Copy button. Pulls from the cached householdData populated by
