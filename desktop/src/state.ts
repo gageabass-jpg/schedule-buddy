@@ -133,6 +133,37 @@ export interface CoverageRequest {
   managerReviewedBy?: string;
 }
 
+export type CaregiverRequestType = "schedule-block" | "shift-conflict" | "other";
+export type CaregiverRequestStatus = "new" | "acknowledged" | "dismissed";
+
+/**
+ * A request authored by the *caregiver* and surfaced in the manager's
+ * Inbox. The three types map to common reasons a caregiver pings the
+ * family:
+ *   - schedule-block  → "I can't be available these days/hours"
+ *   - shift-conflict  → "Heads up about an existing coverage day"
+ *   - other           → free-form ask
+ */
+export interface CaregiverRequest {
+  id: string;
+  type: CaregiverRequestType;
+  date: string;                  // YYYY-MM-DD
+  startTime?: string;            // HH:MM
+  endTime?: string;              // HH:MM
+  notes?: string;
+  status: CaregiverRequestStatus;
+  createdAt: number;
+  createdBy: string;             // caregiver uid
+  createdByName?: string;        // display name snapshot
+  acknowledgedAt?: number;
+  acknowledgedBy?: string;       // manager uid
+}
+
+export function generateCaregiverRequestId(): string {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `cr_${Date.now().toString(36)}_${rand}`;
+}
+
 export function generateCoverageId(): string {
   return `cov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -167,6 +198,9 @@ export interface HouseholdState {
   householdName?: string;
   /** Coverage requests authored by contributing members for caregivers. */
   coverageRequests?: CoverageRequest[];
+  /** Requests authored by caregivers — Schedule Block / Shift Conflict / Other.
+   *  Surfaced in the manager's Inbox. */
+  caregiverRequests?: CaregiverRequest[];
   _migrations: string[];
 }
 

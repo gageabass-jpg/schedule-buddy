@@ -47,6 +47,7 @@ import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
+import { InboxPanel } from "./components/InboxPanel";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -108,6 +109,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
   const [childcareOpen, setChildcareOpen] = useState(false);
   const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -138,6 +140,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     householdStatus.status === "ready" ? householdStatus.state : null;
 
   const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
+  const inboxNewCount = (state?.caregiverRequests ?? []).filter((r) => r.status === "new").length;
 
   const eventsByDate: EventMap = useMemo(() => {
     const out: EventMap = {};
@@ -372,6 +375,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         eventsByDate={eventsByDate}
         onNewEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
+        onOpenInbox={() => setInboxOpen(true)}
+        inboxCount={inboxNewCount}
       />
       <Inspector
         selected={selected}
@@ -493,6 +498,15 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         t={t}
         householdId={householdId}
         defaultDate={selected}
+      />
+      <InboxPanel
+        open={inboxOpen}
+        onClose={() => setInboxOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
       />
     </div>
   );
