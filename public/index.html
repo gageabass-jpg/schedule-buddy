@@ -1498,9 +1498,12 @@
   .shift-pill[data-who="both"] { background: var(--color-both); color: #fff; }
 
   /* Event chip — dashed outline, letter prefix; distinguishes events from
-     filled shift pills at a glance. Authored on the desktop manager. */
+     filled shift pills at a glance. Authored on the desktop manager.
+     display:flex (not inline-flex) so the chip occupies the column width
+     of .cal-shifts and the inner text can ellipsise instead of pushing
+     the cell beyond the calendar grid. */
   .ev-chip {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 4px;
     font-size: 9.5px;
@@ -1511,7 +1514,10 @@
     border: 1px dashed currentColor;
     background: transparent;
     color: var(--text);
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     overflow: hidden;
   }
   .ev-chip .ev-chip-letter {
@@ -1521,18 +1527,25 @@
     flex-shrink: 0;
   }
   .ev-chip .ev-chip-text {
+    flex: 1;
+    min-width: 0;
     color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    min-width: 0;
   }
   @media (max-width: 768px) {
     .ev-chip { font-size: 8.5px; padding: 1px 4px; gap: 3px; }
     .ev-chip .ev-chip-letter { font-size: 8px; }
   }
-  /* Cell stacking gap so events sit under shifts cleanly */
-  .cal-shifts { display: flex; flex-direction: column; gap: 2px; }
+  /* Cell stacking gap + horizontal clip so chips never overflow the cell. */
+  .cal-shifts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+  }
 
   /* Outlined block on the Week rail for time-anchored events */
   .week-rail-event {
