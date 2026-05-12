@@ -17,6 +17,7 @@ interface Props {
   onToday: () => void;
   onNewShift: () => void;
   onEditTemplate: () => void;
+  onEditShiftTypes: () => void;
 }
 
 const MONTH_LABELS = [
@@ -26,7 +27,7 @@ const MONTH_LABELS = [
 
 export function MonthGrid({
   palette, t, dark, flat, shifts, viewYear, viewMonth, selected, today,
-  onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate,
+  onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -91,20 +92,15 @@ export function MonthGrid({
         </div>
         <button
           type="button"
+          onClick={onEditShiftTypes}
+          style={secondaryToolbarBtn(t)}
+        >
+          Shift types
+        </button>
+        <button
+          type="button"
           onClick={onEditTemplate}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            padding: "5px 11px",
-            borderRadius: 6,
-            border: `0.5px solid ${t.sep}`,
-            background: "transparent",
-            color: t.text,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          style={secondaryToolbarBtn(t)}
         >
           Template
         </button>
@@ -249,6 +245,22 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
     background: "transparent",
     color: t.text2,
     fontSize: 14,
+    cursor: "pointer",
+  };
+}
+
+function secondaryToolbarBtn(t: ThemeTokens): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "5px 11px",
+    borderRadius: 6,
+    border: `0.5px solid ${t.sep}`,
+    background: "transparent",
+    color: t.text,
+    fontSize: 12,
+    fontWeight: 600,
     cursor: "pointer",
   };
 }

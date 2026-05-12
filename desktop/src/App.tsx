@@ -13,6 +13,7 @@ import { BrandMark } from "./components/BrandMark";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
+import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
 import { deleteShift } from "./lib/writeShift";
 import type { Shift } from "./data";
 
@@ -40,6 +41,7 @@ function ManagerApp() {
   const [viewMonth, setViewMonth] = useState<number>(tM - 1);
   const [newShiftOpen, setNewShiftOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [shiftTypesOpen, setShiftTypesOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditShiftTarget | null>(null);
 
   const palette = getPalette(PALETTE);
@@ -175,6 +177,7 @@ function ManagerApp() {
         onToday={handleToday}
         onNewShift={() => setNewShiftOpen(true)}
         onEditTemplate={() => setTemplateOpen(true)}
+        onEditShiftTypes={() => setShiftTypesOpen(true)}
       />
       <Inspector
         selected={selected}
@@ -209,6 +212,15 @@ function ManagerApp() {
       <EditShiftModal
         target={editTarget}
         onClose={() => setEditTarget(null)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdId}
+        state={state}
+      />
+      <ShiftTypesEditor
+        open={shiftTypesOpen}
+        onClose={() => setShiftTypesOpen(false)}
         palette={palette}
         t={t}
         dark={DARK}
