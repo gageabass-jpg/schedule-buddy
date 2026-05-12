@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Schedule Buddy</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a84ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -69,10 +69,12 @@
   }
   * { box-sizing: border-box; }
   html, body {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
     background: var(--bg);
+    scrollbar-width: none;
+    overscroll-behavior-y: auto;
   }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar { display: none; }
   body {
     margin: 0;
     padding:
@@ -93,14 +95,10 @@
     left: 0;
     right: 0;
     height: env(safe-area-inset-top, 0px);
-    background: rgba(242, 242, 247, 0.85);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
+    background: var(--bg);
     z-index: 1000;
     pointer-events: none;
-  }
-  @media (prefers-color-scheme: dark) {
-    .ios-safe-top { background: rgba(0, 0, 0, 0.85); }
+    transform: translateZ(0);
   }
   .container { max-width: 1100px; margin: 0 auto; }
   h1 {
@@ -2451,8 +2449,6 @@
     z-index: 800;
     padding: 8px 16px max(10px, env(safe-area-inset-bottom, 10px));
     background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.85) 40%);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
     pointer-events: none;
   }
   @media (prefers-color-scheme: light) {
@@ -2469,6 +2465,8 @@
     pointer-events: auto;
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
+    transform: translateZ(0);
+    will-change: transform;
   }
   @media (prefers-color-scheme: light) {
     .bottom-tabs-inner {
@@ -2573,7 +2571,7 @@
       padding:
         max(env(safe-area-inset-top, 0px), 12px)
         max(env(safe-area-inset-right, 0px), 8px)
-        calc(env(safe-area-inset-bottom, 0px) + 100px)
+        calc(env(safe-area-inset-bottom, 0px) + 72px)
         max(env(safe-area-inset-left, 0px), 8px);
     }
 
@@ -5912,7 +5910,12 @@ let _lastTooltipCell = null; // track which cell the tooltip is for
 
 // (Mobile overlay handlers are in the second <script> block at end of body)
 
-function _isMobile() { return window.innerWidth <= 768; }
+function _isMobile() {
+  if (window.innerWidth <= 768) return true;
+  // Touch-only devices (iPhone in landscape, iPad, etc.) — always use the
+  // mobile bottom sheet so the desktop popover doesn't get clipped at the edge.
+  return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+}
 // Temp div for building tooltip HTML before copying to overlay or hover tip
 const _tempTip = document.createElement("div");
 function _getTip(pinned) {
@@ -5977,11 +5980,16 @@ function _showTooltip(tip, cellEl, pinned) {
     hoverTip.style.pointerEvents = pinned ? "auto" : "none";
     const rect = cellEl.getBoundingClientRect();
     const wrap = document.querySelector(".cal-wrap").getBoundingClientRect();
+    const tipWidth = hoverTip.offsetWidth || 240;
     let left = rect.right - wrap.left + 8;
     let top = rect.top - wrap.top;
-    if (rect.right + 240 > window.innerWidth) {
-      left = rect.left - wrap.left - 240;
+    if (rect.right + tipWidth > window.innerWidth) {
+      left = rect.left - wrap.left - tipWidth;
     }
+    // Clamp to viewport: keep at least 8px margin on either side
+    const minLeft = 8 - wrap.left;
+    const maxLeft = window.innerWidth - tipWidth - 8 - wrap.left;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
     hoverTip.style.left = left + "px";
     hoverTip.style.top = Math.max(0, top) + "px";
   }
@@ -5993,6 +6001,17 @@ function hideCalTooltip() {
   _tooltipClosedAt = Date.now();
   document.getElementById("calTooltipHover").style.display = "none";
   closeMobileOverlay();
+  _blockCalTapsBriefly();
+}
+
+// Block calendar taps for ~350ms after a tooltip closes — defends against the
+// iOS WKWebView "ghost click" that fires on whatever cell sits under the X
+// once the tooltip is removed from the DOM.
+function _blockCalTapsBriefly() {
+  const grid = document.getElementById("calGrid");
+  if (!grid) return;
+  grid.style.pointerEvents = "none";
+  setTimeout(() => { grid.style.pointerEvents = ""; }, 350);
 }
 
 function showOTTooltip(cellEl, dateISO, pinned) {
@@ -6598,12 +6617,17 @@ const _overlaySheet = document.getElementById("mobileOverlaySheet");
 
 _overlayBg.addEventListener("click", () => { closeMobileOverlay(); });
 
-_overlay.addEventListener("click", (e) => {
-  // Close button
+// Capture-phase: catch the close X on EITHER tooltip variant (mobile sheet or
+// desktop popover) before the click can bubble to a calendar cell underneath.
+document.addEventListener("click", (e) => {
   if (e.target.closest("[data-action=close-tooltip]")) {
-    closeMobileOverlay();
-    return;
+    e.stopPropagation();
+    e.preventDefault();
+    hideCalTooltip();
   }
+}, true);
+
+_overlay.addEventListener("click", (e) => {
   // OT button
   const otBtn = e.target.closest("[data-action=view-ot]");
   if (otBtn) {
