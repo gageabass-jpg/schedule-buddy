@@ -171,7 +171,9 @@ export function MonthGrid({
                   viewFilter === "all" ||
                   (viewFilter === "both" && kind === "both") ||
                   (viewFilter === "couple" && kind === "off") ||
-                  (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey);
+                  (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey) ||
+                  (viewFilter === "g" && (kind === "g" || kind === "both")) ||
+                  (viewFilter === "k" && (kind === "k" || kind === "both"));
                 const cellOpacity = c.other ? 0.4 : matchesFilter ? 1 : 0.3;
                 return (
                   <button
