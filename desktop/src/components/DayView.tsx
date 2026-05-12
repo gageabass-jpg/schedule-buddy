@@ -1,6 +1,6 @@
 import { DAYS_LONG, MONTHS_LONG, type Shift, type ShiftMap } from "../data";
-import { personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
-import type { HouseholdState } from "../state";
+import { eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import type { Event as SbEvent, HouseholdState } from "../state";
 import { compactTime } from "../state";
 import { PhotoAv } from "./PhotoAv";
 
@@ -14,6 +14,8 @@ interface Props {
   today: string;
   selfName: string;
   partnerName: string;
+  events: SbEvent[];
+  onEditEvent: (ev: SbEvent) => void;
 }
 
 const HOUR_START = 0;
@@ -48,6 +50,7 @@ function blockForShift(shift: Shift, state: HouseholdState | null): PlacedBlock 
 
 export function DayView({
   palette, t, dark, shifts, state, selected, today, selfName, partnerName,
+  events, onEditEvent,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const date = new Date(y, m - 1, d);
@@ -180,6 +183,55 @@ export function DayView({
                 />
               );
             })()}
+            {/* Event blocks (outlined; click to edit) */}
+            {events.map((ev) => {
+              if (!ev.startTime) return null;
+              const [sh, sm] = ev.startTime.split(":").map(Number);
+              const startAbs = (sh || 0) * 60 + (sm || 0);
+              let endAbs = startAbs + 60;
+              if (ev.endTime) {
+                const [eh, em] = ev.endTime.split(":").map(Number);
+                endAbs = (eh || 0) * 60 + (em || 0);
+                if (endAbs <= startAbs) endAbs = startAbs + 30;
+              }
+              const top = (startAbs / 60) * PX_PER_HOUR;
+              const height = ((endAbs - startAbs) / 60) * PX_PER_HOUR;
+              const color = eventColor(ev.who, palette);
+              return (
+                <div
+                  key={ev.id}
+                  onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                  style={{
+                    position: "absolute",
+                    left: 8,
+                    right: 8,
+                    top,
+                    height: Math.max(height, 28),
+                    background: "transparent",
+                    border: `1px dashed ${rgba(color, 0.7)}`,
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    color: dark ? "#fff" : t.text,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    zIndex: 1,
+                  }}
+                  title={ev.title}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                    ◷ {ev.title}
+                  </div>
+                  {ev.notes && (
+                    <div style={{ fontSize: 10.5, color: dark ? "rgba(255,255,255,0.65)" : t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {ev.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {/* Shift blocks */}
             {list.map((s, i) => {
               const block = blockForShift(s, state);

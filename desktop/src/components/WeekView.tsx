@@ -1,6 +1,7 @@
 import { fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import { dayColors, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
-import type { HouseholdState } from "../state";
+import type { EventMap } from "../App";
+import type { Event as SbEvent, HouseholdState } from "../state";
+import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 
 interface Props {
   palette: Palette;
@@ -8,9 +9,11 @@ interface Props {
   dark: boolean;
   shifts: ShiftMap;
   state: HouseholdState | null;
-  selected: string;          // YYYY-MM-DD, used to determine which week
+  selected: string;
   today: string;
   onSelectDate: (key: string) => void;
+  eventsByDate: EventMap;
+  onEditEvent: (ev: SbEvent) => void;
 }
 
 const HOUR_START = 6;        // 6am
@@ -45,6 +48,7 @@ function blockForShift(shift: Shift, state: HouseholdState | null): PlacedBlock 
 
 export function WeekView({
   palette, t, dark, shifts, state, selected, today, onSelectDate,
+  eventsByDate, onEditEvent,
 }: Props) {
   const [sy, sm, sd] = selected.split("-").map(Number);
   const sel = new Date(sy, sm - 1, sd);
@@ -209,6 +213,43 @@ export function WeekView({
                     </div>
                   );
                 })}
+                {/* Event blocks (outlined, distinct from shifts) */}
+                {(eventsByDate[key] ?? []).map((ev) => {
+                  const block = blockForEvent(ev);
+                  if (!block) return null;
+                  const color = eventColor(ev.who, palette);
+                  const top = (block.startMin / 60) * PX_PER_HOUR;
+                  const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                      style={{
+                        position: "absolute",
+                        left: 4,
+                        right: 4,
+                        top,
+                        height: Math.max(height, 18),
+                        background: "transparent",
+                        border: `1px dashed ${rgba(color, 0.7)}`,
+                        borderRadius: 4,
+                        padding: "2px 6px",
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        color: dark ? "#fff" : t.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        letterSpacing: "-0.01em",
+                        cursor: "pointer",
+                      }}
+                      title={ev.title}
+                    >
+                      <span style={{ marginRight: 4, fontSize: 9, opacity: 0.7 }}>◷</span>
+                      {ev.title}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -216,4 +257,23 @@ export function WeekView({
       </div>
     </div>
   );
+}
+
+function blockForEvent(ev: SbEvent): { startMin: number; endMin: number } | null {
+  if (!ev.startTime) return null;       // all-day events not on the timeline (could add a separate strip later)
+  const [sh, sm] = ev.startTime.split(":").map(Number);
+  const startAbs = (sh || 0) * 60 + (sm || 0);
+  let endAbs = startAbs + 60;           // default 1-hour block if no end time
+  if (ev.endTime) {
+    const [eh, em] = ev.endTime.split(":").map(Number);
+    endAbs = (eh || 0) * 60 + (em || 0);
+    if (endAbs <= startAbs) endAbs = startAbs + 30;  // fall back if user typed nonsense
+  }
+  const winStart = HOUR_START * 60;
+  const winEnd = HOUR_END * 60;
+  if (endAbs <= winStart || startAbs >= winEnd) return null;
+  return {
+    startMin: Math.max(startAbs, winStart) - winStart,
+    endMin: Math.min(endAbs, winEnd) - winStart,
+  };
 }

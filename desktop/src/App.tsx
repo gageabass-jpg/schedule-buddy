@@ -6,7 +6,9 @@ export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
 export type CalLayout = "day" | "week" | "month" | "year";
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
-import { buildShiftMap, type HouseholdState } from "./state";
+import { buildShiftMap, type Event, type HouseholdState } from "./state";
+
+export type EventMap = Record<string, Event[]>;
 import { Sidebar } from "./components/Sidebar";
 import { MonthGrid } from "./components/MonthGrid";
 import { Inspector } from "./components/Inspector";
@@ -19,6 +21,8 @@ import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModa
 import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
 import { ScheduleImportModal } from "./components/ScheduleImportModal";
 import { ApiKeySettings } from "./components/ApiKeySettings";
+import { EventModal } from "./components/EventModal";
+import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
 const PALETTE: PaletteName = "modern";
@@ -51,6 +55,8 @@ function ManagerApp() {
   const [importScheduleId, setImportScheduleId] = useState<string | null>(null);
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -66,10 +72,27 @@ function ManagerApp() {
     return () => { unsub?.(); };
   }, []);
 
+  // File → New Event… (Cmd+E).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuNewEvent(() => {
+      setEventEditTarget(null);
+      setEventModalOpen(true);
+    });
+    return () => { unsub?.(); };
+  }, []);
+
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
   const state: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
+
+  const eventsByDate: EventMap = useMemo(() => {
+    const out: EventMap = {};
+    for (const e of state?.events ?? []) {
+      (out[e.date] ??= []).push(e);
+    }
+    return out;
+  }, [state?.events]);
 
   const shifts: ShiftMap = useMemo(() => {
     if (!state) return DEMO_SHIFTS;
@@ -290,6 +313,9 @@ function ManagerApp() {
         viewFilter={viewFilter}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
+        eventsByDate={eventsByDate}
+        onNewEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
+        onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
       />
       <Inspector
         selected={selected}
@@ -301,6 +327,9 @@ function ManagerApp() {
         partnerName={partnerName}
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
+        events={eventsByDate[selected] ?? []}
+        onAddEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
+        onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
       />
       <NewShiftModal
         open={newShiftOpen}
@@ -356,6 +385,17 @@ function ManagerApp() {
         onClose={() => setApiKeyOpen(false)}
         palette={palette}
         t={t}
+      />
+      <EventModal
+        open={eventModalOpen}
+        onClose={() => setEventModalOpen(false)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdId}
+        state={state}
+        defaultDate={selected}
+        editing={eventEditTarget}
       />
     </div>
   );

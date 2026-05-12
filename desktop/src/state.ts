@@ -64,6 +64,23 @@ export interface ImportRecord {
   noteCount: number;           // total shifts written
 }
 
+export type EventWho = "G" | "K" | "Daisy" | "family";
+
+/** A personal appointment / non-work commitment that lives alongside shifts. */
+export interface Event {
+  id: string;                  // ev_<random>
+  date: string;                // YYYY-MM-DD
+  startTime?: string;          // HH:MM, omitted = all-day
+  endTime?: string;            // HH:MM
+  title: string;
+  who: EventWho;
+  notes?: string;
+}
+
+export function generateEventId(): string {
+  return `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export interface HouseholdState {
   shiftTypes: ShiftType[];
   template: Array<string | null>;  // 7 entries, Sun..Sat
@@ -88,6 +105,8 @@ export interface HouseholdState {
   dependents?: { daisy?: DependentBlock };
   /** Audit trail of every photo import the manager has run. */
   imports?: ImportRecord[];
+  /** Personal appointments / non-work commitments. */
+  events?: Event[];
   _migrations: string[];
 }
 

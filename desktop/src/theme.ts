@@ -89,3 +89,17 @@ export function dayColors(kind: DayKind, palette: Palette, dark: boolean) {
 export function personColor(who: "G" | "K", palette: Palette): string {
   return who === "G" ? palette.G : palette.K;
 }
+
+/** Color for an Event chip's tint + icon. "family" uses the BOTH (purple) accent;
+ *  "Daisy" gets a green tint distinct from anyone else. */
+export function eventColor(
+  who: "G" | "K" | "Daisy" | "family",
+  palette: Palette,
+): string {
+  switch (who) {
+    case "G": return palette.G;
+    case "K": return palette.K;
+    case "Daisy": return "#30D158";  // iOS systemGreen
+    case "family": return palette.BOTH;
+  }
+}

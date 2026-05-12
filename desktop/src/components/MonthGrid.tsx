@@ -1,7 +1,7 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
-import type { CalLayout, ViewFilter } from "../App";
-import type { HouseholdState } from "../state";
-import { dayColors, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import type { CalLayout, EventMap, ViewFilter } from "../App";
+import type { Event as SbEvent, HouseholdState } from "../state";
+import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -29,6 +29,9 @@ interface Props {
   onSetCalLayout: (layout: CalLayout) => void;
   selfName: string;
   partnerName: string;
+  eventsByDate: EventMap;
+  onNewEvent: () => void;
+  onEditEvent: (ev: SbEvent) => void;
 }
 
 const MONTH_LABELS = [
@@ -40,6 +43,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
+  eventsByDate, onNewEvent, onEditEvent,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -135,6 +139,13 @@ export function MonthGrid({
         </button>
         <button
           type="button"
+          onClick={onNewEvent}
+          style={secondaryToolbarBtn(t)}
+        >
+          + Event
+        </button>
+        <button
+          type="button"
           onClick={onNewShift}
           style={{
             display: "flex",
@@ -181,6 +192,8 @@ export function MonthGrid({
           selected={selected}
           today={today}
           onSelectDate={onSelectDate}
+          eventsByDate={eventsByDate}
+          onEditEvent={onEditEvent}
         />
       )}
 
@@ -195,6 +208,8 @@ export function MonthGrid({
           today={today}
           selfName={selfName}
           partnerName={partnerName}
+          events={eventsByDate[selected] ?? []}
+          onEditEvent={onEditEvent}
         />
       )}
 
@@ -276,38 +291,80 @@ export function MonthGrid({
                       >
                         {c.d}
                       </span>
-                      {dayShifts && dayShifts.length > 1 && (
-                        <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{dayShifts.length}</span>
-                      )}
+                      {(() => {
+                        const dayEvents = eventsByDate[key] ?? [];
+                        const totalItems = (dayShifts?.length ?? 0) + dayEvents.length;
+                        return totalItems > 1 ? (
+                          <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{totalItems}</span>
+                        ) : null;
+                      })()}
                     </div>
-                    {dayShifts && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {dayShifts.slice(0, 3).map((s, i) => {
-                          const color = personColor(s.who, palette);
-                          return (
-                            <div
-                              key={i}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontSize: 10.5,
-                                fontWeight: 600,
-                                letterSpacing: "-0.01em",
-                                padding: "1px 5px",
-                                borderRadius: 4,
-                                background: flat ? color : rgba(color, 0.28),
-                                color: flat ? "#fff" : t.text,
-                                borderLeft: flat ? "none" : `2px solid ${color}`,
-                              }}
-                            >
-                              <span style={{ opacity: 0.85 }}>{s.who}</span>
-                              <span>{s.label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const dayEvents = eventsByDate[key] ?? [];
+                      const shiftSlice = (dayShifts ?? []).slice(0, 3);
+                      const eventSlice = dayEvents.slice(0, Math.max(0, 3 - shiftSlice.length));
+                      if (shiftSlice.length === 0 && eventSlice.length === 0) return null;
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {shiftSlice.map((s, i) => {
+                            const color = personColor(s.who, palette);
+                            return (
+                              <div
+                                key={`s${i}`}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 10.5,
+                                  fontWeight: 600,
+                                  letterSpacing: "-0.01em",
+                                  padding: "1px 5px",
+                                  borderRadius: 4,
+                                  background: flat ? color : rgba(color, 0.28),
+                                  color: flat ? "#fff" : t.text,
+                                  borderLeft: flat ? "none" : `2px solid ${color}`,
+                                }}
+                              >
+                                <span style={{ opacity: 0.85 }}>{s.who}</span>
+                                <span>{s.label}</span>
+                              </div>
+                            );
+                          })}
+                          {eventSlice.map((ev) => {
+                            const color = eventColor(ev.who, palette);
+                            return (
+                              <div
+                                key={ev.id}
+                                onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 10.5,
+                                  fontWeight: 500,
+                                  letterSpacing: "-0.01em",
+                                  padding: "1px 5px",
+                                  borderRadius: 4,
+                                  background: "transparent",
+                                  color: t.text,
+                                  border: `1px dashed ${rgba(color, 0.7)}`,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  cursor: "pointer",
+                                }}
+                                title={ev.title}
+                              >
+                                <span style={{ fontSize: 9, opacity: 0.7 }}>◷</span>
+                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {ev.startTime ? `${formatChipTime(ev.startTime)} ` : ""}{ev.title}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </button>
                 );
               })}
@@ -374,6 +431,18 @@ function ToolbarTitle({
       {light(String(date.getFullYear()))}
     </>
   );
+}
+
+/** Compact "07:00" → "7a", "13:30" → "1:30p" for tight cell chips. */
+function formatChipTime(hhmm: string): string {
+  const [hStr, mStr] = hhmm.split(":");
+  const h = Number(hStr) || 0;
+  const m = Number(mStr) || 0;
+  const mSuffix = m === 0 ? "" : `:${String(m).padStart(2, "0")}`;
+  if (h === 0) return `12${mSuffix}a`;
+  if (h === 12) return `12${mSuffix}p`;
+  if (h < 12) return `${h}${mSuffix}a`;
+  return `${h - 12}${mSuffix}p`;
 }
 
 function navBtn(t: ThemeTokens): React.CSSProperties {
