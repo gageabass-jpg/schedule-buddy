@@ -1496,6 +1496,65 @@
   .shift-pill[data-who="g"]    { background: var(--color-g); color: #fff; }
   .shift-pill[data-who="k"]    { background: var(--color-k); color: #fff; }
   .shift-pill[data-who="both"] { background: var(--color-both); color: #fff; }
+
+  /* Event chip — dashed outline, letter prefix; distinguishes events from
+     filled shift pills at a glance. Authored on the desktop manager. */
+  .ev-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9.5px;
+    font-weight: 500;
+    line-height: 1.1;
+    padding: 1px 5px;
+    border-radius: 5px;
+    border: 1px dashed currentColor;
+    background: transparent;
+    color: var(--text);
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .ev-chip .ev-chip-letter {
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .ev-chip .ev-chip-text {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  @media (max-width: 768px) {
+    .ev-chip { font-size: 8.5px; padding: 1px 4px; gap: 3px; }
+    .ev-chip .ev-chip-letter { font-size: 8px; }
+  }
+  /* Cell stacking gap so events sit under shifts cleanly */
+  .cal-shifts { display: flex; flex-direction: column; gap: 2px; }
+
+  /* Outlined block on the Week rail for time-anchored events */
+  .week-rail-event {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border: 1px dashed currentColor;
+    background: transparent;
+    border-radius: 6px;
+    padding: 2px 5px;
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .week-rail-event .ev-letter { font-weight: 700; font-size: 9px; flex-shrink: 0; }
+  .week-rail-event .ev-title  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   .cal-ot-icon {
     position: absolute;
     top: 4px;
@@ -5712,6 +5771,46 @@ function compactTime(t) {
   return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2,"0")}${suffix}`;
 }
 
+// ---------- Events (read-only on iOS; created on the desktop manager) ----------
+function getEventsForDate(dateISO) {
+  if (!Array.isArray(state.events)) return [];
+  return state.events.filter(e => e && e.date === dateISO);
+}
+function eventInitial(who) {
+  if (who === "G") return "G";
+  if (who === "K") return "K";
+  if (who === "Daisy") return "D";
+  return "F";
+}
+function eventCSSColor(who) {
+  switch (who) {
+    case "G":     return "var(--color-g)";
+    case "K":     return "var(--color-k)";
+    case "Daisy": return "var(--color-off)";    // systemGreen
+    case "family":return "var(--color-both)";
+    default:      return "var(--text-2)";
+  }
+}
+/** Outlined chip used inside Month cells + Agenda rows. */
+function eventChipHTML(ev) {
+  const color = eventCSSColor(ev.who);
+  const initial = eventInitial(ev.who);
+  const timePart = ev.startTime ? `${compactTime(ev.startTime)} ` : "";
+  return `<span class="ev-chip" style="border-color:${color};">
+    <span class="ev-chip-letter" style="color:${color};">${initial}</span>
+    <span class="ev-chip-text">${timePart}${escapeHTML(ev.title || "")}</span>
+  </span>`;
+}
+/** Compact list row used inside the tap-day tooltip. */
+function eventTooltipRowHTML(ev) {
+  const color = eventCSSColor(ev.who);
+  const time = ev.startTime ? `${compactTime(ev.startTime)}${ev.endTime ? `–${compactTime(ev.endTime)}` : ""}` : "All day";
+  return `<div class="tt-row">
+    <span class="tt-label" style="color:${color};">${eventInitial(ev.who)} · ${escapeHTML(ev.title || "")}</span>
+    <span class="tt-val">${time}</span>
+  </div>`;
+}
+
 function shiftHours(e) {
   const sD = parseISODate(e.startDate), eD = parseISODate(e.endDate);
   const startMin = Math.round((sD - sD) / 60000) + parseHM(e.startTime);
@@ -5931,6 +6030,10 @@ function renderTodayRibbon(gageEvts, kayEvts) {
       chipsHTML += `<span class="sb-chip" data-who="K"><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}</span>`;
     }
   }
+  // Today's events join the chip strip after shifts
+  for (const ev of getEventsForDate(todayISO)) {
+    chipsHTML += eventChipHTML(ev);
+  }
   chipsEl.innerHTML = chipsHTML;
 
   ribbon.dataset.kind = kind;
@@ -6061,13 +6164,15 @@ function renderMonthView(gageEvts, kayEvts, view) {
     }
 
     const pillsHTML = cell.labels.map(l => l.html).join("");
+    const dayEvents = getEventsForDate(dISO);
+    const eventsHTML = dayEvents.slice(0, 2).map(eventChipHTML).join("");
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
 
     html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}"
                   data-date="${dISO}" data-kind="${kind}" style="background:${bg}">
       <div class="cal-date${isToday ? " today" : ""}">${day.getDate()}</div>
       ${otIcon}
-      <div class="cal-shifts">${pillsHTML}</div>
+      <div class="cal-shifts">${pillsHTML}${eventsHTML}</div>
     </div>`;
   }
   document.getElementById("calGrid").innerHTML = html;
@@ -6146,7 +6251,23 @@ function renderWeekView(gageEvts, kayEvts, view) {
         ${b.who} · ${compactTime(b.e.startTime)}
       </div>`;
     }).join("");
-    return `<div class="week-rail-col">${blocksHTML}</div>`;
+
+    // Outlined event blocks for timed events on this day
+    const eventBlocksHTML = getEventsForDate(dISO).map(ev => {
+      if (!ev.startTime) return "";   // all-day events skipped from the rail
+      const sh = parseHM(ev.startTime) / 60;
+      const eh = ev.endTime ? parseHM(ev.endTime) / 60 : sh + 1;   // default 1hr block
+      const top = Math.max(0, Math.min(100, ((sh - RAIL_TOP_HOUR) / railHours) * 100));
+      const bottom = Math.max(0, Math.min(100, ((eh - RAIL_TOP_HOUR) / railHours) * 100));
+      const heightPct = Math.max(6, bottom - top);
+      const color = eventCSSColor(ev.who);
+      return `<div class="week-rail-event" style="top:${top}%;height:${heightPct}%;color:${color};" title="${escapeHTML(ev.title || "")}">
+        <span class="ev-letter">${eventInitial(ev.who)}</span>
+        <span class="ev-title">${escapeHTML(ev.title || "")}</span>
+      </div>`;
+    }).join("");
+
+    return `<div class="week-rail-col">${blocksHTML}${eventBlocksHTML}</div>`;
   }).join("");
 }
 
@@ -6212,6 +6333,8 @@ function renderAgendaView(gageEvts, kayEvts, view) {
       }
     }
 
+    const eventsHTML = getEventsForDate(dISO).map(eventChipHTML).join("");
+
     return `<div class="agenda-row${isToday ? " today" : ""}" data-kind="${kind}" data-date="${dISO}">
       <div class="agenda-date">
         <div class="ad-dow">${dowFull[d.getDay()]}</div>
@@ -6221,7 +6344,7 @@ function renderAgendaView(gageEvts, kayEvts, view) {
       <div class="agenda-rail"></div>
       <div class="agenda-body">
         <div class="agenda-title">${title}</div>
-        ${chipsHTML ? `<div class="agenda-chips">${chipsHTML}</div>` : ""}
+        ${(chipsHTML || eventsHTML) ? `<div class="agenda-chips">${chipsHTML}${eventsHTML}</div>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -6312,6 +6435,11 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
   const cc = da.childcare === "gap" ? "Gap" : da.childcare === "solo" ? "Solo parent" : "Covered";
   const couple = `${da.coupleHours || 0}h`;
 
+  const dayEvents = getEventsForDate(dateISO);
+  const eventsBlock = dayEvents.length
+    ? `<div class="tt-divider"></div>${dayEvents.map(eventTooltipRowHTML).join("")}`
+    : "";
+
   const tip = _getTip();
   tip.innerHTML = `
     <div class="tt-top-bar"><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>
@@ -6323,6 +6451,7 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
     <div class="tt-row"><span class="tt-label">Rest (${escapeHTML(partner)})</span><span class="tt-val">${restK}</span></div>
     <div class="tt-row"><span class="tt-label">Childcare</span><span class="tt-val">${cc}</span></div>
     <div class="tt-row"><span class="tt-label">Couple time</span><span class="tt-val">${couple}</span></div>
+    ${eventsBlock}
   `;
   // If OT is available on this day, add a tappable ⚡ button after the divider
   const otOps = getOTOpportunities(dateISO);
