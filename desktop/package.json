@@ -2,6 +2,7 @@
   "name": "schedule-buddy-manager",
   "version": "0.1.0",
   "description": "Schedule Buddy Manager — desktop companion to the iOS Schedule Buddy app",
+  "author": "Gage Bass",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
@@ -9,7 +10,8 @@
     "build:web": "tsc -p tsconfig.json && vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:web && npm run build:electron",
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --mac --arm64 --x64"
   },
   "dependencies": {
     "firebase": "^12.13.0",
@@ -23,8 +25,42 @@
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
     "electron": "^42.0.1",
+    "electron-builder": "^25.1.8",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.gagebass.schedulebuddy.manager",
+    "productName": "Schedule Buddy Manager",
+    "copyright": "Copyright © 2026 Gage Bass",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Schedule Buddy Manager",
+      "iconSize": 96,
+      "contents": [
+        { "x": 130, "y": 220, "type": "file" },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    }
   }
 }

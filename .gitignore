@@ -25,6 +25,9 @@ ios/App/App/public/
 # Xcode derived data / build output
 DerivedData/
 build/
+# …but DO ship desktop/build/icon.png — electron-builder uses it.
+!desktop/build/
+!desktop/build/icon.png
 *.ipa
 *.dSYM
 *.dSYM.zip
@@ -46,3 +49,4 @@ ios/App/CapApp-SPM/Package.resolved.bak
 .env
 .env.local
 "desktop/dist-electron 2/"
+desktop/release/
