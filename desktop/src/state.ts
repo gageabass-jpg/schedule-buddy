@@ -121,6 +121,16 @@ export interface CoverageRequest {
   caregiverNote?: string;
   /** Why coverage is needed — populated by the overlap engine. */
   reason?: "both-working" | "work-and-sleep" | "both-sleeping";
+  /**
+   * True once a manager has acknowledged a declined / issue response.
+   * Declined+!reviewed entries stay visible on the caregiver's Schedule
+   * pane (red) so they don't worry the family missed the news; once
+   * reviewed, the row falls off their schedule but stays in the
+   * manager's full history.
+   */
+  managerReviewed?: boolean;
+  managerReviewedAt?: number;
+  managerReviewedBy?: string;
 }
 
 export function generateCoverageId(): string {

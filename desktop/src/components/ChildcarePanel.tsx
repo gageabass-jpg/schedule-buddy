@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
-import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
+import { deleteCoverageRequest, markCoverageReviewed, statusLabel } from "../lib/writeCoverageRequest";
+import { auth } from "../firebase";
 
 interface Props {
   open: boolean;
@@ -294,31 +295,61 @@ export function ChildcarePanel({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  title="Delete this request"
-                  disabled={busyId === r.id}
-                  onClick={async () => {
-                    if (!householdId) return;
-                    if (!window.confirm(`Delete coverage request for ${friendlyDate(r.date)}?`)) return;
-                    setBusyId(r.id);
-                    try { await deleteCoverageRequest(householdId, r.id); }
-                    catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't delete."); }
-                    finally { setBusyId(null); }
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: 0,
-                    color: t.text3,
-                    fontSize: 16,
-                    cursor: busyId === r.id ? "wait" : "pointer",
-                    padding: 4,
-                    lineHeight: 1,
-                    fontFamily: "inherit",
-                    alignSelf: "center",
-                  }}
-                  aria-label="Delete"
-                >✕</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                  {(r.status === "declined" || r.status === "issue") && !r.managerReviewed && (
+                    <button
+                      type="button"
+                      title="Mark this response as reviewed — drops it off the caregiver's schedule."
+                      disabled={busyId === r.id}
+                      onClick={async () => {
+                        if (!householdId) return;
+                        setBusyId(r.id);
+                        try { await markCoverageReviewed(householdId, r.id, auth.currentUser?.uid ?? null); }
+                        catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't mark reviewed."); }
+                        finally { setBusyId(null); }
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: `0.5px solid ${t.sep}`,
+                        borderRadius: 6,
+                        color: t.text2,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: busyId === r.id ? "wait" : "pointer",
+                        padding: "3px 8px",
+                        fontFamily: "inherit",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >Clear</button>
+                  )}
+                  {(r.status === "declined" || r.status === "issue") && r.managerReviewed && (
+                    <span style={{ fontSize: 10.5, color: t.text3, fontWeight: 500 }}>Reviewed</span>
+                  )}
+                  <button
+                    type="button"
+                    title="Delete this request"
+                    disabled={busyId === r.id}
+                    onClick={async () => {
+                      if (!householdId) return;
+                      if (!window.confirm(`Delete coverage request for ${friendlyDate(r.date)}?`)) return;
+                      setBusyId(r.id);
+                      try { await deleteCoverageRequest(householdId, r.id); }
+                      catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't delete."); }
+                      finally { setBusyId(null); }
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      color: t.text3,
+                      fontSize: 16,
+                      cursor: busyId === r.id ? "wait" : "pointer",
+                      padding: 4,
+                      lineHeight: 1,
+                      fontFamily: "inherit",
+                    }}
+                    aria-label="Delete"
+                  >✕</button>
+                </div>
               </div>
             ))
           )}

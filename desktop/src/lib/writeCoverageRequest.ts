@@ -96,7 +96,12 @@ export async function addCoverageRequests(
 export async function updateCoverageRequest(
   householdId: string,
   id: string,
-  patch: Partial<Pick<CoverageRequest, "startTime" | "endTime" | "endsNextDay" | "arriveBy" | "notes" | "status" | "caregiverNote">>,
+  patch: Partial<Pick<
+    CoverageRequest,
+    | "startTime" | "endTime" | "endsNextDay" | "arriveBy" | "notes"
+    | "status" | "caregiverNote"
+    | "managerReviewed" | "managerReviewedAt" | "managerReviewedBy"
+  >>,
 ): Promise<void> {
   const current = await readState(householdId);
   const list = [...(current.coverageRequests ?? [])];
@@ -104,6 +109,21 @@ export async function updateCoverageRequest(
   if (idx < 0) throw new WriteCoverageError("That coverage request no longer exists.");
   list[idx] = { ...list[idx], ...patch };
   await writeState(householdId, { ...current, coverageRequests: list });
+}
+
+/** Mark a declined / issue request as reviewed by a manager. The caregiver
+ *  stops seeing it on their Schedule pane; the manager still has the full
+ *  history in the Childcare panel. */
+export async function markCoverageReviewed(
+  householdId: string,
+  id: string,
+  reviewedBy: string | null,
+): Promise<void> {
+  await updateCoverageRequest(householdId, id, {
+    managerReviewed: true,
+    managerReviewedAt: Date.now(),
+    ...(reviewedBy ? { managerReviewedBy: reviewedBy } : {}),
+  });
 }
 
 export async function deleteCoverageRequest(householdId: string, id: string): Promise<void> {

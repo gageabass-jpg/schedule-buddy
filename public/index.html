@@ -3160,6 +3160,25 @@
     color: var(--text-dim); text-align: center; font-size: 13px;
     line-height: 1.5;
   }
+  .mc-actions { display: flex; justify-content: flex-end; margin-top: 2px; }
+  .mc-clear-btn {
+    background: transparent;
+    border: 0.5px solid var(--sep);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-clear-btn:active { transform: scale(0.97); }
+  .mc-reviewed {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
 
   /* ==================== Caregiver-only screen (role: supporting) ==================== */
   .cg-screen {
@@ -3167,18 +3186,17 @@
     min-height: 100dvh;
     background: var(--bg);
     color: var(--text);
-    /* env() can resolve to 0 in some Capacitor configs — use max() as a floor */
-    padding:
-      max(env(safe-area-inset-top, 0px), 44px) 16px
-      max(env(safe-area-inset-bottom, 0px), 16px);
-    padding-top: calc(max(env(safe-area-inset-top, 0px), 44px) + 16px);
+    /* body already supplies safe-area top/bottom padding. */
+    padding: 0;
+    /* Leave room at the bottom for the fixed caregiver tab bar. */
+    padding-bottom: 86px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     box-sizing: border-box;
   }
   .cg-header {
-    padding: 2px 4px 8px;
+    padding: 4px 4px 8px;
     border-bottom: 0.5px solid var(--sep);
   }
   .cg-eyebrow {
@@ -3327,6 +3345,140 @@
     cursor: pointer;
   }
   .cg-signout:active { color: var(--text); }
+
+  /* Caregiver: 3-pane structure (Schedule / Requests / Profile) */
+  .cg-pane { display: none; flex-direction: column; gap: 12px; padding: 0 16px; }
+  .cg-screen[data-cg-tab="schedule"] .cg-pane-schedule { display: flex; }
+  .cg-screen[data-cg-tab="requests"] .cg-pane-requests { display: flex; }
+  .cg-screen[data-cg-tab="profile"]  .cg-pane-profile  { display: flex; }
+
+  /* Status colors on the Schedule pane */
+  .cg-sched-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-left-width: 4px;
+  }
+  .cg-sched-row.pending   { border-left-color: #5E5CE6; }
+  .cg-sched-row.confirmed { border-left-color: #30D158; }
+  .cg-sched-row.declined  { border-left-color: #FF453A; }
+  .cg-sched-row.issue     { border-left-color: #FF9F0A; }
+  .cg-sched-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .cg-sched-dot.pending   { background: #5E5CE6; }
+  .cg-sched-dot.confirmed { background: #30D158; }
+  .cg-sched-dot.declined  { background: #FF453A; }
+  .cg-sched-dot.issue     { background: #FF9F0A; }
+  .cg-sched-info { min-width: 0; }
+  .cg-sched-day { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .cg-sched-time { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .cg-sched-status {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+  .cg-sched-status.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
+  .cg-sched-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .cg-sched-status.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
+  .cg-sched-status.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+
+  /* Caregiver profile pane */
+  .cg-profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 0 6px;
+  }
+  .cg-profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, #30D158, #34C7BE);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+    box-shadow: 0 6px 18px rgba(48,209,88,0.35);
+  }
+  .cg-profile-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .cg-profile-email { font-size: 13px; color: var(--text-dim); }
+  .cg-profile-row {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+    text-align: left;
+  }
+  .cg-profile-row.danger { color: #FF453A; }
+  .cg-profile-row.signout { color: var(--ot, #FF9F0A); }
+  .cg-profile-row:active { filter: brightness(0.95); }
+
+  /* Bottom tab bar (only visible inside the caregiver screen) */
+  .cg-tabs {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 0;
+    padding: 6px 0 max(env(safe-area-inset-bottom, 0px), 6px);
+    background: linear-gradient(to bottom, rgba(0,0,0,0), var(--bg) 40%);
+    z-index: 5;
+  }
+  .cg-tabs-inner {
+    margin: 0 auto;
+    max-width: 460px;
+    display: flex;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 22px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  .cg-tab {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--text-dim);
+    font-family: var(--font);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .cg-tab .cg-tab-label {
+    font-size: 11px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .cg-tab.active { color: #30D158; }
+  .cg-tab .cg-tab-badge {
+    position: absolute;
+    top: 4px;
+    right: 14%;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #FF453A;
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .cg-tab .cg-tab-badge[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -4021,20 +4173,63 @@
 </div><!-- end appScreen -->
 
 <!-- ==================== Caregiver-only screen (role: supporting) ==================== -->
-<section id="caregiverScreen" class="cg-screen" style="display:none;">
-  <header class="cg-header">
-    <div class="cg-eyebrow">Coverage requests</div>
+<section id="caregiverScreen" class="cg-screen" data-cg-tab="schedule" style="display:none;">
+  <header class="cg-header" style="padding-left:16px;padding-right:16px;">
+    <div class="cg-eyebrow" id="cgEyebrow">My schedule</div>
     <h1 class="cg-title" id="cgHouseholdName">Bass Household</h1>
     <div class="cg-sub" id="cgGreeting"></div>
   </header>
 
-  <div class="cg-list" id="cgRequestsList">
-    <div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>
+  <!-- SCHEDULE pane: assigned/accepted/declined-unreviewed -->
+  <div class="cg-pane cg-pane-schedule" id="cgPaneSchedule">
+    <div class="cg-empty" id="cgScheduleEmpty">Nothing assigned yet. As the family sends requests, they'll appear here.</div>
+    <div id="cgScheduleList"></div>
   </div>
 
-  <footer class="cg-footer">
-    <button type="button" class="cg-signout" id="cgSignOutBtn">Sign out</button>
-  </footer>
+  <!-- REQUESTS pane: list with Accept / Decline / Issue actions -->
+  <div class="cg-pane cg-pane-requests" id="cgPaneRequests">
+    <div class="cg-list" id="cgRequestsList">
+      <div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>
+    </div>
+  </div>
+
+  <!-- PROFILE pane: name / email / sign out / delete account -->
+  <div class="cg-pane cg-pane-profile" id="cgPaneProfile">
+    <div class="cg-profile-hero">
+      <span class="cg-profile-avatar" id="cgProfileAvatar">D</span>
+      <div class="cg-profile-name" id="cgProfileName">Caregiver</div>
+      <div class="cg-profile-email" id="cgProfileEmail"></div>
+    </div>
+    <button type="button" class="cg-profile-row signout" id="cgProfileSignOut">Sign out</button>
+    <button type="button" class="cg-profile-row danger" id="cgProfileDelete">Delete my account</button>
+  </div>
+
+  <!-- Bottom tab bar for the caregiver -->
+  <nav class="cg-tabs" aria-label="Caregiver sections">
+    <div class="cg-tabs-inner">
+      <button type="button" class="cg-tab active" data-cg-tab-btn="schedule" aria-label="Schedule">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Schedule</span>
+      </button>
+      <button type="button" class="cg-tab" data-cg-tab-btn="requests" aria-label="Requests">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Requests</span>
+        <span class="cg-tab-badge" id="cgRequestsBadge" hidden></span>
+      </button>
+      <button type="button" class="cg-tab" data-cg-tab-btn="profile" aria-label="Profile">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <span class="cg-tab-label">Profile</span>
+      </button>
+    </div>
+  </nav>
 </section>
 
 <!-- ==================== FIREBASE SDK (compat) ==================== -->
@@ -4541,16 +4736,54 @@ async function deleteOwnPushTokenDoc() {
 function initCaregiverScreen() {
   // Title defaults to "Bass Household" from the markup and gets replaced
   // by the real householdName as soon as state/main syncs.
+  const first = (currentUser.displayName || currentUser.email || "there").split(/\s+/)[0];
   const greetEl = document.getElementById("cgGreeting");
-  if (greetEl) {
-    const first = (currentUser.displayName || currentUser.email || "there").split(/\s+/)[0];
-    greetEl.textContent = `Hi ${first} — here's everything the family needs covered.`;
-  }
-  const out = document.getElementById("cgSignOutBtn");
+  if (greetEl) greetEl.textContent = `Hi ${first} — here's your latest from the family.`;
+
+  // Profile pane: name, email, avatar initial
+  const pName = document.getElementById("cgProfileName");
+  const pEmail = document.getElementById("cgProfileEmail");
+  const pAvatar = document.getElementById("cgProfileAvatar");
+  if (pName)  pName.textContent  = currentUser.displayName || currentUser.email || "Caregiver";
+  if (pEmail) pEmail.textContent = currentUser.email || "";
+  if (pAvatar) pAvatar.textContent = (first[0] || "?").toUpperCase();
+
+  // Tabs
+  document.querySelectorAll("[data-cg-tab-btn]").forEach((btn) => {
+    if (btn.__wired) return;
+    btn.__wired = true;
+    btn.addEventListener("click", () => setCaregiverTab(btn.getAttribute("data-cg-tab-btn")));
+  });
+
+  // Sign out + delete account
+  const out = document.getElementById("cgProfileSignOut");
   if (out && !out.__wired) {
     out.__wired = true;
     out.addEventListener("click", doSignOut);
   }
+  const del = document.getElementById("cgProfileDelete");
+  if (del && !del.__wired) {
+    del.__wired = true;
+    del.addEventListener("click", doDeleteAccount);
+  }
+}
+
+function setCaregiverTab(tab) {
+  const screen = document.getElementById("caregiverScreen");
+  if (!screen) return;
+  screen.setAttribute("data-cg-tab", tab);
+  document.querySelectorAll("[data-cg-tab-btn]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-cg-tab-btn") === tab);
+  });
+  // Eyebrow follows the active section
+  const eyebrow = document.getElementById("cgEyebrow");
+  if (eyebrow) {
+    eyebrow.textContent =
+      tab === "schedule" ? "My schedule" :
+      tab === "requests" ? "Coverage requests" :
+                            "Profile";
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // Caregivers only need to read/write `coverageRequests`. We still load the
@@ -4577,10 +4810,43 @@ function initCaregiverFirestoreSync() {
 function renderCaregiverScreen(requests) {
   const list = document.getElementById("cgRequestsList");
   if (!list) return;
+  requests = Array.isArray(requests) ? requests : [];
+
   // Reflect the live household name once the state doc has loaded.
   const nameEl = document.getElementById("cgHouseholdName");
   if (nameEl && state && state.householdName) nameEl.textContent = state.householdName;
-  // Pending first, then everything else by date.
+
+  // --- Requests tab badge (pending count) ---
+  const badge = document.getElementById("cgRequestsBadge");
+  const pending = requests.filter(r => r && r.status === "pending").length;
+  if (badge) {
+    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    else { badge.hidden = true; }
+  }
+
+  // --- Schedule pane: assigned + accepted + declined-not-yet-reviewed ---
+  // Declines that the manager has acknowledged drop off the caregiver's
+  // schedule so it stays focused on actionable / upcoming work.
+  const scheduleList = document.getElementById("cgScheduleList");
+  const scheduleEmpty = document.getElementById("cgScheduleEmpty");
+  if (scheduleList && scheduleEmpty) {
+    const scheduleRows = requests.filter(r => {
+      if (!r) return false;
+      if (r.status === "pending" || r.status === "confirmed") return true;
+      if ((r.status === "declined" || r.status === "issue") && !r.managerReviewed) return true;
+      return false;
+    }).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+    if (scheduleRows.length === 0) {
+      scheduleEmpty.style.display = "";
+      scheduleList.innerHTML = "";
+    } else {
+      scheduleEmpty.style.display = "none";
+      scheduleList.innerHTML = scheduleRows.map(caregiverScheduleRowHTML).join("");
+    }
+  }
+
+  // --- Requests pane: every request, action buttons on pending ---
   const sorted = requests.slice().sort((a, b) => {
     const ap = (a.status || "pending") === "pending" ? 0 : 1;
     const bp = (b.status || "pending") === "pending" ? 0 : 1;
@@ -4600,6 +4866,36 @@ function renderCaregiverScreen(requests) {
       handleCaregiverAction(id, action);
     });
   });
+}
+
+function caregiverScheduleRowHTML(r) {
+  const status = r.status || "pending";
+  const statusLabel =
+    status === "confirmed" ? "Accepted" :
+    status === "declined"  ? "Declined" :
+    status === "issue"     ? "Issue"    : "Assigned";
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+      });
+    }
+  } catch (_) {}
+  const start = escapeHtml(r.startTime || "");
+  const end = escapeHtml(r.endTime || "");
+  const arrive = r.arriveBy ? ` · arrive ${escapeHtml(r.arriveBy)}` : "";
+  const nextDay = r.endsNextDay ? " +1d" : "";
+  return `
+    <div class="cg-sched-row ${status}">
+      <span class="cg-sched-dot ${status}" aria-hidden="true"></span>
+      <div class="cg-sched-info">
+        <div class="cg-sched-day">${escapeHtml(dayLabel)}</div>
+        <div class="cg-sched-time">${start} → ${end}${nextDay}${arrive}</div>
+      </div>
+      <span class="cg-sched-status ${status}">${statusLabel}</span>
+    </div>`;
 }
 
 function caregiverCardHTML(r) {
@@ -4737,6 +5033,35 @@ function renderManagerChildcare(requests) {
   }
 
   list.innerHTML = filtered.map(mcCardHTML).join("");
+  list.querySelectorAll("[data-mc-clear]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-mc-clear");
+      handleManagerClear(id);
+    });
+  });
+}
+
+async function handleManagerClear(id) {
+  if (!householdId || !id || !currentUser) return;
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    list[idx] = {
+      ...list[idx],
+      managerReviewed: true,
+      managerReviewedAt: Date.now(),
+      managerReviewedBy: currentUser.uid,
+    };
+    await ref.set({ ...data, coverageRequests: list });
+  } catch (e) {
+    console.error("manager clear failed:", e);
+    alert("Couldn't mark reviewed. Check your connection.");
+  }
 }
 
 function mcCardHTML(r) {
@@ -4770,6 +5095,12 @@ function mcCardHTML(r) {
                                  "Caregiver noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
     : "";
 
+  const needsReview = (status === "declined" || status === "issue") && !r.managerReviewed;
+  const clearBtn = needsReview
+    ? `<button type="button" class="mc-clear-btn" data-mc-clear="${escapeHtml(r.id || "")}">Clear</button>`
+    : (status === "declined" || status === "issue") && r.managerReviewed
+      ? `<span class="mc-reviewed">Reviewed</span>` : "";
+
   return `
     <article class="mc-card ${status}">
       <div class="mc-card-head">
@@ -4783,6 +5114,7 @@ function mcCardHTML(r) {
       </div>
       ${notesBlock}
       ${cgNoteBlock}
+      ${clearBtn ? `<div class="mc-actions">${clearBtn}</div>` : ""}
     </article>`;
 }
 
