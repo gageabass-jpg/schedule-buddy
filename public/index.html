@@ -2697,6 +2697,109 @@
   }
   .profile-signout-btn:hover  { filter: brightness(1.05); }
   .profile-signout-btn:active { transform: scale(0.98); }
+  .profile-secondary-btn {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: filter 0.12s, transform 0.06s ease;
+    -webkit-tap-highlight-color: transparent;
+    margin-bottom: 10px;
+  }
+  .profile-secondary-btn:hover  { filter: brightness(1.05); }
+  .profile-secondary-btn:active { transform: scale(0.98); }
+
+  /* ===== Family code modal ===== */
+  .code-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s, visibility 0.22s;
+    z-index: 1100;
+  }
+  .code-modal-backdrop.open { opacity: 1; visibility: visible; }
+  .code-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.96);
+    width: min(360px, calc(100vw - 32px));
+    background: var(--bg-elev);
+    color: var(--text);
+    border-radius: 18px;
+    padding: 22px 22px 18px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+    z-index: 1101;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s, visibility 0.22s, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .code-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+  .code-modal-title {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  .code-modal-sub {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    color: var(--text-2);
+    line-height: 1.45;
+    text-align: center;
+  }
+  .code-modal-code {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-align: center;
+    padding: 14px 12px;
+    border-radius: 12px;
+    background: var(--bg-elev2);
+    border: 0.5px solid var(--sep);
+    user-select: all;
+    -webkit-user-select: all;
+    margin-bottom: 14px;
+  }
+  .code-modal-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .code-modal-copy,
+  .code-modal-close {
+    flex: 1;
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+    transition: filter 0.12s, transform 0.06s ease;
+  }
+  .code-modal-copy {
+    border: 0;
+    background: var(--color-g);
+    color: #FFFFFF;
+  }
+  .code-modal-copy.copied { background: var(--ok); }
+  .code-modal-close {
+    background: transparent;
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+  }
+  .code-modal-copy:active,
+  .code-modal-close:active { transform: scale(0.98); }
 
   /* Notification bell */
   .notif-btn {
@@ -3452,7 +3555,20 @@
 
     <div class="profile-spacer"></div>
 
+    <button class="profile-secondary-btn" id="viewFamilyCodeBtn" type="button">View Family Code</button>
     <button class="profile-signout-btn" id="profileSignOutBtn" type="button">Sign Out</button>
+  </div>
+
+  <!-- Family Code modal -->
+  <div class="code-modal-backdrop" id="codeModalBackdrop"></div>
+  <div class="code-modal" id="codeModal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle">
+    <h3 class="code-modal-title" id="codeModalTitle">Family Code</h3>
+    <p class="code-modal-sub">Share this with someone to invite them to your household.</p>
+    <div class="code-modal-code" id="codeModalCode">——————</div>
+    <div class="code-modal-actions">
+      <button class="code-modal-copy" id="codeModalCopyBtn" type="button">Copy</button>
+      <button class="code-modal-close" id="codeModalCloseBtn" type="button">Done</button>
+    </div>
   </div>
 
   <!-- Preview & Export toggle (desktop only) -->
@@ -3934,6 +4050,72 @@ if (profileSignOut) profileSignOut.addEventListener("click", doSignOut);
 const reqEventBtn = document.getElementById("requestEventBtn");
 if (reqEventBtn) reqEventBtn.addEventListener("click", () => {
   alert("Request Event\n\nThis will let you ask the schedule manager to add a shift on your behalf. Coming soon.");
+});
+
+// View Family Code — opens a modal showing the household's invite code with
+// a Copy button. Pulls from the cached householdData populated by
+// resolveHousehold.
+const codeModal = document.getElementById("codeModal");
+const codeModalBackdrop = document.getElementById("codeModalBackdrop");
+const codeModalCode = document.getElementById("codeModalCode");
+const codeModalCopyBtn = document.getElementById("codeModalCopyBtn");
+const codeModalCloseBtn = document.getElementById("codeModalCloseBtn");
+const viewFamilyCodeBtn = document.getElementById("viewFamilyCodeBtn");
+
+function openCodeModal() {
+  const code = (householdData && householdData.inviteCode) || "";
+  if (!code) {
+    alert("No invite code is available yet for this household.");
+    return;
+  }
+  codeModalCode.textContent = code;
+  codeModalCopyBtn.textContent = "Copy";
+  codeModalCopyBtn.classList.remove("copied");
+  codeModal.classList.add("open");
+  codeModalBackdrop.classList.add("open");
+}
+function closeCodeModal() {
+  codeModal.classList.remove("open");
+  codeModalBackdrop.classList.remove("open");
+}
+
+if (viewFamilyCodeBtn) viewFamilyCodeBtn.addEventListener("click", openCodeModal);
+if (codeModalCloseBtn) codeModalCloseBtn.addEventListener("click", closeCodeModal);
+if (codeModalBackdrop)  codeModalBackdrop.addEventListener("click", closeCodeModal);
+
+if (codeModalCopyBtn) codeModalCopyBtn.addEventListener("click", async () => {
+  const code = codeModalCode.textContent || "";
+  let ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(code);
+      ok = true;
+    }
+  } catch (_) {
+    ok = false;
+  }
+  if (!ok) {
+    // Fallback for older WebKit / restricted contexts.
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = code;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      ok = true;
+    } catch (_) { /* swallow */ }
+  }
+  if (ok) {
+    codeModalCopyBtn.textContent = "Copied";
+    codeModalCopyBtn.classList.add("copied");
+    setTimeout(() => {
+      codeModalCopyBtn.textContent = "Copy";
+      codeModalCopyBtn.classList.remove("copied");
+    }, 1400);
+  }
 });
 
 function cleanupListeners() {
