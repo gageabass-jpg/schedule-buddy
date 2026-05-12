@@ -16,6 +16,7 @@ interface Props {
   onNext: () => void;
   onToday: () => void;
   onNewShift: () => void;
+  onEditTemplate: () => void;
 }
 
 const MONTH_LABELS = [
@@ -25,7 +26,7 @@ const MONTH_LABELS = [
 
 export function MonthGrid({
   palette, t, dark, flat, shifts, viewYear, viewMonth, selected, today,
-  onSelectDate, onPrev, onNext, onToday, onNewShift,
+  onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -88,6 +89,25 @@ export function MonthGrid({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={onEditTemplate}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "5px 11px",
+            borderRadius: 6,
+            border: `0.5px solid ${t.sep}`,
+            background: "transparent",
+            color: t.text,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Template
+        </button>
         <button
           type="button"
           onClick={onNewShift}
