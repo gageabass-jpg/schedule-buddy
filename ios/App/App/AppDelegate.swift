@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -26,7 +27,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Capacitor's WKWebView ships with rubber-band scrolling effectively
+        // disabled. Re-enable bouncing here so the page rubber-bands at the
+        // top and bottom like a native iOS scroll view. Done on every
+        // become-active in case the webview gets recreated.
+        DispatchQueue.main.async {
+            if let webView = AppDelegate.findWKWebView() {
+                webView.scrollView.bounces = true
+                webView.scrollView.alwaysBounceVertical = true
+            }
+        }
+    }
+
+    private static func findWKWebView() -> WKWebView? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let windows = scenes.flatMap { $0.windows }
+        guard let keyWindow = windows.first(where: { $0.isKeyWindow }) ?? windows.first else {
+            return nil
+        }
+        return findWKWebView(in: keyWindow)
+    }
+
+    private static func findWKWebView(in view: UIView) -> WKWebView? {
+        if let wv = view as? WKWebView { return wv }
+        for sub in view.subviews {
+            if let wv = findWKWebView(in: sub) { return wv }
+        }
+        return nil
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
