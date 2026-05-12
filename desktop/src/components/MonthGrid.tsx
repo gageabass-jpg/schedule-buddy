@@ -34,6 +34,16 @@ export function MonthGrid({
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
+  // Sun..Sat range that contains "today", as ISO strings for cheap comparison.
+  const [ty, tm, td] = today.split("-").map(Number);
+  const todayDate = new Date(ty, tm - 1, td);
+  const weekStartDate = new Date(todayDate);
+  weekStartDate.setDate(todayDate.getDate() - todayDate.getDay());
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+  const weekStartKey = fmtDate(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
+  const weekEndKey = fmtDate(weekEndDate.getFullYear(), weekEndDate.getMonth(), weekEndDate.getDate());
+
   return (
     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Toolbar */}
@@ -160,7 +170,8 @@ export function MonthGrid({
                 const matchesFilter =
                   viewFilter === "all" ||
                   (viewFilter === "both" && kind === "both") ||
-                  (viewFilter === "couple" && kind === "off");
+                  (viewFilter === "couple" && kind === "off") ||
+                  (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey);
                 const cellOpacity = c.other ? 0.4 : matchesFilter ? 1 : 0.3;
                 return (
                   <button

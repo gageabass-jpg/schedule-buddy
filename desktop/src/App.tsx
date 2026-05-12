@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
-export type ViewFilter = "all" | "both" | "couple";
+export type ViewFilter = "all" | "this-week" | "both" | "couple";
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { buildShiftMap, type HouseholdState } from "./state";
@@ -200,7 +200,14 @@ function ManagerApp() {
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
-        onJumpToThisWeek={() => {
+        onToggleThisWeek={() => {
+          if (viewFilter === "this-week") {
+            setViewFilter("all");
+            return;
+          }
+          // Filter to this-week AND jump the calendar to today so the
+          // highlighted week is in view.
+          setViewFilter("this-week");
           setViewYear(tY);
           setViewMonth(tM - 1);
           setSelected(fmtDate(tY, tM - 1, tD));

@@ -21,13 +21,13 @@ interface SidebarProps {
   viewFilter: ViewFilter;
   viewCounts: { all: number; both: number; couple: number; week: number };
   onSetViewFilter: (f: ViewFilter) => void;
-  onJumpToThisWeek: () => void;
+  onToggleThisWeek: () => void;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onSignOut,
-  viewFilter, viewCounts, onSetViewFilter, onJumpToThisWeek,
+  viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek,
 }: SidebarProps) {
   return (
     <div
@@ -102,7 +102,8 @@ export function Sidebar({
           icon="◐"
           label="This week"
           count={viewCounts.week}
-          onClick={onJumpToThisWeek}
+          active={viewFilter === "this-week"}
+          onClick={onToggleThisWeek}
           t={t}
         />
         <ListRow
