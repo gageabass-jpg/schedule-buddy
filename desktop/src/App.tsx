@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
-import { fmtDate, DEMO_SHIFTS, type ShiftMap } from "./data";
+import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
+
+export type ViewFilter = "all" | "both" | "couple";
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { buildShiftMap, type HouseholdState } from "./state";
@@ -15,7 +17,6 @@ import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
 import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
 import { deleteShift } from "./lib/writeShift";
-import type { Shift } from "./data";
 
 const PALETTE: PaletteName = "modern";
 const DARK = true;
@@ -43,6 +44,7 @@ function ManagerApp() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [shiftTypesOpen, setShiftTypesOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditShiftTarget | null>(null);
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -66,6 +68,41 @@ function ManagerApp() {
     const to = fmtDate(viewYear, viewMonth + 1, lastOfNext);
     return buildShiftMap(state, from, to);
   }, [state, viewYear, viewMonth]);
+
+  // Counts shown next to the Views entries in the sidebar.
+  // All / Both / Couple are scoped to the visible month; This week scans the
+  // calendar week (Sun..Sat) containing today.
+  const viewCounts = useMemo(() => {
+    let all = 0;
+    let both = 0;
+    let couple = 0;
+    const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
+    for (let d = 1; d <= lastDay; d++) {
+      const key = fmtDate(viewYear, viewMonth, d);
+      const list = shifts[key];
+      if (!list || list.length === 0) {
+        couple++;
+        continue;
+      }
+      all += list.length;
+      const hasG = list.some((s) => s.who === "G");
+      const hasK = list.some((s) => s.who === "K");
+      if (hasG && hasK) both++;
+    }
+
+    let week = 0;
+    const today = new Date(tY, tM - 1, tD);
+    const dow = today.getDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - dow);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const key = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
+      week += (shifts[key] ?? []).length;
+    }
+    return { all, both, couple, week };
+  }, [shifts, viewYear, viewMonth, tY, tM, tD]);
 
   const householdName = state ? `${state.selfName || "Bass"} household` : "Schedule Buddy";
   const selfName = state?.selfName ?? "Self";
@@ -160,6 +197,14 @@ function ManagerApp() {
         memberCount={memberCount}
         syncStatus={syncStatus}
         onSignOut={() => { void doSignOut(); }}
+        viewFilter={viewFilter}
+        viewCounts={viewCounts}
+        onSetViewFilter={setViewFilter}
+        onJumpToThisWeek={() => {
+          setViewYear(tY);
+          setViewMonth(tM - 1);
+          setSelected(fmtDate(tY, tM - 1, tD));
+        }}
       />
       <MonthGrid
         palette={palette}
@@ -178,6 +223,7 @@ function ManagerApp() {
         onNewShift={() => setNewShiftOpen(true)}
         onEditTemplate={() => setTemplateOpen(true)}
         onEditShiftTypes={() => setShiftTypesOpen(true)}
+        viewFilter={viewFilter}
       />
       <Inspector
         selected={selected}
