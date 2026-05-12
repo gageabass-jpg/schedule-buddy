@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB04D"/>
+      <stop offset="100%" stop-color="#D2691E"/>
+    </linearGradient>
+    <linearGradient id="cal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+
+  <g transform="translate(166,195) scale(7.2)">
+    <rect x="20" y="2" width="6" height="14" rx="3" fill="url(#cal)"/>
+    <rect x="70" y="2" width="6" height="14" rx="3" fill="url(#cal)"/>
+    <rect x="4" y="8" width="88" height="76" rx="20" fill="url(#cal)"/>
+    <circle cx="20" cy="36" r="4.5" fill="#3A3A3C"/>
+    <circle cx="34" cy="36" r="4.5" fill="#3A3A3C"/>
+    <circle cx="48" cy="36" r="4.5" fill="#3A3A3C"/>
+    <circle cx="62" cy="36" r="4.5" fill="#3A3A3C"/>
+    <circle cx="76" cy="36" r="4.5" fill="#3A3A3C"/>
+    <circle cx="20" cy="50" r="4.5" fill="#3A3A3C"/>
+    <circle cx="34" cy="50" r="4.5" fill="#0A84FF"/>
+    <circle cx="48" cy="50" r="4.5" fill="#FF375F"/>
+    <circle cx="62" cy="50" r="4.5" fill="#3A3A3C"/>
+    <circle cx="76" cy="50" r="4.5" fill="#3A3A3C"/>
+    <circle cx="20" cy="64" r="4.5" fill="#3A3A3C"/>
+    <circle cx="34" cy="64" r="4.5" fill="#3A3A3C"/>
+    <circle cx="48" cy="64" r="4.5" fill="#3A3A3C"/>
+    <circle cx="62" cy="64" r="4.5" fill="#3A3A3C"/>
+    <circle cx="76" cy="64" r="4.5" fill="#3A3A3C"/>
+  </g>
+</svg>

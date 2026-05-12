@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
 import type { Palette, ThemeTokens } from "../theme";
-import { BrandMark } from "./BrandMark";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
+
+const MANAGER_ORANGE = "#FF9F0A"; // iOS systemOrange — matches the desktop icon gradient family
 
 interface SidebarProps {
   palette: Palette;
@@ -49,11 +50,18 @@ export function Sidebar({
           ...({ WebkitAppRegion: "drag" } as React.CSSProperties),
         }}
       />
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px" }}>
-        <BrandMark size={20} palette={palette} dark={dark} />
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 6px" }}>
+        <img
+          src="icon.svg"
+          alt=""
+          aria-hidden="true"
+          width={28}
+          height={28}
+          style={{ display: "block", borderRadius: 6, flexShrink: 0 }}
+        />
+        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>Schedule Buddy</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: palette.G, letterSpacing: "-0.005em" }}>Manager</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: MANAGER_ORANGE, letterSpacing: "-0.01em" }}>Manager</span>
         </div>
       </div>
 
