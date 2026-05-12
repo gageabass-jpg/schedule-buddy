@@ -8,6 +8,7 @@ import { Sidebar } from "./components/Sidebar";
 import { MonthGrid } from "./components/MonthGrid";
 import { Inspector } from "./components/Inspector";
 import { SignIn } from "./components/SignIn";
+import { JoinHousehold } from "./components/JoinHousehold";
 import { BrandMark } from "./components/BrandMark";
 
 const PALETTE: PaletteName = "modern";
@@ -86,13 +87,7 @@ function ManagerApp() {
   };
 
   if (householdStatus.status === "no-household") {
-    return (
-      <Splash
-        title="No household yet"
-        message="Sign in on the Schedule Buddy iOS app and create or join a household. Once you do, your manager view will appear here automatically."
-        showSignOut
-      />
-    );
+    return <JoinHousehold />;
   }
 
   return (
