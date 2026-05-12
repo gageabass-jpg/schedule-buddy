@@ -6021,15 +6021,29 @@ function updateUserBar() {
   const memberName = (householdData && householdData.memberNames && currentUser && householdData.memberNames[currentUser.uid]) || "";
   const name = currentUser.displayName || memberName || currentUser.email || "Member";
 
+  // Pick the right avatar photo for the signed-in member. Same name-match
+  // convention the desktop FamilyConsole uses — case-insensitive substring.
+  const lower = name.toLowerCase();
+  let photoKey = ""; // "" = no photo, fall back to initial letter
+  if (lower.includes("gage"))                                      photoKey = "g";
+  else if (lower.includes("kaylene") || lower.includes("kayl"))    photoKey = "k";
+  const initial = (name[0] || "?").toUpperCase();
+
   document.getElementById("userDisplayName").textContent = name;
   const badge = document.getElementById("userRoleBadge");
   badge.textContent = userRole === "admin" ? "Admin" : "Partner";
   badge.className = "user-role " + (userRole === "admin" ? "admin" : "partner");
-  // Mobile Profile pane: name + email
+  // Mobile Profile pane: name + email + avatar
   const pName = document.getElementById("profileName");
   const pEmail = document.getElementById("profileEmail");
+  const pAvatar = document.querySelector(".sb-avatar.profile-avatar");
   if (pName)  pName.textContent  = name;
   if (pEmail) pEmail.textContent = currentUser.email || "";
+  if (pAvatar) {
+    if (photoKey) pAvatar.setAttribute("data-photo", photoKey);
+    else          pAvatar.removeAttribute("data-photo");
+    pAvatar.textContent = initial;
+  }
 }
 
 // Sign out (desktop header + drawer + profile tab)
