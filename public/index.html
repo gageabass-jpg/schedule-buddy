@@ -4462,6 +4462,9 @@ function mergeStateFromFirestore(data) {
     imports: Array.isArray(data.imports) ? data.imports : [],
     // Personal appointments / non-work commitments authored on the desktop manager.
     events: Array.isArray(data.events) ? data.events : [],
+    // Display name for the household (e.g. "Bass Household"); editable in
+    // the desktop Family Console.
+    householdName: typeof data.householdName === "string" ? data.householdName : undefined,
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);
