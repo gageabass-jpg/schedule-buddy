@@ -18,18 +18,19 @@ interface SidebarProps {
   householdName: string;
   memberCount: number;
   syncStatus: string;
-  onSignOut: () => void;
   viewFilter: ViewFilter;
   viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
   onToggleThisWeek: () => void;
   onOpenScheduleImport: (id: string) => void;
+  onOpenFamilyConsole: () => void;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
-  householdName, memberCount, syncStatus, onSignOut,
+  householdName, memberCount, syncStatus,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
+  onOpenFamilyConsole,
 }: SidebarProps) {
   return (
     <div
@@ -167,7 +168,10 @@ export function Sidebar({
 
       <div style={{ flex: 1 }} />
 
-      <div
+      <button
+        type="button"
+        onClick={onOpenFamilyConsole}
+        title="Open Family Console"
         style={{
           display: "flex",
           alignItems: "center",
@@ -176,6 +180,10 @@ export function Sidebar({
           borderRadius: 8,
           background: t.bgElev,
           border: `0.5px solid ${t.sep}`,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          textAlign: "left",
+          width: "100%",
         }}
       >
         <div style={{ display: "flex" }}>
@@ -188,24 +196,8 @@ export function Sidebar({
           <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text }}>{householdName}</div>
           <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
         </div>
-        <button
-          type="button"
-          onClick={onSignOut}
-          title="Sign out"
-          style={{
-            border: 0,
-            background: "transparent",
-            color: t.text3,
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: "pointer",
-            padding: "2px 4px",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          ⎋
-        </button>
-      </div>
+        <span style={{ color: t.text3, fontSize: 14 }}>›</span>
+      </button>
     </div>
   );
 }

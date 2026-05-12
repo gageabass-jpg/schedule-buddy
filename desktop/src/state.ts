@@ -114,6 +114,8 @@ export interface HouseholdState {
   imports?: ImportRecord[];
   /** Personal appointments / non-work commitments. */
   events?: Event[];
+  /** Display name for the household (e.g. "Bass Household"). */
+  householdName?: string;
   _migrations: string[];
 }
 

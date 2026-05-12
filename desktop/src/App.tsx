@@ -22,6 +22,7 @@ import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
 import { ScheduleImportModal } from "./components/ScheduleImportModal";
 import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
+import { FamilyConsole } from "./components/FamilyConsole";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -57,6 +58,7 @@ function ManagerApp() {
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
+  const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -143,7 +145,7 @@ function ManagerApp() {
     return { all, both, couple, week, g, k };
   }, [shifts, viewYear, viewMonth, tY, tM, tD]);
 
-  const householdName = state ? `${state.selfName || "Bass"} household` : "Schedule Buddy";
+  const householdName = state?.householdName || "Bass Household";
   const selfName = state?.selfName ?? "Self";
   const partnerName = state?.partner?.name ?? "Partner";
   const memberCount = householdStatus.status === "ready" ? householdStatus.household.memberUids.length : 0;
@@ -272,7 +274,7 @@ function ManagerApp() {
         householdName={householdName}
         memberCount={memberCount}
         syncStatus={syncStatus}
-        onSignOut={() => { void doSignOut(); }}
+        onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
@@ -396,6 +398,16 @@ function ManagerApp() {
         state={state}
         defaultDate={selected}
         editing={eventEditTarget}
+      />
+      <FamilyConsole
+        open={familyConsoleOpen}
+        onClose={() => setFamilyConsoleOpen(false)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdId}
+        household={householdStatus.status === "ready" ? householdStatus.household : null}
+        state={state}
       />
     </div>
   );
