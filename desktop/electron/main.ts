@@ -68,24 +68,25 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
   const typesList = req.shiftTypes.map(
     (s) => `  - { id: "${s.id}", name: "${s.name}", start: "${s.start}", end: "${s.end}" }`,
   ).join("\n");
+  const validIds = req.shiftTypes.map((s) => `"${s.id}"`).join(", ") || "(empty catalog)";
   return [
     `You are extracting a schedule for ${req.personLabel} from the attached image.`,
     `Context: ${req.scheduleHint}`,
     ``,
     `Available shift types in the user's catalog:`,
-    typesList || "  (none — leave shiftTypeId null and use the time as the label)",
+    typesList || "  (none — every shiftTypeId must be null)",
     ``,
     `Return ONLY a valid JSON object (no prose, no markdown fences) of the form:`,
     `{`,
     `  "monthCovered": "YYYY-MM" or null,`,
     `  "rows": [`,
-    `    { "date": "YYYY-MM-DD", "shiftTypeId": "st_xyz" or null, "label": "7p" or "school" or "", "confidence": 0.0..1.0 }`,
+    `    { "date": "YYYY-MM-DD", "shiftTypeId": "<one of: ${validIds}> or null", "label": "7p" or "school" or "", "confidence": 0.0..1.0 }`,
     `  ]`,
     `}`,
     ``,
     `Rules:`,
     `- One row per dated entry visible in the image.`,
-    `- Pick the shiftTypeId whose start time best matches what the image shows; null if no match.`,
+    `- shiftTypeId MUST be one of the literal ids listed above, or null. NEVER invent an id, NEVER reformat one, NEVER use a name in place of an id. If no listed type matches the visible shift's start time, use null and the user will map it manually.`,
     `- "label" should be the compact time shown in the image (e.g. "3p", "7p", "11p", "8a") for hospital schedules, or "school" / "no school" / "half day" for school calendars.`,
     `- "confidence" 1.0 means the date and label are unambiguous; 0.5 means the label is partially obscured; 0.2 means you're guessing.`,
     `- Do NOT invent dates outside what the image shows.`,

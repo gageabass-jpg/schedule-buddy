@@ -53,15 +53,38 @@ export function ScheduleImportModal({
 
   const onPickFile = async (file: File) => {
     setErr(null);
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
+    const ANTHROPIC_OK = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+    const declaredType = file.type || "";
+    let mediaType = declaredType;
+    let bytes: ArrayBuffer;
+
+    if (ANTHROPIC_OK.has(declaredType)) {
+      bytes = await file.arrayBuffer();
+    } else {
+      // Anything else (HEIC, BMP, TIFF, unknown) — try to convert via canvas
+      // to a JPEG before the Anthropic API rejects the media type. HEIC won't
+      // decode in Chromium, so this can still fail; we surface a clear error
+      // and ask the user to export as JPEG/PNG from Photos.
+      try {
+        const jpeg = await convertToJpeg(file);
+        bytes = await jpeg.arrayBuffer();
+        mediaType = "image/jpeg";
+      } catch (e) {
+        setErr(
+          `Couldn't read this image (${declaredType || "unknown format"}). In Photos, right-click → Export → Export 1 Photo → JPEG, then drop the exported file here.`,
+        );
+        return;
+      }
+    }
+
+    const u8 = new Uint8Array(bytes);
     let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    for (let i = 0; i < u8.byteLength; i++) binary += String.fromCharCode(u8[i]);
     const base64 = btoa(binary);
     setImage({
-      dataUrl: `data:${file.type};base64,${base64}`,
+      dataUrl: `data:${mediaType};base64,${base64}`,
       base64,
-      mediaType: file.type || "image/jpeg",
+      mediaType,
     });
   };
 
@@ -99,8 +122,15 @@ export function ScheduleImportModal({
       setPhase({ kind: "upload" });
       return;
     }
+    // Force any shiftTypeId Claude returned that doesn't match the current
+    // catalog back to null so the user is prompted to map it before save.
+    // Without this, an unrecognized id would pass straight through to
+    // Firestore and the shift would never render (buildShiftMap silently
+    // drops OT entries whose shiftTypeId can't be resolved).
+    const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
     const editable: EditableRow[] = result.rows.map((r, i) => ({
       ...r,
+      shiftTypeId: r.shiftTypeId && validIds.has(r.shiftTypeId) ? r.shiftTypeId : null,
       rid: `r${i}`,
       skipped: false,
     }));
@@ -113,11 +143,12 @@ export function ScheduleImportModal({
       setErr("No household linked.");
       return;
     }
+    const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
     const rows: ImportRow[] = phase.rows
-      .filter((r) => !r.skipped && r.shiftTypeId)
+      .filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId))
       .map((r) => ({ date: r.date, shiftTypeId: r.shiftTypeId as string, label: r.label }));
     if (rows.length === 0) {
-      setErr("Nothing to save — every row is skipped or missing a shift type.");
+      setErr("Nothing to save — every row is skipped or missing a valid shift type.");
       return;
     }
     setErr(null);
@@ -525,4 +556,37 @@ function linkBtn(color: string): React.CSSProperties {
     fontFamily: "inherit",
     padding: 0,
   };
+}
+
+/**
+ * Decode an arbitrary image file via the browser and re-encode as JPEG.
+ * Returns a Blob suitable for sending to the Anthropic API. Throws if
+ * the browser can't decode the source (e.g. HEIC in Chromium).
+ */
+async function convertToJpeg(file: File): Promise<Blob> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error("Couldn't read the file."));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("Couldn't decode this image format."));
+    i.src = dataUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context not available.");
+  ctx.drawImage(img, 0, 0);
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Couldn't re-encode as JPEG."))),
+      "image/jpeg",
+      0.92,
+    );
+  });
 }
