@@ -7,6 +7,8 @@ export interface ParseScheduleRequest {
   scheduleHint: string;
   personLabel: string;
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  today: string;             // YYYY-MM-DD
+  contextMonth: string;      // YYYY-MM
 }
 
 export interface ParsedShiftRow {

@@ -55,6 +55,8 @@ interface ParseScheduleRequest {
   scheduleHint: string;
   personLabel: string;
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  today: string;
+  contextMonth: string;
 }
 
 interface ParsedShiftRow {
@@ -72,6 +74,9 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
   return [
     `You are extracting a schedule for ${req.personLabel} from the attached image.`,
     `Context: ${req.scheduleHint}`,
+    ``,
+    `Today's date is ${req.today}. The user is currently viewing ${req.contextMonth} in the calendar.`,
+    `If the image shows month/day labels without an explicit year, assume the dates are in ${req.contextMonth} (or rolling forward into the next month if the calendar continues past it). NEVER default to a prior year.`,
     ``,
     `Available shift types in the user's catalog:`,
     typesList || "  (none — every shiftTypeId must be null)",

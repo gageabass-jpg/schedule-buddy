@@ -304,6 +304,8 @@ function ManagerApp() {
         dark={DARK}
         householdId={householdId}
         state={state}
+        today={today}
+        contextMonth={`${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`}
       />
       <ApiKeySettings
         open={apiKeyOpen}
