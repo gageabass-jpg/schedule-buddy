@@ -153,7 +153,7 @@ export interface HouseholdMeta {
   id: string;
   memberUids: string[];
   memberNames: Record<string, string>;
-  roles: Record<string, "admin" | "partner">;
+  roles: Record<string, "admin" | "partner" | "supporting">;
   inviteCode: string;
   createdBy: string;
 }

@@ -2788,6 +2788,23 @@
   }
   .profile-secondary-btn:hover  { filter: brightness(1.05); }
   .profile-secondary-btn:active { transform: scale(0.98); }
+  .profile-danger-btn {
+    width: 100%;
+    padding: 12px 18px;
+    background: transparent;
+    color: #FF453A;
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    margin-top: 10px;
+    transition: filter 0.12s, transform 0.06s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .profile-danger-btn:hover  { background: rgba(255,69,58,0.08); }
+  .profile-danger-btn:active { transform: scale(0.98); }
 
   /* ===== Family code modal ===== */
   .code-modal-backdrop {
@@ -3787,6 +3804,7 @@
 
     <button class="profile-secondary-btn" id="viewFamilyCodeBtn" type="button">View Family Code</button>
     <button class="profile-signout-btn" id="profileSignOutBtn" type="button">Sign Out</button>
+    <button class="profile-danger-btn" id="profileDeleteAccountBtn" type="button">Delete my account</button>
   </div>
 
   <!-- Family Code modal -->
@@ -4470,6 +4488,72 @@ if (soBtn) soBtn.addEventListener("click", doSignOut);
 document.getElementById("drawerSignOut").addEventListener("click", () => { closeDrawer(); doSignOut(); });
 const profileSignOut = document.getElementById("profileSignOutBtn");
 if (profileSignOut) profileSignOut.addEventListener("click", doSignOut);
+
+// Delete-my-account — removes the caller from their household (if any),
+// then destroys the Firebase Auth user. Re-auths first if the session is
+// too stale (Firebase requires recent login for delete).
+async function doDeleteAccount() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const ok = confirm(
+    "Delete your account?\n\n" +
+    "This removes you from this household and permanently deletes your " +
+    "Schedule Buddy login. You'll be signed out and need a new invite code " +
+    "to rejoin. This can't be undone."
+  );
+  if (!ok) return;
+
+  try {
+    // 1. Remove self from household (if any) so the household doc isn't
+    //    stuck pointing at a deleted uid.
+    if (householdId && user.uid) {
+      try {
+        const hhRef = db.collection("households").doc(householdId);
+        await hhRef.update({
+          memberUids: firebase.firestore.FieldValue.arrayRemove(user.uid),
+          [`memberNames.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+          [`roles.${user.uid}`]: firebase.firestore.FieldValue.delete(),
+        });
+      } catch (e) {
+        console.warn("Household cleanup failed (continuing):", e);
+      }
+    }
+
+    // 2. Stop snapshot listeners so they don't yell when the user vanishes.
+    cleanupListeners();
+
+    // 3. Delete the auth user.
+    await user.delete();
+    // onAuthStateChanged will fire signed-out → showScreen("auth").
+  } catch (e) {
+    if (e && e.code === "auth/requires-recent-login") {
+      // Reprompt the original provider, then retry the delete.
+      const providerId = (user.providerData && user.providerData[0] && user.providerData[0].providerId) || "";
+      try {
+        if (providerId === "apple.com") {
+          const p = new firebase.auth.OAuthProvider("apple.com");
+          await user.reauthenticateWithPopup(p);
+        } else if (providerId === "google.com") {
+          await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+        } else {
+          alert("Please sign out and sign in again, then try Delete my account.");
+          return;
+        }
+        cleanupListeners();
+        await user.delete();
+      } catch (e2) {
+        console.error("Re-auth + delete failed:", e2);
+        alert("Couldn't delete account: " + (e2 && e2.message ? e2.message : e2));
+      }
+    } else {
+      console.error("Delete account failed:", e);
+      alert("Couldn't delete account: " + (e && e.message ? e.message : e));
+    }
+  }
+}
+const profileDeleteBtn = document.getElementById("profileDeleteAccountBtn");
+if (profileDeleteBtn) profileDeleteBtn.addEventListener("click", doDeleteAccount);
 
 // Request Event — stub for now. Real flow will let the user submit a proposed
 // shift to the household admin via a Firestore "requests" subcollection.
