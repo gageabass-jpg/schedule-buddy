@@ -2617,14 +2617,86 @@
   /* Section visibility per mobile tab (phone only) */
   @media (max-width: 768px) {
     body[data-mobile-tab] .container { padding-bottom: 86px; }
-    /* Default mobile = "schedule" tab: hide stats pane */
-    .pane-stats { display: none; }
+    /* Default mobile = "schedule" tab: hide stats and profile panes */
+    .pane-stats   { display: none; }
+    .pane-profile { display: none; }
     /* Schedule pane is hidden when on stats or profile tab */
     body[data-mobile-tab="stats"]    .pane-schedule,
     body[data-mobile-tab="profile"]  .pane-schedule { display: none; }
-    /* Stats tab makes pane-stats visible */
-    body[data-mobile-tab="stats"]    .pane-stats { display: block; }
+    /* Each tab makes its own pane visible */
+    body[data-mobile-tab="stats"]    .pane-stats   { display: block; }
+    body[data-mobile-tab="profile"]  .pane-profile { display: flex; }
   }
+
+  /* ===== Profile pane ===== */
+  .pane-profile {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    min-height: calc(100vh - 220px);
+  }
+  .profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 0 12px;
+    gap: 10px;
+  }
+  .sb-avatar.profile-avatar {
+    width: 104px;
+    height: 104px;
+    font-size: 38px;
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 6px var(--color-g);
+  }
+  .profile-name {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .profile-email {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .profile-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--color-g);
+    color: #FFFFFF;
+    border: 0;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: filter 0.12s, transform 0.06s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .profile-action-btn:hover  { filter: brightness(1.08); }
+  .profile-action-btn:active { transform: scale(0.98); }
+  .profile-spacer { flex: 1; }
+  .profile-signout-btn {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--bg-elev);
+    color: var(--ot);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: filter 0.12s, transform 0.06s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .profile-signout-btn:hover  { filter: brightness(1.05); }
+  .profile-signout-btn:active { transform: scale(0.98); }
 
   /* Notification bell */
   .notif-btn {
@@ -3363,6 +3435,26 @@
     </details>
   </div><!-- /.pane-stats -->
 
+  <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
+  <div class="pane-profile">
+    <div class="profile-hero">
+      <span class="sb-avatar profile-avatar" data-photo="g">G</span>
+      <div class="profile-name" id="profileName">Gage Bass</div>
+      <div class="profile-email" id="profileEmail"></div>
+    </div>
+
+    <button class="profile-action-btn" id="requestEventBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      Request Event
+    </button>
+
+    <div class="profile-spacer"></div>
+
+    <button class="profile-signout-btn" id="profileSignOutBtn" type="button">Sign Out</button>
+  </div>
+
   <!-- Preview & Export toggle (desktop only) -->
   <div class="desktop-only" style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
     <button class="secondary" id="previewToggle" style="font-size:12px;">Preview &amp; Export</button>
@@ -3822,13 +3914,27 @@ function updateUserBar() {
   const badge = document.getElementById("userRoleBadge");
   badge.textContent = userRole === "admin" ? "Admin" : "Partner";
   badge.className = "user-role " + (userRole === "admin" ? "admin" : "partner");
+  // Mobile Profile pane: name + email
+  const pName = document.getElementById("profileName");
+  const pEmail = document.getElementById("profileEmail");
+  if (pName)  pName.textContent  = currentUser.displayName || state.selfName || "Me";
+  if (pEmail) pEmail.textContent = currentUser.email || "";
 }
 
-// Sign out (desktop header + drawer)
+// Sign out (desktop header + drawer + profile tab)
 function doSignOut() { cleanupListeners(); auth.signOut(); }
 const soBtn = document.getElementById("signOutBtnDesktop");
 if (soBtn) soBtn.addEventListener("click", doSignOut);
 document.getElementById("drawerSignOut").addEventListener("click", () => { closeDrawer(); doSignOut(); });
+const profileSignOut = document.getElementById("profileSignOutBtn");
+if (profileSignOut) profileSignOut.addEventListener("click", doSignOut);
+
+// Request Event — stub for now. Real flow will let the user submit a proposed
+// shift to the household admin via a Firestore "requests" subcollection.
+const reqEventBtn = document.getElementById("requestEventBtn");
+if (reqEventBtn) reqEventBtn.addEventListener("click", () => {
+  alert("Request Event\n\nThis will let you ask the schedule manager to add a shift on your behalf. Coming soon.");
+});
 
 function cleanupListeners() {
   if (stateUnsubscribe) { stateUnsubscribe(); stateUnsubscribe = null; }
@@ -6574,11 +6680,6 @@ if (_mn) _mn.addEventListener("click", () => shiftViewMonth(+1));
 
 // Bottom tab bar (mobile)
 function setMobileTab(tab) {
-  if (tab === "profile") {
-    // Profile = open settings drawer; remember the previous content tab
-    openDrawer();
-    return;
-  }
   document.body.dataset.mobileTab = tab;
   document.querySelectorAll(".bottom-tab").forEach(b => {
     b.classList.toggle("active", b.dataset.tab === tab);
