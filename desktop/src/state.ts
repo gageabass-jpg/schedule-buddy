@@ -75,10 +75,17 @@ export interface Event {
   title: string;
   who: EventWho;
   notes?: string;
+  /** Shared by every Event created in a single batch (multi-day / recurring).
+   *  Lets the user "Delete series" without hunting each occurrence. */
+  seriesId?: string;
 }
 
 export function generateEventId(): string {
   return `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export function generateSeriesId(): string {
+  return `evs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
 export interface HouseholdState {

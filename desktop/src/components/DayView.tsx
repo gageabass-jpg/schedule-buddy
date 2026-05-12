@@ -3,6 +3,7 @@ import { eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type Theme
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { compactTime } from "../state";
 import { PhotoAv } from "./PhotoAv";
+import { EventAvatar } from "./EventAvatar";
 
 interface Props {
   palette: Palette;
@@ -221,8 +222,11 @@ export function DayView({
                   }}
                   title={ev.title}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "-0.01em" }}>
-                    ◷ {ev.title}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <EventAvatar who={ev.who} size={18} palette={palette} dark={dark} />
+                    <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                      {ev.title}
+                    </div>
                   </div>
                   {ev.notes && (
                     <div style={{ fontSize: 10.5, color: dark ? "rgba(255,255,255,0.65)" : t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

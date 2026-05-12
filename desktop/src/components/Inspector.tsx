@@ -2,6 +2,7 @@ import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap }
 import type { Event as SbEvent } from "../state";
 import { dayColors, eventColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
+import { EventAvatar } from "./EventAvatar";
 
 interface Props {
   selected: string;
@@ -205,6 +206,10 @@ export function Inspector({
             const timeLabel = ev.startTime
               ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
               : "All day";
+            const personName =
+              ev.who === "G" ? selfName :
+              ev.who === "K" ? partnerName :
+              ev.who === "Daisy" ? "Daisy" : "Family";
             return (
               <button
                 key={ev.id}
@@ -225,11 +230,11 @@ export function Inspector({
                   width: "100%",
                 }}
               >
-                <span style={{ fontSize: 11, color, fontWeight: 700 }}>◷</span>
+                <EventAvatar who={ev.who} size={26} palette={palette} dark={dark} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>{ev.title}</div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>
-                    {timeLabel} · {ev.who === "G" ? selfName : ev.who === "K" ? partnerName : ev.who}
+                    {timeLabel} · {personName}{ev.seriesId ? " · series" : ""}
                   </div>
                 </div>
               </button>
