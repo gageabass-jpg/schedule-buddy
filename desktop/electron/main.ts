@@ -22,7 +22,30 @@ function createWindow() {
 
   win.once("ready-to-show", () => win.show());
 
+  // Open most external links in the system browser, but allow OAuth popups
+  // (Google, Apple, Firebase auth handler) to open inside Electron so
+  // signInWithPopup works.
+  const AUTH_HOSTS = [
+    "accounts.google.com",
+    "appleid.apple.com",
+    "schedule-buddy-dd2cf.firebaseapp.com",
+  ];
   win.webContents.setWindowOpenHandler(({ url: target }) => {
+    try {
+      const u = new URL(target);
+      if (AUTH_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith("." + h))) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            width: 520,
+            height: 720,
+            webPreferences: { contextIsolation: true, nodeIntegration: false },
+          },
+        };
+      }
+    } catch {
+      // fall through to external
+    }
     shell.openExternal(target);
     return { action: "deny" };
   });
