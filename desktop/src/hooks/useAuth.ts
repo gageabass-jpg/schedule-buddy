@@ -6,7 +6,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
+import { auth, googleProvider, appleProvider } from "../firebase";
 
 export type AuthState =
   | { status: "loading" }
@@ -27,6 +27,10 @@ export function useAuth(): AuthState {
 
 export async function signInWithGoogle(): Promise<void> {
   await signInWithPopup(auth, googleProvider);
+}
+
+export async function signInWithApple(): Promise<void> {
+  await signInWithPopup(auth, appleProvider);
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {

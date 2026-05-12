@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signInWithGoogle, signInWithEmail } from "../hooks/useAuth";
+import { signInWithGoogle, signInWithApple, signInWithEmail } from "../hooks/useAuth";
 import { themeTokens, getPalette } from "../theme";
 import { BrandMark } from "./BrandMark";
 
@@ -16,6 +16,14 @@ export function SignIn() {
     setErr(null);
     setBusy(true);
     try { await signInWithGoogle(); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Sign-in failed"); }
+    finally { setBusy(false); }
+  };
+
+  const onApple = async () => {
+    setErr(null);
+    setBusy(true);
+    try { await signInWithApple(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Sign-in failed"); }
     finally { setBusy(false); }
   };
@@ -52,11 +60,20 @@ export function SignIn() {
           <>
             <button
               type="button"
+              onClick={onApple}
+              disabled={busy}
+              style={appleBtn(busy)}
+            >
+              <AppleGlyph />
+              {busy ? "Signing in…" : "Continue with Apple"}
+            </button>
+            <button
+              type="button"
               onClick={onGoogle}
               disabled={busy}
-              style={primaryBtn(palette.G, busy)}
+              style={secondaryBtn(t)}
             >
-              {busy ? "Signing in…" : "Continue with Google"}
+              Continue with Google
             </button>
             <button
               type="button"
@@ -122,6 +139,35 @@ function primaryBtn(color: string, busy: boolean): React.CSSProperties {
     fontFamily: "inherit",
     letterSpacing: "-0.01em",
   };
+}
+
+function appleBtn(busy: boolean): React.CSSProperties {
+  return {
+    width: "100%",
+    padding: "10px 14px",
+    border: 0,
+    borderRadius: 8,
+    background: "#000000",
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: busy ? "wait" : "pointer",
+    opacity: busy ? 0.7 : 1,
+    fontFamily: "inherit",
+    letterSpacing: "-0.01em",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  };
+}
+
+function AppleGlyph() {
+  return (
+    <svg width="14" height="17" viewBox="0 0 18 21" fill="#FFFFFF" aria-hidden="true">
+      <path d="M14.5 11.2c0-2.4 2-3.5 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-2.9.9-3.7 2.3-1.6 2.7-.4 6.7 1.1 8.9.7 1.1 1.6 2.3 2.8 2.2 1.1 0 1.5-.7 2.9-.7 1.3 0 1.7.7 2.9.7 1.2 0 2-1.1 2.7-2.2.5-.7.9-1.5 1.2-2.4-1-.4-2-1.5-2-3.6zm-2.4-6.3c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 1.9-.5 2.5-1.2z"/>
+    </svg>
+  );
 }
 
 function secondaryBtn(t: ReturnType<typeof themeTokens>): React.CSSProperties {
