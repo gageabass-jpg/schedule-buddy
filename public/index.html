@@ -4975,9 +4975,13 @@ document.getElementById("hhJoinBtn").addEventListener("click", async () => {
       codeData.role === "contributing" ? "partner" :
       "partner";
     const hhRef = db.collection("households").doc(hhId);
+    // Prefer the email when Apple doesn't share displayName on re-sign-in.
+    // Stripping the @domain so the household sidebar shows "kaylene.bass"
+    // rather than the full address.
+    const fallbackName = currentUser.email ? currentUser.email.split("@")[0] : "Member";
     await hhRef.update({
       memberUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-      [`memberNames.${currentUser.uid}`]: currentUser.displayName || "Partner",
+      [`memberNames.${currentUser.uid}`]: currentUser.displayName || fallbackName,
       [`roles.${currentUser.uid}`]: role,
     });
     await resolveHousehold(currentUser);
@@ -6011,7 +6015,12 @@ function escapeHtml(s) {
 }
 
 function updateUserBar() {
-  const name = currentUser.displayName || currentUser.email;
+  // Resolve a per-USER display name, never falling back to household-wide
+  // values like state.selfName (which is shared across members and would
+  // mis-label everyone else as "you").
+  const memberName = (householdData && householdData.memberNames && currentUser && householdData.memberNames[currentUser.uid]) || "";
+  const name = currentUser.displayName || memberName || currentUser.email || "Member";
+
   document.getElementById("userDisplayName").textContent = name;
   const badge = document.getElementById("userRoleBadge");
   badge.textContent = userRole === "admin" ? "Admin" : "Partner";
@@ -6019,7 +6028,7 @@ function updateUserBar() {
   // Mobile Profile pane: name + email
   const pName = document.getElementById("profileName");
   const pEmail = document.getElementById("profileEmail");
-  if (pName)  pName.textContent  = currentUser.displayName || state.selfName || "Me";
+  if (pName)  pName.textContent  = name;
   if (pEmail) pEmail.textContent = currentUser.email || "";
 }
 
