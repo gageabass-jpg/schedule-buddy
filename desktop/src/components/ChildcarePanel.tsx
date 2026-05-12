@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
@@ -11,7 +11,8 @@ interface Props {
   dark: boolean;
   householdId: string | null;
   state: HouseholdState | null;
-  onSendCoverage: () => void;
+  onSendBatch: () => void;
+  onSendSingle: () => void;
 }
 
 type Filter = "all" | CoverageStatus;
@@ -54,10 +55,22 @@ function friendlyDate(iso: string): string {
 }
 
 export function ChildcarePanel({
-  open, onClose, palette, t, dark, householdId, state, onSendCoverage,
+  open, onClose, palette, t, dark, householdId, state, onSendBatch, onSendSingle,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Click-outside to close the dropdown.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (ev: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(ev.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
 
   const requests = state?.coverageRequests ?? [];
 
@@ -107,14 +120,50 @@ export function ChildcarePanel({
               Every request you've sent — pending, accepted, declined, or flagged. Caregiver notes show inline.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => { onClose(); onSendCoverage(); }}
-              style={primaryBtn(palette.G, false)}
-            >
-              + New batch
-            </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div ref={menuRef} style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                style={primaryBtn(palette.G, false)}
+              >
+                + New Request <span style={{ marginLeft: 4, fontSize: 10 }}>▾</span>
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    marginTop: 6,
+                    minWidth: 220,
+                    background: t.bgElev,
+                    color: t.text,
+                    border: `0.5px solid ${t.sep}`,
+                    borderRadius: 10,
+                    boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
+                    padding: 4,
+                    zIndex: 10,
+                  }}
+                >
+                  <MenuItem
+                    label="Single request"
+                    hint="One date — date night, an appointment"
+                    t={t}
+                    onClick={() => { setMenuOpen(false); onClose(); onSendSingle(); }}
+                  />
+                  <MenuItem
+                    label="Batch request"
+                    hint="Every shift-overlap day in the window"
+                    t={t}
+                    onClick={() => { setMenuOpen(false); onClose(); onSendBatch(); }}
+                  />
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -276,6 +325,36 @@ export function ChildcarePanel({
         </div>
       </div>
     </>
+  );
+}
+
+function MenuItem({
+  label, hint, t, onClick,
+}: { label: string; hint?: string; t: ThemeTokens; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      onMouseDown={(e) => e.preventDefault()}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "8px 10px",
+        borderRadius: 6,
+        border: 0,
+        background: "transparent",
+        color: t.text,
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(127,127,127,0.12)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</div>
+      {hint && <div style={{ fontSize: 11, color: t.text3, marginTop: 2 }}>{hint}</div>}
+    </button>
   );
 }
 

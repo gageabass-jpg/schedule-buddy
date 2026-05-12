@@ -77,6 +77,20 @@ export function Sidebar({
 
       <div
         style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          // Slight inset so the scrollbar doesn't clip section labels
+          marginRight: -4,
+          paddingRight: 4,
+        }}
+      >
+      <div
+        style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -181,8 +195,7 @@ export function Sidebar({
           t={t}
         />
       </SidebarSection>
-
-      <div style={{ flex: 1 }} />
+      </div>{/* /scrollable middle */}
 
       <button
         type="button"

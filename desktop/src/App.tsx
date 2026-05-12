@@ -46,6 +46,7 @@ import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
+import { NewRequestModal } from "./components/NewRequestModal";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -106,6 +107,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
   const [childcareOpen, setChildcareOpen] = useState(false);
+  const [newRequestOpen, setNewRequestOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -481,7 +483,16 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         dark={dark}
         householdId={householdId}
         state={state}
-        onSendCoverage={() => setCoverageModalOpen(true)}
+        onSendBatch={() => setCoverageModalOpen(true)}
+        onSendSingle={() => setNewRequestOpen(true)}
+      />
+      <NewRequestModal
+        open={newRequestOpen}
+        onClose={() => setNewRequestOpen(false)}
+        palette={palette}
+        t={t}
+        householdId={householdId}
+        defaultDate={selected}
       />
     </div>
   );
