@@ -36,8 +36,19 @@ export function Sidebar({
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         overflow: "hidden",
+        position: "relative",
       }}
     >
+      {/* Draggable strip behind the macOS traffic-light buttons.
+          Pushes brand content below them and lets the user grab the
+          window from this area. */}
+      <div
+        style={{
+          height: 22,
+          flexShrink: 0,
+          ...({ WebkitAppRegion: "drag" } as React.CSSProperties),
+        }}
+      />
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px" }}>
         <BrandMark size={20} palette={palette} dark={dark} />
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
