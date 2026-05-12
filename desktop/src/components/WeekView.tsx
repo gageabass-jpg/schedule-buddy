@@ -2,6 +2,7 @@ import { fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } fro
 import type { EventMap } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import { eventInitial } from "./EventAvatar";
 
 interface Props {
   palette: Palette;
@@ -245,7 +246,9 @@ export function WeekView({
                       }}
                       title={ev.title}
                     >
-                      <span style={{ marginRight: 4, fontSize: 9, opacity: 0.7 }}>◷</span>
+                      <span style={{ marginRight: 4, fontSize: 9.5, fontWeight: 700, color }}>
+                        {eventInitial(ev.who)}
+                      </span>
                       {ev.title}
                     </div>
                   );

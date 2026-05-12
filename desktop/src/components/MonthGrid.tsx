@@ -5,6 +5,7 @@ import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette,
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
+import { eventInitial } from "./EventAvatar";
 
 interface Props {
   palette: Palette;
@@ -355,7 +356,9 @@ export function MonthGrid({
                                 }}
                                 title={ev.title}
                               >
-                                <span style={{ fontSize: 9, opacity: 0.7 }}>◷</span>
+                                <span style={{ fontSize: 9.5, fontWeight: 700, color: eventColor(ev.who, palette), opacity: 0.95 }}>
+                                  {eventInitial(ev.who)}
+                                </span>
                                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   {ev.startTime ? `${formatChipTime(ev.startTime)} ` : ""}{ev.title}
                                 </span>
