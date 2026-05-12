@@ -53,39 +53,29 @@ export function ScheduleImportModal({
 
   const onPickFile = async (file: File) => {
     setErr(null);
-    const ANTHROPIC_OK = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
-    const declaredType = file.type || "";
-    let mediaType = declaredType;
-    let bytes: ArrayBuffer;
-
-    if (ANTHROPIC_OK.has(declaredType)) {
-      bytes = await file.arrayBuffer();
-    } else {
-      // Anything else (HEIC, BMP, TIFF, unknown) — try to convert via canvas
-      // to a JPEG before the Anthropic API rejects the media type. HEIC won't
-      // decode in Chromium, so this can still fail; we surface a clear error
-      // and ask the user to export as JPEG/PNG from Photos.
-      try {
-        const jpeg = await convertToJpeg(file);
-        bytes = await jpeg.arrayBuffer();
-        mediaType = "image/jpeg";
-      } catch (e) {
-        setErr(
-          `Couldn't read this image (${declaredType || "unknown format"}). In Photos, right-click → Export → Export 1 Photo → JPEG, then drop the exported file here.`,
-        );
-        return;
-      }
+    try {
+      // Always re-encode through canvas so we (a) normalize HEIC/BMP/etc. to
+      // JPEG and (b) downscale + recompress until we're under Anthropic's
+      // 5 MB image limit.
+      const { bytes, mediaType } = await normalizeImage(file);
+      const u8 = new Uint8Array(bytes);
+      let binary = "";
+      for (let i = 0; i < u8.byteLength; i++) binary += String.fromCharCode(u8[i]);
+      const base64 = btoa(binary);
+      setImage({
+        dataUrl: `data:${mediaType};base64,${base64}`,
+        base64,
+        mediaType,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't process this image.";
+      const decodeFail = /decode|format/i.test(msg);
+      setErr(
+        decodeFail
+          ? `Couldn't read this image (${file.type || "unknown format"}). In Photos, right-click → Export → Export 1 Photo → JPEG, then drop the exported file here.`
+          : msg,
+      );
     }
-
-    const u8 = new Uint8Array(bytes);
-    let binary = "";
-    for (let i = 0; i < u8.byteLength; i++) binary += String.fromCharCode(u8[i]);
-    const base64 = btoa(binary);
-    setImage({
-      dataUrl: `data:${mediaType};base64,${base64}`,
-      base64,
-      mediaType,
-    });
   };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -559,34 +549,74 @@ function linkBtn(color: string): React.CSSProperties {
 }
 
 /**
- * Decode an arbitrary image file via the browser and re-encode as JPEG.
- * Returns a Blob suitable for sending to the Anthropic API. Throws if
- * the browser can't decode the source (e.g. HEIC in Chromium).
+ * Decode an arbitrary image file via the browser and re-encode as a JPEG
+ * that fits under Anthropic's 5 MB image limit. Iterates max-edge then
+ * quality, falling back to ever-smaller dimensions until under budget.
+ *
+ * Throws if the browser can't decode the source (e.g. HEIC in Chromium).
  */
-async function convertToJpeg(file: File): Promise<Blob> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
+async function normalizeImage(file: File): Promise<{ bytes: ArrayBuffer; mediaType: string }> {
+  // Stay well under 5 MB even after base64 inflation (~33%). 3.5 MB raw
+  // ≈ 4.66 MB base64 — comfortable.
+  const TARGET_BYTES = 3.5 * 1024 * 1024;
+
+  const dataUrl = await readDataUrl(file);
+  const img = await decodeImage(dataUrl);
+
+  const longest = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+  const edges = [2048, 1600, 1280, 1024, 768];
+  const qualities = [0.9, 0.82, 0.72, 0.6];
+
+  for (const maxEdge of edges) {
+    const scale = longest > maxEdge ? maxEdge / longest : 1;
+    const w = Math.round((img.naturalWidth || img.width) * scale);
+    const h = Math.round((img.naturalHeight || img.height) * scale);
+    for (const q of qualities) {
+      const blob = await encodeJpeg(img, w, h, q);
+      if (blob.size <= TARGET_BYTES) {
+        return { bytes: await blob.arrayBuffer(), mediaType: "image/jpeg" };
+      }
+    }
+  }
+
+  // Pathological — extreme resolution + non-photographic content. Last-resort
+  // hard compress at the smallest tier.
+  const blob = await encodeJpeg(img, 768, 768, 0.5);
+  return { bytes: await blob.arrayBuffer(), mediaType: "image/jpeg" };
+}
+
+async function encodeJpeg(img: HTMLImageElement, w: number, h: number, quality: number): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context not available.");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Couldn't re-encode as JPEG."))),
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
+async function readDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));
     r.onerror = () => reject(new Error("Couldn't read the file."));
     r.readAsDataURL(file);
   });
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+}
+
+async function decodeImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
     i.onerror = () => reject(new Error("Couldn't decode this image format."));
     i.src = dataUrl;
-  });
-  const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas 2D context not available.");
-  ctx.drawImage(img, 0, 0);
-  return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("Couldn't re-encode as JPEG."))),
-      "image/jpeg",
-      0.92,
-    );
   });
 }
