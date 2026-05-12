@@ -1,4 +1,5 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
+import type { ViewFilter } from "../App";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   onNewShift: () => void;
   onEditTemplate: () => void;
   onEditShiftTypes: () => void;
+  viewFilter: ViewFilter;
 }
 
 const MONTH_LABELS = [
@@ -28,6 +30,7 @@ const MONTH_LABELS = [
 export function MonthGrid({
   palette, t, dark, flat, shifts, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
+  viewFilter,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -154,6 +157,11 @@ export function MonthGrid({
                 const colors = dayColors(kind, palette, dark);
                 const isToday = key === today;
                 const isSel = key === selected;
+                const matchesFilter =
+                  viewFilter === "all" ||
+                  (viewFilter === "both" && kind === "both") ||
+                  (viewFilter === "couple" && kind === "off");
+                const cellOpacity = c.other ? 0.4 : matchesFilter ? 1 : 0.3;
                 return (
                   <button
                     key={ci}
@@ -166,7 +174,8 @@ export function MonthGrid({
                       textAlign: "left",
                       background: kind === "off" ? t.bgElev : colors.tint,
                       borderRadius: 8,
-                      opacity: c.other ? 0.4 : 1,
+                      opacity: cellOpacity,
+                      transition: "opacity 0.15s",
                       boxShadow: isSel
                         ? `inset 0 0 0 2px ${colors.accent}`
                         : isToday

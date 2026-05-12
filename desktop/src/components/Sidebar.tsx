@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
+import type { ViewFilter } from "../App";
 import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
@@ -17,11 +18,16 @@ interface SidebarProps {
   memberCount: number;
   syncStatus: string;
   onSignOut: () => void;
+  viewFilter: ViewFilter;
+  viewCounts: { all: number; both: number; couple: number; week: number };
+  onSetViewFilter: (f: ViewFilter) => void;
+  onJumpToThisWeek: () => void;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onSignOut,
+  viewFilter, viewCounts, onSetViewFilter, onJumpToThisWeek,
 }: SidebarProps) {
   return (
     <div
@@ -84,10 +90,37 @@ export function Sidebar({
       </div>
 
       <SidebarSection label="Views" t={t}>
-        <ListRow icon="📅" label="All shifts" count={42} active t={t} />
-        <ListRow icon="◐" label="This week" count={5} t={t} />
-        <ListRow icon="↻" label="Both working" count={9} t={t} />
-        <ListRow icon="✺" label="Couple time" count={13} t={t} />
+        <ListRow
+          icon="📅"
+          label="All shifts"
+          count={viewCounts.all}
+          active={viewFilter === "all"}
+          onClick={() => onSetViewFilter("all")}
+          t={t}
+        />
+        <ListRow
+          icon="◐"
+          label="This week"
+          count={viewCounts.week}
+          onClick={onJumpToThisWeek}
+          t={t}
+        />
+        <ListRow
+          icon="↻"
+          label="Both working"
+          count={viewCounts.both}
+          active={viewFilter === "both"}
+          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+          t={t}
+        />
+        <ListRow
+          icon="✺"
+          label="Couple time"
+          count={viewCounts.couple}
+          active={viewFilter === "couple"}
+          onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
+          t={t}
+        />
       </SidebarSection>
 
       <SidebarSection label="People" t={t}>
@@ -166,12 +199,15 @@ interface ListRowProps {
   active?: boolean;
   color?: string;
   t: ThemeTokens;
+  onClick?: () => void;
 }
 
-function ListRow({ icon, label, count, active, color, t }: ListRowProps) {
+function ListRow({ icon, label, count, active, color, t, onClick }: ListRowProps) {
   const lightSurface = t.bg === "#F2F2F7" || t.bg === "#ECECEE";
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",
@@ -179,11 +215,15 @@ function ListRow({ icon, label, count, active, color, t }: ListRowProps) {
         padding: "5px 8px",
         borderRadius: 6,
         background: active ? (lightSurface ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.08)") : "transparent",
-        cursor: "pointer",
+        cursor: onClick ? "pointer" : "default",
         fontSize: 13,
         color: t.text,
         fontWeight: 500,
         letterSpacing: "-0.01em",
+        border: 0,
+        fontFamily: "inherit",
+        textAlign: "left",
+        width: "100%",
       }}
     >
       {color ? (
@@ -195,6 +235,6 @@ function ListRow({ icon, label, count, active, color, t }: ListRowProps) {
       {count != null && (
         <span style={{ fontSize: 11, color: t.text3, fontVariantNumeric: "tabular-nums" }}>{count}</span>
       )}
-    </div>
+    </button>
   );
 }
