@@ -4465,6 +4465,8 @@ function mergeStateFromFirestore(data) {
     // Display name for the household (e.g. "Bass Household"); editable in
     // the desktop Family Console.
     householdName: typeof data.householdName === "string" ? data.householdName : undefined,
+    // Coverage requests sent to caregivers from the desktop manager.
+    coverageRequests: Array.isArray(data.coverageRequests) ? data.coverageRequests : [],
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);

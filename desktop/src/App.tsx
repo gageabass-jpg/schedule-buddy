@@ -44,6 +44,7 @@ import { ScheduleImportModal } from "./components/ScheduleImportModal";
 import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
+import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 
@@ -102,6 +103,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
+  const [coverageModalOpen, setCoverageModalOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -318,6 +320,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         memberCount={memberCount}
         syncStatus={syncStatus}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
+        onSendCoverage={() => setCoverageModalOpen(true)}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
@@ -453,6 +456,16 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         state={state}
         themePref={themePref}
         onSetThemePref={onSetThemePref}
+      />
+      <CoverageRequestModal
+        open={coverageModalOpen}
+        onClose={() => setCoverageModalOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        shifts={shifts}
       />
     </div>
   );

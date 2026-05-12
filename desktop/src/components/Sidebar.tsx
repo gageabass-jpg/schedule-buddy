@@ -24,13 +24,14 @@ interface SidebarProps {
   onToggleThisWeek: () => void;
   onOpenScheduleImport: (id: string) => void;
   onOpenFamilyConsole: () => void;
+  onSendCoverage: () => void;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole,
+  onOpenFamilyConsole, onSendCoverage,
 }: SidebarProps) {
   return (
     <div
@@ -150,6 +151,8 @@ export function Sidebar({
           count={viewCounts.both}
           active={viewFilter === "both"}
           onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+          onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
+          title="Right-click to send coverage requests to caregiver"
           t={t}
         />
       </SidebarSection>
@@ -223,14 +226,18 @@ interface ListRowProps {
   color?: string;
   t: ThemeTokens;
   onClick?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  title?: string;
 }
 
-function ListRow({ icon, label, count, active, color, t, onClick }: ListRowProps) {
+function ListRow({ icon, label, count, active, color, t, onClick, onContextMenu, title }: ListRowProps) {
   const lightSurface = t.bg === "#F2F2F7" || t.bg === "#ECECEE";
   return (
     <button
       type="button"
       onClick={onClick}
+      onContextMenu={onContextMenu}
+      title={title}
       style={{
         display: "flex",
         alignItems: "center",
