@@ -2443,13 +2443,108 @@
   /* Mobile-only / desktop-only helpers */
   .mobile-only { display: none; }
 
-  /* Header avatar pair (mobile) */
+  /* Header avatar pair (mobile) — also the Family Members button */
   .header-avatars {
     display: inline-flex;
     align-items: center;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
+  .header-avatars:active { transform: scale(0.94); }
   .header-avatars .sb-avatar { width: 32px; height: 32px; font-size: 13px; }
   .header-avatars .sb-avatar + .sb-avatar { margin-left: -10px; }
+
+  /* ========== Family Members drawer (mirrors settings drawer) ========== */
+  .family-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s, visibility 0.25s;
+    z-index: 949;
+  }
+  .family-backdrop.open { opacity: 1; visibility: visible; }
+  .family-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 50vw;
+    max-width: 100vw;
+    min-width: 360px;
+    height: 100vh;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    z-index: 950;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0 24px max(env(safe-area-inset-bottom, 0px) + 24px, 40px);
+  }
+  .family-drawer.open { transform: translateX(0); }
+  @media (max-width: 768px) {
+    .family-drawer {
+      width: 100vw;
+      padding: 0 14px calc(env(safe-area-inset-bottom, 0px) + 30px);
+    }
+  }
+
+  .family-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .family-member {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: var(--radius-card);
+  }
+  .family-member .sb-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .family-member-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .family-role-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: none;
+  }
+  .family-role-badge[data-role="contributing"] {
+    background: rgba(48, 209, 88, 0.16);
+    color: #2BA13F;
+  }
+  @media (prefers-color-scheme: dark) {
+    .family-role-badge[data-role="contributing"] { color: #30D158; }
+  }
+  .family-role-badge[data-role="supporting"] {
+    background: rgba(142, 142, 147, 0.18);
+    color: var(--text-2);
+  }
   .sb-avatar.small.ring {
     box-shadow:
       0 0 0 1.5px var(--bg),
@@ -2929,11 +3024,11 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
-      <!-- Mobile: avatar pair replaces settings gear (settings reachable via Profile tab) -->
-      <span class="header-avatars mobile-only" aria-hidden="true">
+      <!-- Mobile: avatar pair opens the Family Members drawer -->
+      <button class="header-avatars mobile-only" id="familyBtn" type="button" aria-label="Family members">
         <span class="sb-avatar small ring" data-photo="g">G</span>
         <span class="sb-avatar k small ring" data-photo="k">K</span>
-      </span>
+      </button>
       <button class="settings-btn desktop-only" id="settingsBtn" title="Settings">&#9881;</button>
     </div>
   </div>
@@ -3031,6 +3126,16 @@
     </div>
   </div>
   <!-- End settings drawer -->
+
+  <!-- Family Members drawer (slides in from right; tap the avatar pair to open) -->
+  <div class="family-backdrop" id="familyBackdrop"></div>
+  <div class="family-drawer" id="familyDrawer" role="dialog" aria-label="Family Members" aria-hidden="true">
+    <div class="drawer-header">
+      <h2>Family Members</h2>
+      <button class="drawer-close" id="familyDrawerClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="family-list" id="familyList"></div>
+  </div>
 
   <!-- Partner (Kaylene) left drawer -->
   <div class="partner-backdrop" id="partnerBackdrop"></div>
@@ -6536,6 +6641,67 @@ renderAll();
 </script>
 
 <script>
+// ========== Family Members drawer ==========
+// Demo data — replace with state-driven members once invite links from the
+// desktop manager wire up real role assignments.
+const _familyMembers = [
+  { name: "Gage Bass",    photo: "g", role: "contributing" },
+  { name: "Kaylene Bass", photo: "k", role: "contributing" },
+];
+
+const _familyDrawer = document.getElementById("familyDrawer");
+const _familyBackdrop = document.getElementById("familyBackdrop");
+const _familyBtn = document.getElementById("familyBtn");
+const _familyClose = document.getElementById("familyDrawerClose");
+const _familyList = document.getElementById("familyList");
+
+function _renderFamilyList() {
+  const ringClass = m => m.photo === "k" ? "sb-avatar k small ring" : "sb-avatar small ring";
+  const roleLabel = r => r === "contributing" ? "Contributing" : "Supporting";
+  _familyList.innerHTML = _familyMembers.map(m => `
+    <div class="family-member">
+      <span class="${ringClass(m)}" data-photo="${m.photo}">${m.name[0].toUpperCase()}</span>
+      <span class="family-member-name">${m.name}</span>
+      <span class="family-role-badge" data-role="${m.role}">${roleLabel(m.role)}</span>
+    </div>
+  `).join("");
+}
+
+function openFamilyDrawer() {
+  _renderFamilyList();
+  _familyDrawer.classList.add("open");
+  _familyBackdrop.classList.add("open");
+  _familyDrawer.setAttribute("aria-hidden", "false");
+}
+function closeFamilyDrawer() {
+  _familyDrawer.classList.remove("open");
+  _familyBackdrop.classList.remove("open");
+  _familyDrawer.setAttribute("aria-hidden", "true");
+}
+
+if (_familyBtn)   _familyBtn.addEventListener("click", openFamilyDrawer);
+if (_familyClose) _familyClose.addEventListener("click", closeFamilyDrawer);
+if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer);
+
+// Swipe right anywhere on screen to close the drawer.
+(() => {
+  let sx = 0, sy = 0, st = 0;
+  document.addEventListener("touchstart", (e) => {
+    if (!_familyDrawer.classList.contains("open")) return;
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    st = Date.now();
+  }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (!_familyDrawer.classList.contains("open")) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = Math.abs(e.changedTouches[0].clientY - sy);
+    const dt = Date.now() - st;
+    // Rightward swipe, mostly horizontal, reasonably quick
+    if (dx > 80 && dy < 60 && dt < 700) closeFamilyDrawer();
+  }, { passive: true });
+})();
+
 // Capture-phase: catch the close X and "view OT" button before the click can
 // bubble to a calendar cell underneath.
 document.addEventListener("click", (e) => {
