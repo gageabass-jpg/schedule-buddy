@@ -1,5 +1,6 @@
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import { dayColors, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
+import type { Event as SbEvent } from "../state";
+import { dayColors, eventColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 
 interface Props {
@@ -12,9 +13,15 @@ interface Props {
   partnerName: string;
   onEditShift?: (date: string, shift: Shift) => void;
   onDeleteShift?: (date: string, shift: Shift) => void;
+  events: SbEvent[];
+  onAddEvent: () => void;
+  onEditEvent: (ev: SbEvent) => void;
 }
 
-export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfName, partnerName, onEditShift, onDeleteShift }: Props) {
+export function Inspector({
+  selected, palette, t, dark, shifts: allShifts, selfName, partnerName,
+  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent,
+}: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
   const kind = dayKindFromShifts(shifts);
@@ -162,6 +169,72 @@ export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfN
           {(!shifts || shifts.length === 0) && (
             <div style={{ fontSize: 12, color: t.text3, padding: 8 }}>Free day. Plan something together.</div>
           )}
+        </div>
+      </div>
+
+      {/* Events for the selected day */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+          <span style={subhead(t)}>Events</span>
+          <button
+            type="button"
+            onClick={onAddEvent}
+            style={{
+              background: "transparent",
+              border: 0,
+              color: palette.G,
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              padding: 0,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            + Add event
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {events.length === 0 && (
+            <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
+              No events yet. Add a doctor visit, rehab, or anything else.
+            </div>
+          )}
+          {events.map((ev) => {
+            const color = eventColor(ev.who, palette);
+            const timeLabel = ev.startTime
+              ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
+              : "All day";
+            return (
+              <button
+                key={ev.id}
+                type="button"
+                onClick={() => onEditEvent(ev)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  background: t.bgElev,
+                  border: `1px dashed ${rgba(color, 0.55)}`,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  color: t.text,
+                  width: "100%",
+                }}
+              >
+                <span style={{ fontSize: 11, color, fontWeight: 700 }}>◷</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>{ev.title}</div>
+                  <div style={{ fontSize: 10.5, color: t.text3 }}>
+                    {timeLabel} · {ev.who === "G" ? selfName : ev.who === "K" ? partnerName : ev.who}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 

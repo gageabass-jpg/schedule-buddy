@@ -39,6 +39,12 @@ const api = {
     ipcRenderer.on("menu:open-api-key", handler);
     return () => ipcRenderer.removeListener("menu:open-api-key", handler);
   },
+  /** Fires when the user picks "New Event…" from the File menu (Cmd+E). */
+  onMenuNewEvent: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:new-event", handler);
+    return () => ipcRenderer.removeListener("menu:new-event", handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("sbm", api);

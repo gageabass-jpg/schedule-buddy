@@ -239,10 +239,10 @@ function createWindow() {
 }
 
 function installAppMenu(): void {
-  const sendOpenApiKey = (): void => {
-    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-    win?.webContents.send("menu:open-api-key");
-  };
+  const focused = (): BrowserWindow | undefined =>
+    BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+  const sendOpenApiKey = (): void => { focused()?.webContents.send("menu:open-api-key"); };
+  const sendNewEvent = (): void => { focused()?.webContents.send("menu:new-event"); };
 
   const isMac = process.platform === "darwin";
 
@@ -271,7 +271,15 @@ function installAppMenu(): void {
     ...(isMac ? [appMenu] : []),
     {
       label: "File",
-      submenu: [isMac ? { role: "close" } : { role: "quit" }],
+      submenu: [
+        {
+          label: "New Event…",
+          accelerator: "CmdOrCtrl+E",
+          click: sendNewEvent,
+        },
+        { type: "separator" },
+        isMac ? { role: "close" } : { role: "quit" },
+      ],
     },
     {
       label: "Edit",
