@@ -3,6 +3,7 @@ import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
+export type CalLayout = "day" | "week" | "month" | "year";
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { buildShiftMap, type HouseholdState } from "./state";
@@ -49,6 +50,7 @@ function ManagerApp() {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [importScheduleId, setImportScheduleId] = useState<string | null>(null);
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
+  const [calLayout, setCalLayout] = useState<CalLayout>("month");
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -129,17 +131,54 @@ function ManagerApp() {
         ? "no household"
         : "synced";
 
+  const shiftSelectedBy = (deltaDays: number) => {
+    const [y, m, d] = selected.split("-").map(Number);
+    const next = new Date(y, m - 1, d + deltaDays);
+    const ny = next.getFullYear();
+    const nm = next.getMonth();
+    const nd = next.getDate();
+    setSelected(fmtDate(ny, nm, nd));
+    setViewYear(ny);
+    setViewMonth(nm);
+  };
+
   const handlePrev = () => {
-    setViewMonth((m) => {
-      if (m === 0) { setViewYear((y) => y - 1); return 11; }
-      return m - 1;
-    });
+    switch (calLayout) {
+      case "month":
+        setViewMonth((m) => {
+          if (m === 0) { setViewYear((y) => y - 1); return 11; }
+          return m - 1;
+        });
+        break;
+      case "year":
+        setViewYear((y) => y - 1);
+        break;
+      case "week":
+        shiftSelectedBy(-7);
+        break;
+      case "day":
+        shiftSelectedBy(-1);
+        break;
+    }
   };
   const handleNext = () => {
-    setViewMonth((m) => {
-      if (m === 11) { setViewYear((y) => y + 1); return 0; }
-      return m + 1;
-    });
+    switch (calLayout) {
+      case "month":
+        setViewMonth((m) => {
+          if (m === 11) { setViewYear((y) => y + 1); return 0; }
+          return m + 1;
+        });
+        break;
+      case "year":
+        setViewYear((y) => y + 1);
+        break;
+      case "week":
+        shiftSelectedBy(7);
+        break;
+      case "day":
+        shiftSelectedBy(1);
+        break;
+    }
   };
   const handleToday = () => {
     setViewYear(tY);
@@ -234,10 +273,13 @@ function ManagerApp() {
         dark={DARK}
         flat={FLAT}
         shifts={shifts}
+        state={state}
         viewYear={viewYear}
         viewMonth={viewMonth}
         selected={selected}
         today={today}
+        selfName={selfName}
+        partnerName={partnerName}
         onSelectDate={setSelected}
         onPrev={handlePrev}
         onNext={handleNext}
@@ -246,6 +288,8 @@ function ManagerApp() {
         onEditTemplate={() => setTemplateOpen(true)}
         onEditShiftTypes={() => setShiftTypesOpen(true)}
         viewFilter={viewFilter}
+        calLayout={calLayout}
+        onSetCalLayout={setCalLayout}
       />
       <Inspector
         selected={selected}

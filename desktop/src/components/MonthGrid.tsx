@@ -1,6 +1,10 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
-import type { ViewFilter } from "../App";
+import type { CalLayout, ViewFilter } from "../App";
+import type { HouseholdState } from "../state";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import { YearView } from "./YearView";
+import { WeekView } from "./WeekView";
+import { DayView } from "./DayView";
 
 interface Props {
   palette: Palette;
@@ -8,6 +12,7 @@ interface Props {
   dark: boolean;
   flat: boolean;
   shifts: ShiftMap;
+  state: HouseholdState | null;
   viewYear: number;
   viewMonth: number;
   selected: string;
@@ -20,6 +25,10 @@ interface Props {
   onEditTemplate: () => void;
   onEditShiftTypes: () => void;
   viewFilter: ViewFilter;
+  calLayout: CalLayout;
+  onSetCalLayout: (layout: CalLayout) => void;
+  selfName: string;
+  partnerName: string;
 }
 
 const MONTH_LABELS = [
@@ -28,9 +37,9 @@ const MONTH_LABELS = [
 ];
 
 export function MonthGrid({
-  palette, t, dark, flat, shifts, viewYear, viewMonth, selected, today,
+  palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
-  viewFilter,
+  viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -58,12 +67,13 @@ export function MonthGrid({
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: "-0.02em" }}>
-            {MONTH_LABELS[viewMonth]}
-          </span>
-          <span style={{ fontSize: 22, fontWeight: 400, color: t.text2, letterSpacing: "-0.02em" }}>
-            {viewYear}
-          </span>
+          <ToolbarTitle
+            calLayout={calLayout}
+            viewYear={viewYear}
+            viewMonth={viewMonth}
+            selected={selected}
+            t={t}
+          />
         </div>
         <div style={{ display: "flex", gap: 2, marginLeft: 8 }}>
           <button style={navBtn(t)} type="button" onClick={onPrev}>‹</button>
@@ -83,25 +93,31 @@ export function MonthGrid({
             background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)",
           }}
         >
-          {["Day", "Week", "Month", "Year"].map((v) => (
-            <button
-              key={v}
-              type="button"
-              style={{
-                padding: "3px 10px",
-                border: 0,
-                borderRadius: 4,
-                background: v === "Month" ? (dark ? "#3A3A3C" : "#fff") : "transparent",
-                color: t.text,
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: v === "Month" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-              }}
-            >
-              {v}
-            </button>
-          ))}
+          {(["day", "week", "month", "year"] as const).map((v) => {
+            const active = calLayout === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onSetCalLayout(v)}
+                style={{
+                  padding: "3px 10px",
+                  border: 0,
+                  borderRadius: 4,
+                  background: active ? (dark ? "#3A3A3C" : "#fff") : "transparent",
+                  color: t.text,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  fontFamily: "inherit",
+                  textTransform: "capitalize",
+                }}
+              >
+                {v}
+              </button>
+            );
+          })}
         </div>
         <button
           type="button"
@@ -138,7 +154,52 @@ export function MonthGrid({
         </button>
       </div>
 
-      {/* Grid */}
+      {calLayout === "year" && (
+        <YearView
+          palette={palette}
+          t={t}
+          dark={dark}
+          shifts={shifts}
+          viewYear={viewYear}
+          selected={selected}
+          onSelectDate={onSelectDate}
+          onDrillIntoMonth={(mo) => {
+            onSetCalLayout("month");
+            // viewMonth is owned by App.tsx — selecting a date drills there.
+            onSelectDate(fmtDate(viewYear, mo, 1));
+          }}
+        />
+      )}
+
+      {calLayout === "week" && (
+        <WeekView
+          palette={palette}
+          t={t}
+          dark={dark}
+          shifts={shifts}
+          state={state}
+          selected={selected}
+          today={today}
+          onSelectDate={onSelectDate}
+        />
+      )}
+
+      {calLayout === "day" && (
+        <DayView
+          palette={palette}
+          t={t}
+          dark={dark}
+          shifts={shifts}
+          state={state}
+          selected={selected}
+          today={today}
+          selfName={selfName}
+          partnerName={partnerName}
+        />
+      )}
+
+      {calLayout === "month" && (
+      /* Month grid */
       <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 6, minHeight: 0 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
           {WEEKDAYS_3.map((w, i) => (
@@ -254,7 +315,64 @@ export function MonthGrid({
           ))}
         </div>
       </div>
+      )}
     </div>
+  );
+}
+
+function ToolbarTitle({
+  calLayout, viewYear, viewMonth, selected, t,
+}: {
+  calLayout: CalLayout;
+  viewYear: number;
+  viewMonth: number;
+  selected: string;
+  t: ThemeTokens;
+}) {
+  const big = (s: string) => (
+    <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: "-0.02em" }}>{s}</span>
+  );
+  const light = (s: string) => (
+    <span style={{ fontSize: 22, fontWeight: 400, color: t.text2, letterSpacing: "-0.02em" }}>{s}</span>
+  );
+
+  if (calLayout === "year") {
+    return big(String(viewYear));
+  }
+  if (calLayout === "month") {
+    return (
+      <>
+        {big(MONTH_LABELS[viewMonth])}
+        {light(String(viewYear))}
+      </>
+    );
+  }
+  // week + day operate on `selected`
+  const [y, m, d] = selected.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (calLayout === "week") {
+    const ws = new Date(date);
+    ws.setDate(date.getDate() - date.getDay());
+    const we = new Date(ws);
+    we.setDate(ws.getDate() + 6);
+    const sameMonth = ws.getMonth() === we.getMonth();
+    const range = sameMonth
+      ? `${MONTH_LABELS[ws.getMonth()]} ${ws.getDate()} – ${we.getDate()}`
+      : `${MONTH_LABELS[ws.getMonth()].slice(0, 3)} ${ws.getDate()} – ${MONTH_LABELS[we.getMonth()].slice(0, 3)} ${we.getDate()}`;
+    return (
+      <>
+        {big(range)}
+        {light(String(we.getFullYear()))}
+      </>
+    );
+  }
+  // day
+  const dayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
+  return (
+    <>
+      {big(`${dayShort}, ${MONTH_LABELS[date.getMonth()]} ${date.getDate()}`)}
+      {light(String(date.getFullYear()))}
+    </>
   );
 }
 
