@@ -113,8 +113,8 @@ export function InboxTray({ palette, t, dark, requests, onOpenFullInbox }: Props
         }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M3 13l2.6-8a2 2 0 011.9-1.4h9a2 2 0 011.9 1.4L21 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 13h5l1.2 2.5a1 1 0 00.9.5h3.8a1 1 0 00.9-.5L16 13h5v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M3 13l2.6-8a2 2 0 011.9-1.4h9a2 2 0 011.9 1.4L21 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M3 13h5l1.2 2.5a1 1 0 00.9.5h3.8a1 1 0 00.9-.5L16 13h5v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
         </svg>
         {/* Numeric badge for unread count */}
         {newCount > 0 && (
