@@ -15,6 +15,10 @@ interface Props {
   dark: boolean;
   householdId: string | null;
   state: HouseholdState | null;
+  /** "YYYY-MM-DD" — today's local date. */
+  today: string;
+  /** "YYYY-MM" — the month the user currently has open in the calendar. */
+  contextMonth: string;
 }
 
 type Phase =
@@ -33,6 +37,7 @@ interface EditableRow extends ParsedShiftRow {
 
 export function ScheduleImportModal({
   scheduleId, onClose, onNeedApiKey, palette, t, dark, householdId, state,
+  today, contextMonth,
 }: Props) {
   const def = scheduleId ? findScheduleImport(scheduleId) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
@@ -106,6 +111,8 @@ export function ScheduleImportModal({
       scheduleHint: def.parserHint,
       personLabel: def.personLabel,
       shiftTypes: (state?.shiftTypes ?? []).map((s) => ({ id: s.id, name: s.name, start: s.start, end: s.end })),
+      today,
+      contextMonth,
     });
     if (!result.ok || !result.rows) {
       setErr(result.error || "Parsing failed.");
@@ -238,6 +245,7 @@ export function ScheduleImportModal({
             rows={phase.rows}
             monthCovered={phase.monthCovered}
             shiftTypes={shiftTypes}
+            contextMonth={contextMonth}
             onUpdate={updateRow}
           />
         )}
@@ -356,27 +364,37 @@ function UploadPhase({
 }
 
 function ReviewPhase({
-  t, dark, rows, monthCovered, shiftTypes, onUpdate,
+  t, dark, rows, monthCovered, shiftTypes, contextMonth, onUpdate,
 }: {
   t: ThemeTokens;
   dark: boolean;
   rows: EditableRow[];
   monthCovered?: string;
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  contextMonth: string;
   onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
 }) {
   const kept = rows.filter((r) => !r.skipped && r.shiftTypeId).length;
+  // Surface every distinct YYYY-MM Claude returned so a wrong-year run is obvious.
+  const months = Array.from(new Set(rows.map((r) => r.date.slice(0, 7)))).sort();
+  const offMonths = months.filter((m) => m !== contextMonth);
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
         <div style={{ fontSize: 12, color: t.text2 }}>
-          {monthCovered && <>Detected: {monthCovered} · </>}
-          {kept} of {rows.length} ready to save
+          Months: {months.length ? months.join(", ") : "—"}
+          {monthCovered && monthCovered !== months[0] && <> · Claude said {monthCovered}</>}
+          {" · "}{kept} of {rows.length} ready to save
         </div>
         <div style={{ fontSize: 11, color: t.text3 }}>
           • high  · ok  ◦ low confidence
         </div>
       </div>
+      {offMonths.length > 0 && (
+        <div style={{ fontSize: 11.5, color: "#FF9F0A", lineHeight: 1.45 }}>
+          ⚠ Some rows fall outside {contextMonth} ({offMonths.join(", ")}). If that's wrong, fix the date column before saving.
+        </div>
+      )}
       <div
         style={{
           flex: 1,

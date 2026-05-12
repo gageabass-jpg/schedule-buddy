@@ -6,6 +6,10 @@ export interface ParseScheduleRequest {
   scheduleHint: string;      // parser hint from SCHEDULE_IMPORTS
   personLabel: string;       // "Gage", "Kaylene", "Daisy"
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  /** Today's local ISO date. Helps Claude disambiguate year when the image only shows month + day. */
+  today: string;             // YYYY-MM-DD
+  /** The month the user currently has open in the calendar. Strong hint for which year/month the schedule covers. */
+  contextMonth: string;      // YYYY-MM
 }
 
 export interface ParsedShiftRow {
