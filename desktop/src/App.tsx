@@ -10,6 +10,7 @@ import { Inspector } from "./components/Inspector";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
 import { BrandMark } from "./components/BrandMark";
+import { NewShiftModal } from "./components/NewShiftModal";
 
 const PALETTE: PaletteName = "modern";
 const DARK = true;
@@ -33,6 +34,7 @@ function ManagerApp() {
   const [selected, setSelected] = useState<string>(today);
   const [viewYear, setViewYear] = useState<number>(tY);
   const [viewMonth, setViewMonth] = useState<number>(tM - 1);
+  const [newShiftOpen, setNewShiftOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(DARK);
@@ -128,6 +130,7 @@ function ManagerApp() {
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
+        onNewShift={() => setNewShiftOpen(true)}
       />
       <Inspector
         selected={selected}
@@ -137,6 +140,16 @@ function ManagerApp() {
         shifts={shifts}
         selfName={selfName}
         partnerName={partnerName}
+      />
+      <NewShiftModal
+        open={newShiftOpen}
+        onClose={() => setNewShiftOpen(false)}
+        palette={palette}
+        t={t}
+        dark={DARK}
+        householdId={householdStatus.status === "ready" ? householdStatus.household.id : null}
+        state={state}
+        defaultDate={selected}
       />
     </div>
   );
