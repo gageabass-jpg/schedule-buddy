@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ShiftMap } from "../data";
 import type { Palette, ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { MiniMonth } from "./MiniMonth";
@@ -8,13 +9,21 @@ interface SidebarProps {
   palette: Palette;
   t: ThemeTokens;
   dark: boolean;
+  shifts: ShiftMap;
   viewYear: number;
   viewMonth: number;
   selected: string;
   onSelectDate: (key: string) => void;
+  householdName: string;
+  memberCount: number;
+  syncStatus: string;
+  onSignOut: () => void;
 }
 
-export function Sidebar({ palette, t, dark, viewYear, viewMonth, selected, onSelectDate }: SidebarProps) {
+export function Sidebar({
+  palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
+  householdName, memberCount, syncStatus, onSignOut,
+}: SidebarProps) {
   return (
     <div
       style={{
@@ -54,7 +63,7 @@ export function Sidebar({ palette, t, dark, viewYear, viewMonth, selected, onSel
       </div>
 
       <div style={{ padding: "0 4px" }}>
-        <MiniMonth y={viewYear} mo={viewMonth} palette={palette} t={t} dark={dark} selected={selected} onSelect={onSelectDate} />
+        <MiniMonth y={viewYear} mo={viewMonth} palette={palette} t={t} dark={dark} shifts={shifts} selected={selected} onSelect={onSelectDate} />
       </div>
 
       <SidebarSection label="Views" t={t}>
@@ -95,10 +104,26 @@ export function Sidebar({ palette, t, dark, viewYear, viewMonth, selected, onSel
           </div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text }}>Bass household</div>
-          <div style={{ fontSize: 10, color: t.text3 }}>2 members · synced</div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text }}>{householdName}</div>
+          <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
         </div>
-        <span style={{ color: t.text3, fontSize: 14 }}>⚙</span>
+        <button
+          type="button"
+          onClick={onSignOut}
+          title="Sign out"
+          style={{
+            border: 0,
+            background: "transparent",
+            color: t.text3,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            padding: "2px 4px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          ⎋
+        </button>
       </div>
     </div>
   );

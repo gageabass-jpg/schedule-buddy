@@ -1,4 +1,4 @@
-import { buildMonthGrid, fmtDate, SHIFTS, dayKindFromShifts, WEEKDAYS_3 } from "../data";
+import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
 import { dayColors, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 
 interface Props {
@@ -6,6 +6,7 @@ interface Props {
   t: ThemeTokens;
   dark: boolean;
   flat: boolean;
+  shifts: ShiftMap;
   viewYear: number;
   viewMonth: number;
   selected: string;
@@ -22,7 +23,7 @@ const MONTH_LABELS = [
 ];
 
 export function MonthGrid({
-  palette, t, dark, flat, viewYear, viewMonth, selected, today,
+  palette, t, dark, flat, shifts, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
@@ -130,8 +131,8 @@ export function MonthGrid({
             <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
               {week.map((c, ci) => {
                 const key = fmtDate(c.y, c.mo, c.d);
-                const shifts = SHIFTS[key];
-                const kind = dayKindFromShifts(shifts);
+                const dayShifts = shifts[key];
+                const kind = dayKindFromShifts(dayShifts);
                 const colors = dayColors(kind, palette, dark);
                 const isToday = key === today;
                 const isSel = key === selected;
@@ -174,13 +175,13 @@ export function MonthGrid({
                       >
                         {c.d}
                       </span>
-                      {shifts && shifts.length > 1 && (
-                        <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{shifts.length}</span>
+                      {dayShifts && dayShifts.length > 1 && (
+                        <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{dayShifts.length}</span>
                       )}
                     </div>
-                    {shifts && (
+                    {dayShifts && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {shifts.slice(0, 3).map((s, i) => {
+                        {dayShifts.slice(0, 3).map((s, i) => {
                           const color = personColor(s.who, palette);
                           return (
                             <div

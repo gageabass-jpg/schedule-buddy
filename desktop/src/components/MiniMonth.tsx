@@ -1,4 +1,4 @@
-import { buildMonthGrid, fmtDate, SHIFTS, dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3 } from "../data";
+import { buildMonthGrid, fmtDate, dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type ShiftMap } from "../data";
 import { dayColors, type Palette, type ThemeTokens } from "../theme";
 
 interface Props {
@@ -7,11 +7,12 @@ interface Props {
   palette: Palette;
   t: ThemeTokens;
   dark: boolean;
+  shifts: ShiftMap;
   selected?: string;
   onSelect?: (key: string) => void;
 }
 
-export function MiniMonth({ y, mo, palette, t, dark, selected, onSelect }: Props) {
+export function MiniMonth({ y, mo, palette, t, dark, shifts, selected, onSelect }: Props) {
   const weeks = buildMonthGrid(y, mo);
   return (
     <div style={{ fontSize: 11 }}>
@@ -32,8 +33,8 @@ export function MiniMonth({ y, mo, palette, t, dark, selected, onSelect }: Props
         ))}
         {weeks.flat().map((c, i) => {
           const key = fmtDate(c.y, c.mo, c.d);
-          const shifts = SHIFTS[key];
-          const kind = dayKindFromShifts(shifts);
+          const dayShifts = shifts[key];
+          const kind = dayKindFromShifts(dayShifts);
           const colors = dayColors(kind, palette, dark);
           const isSel = selected === key;
           return (
