@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { CaregiverRequest, CaregiverRequestStatus, HouseholdState } from "../state";
 import {
@@ -17,6 +17,10 @@ interface Props {
   dark: boolean;
   householdId: string | null;
   state: HouseholdState | null;
+  /** When set, scroll the row into view + highlight it briefly. */
+  focusId?: string | null;
+  /** Open the single-day New Coverage Request modal pre-filled from this row. */
+  onConvertToCoverage?: (req: CaregiverRequest) => void;
 }
 
 type Filter = "new" | "all";
@@ -42,12 +46,35 @@ function friendlyTimestamp(ms: number): string {
 }
 
 export function InboxPanel({
-  open, onClose, palette, t, dark, householdId, state,
+  open, onClose, palette, t, dark, householdId, state, focusId, onConvertToCoverage,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const requests: CaregiverRequest[] = state?.caregiverRequests ?? [];
+
+  // If we're focusing a specific row but its status doesn't match the
+  // current filter, widen to "all" so it's reachable.
+  useEffect(() => {
+    if (!open || !focusId) return;
+    const target = requests.find((r) => r.id === focusId);
+    if (target && target.status !== "new" && filter === "new") setFilter("all");
+  }, [open, focusId, requests, filter]);
+
+  // Scroll focused row into view + brief highlight.
+  useEffect(() => {
+    if (!open || !focusId) return;
+    const el = rowRefs.current[focusId];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.style.transition = "box-shadow 0.4s ease";
+    el.style.boxShadow = `0 0 0 2px ${palette.G}`;
+    const timer = window.setTimeout(() => {
+      if (el) el.style.boxShadow = "";
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [open, focusId, filter, palette.G]);
 
   const filtered = useMemo(() => {
     const list = filter === "new" ? requests.filter((r) => r.status === "new") : requests;
@@ -148,6 +175,7 @@ export function InboxPanel({
             filtered.map((r) => (
               <div
                 key={r.id}
+                ref={(el) => { rowRefs.current[r.id] = el; }}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr auto",
@@ -206,6 +234,28 @@ export function InboxPanel({
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                  {r.type === "shift-conflict" && onConvertToCoverage && (
+                    <button
+                      type="button"
+                      disabled={busyId === r.id}
+                      onClick={() => onConvertToCoverage(r)}
+                      title="Open a new coverage request pre-filled from this conflict."
+                      style={{
+                        padding: "5px 10px",
+                        border: `0.5px solid ${palette.G}`,
+                        borderRadius: 6,
+                        background: "transparent",
+                        color: palette.G,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      Convert to coverage
+                    </button>
+                  )}
                   {r.status === "new" && (
                     <>
                       <button

@@ -24,6 +24,28 @@ interface CoverageRequest {
   caregiverNote?: string;
 }
 
+type CaregiverRequestType = "schedule-block" | "shift-conflict" | "other";
+type CaregiverRequestStatus = "new" | "acknowledged" | "dismissed";
+
+interface CaregiverRequest {
+  id: string;
+  type: CaregiverRequestType;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+  status: CaregiverRequestStatus;
+  createdAt: number;
+  createdBy: string;
+  createdByName?: string;
+}
+
+function caregiverTypeLabel(t: CaregiverRequestType): string {
+  if (t === "schedule-block") return "Schedule block";
+  if (t === "shift-conflict") return "Shift conflict";
+  return "Note";
+}
+
 interface PushTokenDoc {
   token: string;
   uid: string;
@@ -33,8 +55,8 @@ interface PushTokenDoc {
 
 // ---- helpers ------------------------------------------------------------
 
-function byId(list: CoverageRequest[]): Map<string, CoverageRequest> {
-  const m = new Map<string, CoverageRequest>();
+function byId<T extends { id?: string }>(list: T[]): Map<string, T> {
+  const m = new Map<string, T>();
   for (const r of list || []) if (r && r.id) m.set(r.id, r);
   return m;
 }
@@ -130,8 +152,51 @@ export const onCoverageRequestsChange = onDocumentUpdated(
   "households/{householdId}/state/main",
   async (event) => {
     const householdId = event.params.householdId;
-    const before = (event.data?.before.data()?.coverageRequests ?? []) as CoverageRequest[];
-    const after  = (event.data?.after.data()?.coverageRequests  ?? []) as CoverageRequest[];
+    const beforeDoc = event.data?.before.data() ?? {};
+    const afterDoc  = event.data?.after.data()  ?? {};
+
+    // --- Caregiver inbox (caregiverRequests): notify managers when a
+    // brand-new "new"-status row appears. Acks/dismissals are ignored.
+    const cgBefore = byId<CaregiverRequest>((beforeDoc.caregiverRequests ?? []) as CaregiverRequest[]);
+    const cgAfter  = (afterDoc.caregiverRequests ?? []) as CaregiverRequest[];
+    const newCaregiverEntries: CaregiverRequest[] = [];
+    for (const r of cgAfter) {
+      if (!r || !r.id) continue;
+      if (cgBefore.has(r.id)) continue;
+      if (r.status === "new") newCaregiverEntries.push(r);
+    }
+    if (newCaregiverEntries.length > 0) {
+      const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
+      logger.info("Inbox push tokens resolved", { householdId, count: tokens.length, newEntries: newCaregiverEntries.length });
+      if (tokens.length > 0) {
+        for (const cr of newCaregiverEntries) {
+          const who = cr.createdByName || "Caregiver";
+          const title = `${who}: ${caregiverTypeLabel(cr.type)}`;
+          const dateStr = (() => {
+            const [y, m, d] = (cr.date || "").split("-").map(Number);
+            if (!y || !m || !d) return cr.date || "";
+            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+          })();
+          const bodyParts: string[] = [dateStr];
+          if (cr.startTime && cr.endTime) bodyParts.push(`${cr.startTime}–${cr.endTime}`);
+          if (cr.notes) bodyParts.push(cr.notes.slice(0, 80));
+          await sendToTokens(tokens, {
+            title,
+            body: bodyParts.filter(Boolean).join(" · "),
+          }, {
+            kind: "caregiver_request",
+            householdId,
+            requestId: cr.id,
+            type: cr.type,
+          }, householdId);
+        }
+      }
+    }
+
+    // --- Coverage requests (caregivers receive new pending; managers
+    // receive status transitions). Same path as before.
+    const before = (beforeDoc.coverageRequests ?? []) as CoverageRequest[];
+    const after  = (afterDoc.coverageRequests  ?? []) as CoverageRequest[];
 
     const beforeMap = byId(before);
     const afterMap  = byId(after);

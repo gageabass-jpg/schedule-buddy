@@ -109,7 +109,14 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
   const [childcareOpen, setChildcareOpen] = useState(false);
   const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestPrefill, setNewRequestPrefill] = useState<{
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    notes?: string;
+  } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxFocusId, setInboxFocusId] = useState<string | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -140,7 +147,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     householdStatus.status === "ready" ? householdStatus.state : null;
 
   const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
-  const inboxNewCount = (state?.caregiverRequests ?? []).filter((r) => r.status === "new").length;
+  const inboxRequests = state?.caregiverRequests ?? [];
 
   const eventsByDate: EventMap = useMemo(() => {
     const out: EventMap = {};
@@ -375,8 +382,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         eventsByDate={eventsByDate}
         onNewEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
-        onOpenInbox={() => setInboxOpen(true)}
-        inboxCount={inboxNewCount}
+        onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
+        inboxRequests={inboxRequests}
       />
       <Inspector
         selected={selected}
@@ -493,11 +500,12 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       />
       <NewRequestModal
         open={newRequestOpen}
-        onClose={() => setNewRequestOpen(false)}
+        onClose={() => { setNewRequestOpen(false); setNewRequestPrefill(null); }}
         palette={palette}
         t={t}
         householdId={householdId}
         defaultDate={selected}
+        prefill={newRequestPrefill}
       />
       <InboxPanel
         open={inboxOpen}
@@ -507,6 +515,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         dark={dark}
         householdId={householdId}
         state={state}
+        focusId={inboxFocusId}
+        onConvertToCoverage={(req) => {
+          setNewRequestPrefill({
+            date: req.date,
+            startTime: req.startTime,
+            endTime: req.endTime,
+            notes: req.notes,
+          });
+          setInboxOpen(false);
+          setNewRequestOpen(true);
+        }}
       />
     </div>
   );

@@ -4335,6 +4335,12 @@
     <div class="mc-list" id="mcList">
       <div class="mc-empty">No coverage requests yet. Use the Manager on your Mac to send a batch.</div>
     </div>
+
+    <!-- Inbox section: caregiver-authored requests ack-able from iOS too -->
+    <div class="mc-inbox-section" id="mcInboxSection" hidden>
+      <div class="mc-eyebrow" style="margin-top: 14px;">From caregivers</div>
+      <div class="mc-list" id="mcInboxList"></div>
+    </div>
   </div><!-- /.pane-childcare -->
 
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
@@ -5631,6 +5637,98 @@ function renderManagerChildcare(requests) {
       handleManagerClear(id);
     });
   });
+
+  // Also render the caregiver-authored "From caregivers" inbox section.
+  renderManagerInboxSection((state && state.caregiverRequests) || []);
+}
+
+function renderManagerInboxSection(caregiverRequests) {
+  const section = document.getElementById("mcInboxSection");
+  const list = document.getElementById("mcInboxList");
+  if (!section || !list) return;
+  // Show only non-dismissed for the iOS surface; full audit still on Mac.
+  const visible = (caregiverRequests || []).filter(r => r && r.status !== "dismissed");
+  if (visible.length === 0) { section.hidden = true; list.innerHTML = ""; return; }
+  section.hidden = false;
+  // Newest first
+  visible.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  list.innerHTML = visible.map(mcInboxRowHTML).join("");
+  list.querySelectorAll("[data-mc-inbox-ack]").forEach(btn => {
+    btn.addEventListener("click", () => handleManagerInboxAction(btn.getAttribute("data-mc-inbox-ack"), "acknowledged"));
+  });
+  list.querySelectorAll("[data-mc-inbox-dismiss]").forEach(btn => {
+    btn.addEventListener("click", () => handleManagerInboxAction(btn.getAttribute("data-mc-inbox-dismiss"), "dismissed"));
+  });
+}
+
+function mcInboxRowHTML(r) {
+  const type =
+    r.type === "schedule-block" ? "Schedule block" :
+    r.type === "shift-conflict" ? "Shift conflict" :
+                                   "Other";
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+      });
+    }
+  } catch (_) {}
+  const status = r.status || "new";
+  const statusLabel = status === "acknowledged" ? "Acknowledged" : "New";
+  const stripeClass = status === "acknowledged" ? "confirmed" : "pending";
+  const who = r.createdByName || "Caregiver";
+  const time = (r.startTime && r.endTime)
+    ? `${escapeHtml(r.startTime)} → ${escapeHtml(r.endTime)}`
+    : "";
+  const notes = r.notes
+    ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
+
+  const actions = status === "new"
+    ? `<div class="mc-actions" style="gap:6px;">
+         <button type="button" class="mc-clear-btn" data-mc-inbox-ack="${escapeHtml(r.id || "")}">Acknowledge</button>
+         <button type="button" class="mc-clear-btn" data-mc-inbox-dismiss="${escapeHtml(r.id || "")}">Dismiss</button>
+       </div>`
+    : "";
+
+  return `
+    <article class="mc-card ${stripeClass}">
+      <div class="mc-card-head">
+        <div class="mc-card-date">${escapeHtml(who)}</div>
+        <span class="mc-pill ${stripeClass}">${statusLabel}</span>
+      </div>
+      <div class="mc-meta">
+        <span><b>${escapeHtml(type)}</b></span>
+        <span>· ${escapeHtml(dayLabel)}</span>
+        ${time ? `<span>· ${time}</span>` : ""}
+      </div>
+      ${notes}
+      ${actions}
+    </article>`;
+}
+
+async function handleManagerInboxAction(id, nextStatus) {
+  if (!householdId || !id || !currentUser) return;
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    list[idx] = {
+      ...list[idx],
+      status: nextStatus,
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: currentUser.uid,
+    };
+    await ref.set({ ...data, caregiverRequests: list });
+  } catch (e) {
+    console.error("inbox action failed:", e);
+    alert("Couldn't update that request. Check your connection.");
+  }
 }
 
 async function handleManagerClear(id) {

@@ -9,6 +9,13 @@ interface Props {
   t: ThemeTokens;
   householdId: string | null;
   defaultDate?: string;
+  /** Optional pre-fill (e.g. converting a Shift Conflict from the Inbox). */
+  prefill?: {
+    date?: string;
+    startTime?: string;
+    endTime?: string;
+    notes?: string;
+  } | null;
 }
 
 const ARRIVE_BY_OFFSET_MIN = 120;
@@ -27,7 +34,7 @@ function arriveByFromStart(startTime: string, offsetMin = ARRIVE_BY_OFFSET_MIN):
 /** Single-day coverage request — for one-offs that aren't a scheduling
  *  overlap (e.g. date night, appointment, parent-teacher meeting). */
 export function NewRequestModal({
-  open, onClose, palette, t, householdId, defaultDate,
+  open, onClose, palette, t, householdId, defaultDate, prefill,
 }: Props) {
   const [date, setDate] = useState<string>(defaultDate || todayIso());
   const [startTime, setStartTime] = useState<string>("18:00");
@@ -40,14 +47,16 @@ export function NewRequestModal({
 
   useEffect(() => {
     if (!open) return;
-    setDate(defaultDate || todayIso());
-    setStartTime("18:00");
-    setEndTime("22:00");
-    setNotes("");
+    const pStart = prefill?.startTime || "18:00";
+    const pEnd   = prefill?.endTime   || "22:00";
+    setDate(prefill?.date || defaultDate || todayIso());
+    setStartTime(pStart);
+    setEndTime(pEnd);
+    setNotes(prefill?.notes || "");
     setAutoArrive(true);
-    setArriveBy(arriveByFromStart("18:00"));
+    setArriveBy(arriveByFromStart(pStart));
     setErr(null);
-  }, [open, defaultDate]);
+  }, [open, defaultDate, prefill]);
 
   useEffect(() => {
     if (autoArrive) setArriveBy(arriveByFromStart(startTime));

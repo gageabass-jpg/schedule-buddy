@@ -1,6 +1,7 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
-import type { Event as SbEvent, HouseholdState } from "../state";
+import type { CaregiverRequest, Event as SbEvent, HouseholdState } from "../state";
+import { InboxTray } from "./InboxTray";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
@@ -25,8 +26,8 @@ interface Props {
   onNewShift: () => void;
   onEditTemplate: () => void;
   onEditShiftTypes: () => void;
-  onOpenInbox: () => void;
-  inboxCount: number;
+  onOpenInbox: (focusId?: string) => void;
+  inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
@@ -46,7 +47,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onNewEvent, onEditEvent, onOpenInbox, inboxCount,
+  eventsByDate, onNewEvent, onEditEvent, onOpenInbox, inboxRequests,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -147,56 +148,13 @@ export function MonthGrid({
         >
           + Event
         </button>
-        <button
-          type="button"
-          onClick={onOpenInbox}
-          title={inboxCount > 0 ? `${inboxCount} new caregiver request${inboxCount === 1 ? "" : "s"}` : "Inbox"}
-          aria-label="Inbox"
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 30,
-            height: 26,
-            padding: 0,
-            borderRadius: 6,
-            border: `0.5px solid ${t.sep}`,
-            background: "transparent",
-            color: t.text,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M3 13l2.6-8a2 2 0 011.9-1.4h9a2 2 0 011.9 1.4L21 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M3 13h5l1.2 2.5a1 1 0 00.9.5h3.8a1 1 0 00.9-.5L16 13h5v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          </svg>
-          {inboxCount > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: -5,
-                right: -5,
-                minWidth: 14,
-                height: 14,
-                padding: "0 3px",
-                background: "#FF453A",
-                color: "#fff",
-                fontSize: 9,
-                fontWeight: 700,
-                borderRadius: 7,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxSizing: "border-box",
-                pointerEvents: "none",
-              }}
-            >
-              {inboxCount > 99 ? "99+" : inboxCount}
-            </span>
-          )}
-        </button>
+        <InboxTray
+          palette={palette}
+          t={t}
+          dark={dark}
+          requests={inboxRequests}
+          onOpenFullInbox={(focusId) => onOpenInbox(focusId)}
+        />
         <button
           type="button"
           onClick={onNewShift}
