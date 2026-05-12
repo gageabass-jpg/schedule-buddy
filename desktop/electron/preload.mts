@@ -29,6 +29,12 @@ const api = {
   clearApiKey: (): Promise<void> => ipcRenderer.invoke("key:clear"),
   parseSchedule: (req: ParseScheduleRequest): Promise<ParseScheduleResult> =>
     ipcRenderer.invoke("vision:parse", req),
+  /** Fires when the user picks "Settings…" from the macOS App menu (Cmd+,). */
+  onMenuOpenApiKey: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:open-api-key", handler);
+    return () => ipcRenderer.removeListener("menu:open-api-key", handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("sbm", api);

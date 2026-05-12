@@ -28,6 +28,7 @@ export interface SbmApi {
   setApiKey: (key: string) => Promise<{ ok: boolean; error?: string }>;
   clearApiKey: () => Promise<void>;
   parseSchedule: (req: ParseScheduleRequest) => Promise<ParseScheduleResult>;
+  onMenuOpenApiKey: (cb: () => void) => () => void;
 }
 
 declare global {
