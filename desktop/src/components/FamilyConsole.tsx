@@ -4,6 +4,7 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { ThemePref } from "../App";
 import { setHouseholdName } from "../lib/writeHouseholdMeta";
+import { createInviteCode } from "../lib/createInviteCode";
 import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
 import { doSignOut } from "../hooks/useAuth";
 import { PhotoAv } from "./PhotoAv";
@@ -29,12 +30,17 @@ export function FamilyConsole({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [caregiverCode, setCaregiverCode] = useState<string | null>(null);
+  const [caregiverCopied, setCaregiverCopied] = useState(false);
+  const [caregiverBusy, setCaregiverBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setDraftName(state?.householdName ?? defaultHouseholdName(household));
     setErr(null);
     setCopied(false);
+    setCaregiverCode(null);
+    setCaregiverCopied(false);
   }, [open, state?.householdName, household]);
 
   if (!open) return null;
@@ -155,6 +161,69 @@ export function FamilyConsole({
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
+          </Section>
+
+          {/* Caregiver invite */}
+          <Section title="Caregiver invite" t={t} hint="Generate a code that lands the redeemer as a Supporting account — they'll only see Coverage Requests, not the full schedule.">
+            {caregiverCode ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: t.bg,
+                    border: `0.5px solid ${t.sep}`,
+                    fontFamily: "var(--font-mono, ui-monospace, 'SF Mono', Menlo, monospace)",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    letterSpacing: "0.18em",
+                    textAlign: "center",
+                    userSelect: "all",
+                  }}
+                >
+                  {caregiverCode}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(caregiverCode); setCaregiverCopied(true); setTimeout(() => setCaregiverCopied(false), 1400); }
+                    catch { /* swallow */ }
+                  }}
+                  style={{ ...secondaryBtn(t), background: caregiverCopied ? "#34C759" : "transparent", color: caregiverCopied ? "#fff" : t.text, borderColor: caregiverCopied ? "#34C759" : t.sep }}
+                >
+                  {caregiverCopied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCaregiverCode(null); setCaregiverCopied(false); }}
+                  style={secondaryBtn(t)}
+                >
+                  New
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!householdId) { setErr("No household linked."); return; }
+                  setErr(null);
+                  setCaregiverBusy(true);
+                  try {
+                    const code = await createInviteCode(householdId, "supporting");
+                    setCaregiverCode(code);
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : "Couldn't generate a code.");
+                  } finally {
+                    setCaregiverBusy(false);
+                  }
+                }}
+                disabled={caregiverBusy || !householdId}
+                style={primaryBtn(palette.G, caregiverBusy)}
+              >
+                {caregiverBusy ? "Generating…" : "Generate caregiver code"}
+              </button>
+            )}
           </Section>
 
           {/* Members */}

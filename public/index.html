@@ -3036,6 +3036,162 @@
     .view-pill { padding: 3px 7px; font-size: 10px; }
     h1 { font-size: 16px; }
   }
+
+  /* ==================== Caregiver-only screen (role: supporting) ==================== */
+  .cg-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+  }
+  .cg-header { padding: 4px 2px 0; }
+  .cg-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .cg-title {
+    margin: 4px 0 2px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .cg-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .cg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .cg-empty {
+    padding: 28px 18px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .cg-card {
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-radius: 16px;
+    padding: 14px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cg-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .cg-card-date {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .cg-card-date small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-top: 2px;
+    letter-spacing: 0;
+  }
+  .cg-status {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255,159,10,0.18);
+    color: #FF9F0A;
+  }
+  .cg-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
+  .cg-status.declined  { background: rgba(255,69,58,0.18);  color: #FF453A; }
+  .cg-status.issue     { background: rgba(255,159,10,0.22); color: #FF9F0A; }
+  .cg-window {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .cg-window .arrow { color: var(--text-dim); margin: 0 6px; }
+  .cg-arrive {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .cg-arrive b { color: var(--text); font-weight: 600; }
+  .cg-notes {
+    font-size: 13px;
+    line-height: 1.45;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 8px 10px;
+    border: 0.5px solid var(--sep);
+  }
+  .cg-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .cg-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+  }
+  .cg-btn-accept  { background: #30D158; color: #fff; }
+  .cg-btn-decline { background: rgba(255,69,58,0.14); color: #FF453A; }
+  .cg-btn-issue   {
+    background: transparent;
+    color: var(--text-dim);
+    border: 0.5px solid var(--sep);
+    flex: 0 0 auto;
+    padding: 10px 14px;
+  }
+  .cg-caregiver-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  .cg-caregiver-note b { color: var(--text); font-style: normal; font-weight: 600; }
+  .cg-footer {
+    margin-top: auto;
+    padding-top: 12px;
+    display: flex;
+    justify-content: center;
+  }
+  .cg-signout {
+    background: transparent;
+    border: 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: inherit;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .cg-signout:active { color: var(--text); }
 </style>
 </head>
 <body>
@@ -3698,6 +3854,23 @@
 
 </div><!-- end appScreen -->
 
+<!-- ==================== Caregiver-only screen (role: supporting) ==================== -->
+<section id="caregiverScreen" class="cg-screen" style="display:none;">
+  <header class="cg-header">
+    <div class="cg-eyebrow">Coverage requests</div>
+    <h1 class="cg-title" id="cgHouseholdName">Bass Household</h1>
+    <div class="cg-sub" id="cgGreeting"></div>
+  </header>
+
+  <div class="cg-list" id="cgRequestsList">
+    <div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>
+  </div>
+
+  <footer class="cg-footer">
+    <button type="button" class="cg-signout" id="cgSignOutBtn">Sign out</button>
+  </footer>
+</section>
+
 <!-- ==================== FIREBASE SDK (compat) ==================== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -3973,6 +4146,8 @@ function showScreen(which) {
   $authScreen.style.display = which === "auth" ? "flex" : "none";
   $householdScreen.style.display = which === "household" ? "flex" : "none";
   $appScreen.style.display = which === "app" ? "block" : "none";
+  const $cgScreen = document.getElementById("caregiverScreen");
+  if ($cgScreen) $cgScreen.style.display = which === "caregiver" ? "flex" : "none";
   // (Feedback chat removed)
   // Hide the splash once a real screen is showing
   hideSplash();
@@ -4071,12 +4246,19 @@ document.getElementById("hhJoinBtn").addEventListener("click", async () => {
   try {
     const codeDoc = await db.collection("inviteCodes").doc(code).get();
     if (!codeDoc.exists) { errEl.textContent = "Invalid invite code."; return; }
-    const hhId = codeDoc.data().householdId;
+    const codeData = codeDoc.data() || {};
+    const hhId = codeData.householdId;
+    // Role baked into the code by the desktop manager: "supporting" lands the
+    // user as a caregiver; "contributing" or absent → standard "partner".
+    const role =
+      codeData.role === "supporting" ? "supporting" :
+      codeData.role === "contributing" ? "partner" :
+      "partner";
     const hhRef = db.collection("households").doc(hhId);
     await hhRef.update({
       memberUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
       [`memberNames.${currentUser.uid}`]: currentUser.displayName || "Partner",
-      [`roles.${currentUser.uid}`]: "partner",
+      [`roles.${currentUser.uid}`]: role,
     });
     await resolveHousehold(currentUser);
   } catch (e) {
@@ -4090,12 +4272,182 @@ document.getElementById("hhJoinCode").addEventListener("keydown", e => {
 
 // ==================== ENTER APP ====================
 function enterApp() {
+  // Supporting users (caregivers) see only the coverage-requests surface.
+  if (userRole === "supporting") {
+    showScreen("caregiver");
+    initCaregiverScreen();
+    initCaregiverFirestoreSync();
+    return;
+  }
   showScreen("app");
   updateUserBar();
   applyRoleRestrictions();
   initFirestoreSync();
   initOTApprovalSync();
   initFeedbackSync();
+}
+
+// ==================== CAREGIVER VIEW (role: supporting) ====================
+function initCaregiverScreen() {
+  // Title placeholder until state/main lands with a real householdName.
+  const nameEl = document.getElementById("cgHouseholdName");
+  if (nameEl) nameEl.textContent = "Coverage requests";
+  const greetEl = document.getElementById("cgGreeting");
+  if (greetEl) {
+    const first = (currentUser.displayName || currentUser.email || "there").split(/\s+/)[0];
+    greetEl.textContent = `Hi ${first} — here's everything the family needs covered.`;
+  }
+  const out = document.getElementById("cgSignOutBtn");
+  if (out && !out.__wired) {
+    out.__wired = true;
+    out.addEventListener("click", doSignOut);
+  }
+}
+
+// Caregivers only need to read/write `coverageRequests`. We still load the
+// whole state/main doc (it's a single doc), but we only render that slice
+// and never push back unrelated keys — the write helper does a read‑modify‑
+// write so we don't clobber the desktop's edits.
+function initCaregiverFirestoreSync() {
+  if (!householdId) return;
+  const ref = db.collection("households").doc(householdId)
+    .collection("state").doc("main");
+  stateUnsubscribe = ref.onSnapshot(doc => {
+    if (!doc.exists) {
+      renderCaregiverScreen([]);
+      return;
+    }
+    const data = doc.data() || {};
+    state = mergeStateFromFirestore(data);
+    renderCaregiverScreen(state.coverageRequests || []);
+  }, err => {
+    console.warn("caregiver onSnapshot error:", err);
+  });
+}
+
+function renderCaregiverScreen(requests) {
+  const list = document.getElementById("cgRequestsList");
+  if (!list) return;
+  // Reflect the live household name once the state doc has loaded.
+  const nameEl = document.getElementById("cgHouseholdName");
+  if (nameEl && state && state.householdName) nameEl.textContent = state.householdName;
+  // Pending first, then everything else by date.
+  const sorted = requests.slice().sort((a, b) => {
+    const ap = (a.status || "pending") === "pending" ? 0 : 1;
+    const bp = (b.status || "pending") === "pending" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return (a.date || "").localeCompare(b.date || "");
+  });
+  if (sorted.length === 0) {
+    list.innerHTML = `<div class="cg-empty">No coverage requests yet. The schedule manager will send them here.</div>`;
+    return;
+  }
+  list.innerHTML = sorted.map(r => caregiverCardHTML(r)).join("");
+  // Wire buttons
+  list.querySelectorAll("[data-cg-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-cg-id");
+      const action = btn.getAttribute("data-cg-action");
+      handleCaregiverAction(id, action);
+    });
+  });
+}
+
+function caregiverCardHTML(r) {
+  const id = escapeHtml(r.id || "");
+  const status = r.status || "pending";
+  const statusLabel =
+    status === "confirmed" ? "Confirmed" :
+    status === "declined"  ? "Declined"  :
+    status === "issue"     ? "Issue"     : "Pending";
+  // Friendly date
+  let dayLabel = r.date || "";
+  try {
+    const [y, m, d] = (r.date || "").split("-").map(Number);
+    if (y && m && d) {
+      const dt = new Date(y, m - 1, d);
+      dayLabel = dt.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    }
+  } catch (e) { /* fall back to raw date */ }
+  const startTime = escapeHtml(r.startTime || "");
+  const endTime = escapeHtml(r.endTime || "");
+  const arriveBy = escapeHtml(r.arriveBy || "");
+  const nextDay = r.endsNextDay ? `<span style="font-size:11px;color:var(--text-dim);font-weight:600;margin-left:6px;">+1d</span>` : "";
+
+  const notesBlock = r.notes
+    ? `<div class="cg-notes">${escapeHtml(r.notes)}</div>`
+    : "";
+
+  const caregiverNoteBlock = (status === "issue" && r.caregiverNote)
+    ? `<div class="cg-caregiver-note"><b>You reported:</b> ${escapeHtml(r.caregiverNote)}</div>`
+    : "";
+
+  const actionsBlock = status === "pending"
+    ? `<div class="cg-actions">
+         <button type="button" class="cg-btn cg-btn-accept"  data-cg-id="${id}" data-cg-action="accept">Accept</button>
+         <button type="button" class="cg-btn cg-btn-decline" data-cg-id="${id}" data-cg-action="decline">Decline</button>
+         <button type="button" class="cg-btn cg-btn-issue"   data-cg-id="${id}" data-cg-action="issue">Report issue</button>
+       </div>`
+    : "";
+
+  return `
+    <article class="cg-card">
+      <div class="cg-card-head">
+        <div class="cg-card-date">${escapeHtml(dayLabel)}<small>${escapeHtml(r.date || "")}</small></div>
+        <span class="cg-status ${status}">${statusLabel}</span>
+      </div>
+      <div class="cg-window">${startTime}<span class="arrow">→</span>${endTime}${nextDay}</div>
+      ${arriveBy ? `<div class="cg-arrive">Arrive by <b>${arriveBy}</b></div>` : ""}
+      ${notesBlock}
+      ${caregiverNoteBlock}
+      ${actionsBlock}
+    </article>
+  `;
+}
+
+async function handleCaregiverAction(id, action) {
+  if (!householdId || !id) return;
+  let nextStatus = null;
+  let caregiverNote;
+  if (action === "accept")       nextStatus = "confirmed";
+  else if (action === "decline") nextStatus = "declined";
+  else if (action === "issue") {
+    nextStatus = "issue";
+    caregiverNote = prompt("What's the issue? (e.g. running late, can't make it)");
+    if (caregiverNote == null) return;          // cancelled
+    caregiverNote = caregiverNote.trim();
+    if (!caregiverNote) return;
+  }
+  if (!nextStatus) return;
+
+  // Read-modify-write: don't clobber the desktop's edits to other state keys.
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+    const updated = {
+      ...list[idx],
+      status: nextStatus,
+      caregiverUid: currentUser.uid,
+      caregiverActedAt: new Date().toISOString(),
+    };
+    if (caregiverNote != null) updated.caregiverNote = caregiverNote;
+    list[idx] = updated;
+    await ref.set({ ...data, coverageRequests: list });
+  } catch (e) {
+    console.error("caregiver action failed:", e);
+    alert("Couldn't update that request. Check your connection.");
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
 }
 
 function updateUserBar() {
