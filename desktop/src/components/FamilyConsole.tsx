@@ -4,6 +4,7 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { ThemePref } from "../App";
 import { setHouseholdName } from "../lib/writeHouseholdMeta";
+import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
 import { doSignOut } from "../hooks/useAuth";
 import { PhotoAv } from "./PhotoAv";
 
@@ -235,6 +236,95 @@ export function FamilyConsole({
                   No dependents yet. Import Daisy's school schedule from the sidebar to add her.
                 </div>
               )}
+            </div>
+          </Section>
+
+          {/* Coverage requests */}
+          <Section
+            title={`Coverage requests (${(state?.coverageRequests ?? []).length})`}
+            t={t}
+            hint="Right-click Overlap in the sidebar to send a new batch to the caregiver."
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflow: "auto" }}>
+              {(state?.coverageRequests ?? []).length === 0 && (
+                <div style={{ fontSize: 12, color: t.text3, padding: "6px 2px" }}>
+                  None yet. Right-click <em>Overlap</em> in the sidebar to send.
+                </div>
+              )}
+              {(state?.coverageRequests ?? [])
+                .slice()
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .map((req) => {
+                  const [y, m, d] = req.date.split("-").map(Number);
+                  const dt = new Date(y, m - 1, d);
+                  const day = dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                  const time = `${req.startTime} – ${req.endTime}${req.endsNextDay ? " +1d" : ""}`;
+                  const statusColor =
+                    req.status === "confirmed" ? "#30D158" :
+                    req.status === "declined"  ? "#FF453A" :
+                    req.status === "issue"     ? "#FF9F0A" :
+                    palette.G;
+                  return (
+                    <div
+                      key={req.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                        border: `0.5px solid ${t.sep}`,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>
+                          {day} · {time}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: t.text3 }}>
+                          {req.arriveBy ? `Arrive by ${req.arriveBy}` : "No arrive-by"}
+                          {req.notes ? ` · ${req.notes}` : ""}
+                          {req.caregiverNote ? ` · "${req.caregiverNote}"` : ""}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: `${statusColor}22`,
+                          color: statusColor,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {statusLabel(req.status)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!householdId) return;
+                          if (!window.confirm(`Cancel coverage request for ${day}?`)) return;
+                          try { await deleteCoverageRequest(householdId, req.id); }
+                          catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't cancel."); }
+                        }}
+                        title="Cancel this request"
+                        style={{
+                          background: "transparent",
+                          border: 0,
+                          color: t.text3,
+                          fontSize: 14,
+                          cursor: "pointer",
+                          padding: 4,
+                          lineHeight: 1,
+                          fontFamily: "inherit",
+                        }}
+                        aria-label="Cancel request"
+                      >✕</button>
+                    </div>
+                  );
+                })}
             </div>
           </Section>
 

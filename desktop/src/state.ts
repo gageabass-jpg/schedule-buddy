@@ -88,6 +88,34 @@ export function generateSeriesId(): string {
   return `evs_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+export type CoverageStatus = "pending" | "confirmed" | "declined" | "issue";
+
+/** A request authored by a Contributing member asking a Supporting caregiver
+ *  to cover a specific time window on a given date. Created in bulk from
+ *  the People → Overlap right-click "Send to caregiver" flow. */
+export interface CoverageRequest {
+  id: string;
+  date: string;                 // YYYY-MM-DD
+  startTime: string;            // HH:MM — when coverage begins
+  endTime: string;              // HH:MM — when coverage ends (may be next-day)
+  /** True if endTime is on the next calendar day (e.g. shift 7p → 7a). */
+  endsNextDay?: boolean;
+  /** Optional "arrive by" override — earlier than startTime. */
+  arriveBy?: string;            // HH:MM
+  notes?: string;
+  status: CoverageStatus;
+  createdAt: number;            // epoch ms
+  createdBy?: string;           // uid of the contributing member who sent it
+  /** Caregiver uid once we have caregiver accounts wired. */
+  caregiverUid?: string;
+  /** Free-text response from the caregiver when they accept / report an issue. */
+  caregiverNote?: string;
+}
+
+export function generateCoverageId(): string {
+  return `cov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export interface HouseholdState {
   shiftTypes: ShiftType[];
   template: Array<string | null>;  // 7 entries, Sun..Sat
@@ -116,6 +144,8 @@ export interface HouseholdState {
   events?: Event[];
   /** Display name for the household (e.g. "Bass Household"). */
   householdName?: string;
+  /** Coverage requests authored by contributing members for caregivers. */
+  coverageRequests?: CoverageRequest[];
   _migrations: string[];
 }
 
