@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
-export type ViewFilter = "all" | "this-week" | "both" | "couple";
+export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { buildShiftMap, type HouseholdState } from "./state";
@@ -76,6 +76,8 @@ function ManagerApp() {
     let all = 0;
     let both = 0;
     let couple = 0;
+    let g = 0;
+    let k = 0;
     const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
     for (let d = 1; d <= lastDay; d++) {
       const key = fmtDate(viewYear, viewMonth, d);
@@ -87,6 +89,8 @@ function ManagerApp() {
       all += list.length;
       const hasG = list.some((s) => s.who === "G");
       const hasK = list.some((s) => s.who === "K");
+      if (hasG) g++;
+      if (hasK) k++;
       if (hasG && hasK) both++;
     }
 
@@ -101,7 +105,7 @@ function ManagerApp() {
       const key = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
       week += (shifts[key] ?? []).length;
     }
-    return { all, both, couple, week };
+    return { all, both, couple, week, g, k };
   }, [shifts, viewYear, viewMonth, tY, tM, tD]);
 
   const householdName = state ? `${state.selfName || "Bass"} household` : "Schedule Buddy";

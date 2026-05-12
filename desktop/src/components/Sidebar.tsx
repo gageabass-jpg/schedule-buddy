@@ -19,7 +19,7 @@ interface SidebarProps {
   syncStatus: string;
   onSignOut: () => void;
   viewFilter: ViewFilter;
-  viewCounts: { all: number; both: number; couple: number; week: number };
+  viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
   onToggleThisWeek: () => void;
 }
@@ -125,9 +125,30 @@ export function Sidebar({
       </SidebarSection>
 
       <SidebarSection label="People" t={t}>
-        <ListRow color={palette.G} label="Gage" count={28} t={t} />
-        <ListRow color={palette.K} label="Kaylene" count={14} t={t} />
-        <ListRow color={palette.BOTH} label="Overlap" count={6} t={t} />
+        <ListRow
+          color={palette.G}
+          label="Gage"
+          count={viewCounts.g}
+          active={viewFilter === "g"}
+          onClick={() => onSetViewFilter(viewFilter === "g" ? "all" : "g")}
+          t={t}
+        />
+        <ListRow
+          color={palette.K}
+          label="Kaylene"
+          count={viewCounts.k}
+          active={viewFilter === "k"}
+          onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
+          t={t}
+        />
+        <ListRow
+          color={palette.BOTH}
+          label="Overlap"
+          count={viewCounts.both}
+          active={viewFilter === "both"}
+          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+          t={t}
+        />
       </SidebarSection>
 
       <SidebarSection label="Schedules" t={t}>
