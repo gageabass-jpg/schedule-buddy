@@ -60,6 +60,17 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
   }
   const current = snap.data() as HouseholdState;
 
+  // Defensive: refuse rows whose shiftTypeId isn't in the catalog. Otherwise
+  // buildShiftMap will silently drop them and they'd never render.
+  const validIds = new Set((current.shiftTypes ?? []).map((s) => s.id));
+  const bad = rows.filter((r) => !validIds.has(r.shiftTypeId));
+  if (bad.length > 0) {
+    const list = bad.slice(0, 3).map((r) => `${r.date} → ${r.shiftTypeId}`).join(", ");
+    throw new WriteImportError(
+      `${bad.length} row${bad.length === 1 ? "" : "s"} reference a shift type that doesn't exist (${list}${bad.length > 3 ? "…" : ""}). Map them to a real type in the review table first.`,
+    );
+  }
+
   const dates = new Set(rows.map((r) => r.date));
 
   const next: HouseholdState = {
