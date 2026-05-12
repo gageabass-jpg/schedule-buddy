@@ -3348,36 +3348,177 @@
 
   /* Caregiver: 3-pane structure (Schedule / Requests / Profile) */
   .cg-pane { display: none; flex-direction: column; gap: 12px; padding: 0 16px; }
+
+  /* ===== Caregiver calendar (Schedule pane) ===== */
+  .cg-cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px 0;
+  }
+  .cg-cal-label {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .cg-cal-navbtn {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font);
+    display: inline-flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cg-cal-todaybtn {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: transparent;
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cg-cal-navbtn:active,
+  .cg-cal-todaybtn:active { transform: scale(0.97); }
+
+  .cg-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cg-cal-hdr {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 4px 0 2px;
+  }
+  .cg-cal-cell {
+    aspect-ratio: 1 / 1.05;
+    min-height: 48px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 10px;
+    padding: 5px 5px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: var(--font);
+    cursor: default;
+    -webkit-tap-highlight-color: transparent;
+    text-align: left;
+    box-sizing: border-box;
+  }
+  .cg-cal-cell.has-req { cursor: pointer; }
+  .cg-cal-cell.has-req:active { transform: scale(0.97); }
+  .cg-cal-cell.outside { opacity: 0.34; }
+  .cg-cal-cell.today { box-shadow: inset 0 0 0 1.5px #30D158; }
+  .cg-cal-cell.selected {
+    background: rgba(48,209,88,0.10);
+    border-color: #30D158;
+  }
+  .cg-cal-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+  .cg-cal-cell.today .cg-cal-date { color: #30D158; }
+  .cg-cal-chips { display: flex; flex-direction: column; gap: 2px; }
+  .cg-cal-chip {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 4px;
+    border-radius: 4px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: #fff;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cg-cal-chip.pending   { background: #5E5CE6; }
+  .cg-cal-chip.confirmed { background: #30D158; }
+  .cg-cal-chip.declined  { background: #FF453A; }
+  .cg-cal-chip.issue     { background: #FF9F0A; }
+
+  /* Detail card below the calendar */
+  .cg-cal-detail {
+    background: var(--panel);
+    border: 0.5px solid var(--sep);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cg-cal-detail.has-content { display: flex; }
+  .cg-cal-detail-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  .cg-cal-detail-date {
+    font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .cg-cal-detail-row {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .cg-cal-detail-row b { font-weight: 600; }
+  .cg-cal-detail-row.dim { color: var(--text-dim); }
+  .cg-cal-detail-note {
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    border: 0.5px solid var(--sep);
+    border-radius: 8px;
+    padding: 8px 10px;
+    line-height: 1.45;
+  }
+  .cg-cal-detail-empty {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 16px 8px;
+  }
+  .cg-cal-legend {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; color: var(--text-dim);
+    padding: 2px 2px 0;
+  }
+  .cg-cal-legend span {
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .cg-cal-legend i {
+    display: inline-block;
+    width: 9px; height: 9px; border-radius: 2px;
+  }
+  .cg-cal-legend i.pending   { background: #5E5CE6; }
+  .cg-cal-legend i.confirmed { background: #30D158; }
+  .cg-cal-legend i.declined  { background: #FF453A; }
+  .cg-cal-legend i.issue     { background: #FF9F0A; }
+
   .cg-screen[data-cg-tab="schedule"] .cg-pane-schedule { display: flex; }
   .cg-screen[data-cg-tab="requests"] .cg-pane-requests { display: flex; }
   .cg-screen[data-cg-tab="profile"]  .cg-pane-profile  { display: flex; }
 
-  /* Status colors on the Schedule pane */
-  .cg-sched-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: var(--panel);
-    border: 0.5px solid var(--sep);
-    border-left-width: 4px;
-  }
-  .cg-sched-row.pending   { border-left-color: #5E5CE6; }
-  .cg-sched-row.confirmed { border-left-color: #30D158; }
-  .cg-sched-row.declined  { border-left-color: #FF453A; }
-  .cg-sched-row.issue     { border-left-color: #FF9F0A; }
-  .cg-sched-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-  }
-  .cg-sched-dot.pending   { background: #5E5CE6; }
-  .cg-sched-dot.confirmed { background: #30D158; }
-  .cg-sched-dot.declined  { background: #FF453A; }
-  .cg-sched-dot.issue     { background: #FF9F0A; }
-  .cg-sched-info { min-width: 0; }
-  .cg-sched-day { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
-  .cg-sched-time { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  /* Status pill (used in the calendar detail card) */
   .cg-sched-status {
     font-size: 10.5px;
     font-weight: 700;
@@ -4180,10 +4321,22 @@
     <div class="cg-sub" id="cgGreeting"></div>
   </header>
 
-  <!-- SCHEDULE pane: assigned/accepted/declined-unreviewed -->
+  <!-- SCHEDULE pane: month calendar with status-colored chips -->
   <div class="cg-pane cg-pane-schedule" id="cgPaneSchedule">
-    <div class="cg-empty" id="cgScheduleEmpty">Nothing assigned yet. As the family sends requests, they'll appear here.</div>
-    <div id="cgScheduleList"></div>
+    <div class="cg-cal-nav">
+      <button type="button" class="cg-cal-navbtn" id="cgCalPrev" aria-label="Previous month">‹</button>
+      <span class="cg-cal-label" id="cgCalLabel">Month</span>
+      <button type="button" class="cg-cal-navbtn" id="cgCalNext" aria-label="Next month">›</button>
+      <button type="button" class="cg-cal-todaybtn" id="cgCalToday">Today</button>
+    </div>
+    <div class="cg-cal-legend">
+      <span><i class="pending"></i>Assigned</span>
+      <span><i class="confirmed"></i>Accepted</span>
+      <span><i class="declined"></i>Declined</span>
+      <span><i class="issue"></i>Issue</span>
+    </div>
+    <div class="cg-cal-grid" id="cgCalGrid"></div>
+    <div class="cg-cal-detail" id="cgCalDetail"></div>
   </div>
 
   <!-- REQUESTS pane: list with Accept / Decline / Issue actions -->
@@ -4755,6 +4908,9 @@ function initCaregiverScreen() {
     btn.addEventListener("click", () => setCaregiverTab(btn.getAttribute("data-cg-tab-btn")));
   });
 
+  // Calendar navigation (prev / next / today)
+  wireCaregiverCalendarNav();
+
   // Sign out + delete account
   const out = document.getElementById("cgProfileSignOut");
   if (out && !out.__wired) {
@@ -4824,27 +4980,16 @@ function renderCaregiverScreen(requests) {
     else { badge.hidden = true; }
   }
 
-  // --- Schedule pane: assigned + accepted + declined-not-yet-reviewed ---
-  // Declines that the manager has acknowledged drop off the caregiver's
-  // schedule so it stays focused on actionable / upcoming work.
-  const scheduleList = document.getElementById("cgScheduleList");
-  const scheduleEmpty = document.getElementById("cgScheduleEmpty");
-  if (scheduleList && scheduleEmpty) {
-    const scheduleRows = requests.filter(r => {
-      if (!r) return false;
-      if (r.status === "pending" || r.status === "confirmed") return true;
-      if ((r.status === "declined" || r.status === "issue") && !r.managerReviewed) return true;
-      return false;
-    }).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-
-    if (scheduleRows.length === 0) {
-      scheduleEmpty.style.display = "";
-      scheduleList.innerHTML = "";
-    } else {
-      scheduleEmpty.style.display = "none";
-      scheduleList.innerHTML = scheduleRows.map(caregiverScheduleRowHTML).join("");
-    }
-  }
+  // --- Schedule pane: month calendar populated from scheduleable requests.
+  // Declines / issues that the manager has acknowledged drop off so the
+  // calendar stays focused on actionable / upcoming work.
+  _cgScheduleable = requests.filter(r => {
+    if (!r) return false;
+    if (r.status === "pending" || r.status === "confirmed") return true;
+    if ((r.status === "declined" || r.status === "issue") && !r.managerReviewed) return true;
+    return false;
+  });
+  renderCaregiverCalendar();
 
   // --- Requests pane: every request, action buttons on pending ---
   const sorted = requests.slice().sort((a, b) => {
@@ -4868,34 +5013,187 @@ function renderCaregiverScreen(requests) {
   });
 }
 
-function caregiverScheduleRowHTML(r) {
-  const status = r.status || "pending";
-  const statusLabel =
-    status === "confirmed" ? "Accepted" :
-    status === "declined"  ? "Declined" :
-    status === "issue"     ? "Issue"    : "Assigned";
-  let dayLabel = r.date || "";
-  try {
-    const [y, m, d] = (r.date || "").split("-").map(Number);
-    if (y && m && d) {
-      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
-        weekday: "short", month: "short", day: "numeric",
-      });
-    }
-  } catch (_) {}
-  const start = escapeHtml(r.startTime || "");
-  const end = escapeHtml(r.endTime || "");
-  const arrive = r.arriveBy ? ` · arrive ${escapeHtml(r.arriveBy)}` : "";
-  const nextDay = r.endsNextDay ? " +1d" : "";
-  return `
-    <div class="cg-sched-row ${status}">
-      <span class="cg-sched-dot ${status}" aria-hidden="true"></span>
-      <div class="cg-sched-info">
-        <div class="cg-sched-day">${escapeHtml(dayLabel)}</div>
-        <div class="cg-sched-time">${start} → ${end}${nextDay}${arrive}</div>
-      </div>
-      <span class="cg-sched-status ${status}">${statusLabel}</span>
+// ==================== CAREGIVER CALENDAR (Schedule pane) ====================
+// Build a month-grid view of every assigned / accepted / declined-pending
+// request. State lives on a few module-scoped vars so prev/next/today and
+// tap-to-select don't have to thread through arguments.
+let _cgScheduleable = [];          // filtered requests (no reviewed declines)
+let _cgViewYear  = null;
+let _cgViewMonth = null;            // 0-based
+let _cgSelectedDate = null;         // YYYY-MM-DD
+
+function _cgInitViewIfNeeded() {
+  if (_cgViewYear == null || _cgViewMonth == null) {
+    const now = new Date();
+    _cgViewYear = now.getFullYear();
+    _cgViewMonth = now.getMonth();
+  }
+}
+
+function _cgMonthGridDays(year, month) {
+  // First day shown = the Sunday on or before the 1st of the month.
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();  // 0..6 (Sun..Sat)
+  const start = new Date(year, month, 1 - startOffset);
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+function _cgRequestsByDate() {
+  const map = {};
+  for (const r of _cgScheduleable) {
+    if (!r || !r.date) continue;
+    (map[r.date] ??= []).push(r);
+  }
+  return map;
+}
+
+function renderCaregiverCalendar() {
+  _cgInitViewIfNeeded();
+  const grid = document.getElementById("cgCalGrid");
+  const label = document.getElementById("cgCalLabel");
+  if (!grid || !label) return;
+
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  label.textContent = `${months[_cgViewMonth]} ${_cgViewYear}`;
+
+  const days = _cgMonthGridDays(_cgViewYear, _cgViewMonth);
+  const byDate = _cgRequestsByDate();
+  const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  // Day-of-week header
+  const header = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d =>
+    `<div class="cg-cal-hdr">${d}</div>`
+  ).join("");
+
+  const cells = days.map(d => {
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const outside = d.getMonth() !== _cgViewMonth;
+    const isToday = iso === todayIso;
+    const isSelected = iso === _cgSelectedDate;
+    const reqs = byDate[iso] || [];
+    const hasReq = reqs.length > 0;
+
+    // Chip per request — short label "hh:mm". Cap to 2 visible, "+N" for the rest.
+    const chips = reqs.slice(0, 2).map(r =>
+      `<div class="cg-cal-chip ${r.status || "pending"}" title="${escapeHtml(r.startTime || "")} → ${escapeHtml(r.endTime || "")}">${escapeHtml(r.startTime || "")}</div>`
+    ).join("");
+    const more = reqs.length > 2
+      ? `<div class="cg-cal-chip" style="background:transparent;color:var(--text-dim);font-weight:600;">+${reqs.length - 2}</div>`
+      : "";
+
+    const classes = [
+      "cg-cal-cell",
+      outside ? "outside" : "",
+      isToday ? "today" : "",
+      isSelected ? "selected" : "",
+      hasReq ? "has-req" : "",
+    ].filter(Boolean).join(" ");
+
+    return `<div class="${classes}" data-cg-date="${iso}" data-cg-has="${hasReq ? "1" : "0"}">
+      <div class="cg-cal-date">${d.getDate()}</div>
+      <div class="cg-cal-chips">${chips}${more}</div>
     </div>`;
+  }).join("");
+
+  grid.innerHTML = header + cells;
+
+  grid.querySelectorAll('[data-cg-has="1"]').forEach(cell => {
+    cell.addEventListener("click", () => {
+      const iso = cell.getAttribute("data-cg-date");
+      _cgSelectedDate = (_cgSelectedDate === iso) ? null : iso;
+      renderCaregiverCalendar();
+    });
+  });
+
+  renderCaregiverCalendarDetail();
+}
+
+function renderCaregiverCalendarDetail() {
+  const el = document.getElementById("cgCalDetail");
+  if (!el) return;
+  if (!_cgSelectedDate) { el.className = "cg-cal-detail"; el.innerHTML = ""; return; }
+  const byDate = _cgRequestsByDate();
+  const reqs = byDate[_cgSelectedDate] || [];
+  if (reqs.length === 0) { el.className = "cg-cal-detail"; el.innerHTML = ""; return; }
+
+  let dayLabel = _cgSelectedDate;
+  try {
+    const [y, m, d] = _cgSelectedDate.split("-").map(Number);
+    dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: "long", month: "long", day: "numeric",
+    });
+  } catch (_) {}
+
+  el.className = "cg-cal-detail has-content";
+  el.innerHTML = reqs.map(r => {
+    const status = r.status || "pending";
+    const statusLabel =
+      status === "confirmed" ? "Accepted" :
+      status === "declined"  ? "Declined" :
+      status === "issue"     ? "Issue"    : "Assigned";
+    const nextDay = r.endsNextDay ? " +1d" : "";
+    const arrive = r.arriveBy ? `<div class="cg-cal-detail-row dim">Arrive by <b>${escapeHtml(r.arriveBy)}</b></div>` : "";
+    const notes = r.notes ? `<div class="cg-cal-detail-note">${escapeHtml(r.notes)}</div>` : "";
+    const cgNote = r.caregiverNote
+      ? `<div class="cg-cal-detail-row dim"><b>${
+          status === "declined" ? "You said:" :
+          status === "issue"    ? "You reported:" :
+                                   "You noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
+      : "";
+    return `
+      <div class="cg-cal-detail-head">
+        <div class="cg-cal-detail-date">${escapeHtml(dayLabel)}</div>
+        <span class="cg-sched-status ${status}">${statusLabel}</span>
+      </div>
+      <div class="cg-cal-detail-row"><b>${escapeHtml(r.startTime || "")}</b> → <b>${escapeHtml(r.endTime || "")}</b>${nextDay}</div>
+      ${arrive}
+      ${notes}
+      ${cgNote}`;
+  }).join('<hr style="border:0;border-top:0.5px solid var(--sep);margin:4px 0;">');
+}
+
+// Wire calendar navigation buttons once on init.
+function wireCaregiverCalendarNav() {
+  const prev = document.getElementById("cgCalPrev");
+  const next = document.getElementById("cgCalNext");
+  const today = document.getElementById("cgCalToday");
+  if (prev && !prev.__wired) {
+    prev.__wired = true;
+    prev.addEventListener("click", () => {
+      _cgInitViewIfNeeded();
+      _cgViewMonth -= 1;
+      if (_cgViewMonth < 0) { _cgViewMonth = 11; _cgViewYear -= 1; }
+      _cgSelectedDate = null;
+      renderCaregiverCalendar();
+    });
+  }
+  if (next && !next.__wired) {
+    next.__wired = true;
+    next.addEventListener("click", () => {
+      _cgInitViewIfNeeded();
+      _cgViewMonth += 1;
+      if (_cgViewMonth > 11) { _cgViewMonth = 0; _cgViewYear += 1; }
+      _cgSelectedDate = null;
+      renderCaregiverCalendar();
+    });
+  }
+  if (today && !today.__wired) {
+    today.__wired = true;
+    today.addEventListener("click", () => {
+      const now = new Date();
+      _cgViewYear = now.getFullYear();
+      _cgViewMonth = now.getMonth();
+      _cgSelectedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      renderCaregiverCalendar();
+    });
+  }
 }
 
 function caregiverCardHTML(r) {
