@@ -1,7 +1,28 @@
 import type { DayKind } from "./theme";
 
 export type Who = "G" | "K";
-export interface Shift { who: Who; label: string; }
+
+/**
+ * Where a rendered shift chip came from in the underlying state. Used to
+ * power edit/delete: discrete entries (override/ot/partner) can be mutated
+ * directly; recurring ones (template/alt-weekend) need an override to
+ * change a single date.
+ */
+export type ShiftSource =
+  | { kind: "template" }
+  | { kind: "alt-weekend" }
+  | { kind: "override" }
+  | { kind: "ot"; index: number }
+  | { kind: "partner"; index: number };
+
+export interface Shift {
+  who: Who;
+  label: string;
+  /** Provenance from state/main. Undefined for demo data. */
+  source?: ShiftSource;
+  /** When source.kind is override/ot, the shiftTypeId so editors can prefill. */
+  shiftTypeId?: string;
+}
 export type ShiftMap = Record<string, Shift[]>;
 
 // Inferred from the original screenshots (Apr 5 — ~Jun 27 2026)

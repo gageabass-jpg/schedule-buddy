@@ -1,4 +1,4 @@
-import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type ShiftMap } from "../data";
+import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import { dayColors, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 
@@ -10,9 +10,11 @@ interface Props {
   shifts: ShiftMap;
   selfName: string;
   partnerName: string;
+  onEditShift?: (date: string, shift: Shift) => void;
+  onDeleteShift?: (date: string, shift: Shift) => void;
 }
 
-export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfName, partnerName }: Props) {
+export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfName, partnerName, onEditShift, onDeleteShift }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
   const kind = dayKindFromShifts(shifts);
@@ -96,6 +98,9 @@ export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfN
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
           {(shifts ?? []).map((s, i) => {
             const c = personColor(s.who, palette);
+            const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
+            const deletable = !!s.source && !!onDeleteShift;
+            const recurring = s.source?.kind === "template" || s.source?.kind === "alt-weekend";
             return (
               <div
                 key={i}
@@ -113,7 +118,9 @@ export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfN
                   <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
                     {s.who === "G" ? selfName : partnerName}
                   </div>
-                  <div style={{ fontSize: 10.5, color: t.text3 }}>{s.label} – next morning</div>
+                  <div style={{ fontSize: 10.5, color: t.text3 }}>
+                    {s.label}{recurring ? " · recurring" : ""}
+                  </div>
                 </div>
                 <span
                   style={{
@@ -127,6 +134,28 @@ export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfN
                 >
                   {s.label}
                 </span>
+                {editable && (
+                  <button
+                    type="button"
+                    aria-label="Edit shift"
+                    onClick={() => onEditShift?.(selected, s)}
+                    style={iconBtnStyle(t)}
+                    title={recurring ? "Edit this date (creates an override)" : "Edit"}
+                  >
+                    ✎
+                  </button>
+                )}
+                {deletable && (
+                  <button
+                    type="button"
+                    aria-label="Delete shift"
+                    onClick={() => onDeleteShift?.(selected, s)}
+                    style={iconBtnStyle(t)}
+                    title={recurring ? "Mark this date off" : "Delete"}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             );
           })}
@@ -157,6 +186,25 @@ export function Inspector({ selected, palette, t, dark, shifts: allShifts, selfN
       </div>
     </div>
   );
+}
+
+function iconBtnStyle(t: ThemeTokens): React.CSSProperties {
+  return {
+    width: 24,
+    height: 24,
+    border: `0.5px solid ${t.sep}`,
+    background: "transparent",
+    color: t.text2,
+    borderRadius: 6,
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    padding: 0,
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 }
 
 function subhead(t: ThemeTokens): React.CSSProperties {
