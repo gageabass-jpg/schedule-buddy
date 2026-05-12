@@ -1519,12 +1519,34 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  /* (mobile overlay styled in inline block at end of body) */
-  .cal-tooltip .tt-handle { display: none; }
-  .cal-tooltip .tt-close { display: none; }
   .cal-tooltip .tt-top-bar { display: none; }
   .cal-tooltip .tt-close-btn { display: none; }
-  .cal-tooltip-backdrop { display: none; }
+  /* When pinned (click-opened), show a close button at the top-right */
+  .cal-tooltip.pinned .tt-top-bar {
+    display: block;
+    position: relative;
+    height: 0;
+  }
+  .cal-tooltip.pinned .tt-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: -4px;
+    top: -6px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
   .cal-tooltip .tt-date {
     font-weight: 600;
     margin-bottom: 6px;
@@ -2623,50 +2645,7 @@
     .cal-ot-icon { font-size: 11px; top: 3px; right: 3px; }
     .cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--color-g); }
 
-    /* Mobile tooltip handled by #mobileOverlay at end of body */
-    .cal-tooltip .tt-close {
-      display: flex;
-    }
-    .cal-tooltip .tt-top-bar {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 10px;
-      position: relative;
-    }
-    .cal-tooltip .tt-handle {
-      display: block;
-      width: 36px;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-    }
-    .cal-tooltip .tt-close-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      right: -4px;
-      top: -6px;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      width: 34px;
-      height: 34px;
-      font-size: 18px;
-      color: var(--text-dim);
-      cursor: pointer;
-      padding: 0;
-      line-height: 1;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .cal-tooltip-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 1050;
-    }
+    /* Tooltip close button rules live at the .cal-tooltip.pinned selector */
 
     /* Tab bar — scrollable */
     .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -5908,18 +5887,7 @@ let _tooltipSwitching = false;
 let _tooltipClosedAt = 0;
 let _lastTooltipCell = null; // track which cell the tooltip is for
 
-// (Mobile overlay handlers are in the second <script> block at end of body)
-
-function _isMobile() {
-  if (window.innerWidth <= 768) return true;
-  // Touch-only devices (iPhone in landscape, iPad, etc.) — always use the
-  // mobile bottom sheet so the desktop popover doesn't get clipped at the edge.
-  return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-}
-// Temp div for building tooltip HTML before copying to overlay or hover tip
-const _tempTip = document.createElement("div");
-function _getTip(pinned) {
-  if (pinned && _isMobile()) return _tempTip;
+function _getTip() {
   return document.getElementById("calTooltipHover");
 }
 
@@ -5940,9 +5908,9 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
   const cc = da.childcare === "gap" ? "Gap" : da.childcare === "solo" ? "Solo parent" : "Covered";
   const couple = `${da.coupleHours || 0}h`;
 
-  const tip = _getTip(pinned);
+  const tip = _getTip();
   tip.innerHTML = `
-    <div class="tt-top-bar"><div class="tt-handle"></div><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>
+    <div class="tt-top-bar"><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>
     <div class="tt-date"><span>${FULL_DAY_NAMES[d.getDay()]}, ${dateISO}</span></div>
     <div class="tt-row"><span class="tt-label" style="color:var(--cal-self)">${escapeHTML(self)}</span><span class="tt-val">${gShifts}</span></div>
     <div class="tt-row"><span class="tt-label" style="color:var(--cal-partner)">${escapeHTML(partner)}</span><span class="tt-val">${kShifts}</span></div>
@@ -5968,39 +5936,32 @@ function _showTooltip(tip, cellEl, pinned) {
   _lastTooltipCell = cellEl;
   const hoverTip = document.getElementById("calTooltipHover");
 
-  if (pinned && _isMobile()) {
-    // Mobile: full-screen overlay — physically blocks everything behind it
-    hoverTip.style.display = "none";
-    openMobileOverlay(tip.innerHTML);
-  } else {
-    // Desktop: plain positioned div (hover or click)
-    closeMobileOverlay();
-    hoverTip.innerHTML = tip.innerHTML;
-    hoverTip.style.display = "block";
-    hoverTip.style.pointerEvents = pinned ? "auto" : "none";
-    const rect = cellEl.getBoundingClientRect();
-    const wrap = document.querySelector(".cal-wrap").getBoundingClientRect();
-    const tipWidth = hoverTip.offsetWidth || 240;
-    let left = rect.right - wrap.left + 8;
-    let top = rect.top - wrap.top;
-    if (rect.right + tipWidth > window.innerWidth) {
-      left = rect.left - wrap.left - tipWidth;
-    }
-    // Clamp to viewport: keep at least 8px margin on either side
-    const minLeft = 8 - wrap.left;
-    const maxLeft = window.innerWidth - tipWidth - 8 - wrap.left;
-    left = Math.max(minLeft, Math.min(left, maxLeft));
-    hoverTip.style.left = left + "px";
-    hoverTip.style.top = Math.max(0, top) + "px";
+  hoverTip.classList.toggle("pinned", !!pinned);
+  hoverTip.style.display = "block";
+  hoverTip.style.pointerEvents = pinned ? "auto" : "none";
+  const rect = cellEl.getBoundingClientRect();
+  const wrap = document.querySelector(".cal-wrap").getBoundingClientRect();
+  const tipWidth = hoverTip.offsetWidth || 240;
+  let left = rect.right - wrap.left + 8;
+  let top = rect.top - wrap.top;
+  if (rect.right + tipWidth > window.innerWidth) {
+    left = rect.left - wrap.left - tipWidth;
   }
+  // Clamp to viewport: keep at least 8px margin on either side
+  const minLeft = 8 - wrap.left;
+  const maxLeft = window.innerWidth - tipWidth - 8 - wrap.left;
+  left = Math.max(minLeft, Math.min(left, maxLeft));
+  hoverTip.style.left = left + "px";
+  hoverTip.style.top = Math.max(0, top) + "px";
 }
 
 function hideCalTooltip() {
   if (_tooltipSwitching) return;
   _tooltipPinned = false;
   _tooltipClosedAt = Date.now();
-  document.getElementById("calTooltipHover").style.display = "none";
-  closeMobileOverlay();
+  const hoverTip = document.getElementById("calTooltipHover");
+  hoverTip.style.display = "none";
+  hoverTip.classList.remove("pinned");
   _blockCalTapsBriefly();
 }
 
@@ -6112,8 +6073,8 @@ function showOTTooltip(cellEl, dateISO, pinned) {
     html += `<div class="tt-ot-detail" style="color:#ff9f0a;font-weight:600;">Manageable -- minor trade-offs</div>`;
   }
 
-  const tip = _getTip(pinned);
-  tip.innerHTML = `<div class="tt-top-bar"><div class="tt-handle"></div><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>` + html;
+  const tip = _getTip();
+  tip.innerHTML = `<div class="tt-top-bar"><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>` + html;
   _showTooltip(tip, cellEl, pinned);
 }
 
@@ -6574,81 +6535,26 @@ document.getElementById("tzNote").textContent = `Timezone: ${LOCAL_TZ}`;
 renderAll();
 </script>
 
-<!-- Mobile tooltip overlay — outside all app containers, covers entire screen -->
-<div id="mobileOverlay" style="display:none;">
-  <div id="mobileOverlayBg"></div>
-  <div id="mobileOverlaySheet" class="cal-tooltip"></div>
-</div>
-
-<style>
-  #mobileOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-  }
-  #mobileOverlayBg {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.5);
-  }
-  #mobileOverlaySheet {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    width: 100vw;
-    max-width: none;
-    min-width: 0;
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.6);
-    padding: 16px 18px 24px;
-    max-height: 65vh;
-    overflow-y: auto;
-    pointer-events: auto;
-  }
-</style>
-
 <script>
-// Mobile overlay handlers — simple, no propagation tricks needed
-const _overlay = document.getElementById("mobileOverlay");
-const _overlayBg = document.getElementById("mobileOverlayBg");
-const _overlaySheet = document.getElementById("mobileOverlaySheet");
-
-_overlayBg.addEventListener("click", () => { closeMobileOverlay(); });
-
-// Capture-phase: catch the close X on EITHER tooltip variant (mobile sheet or
-// desktop popover) before the click can bubble to a calendar cell underneath.
+// Capture-phase: catch the close X and "view OT" button before the click can
+// bubble to a calendar cell underneath.
 document.addEventListener("click", (e) => {
   if (e.target.closest("[data-action=close-tooltip]")) {
     e.stopPropagation();
     e.preventDefault();
     hideCalTooltip();
+    return;
   }
-}, true);
-
-_overlay.addEventListener("click", (e) => {
-  // OT button
   const otBtn = e.target.closest("[data-action=view-ot]");
   if (otBtn) {
+    e.stopPropagation();
+    e.preventDefault();
     _tooltipSwitching = true;
     showOTTooltip(_lastTooltipCell, otBtn.dataset.date, true);
     setTimeout(() => { _tooltipSwitching = false; }, 400);
     return;
   }
-});
-
-function openMobileOverlay(html) {
-  _overlaySheet.innerHTML = html;
-  _overlay.style.display = "block";
-}
-
-function closeMobileOverlay() {
-  if (_tooltipSwitching) return;
-  _overlay.style.display = "none";
-  _tooltipPinned = false;
-  _tooltipClosedAt = Date.now();
-}
+}, true);
 </script>
 
 </body>
