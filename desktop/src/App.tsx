@@ -141,6 +141,24 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     return () => { unsub?.(); };
   }, []);
 
+  // File → New Shift… (Cmd+N).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuNewShift(() => setNewShiftOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
+  // File → Edit Shift Types… (Cmd+Shift+T).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuEditShiftTypes(() => setShiftTypesOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
+  // File → Edit Weekly Template… (Cmd+Shift+W).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuEditTemplate(() => setTemplateOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
   const state: HouseholdState | null =
@@ -374,13 +392,10 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onNext={handleNext}
         onToday={handleToday}
         onNewShift={() => setNewShiftOpen(true)}
-        onEditTemplate={() => setTemplateOpen(true)}
-        onEditShiftTypes={() => setShiftTypesOpen(true)}
         viewFilter={viewFilter}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
-        onNewEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
         inboxRequests={inboxRequests}

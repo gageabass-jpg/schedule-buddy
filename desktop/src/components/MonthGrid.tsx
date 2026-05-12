@@ -24,8 +24,6 @@ interface Props {
   onNext: () => void;
   onToday: () => void;
   onNewShift: () => void;
-  onEditTemplate: () => void;
-  onEditShiftTypes: () => void;
   onOpenInbox: (focusId?: string) => void;
   inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
@@ -34,7 +32,6 @@ interface Props {
   selfName: string;
   partnerName: string;
   eventsByDate: EventMap;
-  onNewEvent: () => void;
   onEditEvent: (ev: SbEvent) => void;
 }
 
@@ -45,9 +42,9 @@ const MONTH_LABELS = [
 
 export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
-  onSelectDate, onPrev, onNext, onToday, onNewShift, onEditTemplate, onEditShiftTypes,
+  onSelectDate, onPrev, onNext, onToday, onNewShift,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onNewEvent, onEditEvent, onOpenInbox, inboxRequests,
+  eventsByDate, onEditEvent, onOpenInbox, inboxRequests,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -127,27 +124,6 @@ export function MonthGrid({
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={onEditShiftTypes}
-          style={secondaryToolbarBtn(t)}
-        >
-          Shift types
-        </button>
-        <button
-          type="button"
-          onClick={onEditTemplate}
-          style={secondaryToolbarBtn(t)}
-        >
-          Template
-        </button>
-        <button
-          type="button"
-          onClick={onNewEvent}
-          style={secondaryToolbarBtn(t)}
-        >
-          + Event
-        </button>
         <InboxTray
           palette={palette}
           t={t}
@@ -159,10 +135,12 @@ export function MonthGrid({
           type="button"
           onClick={onNewShift}
           style={{
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
+            justifyContent: "center",
             gap: 5,
-            padding: "5px 11px",
+            height: 26,
+            padding: "0 12px",
             borderRadius: 6,
             border: 0,
             background: palette.G,
@@ -170,6 +148,8 @@ export function MonthGrid({
             fontSize: 12,
             fontWeight: 600,
             cursor: "pointer",
+            whiteSpace: "nowrap",
+            lineHeight: 1,
           }}
         >
           + New shift
@@ -471,18 +451,3 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
   };
 }
 
-function secondaryToolbarBtn(t: ThemeTokens): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-    padding: "5px 11px",
-    borderRadius: 6,
-    border: `0.5px solid ${t.sep}`,
-    background: "transparent",
-    color: t.text,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-  };
-}

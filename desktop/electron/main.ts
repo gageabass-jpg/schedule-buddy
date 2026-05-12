@@ -243,6 +243,9 @@ function installAppMenu(): void {
     BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
   const sendOpenApiKey = (): void => { focused()?.webContents.send("menu:open-api-key"); };
   const sendNewEvent = (): void => { focused()?.webContents.send("menu:new-event"); };
+  const sendNewShift = (): void => { focused()?.webContents.send("menu:new-shift"); };
+  const sendEditShiftTypes = (): void => { focused()?.webContents.send("menu:edit-shift-types"); };
+  const sendEditTemplate = (): void => { focused()?.webContents.send("menu:edit-template"); };
 
   const isMac = process.platform === "darwin";
 
@@ -273,9 +276,25 @@ function installAppMenu(): void {
       label: "File",
       submenu: [
         {
+          label: "New Shift…",
+          accelerator: "CmdOrCtrl+N",
+          click: sendNewShift,
+        },
+        {
           label: "New Event…",
           accelerator: "CmdOrCtrl+E",
           click: sendNewEvent,
+        },
+        { type: "separator" },
+        {
+          label: "Edit Shift Types…",
+          accelerator: "CmdOrCtrl+Shift+T",
+          click: sendEditShiftTypes,
+        },
+        {
+          label: "Edit Weekly Template…",
+          accelerator: "CmdOrCtrl+Shift+W",
+          click: sendEditTemplate,
         },
         { type: "separator" },
         isMac ? { role: "close" } : { role: "quit" },

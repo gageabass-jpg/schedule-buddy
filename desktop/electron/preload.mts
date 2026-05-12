@@ -45,6 +45,24 @@ const api = {
     ipcRenderer.on("menu:new-event", handler);
     return () => ipcRenderer.removeListener("menu:new-event", handler);
   },
+  /** Fires when the user picks "New Shift…" from the File menu (Cmd+N). */
+  onMenuNewShift: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:new-shift", handler);
+    return () => ipcRenderer.removeListener("menu:new-shift", handler);
+  },
+  /** Fires when the user picks "Edit Shift Types…" from the File menu. */
+  onMenuEditShiftTypes: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:edit-shift-types", handler);
+    return () => ipcRenderer.removeListener("menu:edit-shift-types", handler);
+  },
+  /** Fires when the user picks "Edit Weekly Template…" from the File menu. */
+  onMenuEditTemplate: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:edit-template", handler);
+    return () => ipcRenderer.removeListener("menu:edit-template", handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("sbm", api);
