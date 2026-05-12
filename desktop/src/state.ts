@@ -41,6 +41,29 @@ export interface CaregiverBlackout {
   end: string;
 }
 
+/** Dated shift for a dependent (e.g., Daisy at school). */
+export interface DependentShift {
+  date: string;        // YYYY-MM-DD
+  shiftTypeId?: string;   // optional, if school has named blocks
+  label: string;       // free text — e.g. "school", "half day", "field trip"
+}
+
+export interface DependentBlock {
+  name: string;
+  shifts: DependentShift[];
+}
+
+/** Audit entry written each time the desktop imports a schedule photo. */
+export interface ImportRecord {
+  id: string;                  // unique import id
+  scheduleId: string;          // matches a SCHEDULE_IMPORTS entry id
+  importedAt: number;          // epoch ms
+  importedBy?: string;         // uid of the user who triggered the import
+  monthCovered?: string;       // YYYY-MM if Claude detected one
+  addedDates: string[];        // dates added or replaced by this import
+  noteCount: number;           // total shifts written
+}
+
 export interface HouseholdState {
   shiftTypes: ShiftType[];
   template: Array<string | null>;  // 7 entries, Sun..Sat
@@ -60,6 +83,11 @@ export interface HouseholdState {
   partner: { name: string; shifts: PartnerShift[] };
   caregiverBlackouts: CaregiverBlackout[];
   ui: { calLayout: string; viewMonth: string; viewWeekStart: string };
+  /** Dependents (kids, pets, etc) — schedules written by the desktop manager
+   *  via photo import. iOS app round-trips these without rendering them yet. */
+  dependents?: { daisy?: DependentBlock };
+  /** Audit trail of every photo import the manager has run. */
+  imports?: ImportRecord[];
   _migrations: string[];
 }
 

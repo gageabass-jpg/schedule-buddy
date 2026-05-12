@@ -4,6 +4,7 @@ import type { ViewFilter } from "../App";
 import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
+import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
   palette: Palette;
@@ -22,12 +23,13 @@ interface SidebarProps {
   viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
   onToggleThisWeek: () => void;
+  onOpenScheduleImport: (id: string) => void;
 }
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onSignOut,
-  viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek,
+  viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
 }: SidebarProps) {
   return (
     <div
@@ -152,8 +154,15 @@ export function Sidebar({
       </SidebarSection>
 
       <SidebarSection label="Schedules" t={t}>
-        <ListRow icon="◧" label="Spring rotation" t={t} />
-        <ListRow icon="◧" label="MBU nights" t={t} />
+        {SCHEDULE_IMPORTS.map((s) => (
+          <ListRow
+            key={s.id}
+            icon="◧"
+            label={s.label}
+            onClick={() => onOpenScheduleImport(s.id)}
+            t={t}
+          />
+        ))}
       </SidebarSection>
 
       <div style={{ flex: 1 }} />
