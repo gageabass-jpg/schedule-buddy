@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell, type MenuItemConstructorOptions } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as fs from "node:fs/promises";
@@ -232,7 +232,95 @@ function createWindow() {
   }
 }
 
+function installAppMenu(): void {
+  const sendOpenApiKey = (): void => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    win?.webContents.send("menu:open-api-key");
+  };
+
+  const isMac = process.platform === "darwin";
+
+  const appMenu: MenuItemConstructorOptions = {
+    label: app.name,
+    submenu: [
+      { role: "about" },
+      { type: "separator" },
+      {
+        label: "Settings…",
+        accelerator: "CmdOrCtrl+,",
+        click: sendOpenApiKey,
+      },
+      { type: "separator" },
+      { role: "services" },
+      { type: "separator" },
+      { role: "hide" },
+      { role: "hideOthers" },
+      { role: "unhide" },
+      { type: "separator" },
+      { role: "quit" },
+    ],
+  };
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac ? [appMenu] : []),
+    {
+      label: "File",
+      submenu: [isMac ? { role: "close" } : { role: "quit" }],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        ...(isMac
+          ? ([
+              { role: "pasteAndMatchStyle" },
+              { role: "delete" },
+              { role: "selectAll" },
+            ] as MenuItemConstructorOptions[])
+          : ([{ role: "delete" }, { role: "selectAll" }] as MenuItemConstructorOptions[])),
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    { role: "windowMenu" },
+    ...(isMac
+      ? []
+      : ([
+          {
+            label: "Help",
+            submenu: [
+              {
+                label: "Settings…",
+                accelerator: "CmdOrCtrl+,",
+                click: sendOpenApiKey,
+              },
+            ],
+          },
+        ] as MenuItemConstructorOptions[])),
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(() => {
+  installAppMenu();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

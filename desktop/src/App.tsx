@@ -58,6 +58,12 @@ function ManagerApp() {
     document.body.style.color = t.text;
   }, [t]);
 
+  // Wire the macOS App menu's "Settings…" item (Cmd+,) to the API-key modal.
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenApiKey(() => setApiKeyOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
   const state: HouseholdState | null =
