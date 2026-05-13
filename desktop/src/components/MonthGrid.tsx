@@ -1,6 +1,7 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { CaregiverRequest, Event as SbEvent, HouseholdState } from "../state";
+import { isPaydayOn } from "../state";
 import { InboxTray } from "./InboxTray";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
@@ -282,13 +283,35 @@ export function MonthGrid({
                       >
                         {c.d}
                       </span>
-                      {(() => {
-                        const dayEvents = eventsByDate[key] ?? [];
-                        const totalItems = (dayShifts?.length ?? 0) + dayEvents.length;
-                        return totalItems > 1 ? (
-                          <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{totalItems}</span>
-                        ) : null;
-                      })()}
+                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (
+                          <span
+                            title="Gage payday"
+                            style={{
+                              fontSize: 10, fontWeight: 700, color: "#fff",
+                              background: palette.G,
+                              padding: "1px 5px", borderRadius: 999, lineHeight: 1,
+                            }}
+                          >$</span>
+                        )}
+                        {state?.paydays?.K && isPaydayOn(key, state.paydays.K) && (
+                          <span
+                            title="Kaylene payday"
+                            style={{
+                              fontSize: 10, fontWeight: 700, color: "#fff",
+                              background: palette.K,
+                              padding: "1px 5px", borderRadius: 999, lineHeight: 1,
+                            }}
+                          >$</span>
+                        )}
+                        {(() => {
+                          const dayEvents = eventsByDate[key] ?? [];
+                          const totalItems = (dayShifts?.length ?? 0) + dayEvents.length;
+                          return totalItems > 1 ? (
+                            <span style={{ fontSize: 9, color: t.text3, fontWeight: 600 }}>{totalItems}</span>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                     {(() => {
                       const dayEvents = eventsByDate[key] ?? [];

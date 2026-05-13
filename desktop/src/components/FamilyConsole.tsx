@@ -4,6 +4,8 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { ThemePref } from "../App";
 import { setHouseholdName } from "../lib/writeHouseholdMeta";
+import { setPaydaySchedule } from "../lib/writePaydays";
+import type { PaydaySchedule } from "../state";
 import { createInviteCode } from "../lib/createInviteCode";
 import { removeHouseholdMember } from "../lib/removeHouseholdMember";
 import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest";
@@ -357,6 +359,28 @@ export function FamilyConsole({
             </div>
           </Section>
 
+          {/* Paydays */}
+          <Section title="Paydays" t={t} hint="A $ chip appears on the calendar on each member's payday.">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <PaydayRow
+                who="G"
+                label="Gage"
+                color={palette.G}
+                schedule={state?.paydays?.G ?? null}
+                householdId={householdId}
+                t={t}
+              />
+              <PaydayRow
+                who="K"
+                label="Kaylene"
+                color={palette.K}
+                schedule={state?.paydays?.K ?? null}
+                householdId={householdId}
+                t={t}
+              />
+            </div>
+          </Section>
+
           {/* Coverage requests */}
           <Section
             title={`Coverage requests (${(state?.coverageRequests ?? []).length})`}
@@ -519,6 +543,126 @@ export function FamilyConsole({
 function defaultHouseholdName(household: HouseholdMeta | null): string {
   if (!household) return "Bass Household";
   return "Bass Household";
+}
+
+function PaydayRow({
+  who, label, color, schedule, householdId, t,
+}: {
+  who: "G" | "K";
+  label: string;
+  color: string;
+  schedule: PaydaySchedule | null;
+  householdId: string | null;
+  t: ThemeTokens;
+}) {
+  const [anchor, setAnchor] = useState<string>(schedule?.anchor ?? "");
+  const [freq, setFreq] = useState<"weekly" | "biweekly">(schedule?.freq ?? "biweekly");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Keep local state in sync with Firestore-driven updates from elsewhere.
+  useEffect(() => {
+    setAnchor(schedule?.anchor ?? "");
+    setFreq(schedule?.freq ?? "biweekly");
+  }, [schedule?.anchor, schedule?.freq]);
+
+  const dirty =
+    (schedule?.anchor ?? "") !== anchor ||
+    (schedule?.freq ?? "biweekly") !== freq;
+
+  const onSave = async () => {
+    if (!householdId) return;
+    setErr(null);
+    setBusy(true);
+    try { await setPaydaySchedule(householdId, who, { anchor, freq }); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
+    finally { setBusy(false); }
+  };
+
+  const onClear = async () => {
+    if (!householdId) return;
+    setBusy(true);
+    try { await setPaydaySchedule(householdId, who, null); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't clear."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr 110px auto",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 8,
+        border: `0.5px solid ${t.sep}`,
+        background: `${color}10`,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 10.5, fontWeight: 700, color: "#fff",
+          background: color, padding: "2px 8px", borderRadius: 999,
+        }}
+      >{label}</span>
+      <input
+        type="date"
+        value={anchor}
+        onChange={(e) => setAnchor(e.target.value)}
+        style={{ ...inputStyle(t), padding: "5px 8px", fontSize: 12 }}
+        title="Any one payday — usually the next upcoming one"
+      />
+      <select
+        value={freq}
+        onChange={(e) => setFreq(e.target.value as "weekly" | "biweekly")}
+        style={{ ...inputStyle(t), padding: "5px 8px", fontSize: 12, cursor: "pointer" }}
+      >
+        <option value="biweekly">Every 2 weeks</option>
+        <option value="weekly">Every week</option>
+      </select>
+      <div style={{ display: "flex", gap: 4 }}>
+        {schedule && !dirty ? (
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={busy}
+            title="Remove this person's payday schedule"
+            style={{
+              padding: "5px 10px",
+              border: `0.5px solid ${t.sep}`,
+              borderRadius: 6,
+              background: "transparent",
+              color: t.text3,
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: busy ? "wait" : "pointer",
+              fontFamily: "inherit",
+            }}
+          >Clear</button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={busy || !dirty || !anchor || !householdId}
+            style={{
+              padding: "5px 12px",
+              border: 0,
+              borderRadius: 6,
+              background: color,
+              color: "#fff",
+              fontSize: 11.5,
+              fontWeight: 700,
+              cursor: (busy || !dirty || !anchor) ? "not-allowed" : "pointer",
+              opacity: (busy || !dirty || !anchor) ? 0.5 : 1,
+              fontFamily: "inherit",
+            }}
+          >{busy ? "Saving…" : "Save"}</button>
+        )}
+      </div>
+      {err && <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#FF453A" }}>{err}</div>}
+    </div>
+  );
 }
 
 function Section({ title, hint, t, children }: { title: string; hint?: string; t: ThemeTokens; children: React.ReactNode }) {

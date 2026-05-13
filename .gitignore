@@ -50,3 +50,9 @@ ios/App/CapApp-SPM/Package.resolved.bak
 .env.local
 "desktop/dist-electron 2/"
 desktop/release/
+
+# macOS Finder duplicates
+* 2/
+* 3/
+* 2.xml
+* 3.xml

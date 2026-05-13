@@ -168,6 +168,32 @@ export function generateCoverageId(): string {
   return `cov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/**
+ * Recurring payday schedule for a household member. Stored as an anchor
+ * date + a cadence so we don't have to maintain a list of every payday.
+ * Calendar renderers expand the rule on the fly across the visible window.
+ */
+export interface PaydaySchedule {
+  /** Any ISO date that *is* a payday — usually the next upcoming one. */
+  anchor: string;        // YYYY-MM-DD
+  /** Cadence at which the payday recurs from the anchor. */
+  freq: "weekly" | "biweekly";
+}
+
+/** Is the given calendar date a payday under this schedule? */
+export function isPaydayOn(dateIso: string, schedule: PaydaySchedule): boolean {
+  if (!schedule || !schedule.anchor || !dateIso) return false;
+  const [ay, am, ad] = schedule.anchor.split("-").map(Number);
+  const [dy, dm, dd] = dateIso.split("-").map(Number);
+  if (!ay || !am || !ad || !dy || !dm || !dd) return false;
+  // Compute calendar-day delta via UTC noon to dodge DST offsets.
+  const anchor = Date.UTC(ay, am - 1, ad);
+  const day    = Date.UTC(dy, dm - 1, dd);
+  const diffDays = Math.round((day - anchor) / 86_400_000);
+  const cycle = schedule.freq === "weekly" ? 7 : 14;
+  return diffDays % cycle === 0;
+}
+
 export interface HouseholdState {
   shiftTypes: ShiftType[];
   template: Array<string | null>;  // 7 entries, Sun..Sat
@@ -201,6 +227,12 @@ export interface HouseholdState {
   /** Requests authored by caregivers — Schedule Block / Shift Conflict / Other.
    *  Surfaced in the manager's Inbox. */
   caregiverRequests?: CaregiverRequest[];
+  /** Per-person recurring payday rules. Calendar cells render a $ icon
+   *  on dates that match. */
+  paydays?: {
+    G?: PaydaySchedule;
+    K?: PaydaySchedule;
+  };
   _migrations: string[];
 }
 

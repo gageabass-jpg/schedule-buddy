@@ -1583,6 +1583,33 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
+  /* Payday chips — small "$" badges in the top-right of a calendar cell. */
+  .cal-pay-row {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    display: inline-flex;
+    gap: 2px;
+    pointer-events: none;
+  }
+  .cal-pay-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    box-shadow: 0 0 0 1.5px var(--bg);
+    pointer-events: auto;
+  }
+  .cal-pay-chip.g { background: var(--color-g); }
+  .cal-pay-chip.k { background: var(--color-k); }
+
   /* Tooltip */
   .cal-tooltip {
     position: absolute;
@@ -6484,6 +6511,16 @@ function mergeStateFromFirestore(data) {
     // Coverage requests sent to caregivers from the desktop manager.
     coverageRequests: Array.isArray(data.coverageRequests) ? data.coverageRequests : [],
     caregiverRequests: Array.isArray(data.caregiverRequests) ? data.caregiverRequests : [],
+    // Per-person payday rules (biweekly anchor or weekly anchor). The
+    // calendar renders a $ chip on dates that match.
+    paydays: data.paydays && typeof data.paydays === "object" ? {
+      G: data.paydays.G && typeof data.paydays.G === "object" && typeof data.paydays.G.anchor === "string"
+        ? { anchor: data.paydays.G.anchor, freq: data.paydays.G.freq === "weekly" ? "weekly" : "biweekly" }
+        : undefined,
+      K: data.paydays.K && typeof data.paydays.K === "object" && typeof data.paydays.K.anchor === "string"
+        ? { anchor: data.paydays.K.anchor, freq: data.paydays.K.freq === "weekly" ? "weekly" : "biweekly" }
+        : undefined,
+    } : undefined,
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);
@@ -7847,6 +7884,31 @@ function eventCellChipHTML(ev) {
     <span class="ev-chip-letter" style="color:${color};">${eventInitial(ev.who)} - Event</span>
   </span>`;
 }
+
+// Mirror of desktop's isPaydayOn — true if dateIso falls on a payday under the
+// given schedule (weekly or biweekly from anchor).
+function isPaydayOnIso(dateIso, schedule) {
+  if (!schedule || !schedule.anchor || !dateIso) return false;
+  const ap = (schedule.anchor || "").split("-").map(Number);
+  const dp = (dateIso || "").split("-").map(Number);
+  if (ap.length !== 3 || dp.length !== 3 || ap.some(isNaN) || dp.some(isNaN)) return false;
+  const anchorMs = Date.UTC(ap[0], ap[1] - 1, ap[2]);
+  const dayMs    = Date.UTC(dp[0], dp[1] - 1, dp[2]);
+  const diffDays = Math.round((dayMs - anchorMs) / 86400000);
+  const cycle = schedule.freq === "weekly" ? 7 : 14;
+  return diffDays % cycle === 0;
+}
+
+// Render 0–2 small "$" chips for the cell (one per matching person).
+function paydayIconsForCell(dateIso) {
+  const pd = state && state.paydays;
+  if (!pd) return "";
+  const out = [];
+  if (pd.G && isPaydayOnIso(dateIso, pd.G)) out.push(`<span class="cal-pay-chip g" title="Gage payday">$</span>`);
+  if (pd.K && isPaydayOnIso(dateIso, pd.K)) out.push(`<span class="cal-pay-chip k" title="Kaylene payday">$</span>`);
+  if (out.length === 0) return "";
+  return `<span class="cal-pay-row">${out.join("")}</span>`;
+}
 /** Compact list row used inside the tap-day tooltip. */
 function eventTooltipRowHTML(ev) {
   const color = eventCSSColor(ev.who);
@@ -8213,11 +8275,12 @@ function renderMonthView(gageEvts, kayEvts, view) {
     const dayEvents = getEventsForDate(dISO);
     const eventsHTML = dayEvents.slice(0, 2).map(eventCellChipHTML).join("");
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
+    const paydayIcons = paydayIconsForCell(dISO);
 
     html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}"
                   data-date="${dISO}" data-kind="${kind}" style="background:${bg}">
       <div class="cal-date${isToday ? " today" : ""}">${day.getDate()}</div>
-      ${otIcon}
+      ${otIcon}${paydayIcons}
       <div class="cal-shifts">${pillsHTML}${eventsHTML}</div>
     </div>`;
   }
