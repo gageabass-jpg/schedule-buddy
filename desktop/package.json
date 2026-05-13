@@ -11,7 +11,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:web && npm run build:electron",
     "start": "electron .",
-    "dist": "npm run build && electron-builder --mac --arm64 --x64"
+    "dist": "npm run build && electron-builder --mac --arm64"
   },
   "dependencies": {
     "firebase": "^12.13.0",
@@ -48,7 +48,7 @@
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] }
+        { "target": "dmg", "arch": ["arm64"] }
       ],
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
