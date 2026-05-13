@@ -63,8 +63,23 @@ async function startRendererServer(rootDir: string): Promise<string> {
       res.writeHead(500).end(String(e));
     }
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
-  const port = (server.address() as AddressInfo).port;
+  // Use a fixed high-numbered port so Firebase Auth's session storage (keyed
+  // by origin) survives across app launches. Falls back to a random port if
+  // the preferred one is busy — auth will re-prompt in that case.
+  const PREFERRED_PORT = 53217;
+  const port = await new Promise<number>((resolve) => {
+    server.once("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        // Retry on an ephemeral port.
+        server.listen(0, "127.0.0.1", () => {
+          resolve((server.address() as AddressInfo).port);
+        });
+      } else {
+        resolve(0);
+      }
+    });
+    server.listen(PREFERRED_PORT, "127.0.0.1", () => resolve(PREFERRED_PORT));
+  });
   return `http://localhost:${port}`;
 }
 
