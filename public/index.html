@@ -4828,6 +4828,19 @@
     if (now - __lastTouchEnd < 300) e.preventDefault();
     __lastTouchEnd = now;
   }, { passive: false });
+
+  // Hide the iOS form accessory toolbar (the ^ v ✓ bar above the keyboard).
+  // Requires @capacitor/keyboard, which is auto-registered when present —
+  // available at window.Capacitor.Plugins.Keyboard inside a Capacitor build.
+  if (window.__isNativeApp && window.Capacitor) {
+    const Keyboard = (window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard)
+      || (typeof window.Capacitor.registerPlugin === "function"
+          ? (function () { try { return window.Capacitor.registerPlugin("Keyboard"); } catch (_) { return null; } })()
+          : null);
+    if (Keyboard && typeof Keyboard.setAccessoryBarVisible === "function") {
+      Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => {});
+    }
+  }
 </script>
 
 <script>
