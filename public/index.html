@@ -1583,6 +1583,140 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
+  /* Small Stats-quick icon in the mobile brand bar (since Stats moved off the bottom). */
+  .stats-quick-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    color: var(--text);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (max-width: 768px) {
+    .stats-quick-btn { display: inline-flex; }
+  }
+
+  /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
+  .pane-chat,
+  .cg-chat-pane {
+    flex-direction: column;
+    gap: 0;
+    padding: 0 0 100px;
+    height: calc(100dvh - 100px);
+    min-height: 0;
+  }
+  .chat-header {
+    padding: 8px 14px 8px;
+    border-bottom: 0.5px solid var(--sep);
+    background: var(--bg);
+  }
+  .chat-header-title {
+    font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+  }
+  .chat-header-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .chat-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-empty {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 24px;
+  }
+  .chat-day-sep {
+    align-self: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 12px 0 4px;
+  }
+  .chat-row { display: flex; flex-direction: column; gap: 2px; }
+  .chat-row.mine { align-items: flex-end; }
+  .chat-row.theirs { align-items: flex-start; }
+  .chat-sender {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding: 0 10px;
+    margin-top: 6px;
+  }
+  .chat-bubble {
+    max-width: 78%;
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    word-break: break-word;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chat-row.mine .chat-bubble {
+    color: #fff;
+    border-top-right-radius: 4px;
+  }
+  .chat-row.theirs .chat-bubble {
+    background: var(--bg-elev);
+    color: var(--text);
+    border-top-left-radius: 4px;
+    border: 0.5px solid var(--sep);
+  }
+  /* Mine/theirs background tinting comes from a per-sender data attr set by JS. */
+  .chat-bubble.sender-g { background: var(--color-g); }
+  .chat-bubble.sender-k { background: var(--color-k); }
+  .chat-bubble.sender-d { background: #30D158; }
+  .chat-row.theirs .chat-sender.sender-g { color: var(--color-g); }
+  .chat-row.theirs .chat-sender.sender-k { color: var(--color-k); }
+  .chat-row.theirs .chat-sender.sender-d { color: #30D158; }
+
+  .chat-composer {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    padding: 8px 12px max(env(safe-area-inset-bottom, 0px), 10px);
+    border-top: 0.5px solid var(--sep);
+    background: var(--bg);
+  }
+  .chat-input {
+    flex: 1;
+    min-height: 36px;
+    max-height: 120px;
+    padding: 8px 12px;
+    border-radius: 18px;
+    border: 0.5px solid var(--sep);
+    background: var(--bg-elev);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.35;
+    resize: none;
+    outline: none;
+  }
+  .chat-send {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 18px;
+    border: 0;
+    background: var(--color-g);
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chat-send:disabled { opacity: 0.5; }
+
   /* Payday chips — small "$" badges in the top-right of a calendar cell. */
   .cal-pay-row {
     position: absolute;
@@ -2746,13 +2880,16 @@
     .pane-profile { display: none; }
     /* Schedule pane is hidden when on stats / childcare / profile tab */
     body[data-mobile-tab="stats"]      .pane-schedule,
+    body[data-mobile-tab="chat"]       .pane-schedule,
     body[data-mobile-tab="childcare"]  .pane-schedule,
     body[data-mobile-tab="profile"]    .pane-schedule { display: none; }
     /* Each tab makes its own pane visible */
     body[data-mobile-tab="stats"]      .pane-stats     { display: block; }
+    body[data-mobile-tab="chat"]       .pane-chat      { display: flex; }
     body[data-mobile-tab="childcare"]  .pane-childcare { display: flex; }
     body[data-mobile-tab="profile"]    .pane-profile   { display: flex; }
     .pane-childcare { display: none; }
+    .pane-chat      { display: none; }
   }
 
   /* ===== Profile pane ===== */
@@ -3547,6 +3684,7 @@
 
   .cg-screen[data-cg-tab="schedule"] .cg-pane-schedule { display: flex; }
   .cg-screen[data-cg-tab="requests"] .cg-pane-requests { display: flex; }
+  .cg-screen[data-cg-tab="chat"]     .cg-pane-chat     { display: flex; }
   .cg-screen[data-cg-tab="profile"]  .cg-pane-profile  { display: flex; }
 
   /* Status pill (used in the calendar detail card) */
@@ -4018,6 +4156,12 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
+      <!-- Mobile: small stats icon (Stats was moved off the bottom bar) -->
+      <button class="stats-quick-btn mobile-only" id="statsQuickBtn" type="button" aria-label="Stats" title="Stats">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 21V11M12 21V3M19 21v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
       <!-- Mobile: avatar pair opens the Family Members drawer -->
       <button class="header-avatars mobile-only" id="familyBtn" type="button" aria-label="Family members">
         <span class="sb-avatar small ring" data-photo="g">G</span>
@@ -4384,6 +4528,21 @@
     </div>
   </div><!-- /.pane-childcare -->
 
+  <!-- ===== Chat pane (replaces Stats in the manager bottom-bar) ===== -->
+  <div class="pane-chat" id="paneChat">
+    <header class="chat-header">
+      <div class="chat-header-title">Family chat</div>
+      <div class="chat-header-sub" id="chatHeaderSub">Everyone in the household</div>
+    </header>
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-empty">No messages yet. Be the first to say hi.</div>
+    </div>
+    <div class="chat-composer">
+      <textarea class="chat-input" id="chatInput" rows="1" placeholder="Message…"></textarea>
+      <button type="button" class="chat-send" id="chatSendBtn" disabled>Send</button>
+    </div>
+  </div>
+
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
   <div class="pane-profile">
     <div class="profile-hero">
@@ -4453,11 +4612,12 @@
       </svg>
       <span class="bt-label">Schedule</span>
     </button>
-    <button class="bottom-tab" data-tab="stats" aria-label="Stats">
+    <button class="bottom-tab" data-tab="chat" aria-label="Chat">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M5 21V11M12 21V3M19 21v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.4 9.4 0 0 1-4.4-1L3 20l1.3-3.9A8.4 8.4 0 1 1 21 11.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
       </svg>
-      <span class="bt-label">Stats</span>
+      <span class="bt-label">Chat</span>
+      <span id="chatTabBadge" class="bt-badge" hidden></span>
     </button>
     <button class="bottom-tab" data-tab="childcare" aria-label="Childcare">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -4513,6 +4673,17 @@
     </div>
   </div>
 
+  <!-- CHAT pane: family chat (caregiver-side) -->
+  <div class="cg-pane cg-pane-chat" id="cgPaneChat">
+    <div class="chat-scroll" id="cgChatScroll">
+      <div class="chat-empty">No messages yet. Say hi to the family.</div>
+    </div>
+    <div class="chat-composer">
+      <textarea class="chat-input" id="cgChatInput" rows="1" placeholder="Message…"></textarea>
+      <button type="button" class="chat-send" id="cgChatSendBtn" disabled>Send</button>
+    </div>
+  </div>
+
   <!-- PROFILE pane: name / email / actions / sign out / delete account -->
   <div class="cg-pane cg-pane-profile" id="cgPaneProfile">
     <div class="cg-profile-hero">
@@ -4547,6 +4718,13 @@
         </svg>
         <span class="cg-tab-label">Requests</span>
         <span class="cg-tab-badge" id="cgRequestsBadge" hidden></span>
+      </button>
+      <button type="button" class="cg-tab" data-cg-tab-btn="chat" aria-label="Chat">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.4 9.4 0 0 1-4.4-1L3 20l1.3-3.9A8.4 8.4 0 1 1 21 11.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        </svg>
+        <span class="cg-tab-label">Chat</span>
+        <span class="cg-tab-badge" id="cgChatBadge" hidden></span>
       </button>
       <button type="button" class="cg-tab" data-cg-tab-btn="profile" aria-label="Profile">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -5031,6 +5209,8 @@ function enterApp() {
     showScreen("caregiver");
     initCaregiverScreen();
     initCaregiverFirestoreSync();
+    initChat();
+    wireAllChatComposers();
     _drainPendingPushIntent();
     return;
   }
@@ -5040,6 +5220,8 @@ function enterApp() {
   initFirestoreSync();
   initOTApprovalSync();
   initFeedbackSync();
+  initChat();
+  wireAllChatComposers();
   _drainPendingPushIntent();
 }
 
@@ -5389,9 +5571,11 @@ function setCaregiverTab(tab) {
     eyebrow.textContent =
       tab === "schedule" ? "My schedule" :
       tab === "requests" ? "Coverage requests" :
+      tab === "chat"     ? "Family chat" :
                             "Profile";
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (tab === "chat") markChatReadNow();
 }
 
 // Caregivers only need to read/write `coverageRequests`. We still load the
@@ -5698,6 +5882,211 @@ function caregiverCardHTML(r) {
       ${actionsBlock}
     </article>
   `;
+}
+
+// ==================== FAMILY CHAT ====================
+// Shared between the manager bottom-bar Chat pane and the caregiver Chat
+// tab. Subscribes to households/{hid}/chat once after enterApp, renders
+// into whichever pane scroll containers exist on this device, and
+// stamps chatRead/{uid}.lastReadAt so unread badges clear.
+
+let _chatUnsub = null;
+let _chatReadUnsub = null;
+let _chatMessages = [];
+let _chatReadLastByMe = 0;
+
+function _chatScrollers() {
+  return [
+    document.getElementById("chatScroll"),       // manager pane
+    document.getElementById("cgChatScroll"),     // caregiver pane
+  ].filter(Boolean);
+}
+
+function _resolveMyName() {
+  if (currentUser && currentUser.displayName) return currentUser.displayName;
+  if (householdData && householdData.memberNames && currentUser && householdData.memberNames[currentUser.uid]) {
+    return householdData.memberNames[currentUser.uid];
+  }
+  return (currentUser && currentUser.email) || "Member";
+}
+
+function _senderBucket(senderId) {
+  if (!householdData || !householdData.memberNames) return "default";
+  const name = (householdData.memberNames[senderId] || "").toLowerCase();
+  if (name.includes("gage")) return "g";
+  if (name.includes("kaylene") || name.includes("kayl")) return "k";
+  if (name.includes("daisy")) return "d";
+  return "default";
+}
+
+function _friendlyDayLabel(date) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const cmp = new Date(date); cmp.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - cmp.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+}
+
+function renderChatInto(container) {
+  if (!container) return;
+  if (_chatMessages.length === 0) {
+    container.innerHTML = `<div class="chat-empty">No messages yet. Be the first to say hi.</div>`;
+    return;
+  }
+  // Group by day for separators.
+  const myUid = currentUser ? currentUser.uid : "";
+  let lastDayLabel = "";
+  let lastSender = "";
+  const parts = [];
+  for (const m of _chatMessages) {
+    const ms = m.createdAt && typeof m.createdAt.toMillis === "function" ? m.createdAt.toMillis() : 0;
+    const d = ms ? new Date(ms) : new Date();
+    const dayLabel = _friendlyDayLabel(d);
+    if (dayLabel !== lastDayLabel) {
+      parts.push(`<div class="chat-day-sep">${escapeHtml(dayLabel)}</div>`);
+      lastDayLabel = dayLabel;
+      lastSender = "";
+    }
+    const mine = m.senderId === myUid;
+    const bucket = _senderBucket(m.senderId);
+    const showSender = !mine && m.senderId !== lastSender;
+    lastSender = m.senderId;
+    parts.push(`
+      <div class="chat-row ${mine ? "mine" : "theirs"}">
+        ${showSender ? `<div class="chat-sender sender-${bucket}">${escapeHtml(m.senderName || "Member")}</div>` : ""}
+        <div class="chat-bubble ${mine ? `sender-${bucket}` : ""}" data-chat-id="${escapeHtml(m.id)}">${escapeHtml(m.text)}</div>
+      </div>`);
+  }
+  container.innerHTML = parts.join("");
+  // Auto-scroll to bottom.
+  requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+
+  // Long-press to delete own message — simple click → confirm.
+  container.querySelectorAll(".chat-row.mine .chat-bubble").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-chat-id");
+      if (!id) return;
+      if (!confirm("Delete this message?")) return;
+      db.collection("households").doc(householdId).collection("chat").doc(id).delete().catch(() => {});
+    });
+  });
+}
+
+function renderChatAll() {
+  for (const sc of _chatScrollers()) renderChatInto(sc);
+  updateChatUnreadBadge();
+}
+
+function updateChatUnreadBadge() {
+  // Unread count = messages from others created after my lastReadAt.
+  const myUid = currentUser ? currentUser.uid : "";
+  let unread = 0;
+  for (const m of _chatMessages) {
+    if (m.senderId === myUid) continue;
+    const ms = m.createdAt && typeof m.createdAt.toMillis === "function" ? m.createdAt.toMillis() : 0;
+    if (ms > _chatReadLastByMe) unread++;
+  }
+  const setBadge = (el) => {
+    if (!el) return;
+    if (unread > 0) { el.textContent = String(unread); el.hidden = false; }
+    else el.hidden = true;
+  };
+  setBadge(document.getElementById("chatTabBadge"));
+  setBadge(document.getElementById("cgChatBadge"));
+}
+
+async function markChatReadNow() {
+  if (!householdId || !currentUser) return;
+  try {
+    await db.collection("households").doc(householdId)
+      .collection("chatRead").doc(currentUser.uid)
+      .set({ lastReadAt: firebase.firestore.FieldValue.serverTimestamp(), uid: currentUser.uid }, { merge: true });
+    _chatReadLastByMe = Date.now();
+    updateChatUnreadBadge();
+  } catch (_) { /* best effort */ }
+}
+
+function initChat() {
+  if (!householdId || !currentUser) return;
+  if (_chatUnsub) _chatUnsub();
+  if (_chatReadUnsub) _chatReadUnsub();
+  const ref = db.collection("households").doc(householdId).collection("chat").orderBy("createdAt", "asc");
+  _chatUnsub = ref.onSnapshot(snap => {
+    _chatMessages = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      _chatMessages.push({
+        id: doc.id,
+        senderId: String(data.senderId || ""),
+        senderName: String(data.senderName || "Member"),
+        text: String(data.text || ""),
+        createdAt: data.createdAt || null,
+      });
+    });
+    renderChatAll();
+  }, err => console.warn("chat onSnapshot:", err));
+
+  // Watch my own lastReadAt for cross-device clearing.
+  const readRef = db.collection("households").doc(householdId).collection("chatRead").doc(currentUser.uid);
+  _chatReadUnsub = readRef.onSnapshot(doc => {
+    if (doc.exists) {
+      const d = doc.data() || {};
+      const ts = d.lastReadAt;
+      if (ts && typeof ts.toMillis === "function") _chatReadLastByMe = ts.toMillis();
+    }
+    updateChatUnreadBadge();
+  });
+}
+
+async function sendChatMessage(text) {
+  if (!householdId || !currentUser) return;
+  const trimmed = (text || "").trim();
+  if (!trimmed) return;
+  try {
+    await db.collection("households").doc(householdId).collection("chat").add({
+      senderId: currentUser.uid,
+      senderName: _resolveMyName(),
+      text: trimmed.slice(0, 2000),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    // Bump our own lastReadAt so we don't badge our own send.
+    markChatReadNow();
+  } catch (e) {
+    console.error("sendChatMessage:", e);
+    alert("Couldn't send. Check your connection.");
+  }
+}
+
+function wireChatComposer(inputId, sendBtnId) {
+  const input = document.getElementById(inputId);
+  const send = document.getElementById(sendBtnId);
+  if (!input || !send || input.__chatWired) return;
+  input.__chatWired = true;
+  const refresh = () => { send.disabled = input.value.trim().length === 0; };
+  input.addEventListener("input", refresh);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (input.value.trim()) {
+        sendChatMessage(input.value);
+        input.value = "";
+        refresh();
+      }
+    }
+  });
+  send.addEventListener("click", () => {
+    if (!input.value.trim()) return;
+    sendChatMessage(input.value);
+    input.value = "";
+    refresh();
+  });
+  refresh();
+}
+
+function wireAllChatComposers() {
+  wireChatComposer("chatInput", "chatSendBtn");
+  wireChatComposer("cgChatInput", "cgChatSendBtn");
 }
 
 async function handleCaregiverAction(id, action) {
@@ -6239,6 +6628,10 @@ function cleanupListeners() {
   if (stateUnsubscribe) { stateUnsubscribe(); stateUnsubscribe = null; }
   if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
   if (feedbackUnsubscribe) { feedbackUnsubscribe(); feedbackUnsubscribe = null; }
+  if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
+  if (_chatReadUnsub) { _chatReadUnsub(); _chatReadUnsub = null; }
+  _chatMessages = [];
+  _chatReadLastByMe = 0;
 }
 
 // ==================== ROLE-BASED RESTRICTIONS ====================
@@ -9118,6 +9511,8 @@ function setMobileTab(tab) {
   });
   // Scroll to top on tab change
   window.scrollTo({ top: 0, behavior: "smooth" });
+  // When entering the chat tab, mark messages read so the badge clears.
+  if (tab === "chat") markChatReadNow();
 }
 document.querySelectorAll(".bottom-tab").forEach(btn => {
   btn.addEventListener("click", () => setMobileTab(btn.dataset.tab));
@@ -9213,6 +9608,8 @@ function closeFamilyDrawer() {
 }
 
 if (_familyBtn)   _familyBtn.addEventListener("click", openFamilyDrawer);
+const _statsQuickBtn = document.getElementById("statsQuickBtn");
+if (_statsQuickBtn) _statsQuickBtn.addEventListener("click", () => setMobileTab("stats"));
 if (_familyClose) _familyClose.addEventListener("click", closeFamilyDrawer);
 if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer);
 

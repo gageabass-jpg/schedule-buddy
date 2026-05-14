@@ -46,6 +46,7 @@ import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
+import { ChatPanel } from "./components/ChatPanel";
 import { NewRequestModal } from "./components/NewRequestModal";
 import { InboxPanel } from "./components/InboxPanel";
 import type { Event as SbEvent } from "./state";
@@ -117,6 +118,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxFocusId, setInboxFocusId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -356,6 +358,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
+        onOpenChat={() => setChatOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
@@ -512,6 +515,15 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         state={state}
         onSendBatch={() => setCoverageModalOpen(true)}
         onSendSingle={() => setNewRequestOpen(true)}
+      />
+      <ChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        household={householdStatus.status === "ready" ? householdStatus.household : null}
       />
       <NewRequestModal
         open={newRequestOpen}

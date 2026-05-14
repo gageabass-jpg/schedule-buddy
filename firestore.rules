@@ -53,5 +53,29 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null
         && tokenDocId == request.auth.uid;
     }
+
+    // Family chat — one doc per message. Any member can read; only the
+    // sender can create their own (senderId pinned to uid) and only the
+    // sender can delete. Messages are immutable once posted.
+    match /households/{householdId}/chat/{messageId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && request.resource.data.senderId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.senderId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Per-user read-state — when each member last opened the chat. Used
+    // to compute unread badges. Doc id = uid, writeable only by self,
+    // readable by any member.
+    match /households/{householdId}/chatRead/{uid} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create, update, delete: if request.auth != null
+        && uid == request.auth.uid;
+    }
   }
 }

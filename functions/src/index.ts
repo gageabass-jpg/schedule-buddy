@@ -299,3 +299,50 @@ export const onCoverageRequestsCreate = onDocumentCreated(
     }, householdId);
   },
 );
+
+// ──────────────────── Family chat: push on new message ───────────────────
+// Push to every member's tokens except the sender's. iOS / Mac receivers
+// only show the notification when the app isn't already focused on chat —
+// that's handled client-side; the function just fans out.
+
+interface ChatMessageDoc {
+  senderId?: string;
+  senderName?: string;
+  text?: string;
+}
+
+export const onChatMessageCreate = onDocumentCreated(
+  "households/{householdId}/chat/{messageId}",
+  async (event) => {
+    const householdId = event.params.householdId;
+    const data = event.data?.data() as ChatMessageDoc | undefined;
+    if (!data || !data.senderId || !data.text) return;
+
+    // Pull every push token for this household and filter out the sender.
+    const db = getFirestore();
+    const tokSnap = await db
+      .collection("households").doc(householdId)
+      .collection("pushTokens")
+      .get();
+    const tokens: { token: string; uid: string }[] = [];
+    tokSnap.forEach((d) => {
+      const tdata = d.data() as { token?: string; uid?: string } | undefined;
+      const uid = tdata?.uid || d.id;
+      if (!tdata?.token || uid === data.senderId) return;
+      tokens.push({ token: tdata.token, uid });
+    });
+    logger.info("Chat push targets", { householdId, recipients: tokens.length });
+    if (tokens.length === 0) return;
+
+    const senderName = (data.senderName && data.senderName.trim()) || "Family member";
+    const body = data.text.length > 120 ? data.text.slice(0, 117) + "…" : data.text;
+    await sendToTokens(tokens, {
+      title: senderName,
+      body,
+    }, {
+      kind: "chat_message",
+      householdId,
+      messageId: event.params.messageId,
+    }, householdId);
+  },
+);
