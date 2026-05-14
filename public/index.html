@@ -1583,6 +1583,138 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
+  /* Ask Claude trigger — same shape as the stats quick button, brand color. */
+  .ask-claude-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
+    border: 0;
+    color: #fff;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (max-width: 768px) {
+    .ask-claude-btn { display: inline-flex; }
+  }
+
+  /* ===== Ask Claude modal (iOS) ===== */
+  .ask-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1100;
+    display: none;
+  }
+  .ask-modal {
+    position: fixed; inset: 0;
+    z-index: 1101;
+    display: none;
+    flex-direction: column;
+    background: var(--bg);
+    padding: max(env(safe-area-inset-top, 0px), 18px) 0 0;
+    box-sizing: border-box;
+  }
+  body.ask-claude-open .ask-modal-backdrop,
+  body.ask-claude-open .ask-modal { display: flex; }
+  body.ask-claude-open .bottom-tabs { display: none; }
+  .ask-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 16px 12px;
+    border-bottom: 0.5px solid var(--sep);
+  }
+  .ask-title-wrap { line-height: 1.2; }
+  .ask-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .ask-sub   { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
+  .ask-close {
+    background: transparent; border: 0; color: var(--text-dim);
+    font-size: 20px; padding: 4px 8px; cursor: pointer;
+    font-family: var(--font);
+  }
+  .ask-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px 6px;
+    display: flex; flex-direction: column; gap: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ask-suggestions {
+    display: flex; flex-direction: column; gap: 6px;
+    max-width: 360px; margin: auto;
+    width: 100%;
+  }
+  .ask-suggestion {
+    text-align: left;
+    padding: 10px 12px;
+    border: 0.5px solid var(--sep);
+    border-radius: 12px;
+    background: var(--bg-elev);
+    color: var(--text);
+    font-size: 13.5px;
+    font-family: var(--font);
+    line-height: 1.4;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ask-suggestion-hint {
+    text-align: center; font-size: 13px; color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .ask-bubble {
+    max-width: 84%;
+    padding: 9px 13px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .ask-bubble.mine {
+    align-self: flex-end;
+    border-top-right-radius: 4px;
+    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
+    color: #fff;
+  }
+  .ask-bubble.theirs {
+    align-self: flex-start;
+    border-top-left-radius: 4px;
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+  }
+  .ask-busy {
+    align-self: flex-start;
+    font-size: 13px; color: var(--text-dim);
+    padding: 6px 12px;
+  }
+  .ask-composer {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 8px 12px max(env(safe-area-inset-bottom, 0px), 10px);
+    border-top: 0.5px solid var(--sep);
+    background: var(--bg);
+  }
+  .ask-input {
+    flex: 1; min-height: 36px; max-height: 130px;
+    padding: 9px 13px;
+    border-radius: 18px;
+    border: 0.5px solid var(--sep);
+    background: var(--bg-elev);
+    color: var(--text);
+    font-family: var(--font); font-size: 14.5px;
+    line-height: 1.35; resize: none; outline: none;
+  }
+  .ask-send {
+    height: 36px; padding: 0 16px;
+    border-radius: 18px;
+    border: 0;
+    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
+    color: #fff; font-size: 13.5px; font-weight: 700;
+    cursor: pointer; font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ask-send:disabled { opacity: 0.5; }
+
   /* Small Stats-quick icon in the mobile brand bar (since Stats moved off the bottom). */
   .stats-quick-btn {
     width: 36px; height: 36px;
@@ -4180,6 +4312,10 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
+      <!-- Mobile: Ask Claude trigger -->
+      <button class="ask-claude-btn mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude" title="Ask Claude">
+        <span style="font-size:15px;line-height:1;">✨</span>
+      </button>
       <!-- Mobile: small stats icon (Stats was moved off the bottom bar) -->
       <button class="stats-quick-btn mobile-only" id="statsQuickBtn" type="button" aria-label="Stats" title="Stats">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -4567,6 +4703,31 @@
     </div>
   </div>
 
+  <!-- ===== Ask Claude modal (manager-only natural-language schedule editor) ===== -->
+  <div class="ask-modal-backdrop" id="askBackdrop"></div>
+  <div class="ask-modal" id="askModal" role="dialog" aria-modal="true" aria-label="Ask Claude">
+    <div class="ask-head">
+      <div class="ask-title-wrap">
+        <div class="ask-title">✨ Ask Claude</div>
+        <div class="ask-sub">Schedule changes in plain English. Confirms before writing.</div>
+      </div>
+      <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close">✕</button>
+    </div>
+    <div class="ask-scroll" id="askScroll">
+      <div class="ask-suggestions" id="askSuggestions">
+        <div class="ask-suggestion-hint">Try one of these or type your own:</div>
+        <button type="button" class="ask-suggestion" data-ask-prompt="What does my next 2 weeks look like?">What does my next 2 weeks look like?</button>
+        <button type="button" class="ask-suggestion" data-ask-prompt="I picked up an OT shift this Friday night">I picked up an OT shift this Friday night</button>
+        <button type="button" class="ask-suggestion" data-ask-prompt="Move my Monday shift next week to Wednesday">Move my Monday shift next week to Wednesday</button>
+        <button type="button" class="ask-suggestion" data-ask-prompt="Kaylene is off the rest of this week">Kaylene is off the rest of this week</button>
+      </div>
+    </div>
+    <div class="ask-composer">
+      <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell Claude what to change…"></textarea>
+      <button type="button" class="ask-send" id="askSendBtn" disabled>Send</button>
+    </div>
+  </div>
+
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
   <div class="pane-profile">
     <div class="profile-hero">
@@ -4811,6 +4972,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
 <!-- ==================== CAPACITOR NATIVE BRIDGE (only present in iOS app) ==================== -->
 <script>
@@ -5259,6 +5421,7 @@ function enterApp() {
   initFeedbackSync();
   initChat();
   wireAllChatComposers();
+  wireAskClaudeUI();
   _drainPendingPushIntent();
 }
 
@@ -6126,6 +6289,135 @@ function wireChatComposer(inputId, sendBtnId) {
 function wireAllChatComposers() {
   wireChatComposer("chatInput", "chatSendBtn");
   wireChatComposer("cgChatInput", "cgChatSendBtn");
+}
+
+// ==================== ASK CLAUDE (iOS) ====================
+// Calls the askClaude Cloud Function (HTTPS callable) so iOS can drive
+// schedule edits with natural-language. The function holds the Anthropic
+// API key — never exposed to the device.
+
+let _askHistory = [];
+let _askBusy = false;
+
+function openAskClaude() {
+  if (userRole === "supporting") return; // caregivers can't edit
+  _askHistory = [];
+  const scroll = document.getElementById("askScroll");
+  const sugg = document.getElementById("askSuggestions");
+  const input = document.getElementById("askInput");
+  if (scroll && sugg) {
+    scroll.innerHTML = "";
+    scroll.appendChild(sugg);
+  }
+  if (input) input.value = "";
+  refreshAskSendDisabled();
+  document.body.classList.add("ask-claude-open");
+  setTimeout(() => input && input.focus(), 80);
+}
+
+function closeAskClaude() {
+  document.body.classList.remove("ask-claude-open");
+}
+
+function refreshAskSendDisabled() {
+  const input = document.getElementById("askInput");
+  const send = document.getElementById("askSendBtn");
+  if (!input || !send) return;
+  send.disabled = _askBusy || input.value.trim().length === 0;
+}
+
+function _askAppendBubble(role, text) {
+  const scroll = document.getElementById("askScroll");
+  const sugg = document.getElementById("askSuggestions");
+  if (!scroll) return;
+  if (sugg && sugg.parentNode === scroll) sugg.remove();
+  const el = document.createElement("div");
+  el.className = "ask-bubble " + (role === "user" ? "mine" : "theirs");
+  el.textContent = text;
+  scroll.appendChild(el);
+  requestAnimationFrame(() => { scroll.scrollTop = scroll.scrollHeight; });
+}
+
+function _askSetBusy(busy) {
+  _askBusy = busy;
+  refreshAskSendDisabled();
+  const scroll = document.getElementById("askScroll");
+  let existing = document.getElementById("askBusyDots");
+  if (busy) {
+    if (!existing && scroll) {
+      existing = document.createElement("div");
+      existing.id = "askBusyDots";
+      existing.className = "ask-busy";
+      existing.textContent = "thinking…";
+      scroll.appendChild(existing);
+      scroll.scrollTop = scroll.scrollHeight;
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+}
+
+async function sendAskClaude(text) {
+  const message = (text || "").trim();
+  if (!message || _askBusy) return;
+  _askAppendBubble("user", message);
+  _askSetBusy(true);
+  try {
+    const fn = firebase.functions().httpsCallable("askClaude");
+    const res = await fn({ message, history: _askHistory });
+    const data = res && res.data;
+    if (data && Array.isArray(data.messages)) _askHistory = data.messages;
+    _askAppendBubble("assistant", (data && data.reply) || "(no reply)");
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    _askAppendBubble("assistant", "(Error) " + msg);
+  } finally {
+    _askSetBusy(false);
+  }
+}
+
+function wireAskClaudeUI() {
+  const open = document.getElementById("askClaudeBtn");
+  const close = document.getElementById("askCloseBtn");
+  const backdrop = document.getElementById("askBackdrop");
+  const input = document.getElementById("askInput");
+  const send = document.getElementById("askSendBtn");
+  if (open && !open.__wired) {
+    open.__wired = true;
+    open.addEventListener("click", openAskClaude);
+  }
+  if (close && !close.__wired)    { close.__wired = true;    close.addEventListener("click", closeAskClaude); }
+  if (backdrop && !backdrop.__wired) { backdrop.__wired = true; backdrop.addEventListener("click", closeAskClaude); }
+  if (input && !input.__wired) {
+    input.__wired = true;
+    input.addEventListener("input", refreshAskSendDisabled);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (input.value.trim()) {
+          const v = input.value;
+          input.value = "";
+          refreshAskSendDisabled();
+          sendAskClaude(v);
+        }
+      }
+    });
+  }
+  if (send && !send.__wired) {
+    send.__wired = true;
+    send.addEventListener("click", () => {
+      if (!input || !input.value.trim()) return;
+      const v = input.value;
+      input.value = "";
+      refreshAskSendDisabled();
+      sendAskClaude(v);
+    });
+  }
+  document.querySelectorAll(".ask-suggestion[data-ask-prompt]").forEach((btn) => {
+    if (btn.__wired) return;
+    btn.__wired = true;
+    btn.addEventListener("click", () => sendAskClaude(btn.getAttribute("data-ask-prompt") || ""));
+  });
 }
 
 async function handleCaregiverAction(id, action) {

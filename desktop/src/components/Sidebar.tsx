@@ -27,6 +27,7 @@ interface SidebarProps {
   onSendCoverage: () => void;
   onOpenChildcare: () => void;
   onOpenChat: () => void;
+  onOpenAskClaude: () => void;
   pendingCoverageCount: number;
 }
 
@@ -34,7 +35,7 @@ export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, onOpenChat, pendingCoverageCount,
+  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, onOpenChat, onOpenAskClaude, pendingCoverageCount,
 }: SidebarProps) {
   return (
     <div
@@ -200,6 +201,13 @@ export function Sidebar({
           label="Family chat"
           onClick={onOpenChat}
           title="Open the household chat"
+          t={t}
+        />
+        <ListRow
+          icon="✨"
+          label="Ask Claude"
+          onClick={onOpenAskClaude}
+          title="Tell Claude what to change in plain English"
           t={t}
         />
       </SidebarSection>

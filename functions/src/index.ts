@@ -1,3 +1,5 @@
+export { askClaude } from "./askClaude";
+
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging, type Message } from "firebase-admin/messaging";
