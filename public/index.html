@@ -10,6 +10,12 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<!-- Inter — used for the Claude wordmark pill (and any other UI text that
+     wants a more geometric grotesque). System font stack fallback handles
+     offline / first-paint. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
   :root {
     /* Surfaces (dark default, iOS HIG) */
@@ -1583,18 +1589,34 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
-  /* Ask Claude trigger — same shape as the stats quick button, brand color. */
+  /* Ask Claude trigger — pill with the Claude wordmark in the top bar. */
   .ask-claude-btn {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
+    height: 32px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%);
     border: 0;
     color: #fff;
     cursor: pointer;
     display: none;
     align-items: center;
-    justify-content: center;
+    gap: 5px;
     -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 2px rgba(201,100,66,0.25);
+    line-height: 1;
+  }
+  .ask-claude-spark {
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.95;
+  }
+  .ask-claude-word {
+    /* Approximation of Anthropic's Claude wordmark — clean grotesque,
+       slightly tracked, medium weight. */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: -0.01em;
   }
   @media (max-width: 768px) {
     .ask-claude-btn { display: inline-flex; }
@@ -4312,9 +4334,10 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
-      <!-- Mobile: Ask Claude trigger -->
+      <!-- Mobile: Ask Claude trigger — pill in the top bar with a Claude wordmark feel. -->
       <button class="ask-claude-btn mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude" title="Ask Claude">
-        <span style="font-size:15px;line-height:1;">✨</span>
+        <span class="ask-claude-spark" aria-hidden="true">✦</span>
+        <span class="ask-claude-word">Claude</span>
       </button>
       <!-- Mobile: small stats icon (Stats was moved off the bottom bar) -->
       <button class="stats-quick-btn mobile-only" id="statsQuickBtn" type="button" aria-label="Stats" title="Stats">

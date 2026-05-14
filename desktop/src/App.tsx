@@ -361,7 +361,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
         onOpenChat={() => setChatOpen(true)}
-        onOpenAskClaude={() => setAskClaudeOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
@@ -405,6 +404,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
         inboxRequests={inboxRequests}
+        onOpenAskClaude={() => setAskClaudeOpen(true)}
       />
       <Inspector
         selected={selected}

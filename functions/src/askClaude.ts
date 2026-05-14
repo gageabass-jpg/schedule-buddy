@@ -386,7 +386,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- For changes, first describe what you'll do in plain English and ASK for confirmation. ` +
       `Only call write tools (add_override, add_ot, add_partner_shift, add_event, remove_*) after the user confirms.\n` +
       `- Always state dates in human-friendly form (e.g. "Friday June 19") in your replies.\n` +
-      `- Keep replies short. One paragraph max unless the user asks for more detail.`;
+      `- Keep replies short. One paragraph max unless the user asks for more detail.\n\n` +
+      `IMPORTANT formatting rules:\n` +
+      `- Plain prose only. Never use markdown.\n` +
+      `- No asterisks for emphasis, no double-asterisks for bold, no underscores for italic.\n` +
+      `- No # headers, no - bullet lists, no numbered lists, no \`code\` backticks.\n` +
+      `- Write the way you would speak to a family member in iMessage.`;
 
     // 3. Tool-use loop.
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });

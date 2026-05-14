@@ -25,6 +25,7 @@ interface Props {
   onNext: () => void;
   onToday: () => void;
   onNewShift: () => void;
+  onOpenAskClaude: () => void;
   onOpenInbox: (focusId?: string) => void;
   inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
@@ -43,7 +44,7 @@ const MONTH_LABELS = [
 
 export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
-  onSelectDate, onPrev, onNext, onToday, onNewShift,
+  onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, onOpenInbox, inboxRequests,
 }: Props) {
@@ -125,6 +126,33 @@ export function MonthGrid({
             );
           })}
         </div>
+        <button
+          type="button"
+          onClick={onOpenAskClaude}
+          title="Ask Claude — natural-language schedule editing"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            height: 26,
+            padding: "0 12px",
+            borderRadius: 999,
+            border: 0,
+            background: "linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%)",
+            color: "#fff",
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif",
+            fontSize: 12.5,
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+            cursor: "pointer",
+            boxShadow: "0 1px 2px rgba(201,100,66,0.25)",
+            whiteSpace: "nowrap",
+            lineHeight: 1,
+          }}
+        >
+          <span style={{ fontSize: 11, lineHeight: 1 }}>✦</span>
+          <span>Claude</span>
+        </button>
         <InboxTray
           palette={palette}
           t={t}
