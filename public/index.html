@@ -1589,24 +1589,29 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
-  /* Ask Claude trigger — pill with the Claude wordmark in the top bar. */
-  .ask-claude-btn {
-    height: 32px;
-    padding: 0 12px 0 10px;
+  /* Ask Claude — floating action button, bottom-right of the Schedule tab,
+     sitting just above the bottom tab bar. */
+  .ask-claude-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    z-index: 50;
+    height: 44px;
+    padding: 0 18px 0 16px;
     border-radius: 999px;
     background: linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%);
     border: 0;
     color: #fff;
     cursor: pointer;
-    display: none;
+    display: none;          /* shown only on the Schedule tab — see below */
     align-items: center;
-    gap: 5px;
+    gap: 7px;
     -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 1px 2px rgba(201,100,66,0.25);
-    line-height: 1;
+    box-shadow: 0 6px 18px rgba(201,100,66,0.4);
   }
+  .ask-claude-fab:active { transform: scale(0.96); }
   .ask-claude-spark {
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1;
     opacity: 0.95;
   }
@@ -1615,12 +1620,15 @@
        slightly tracked, medium weight. */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     font-weight: 500;
-    font-size: 14px;
+    font-size: 15px;
     letter-spacing: -0.01em;
   }
   @media (max-width: 768px) {
-    .ask-claude-btn { display: inline-flex; }
+    /* Only on the Schedule tab — not chat / childcare / profile. */
+    body[data-mobile-tab="schedule"] .ask-claude-fab { display: inline-flex; }
   }
+  /* Hide while the Ask Claude modal itself is open. */
+  body.ask-claude-open .ask-claude-fab { display: none; }
 
   /* ===== Ask Claude modal (iOS) ===== */
   .ask-modal-backdrop {
@@ -4334,11 +4342,6 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
-      <!-- Mobile: Ask Claude trigger — pill in the top bar with a Claude wordmark feel. -->
-      <button class="ask-claude-btn mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude" title="Ask Claude">
-        <span class="ask-claude-spark" aria-hidden="true">✦</span>
-        <span class="ask-claude-word">Claude</span>
-      </button>
       <!-- Mobile: small stats icon (Stats was moved off the bottom bar) -->
       <button class="stats-quick-btn mobile-only" id="statsQuickBtn" type="button" aria-label="Stats" title="Stats">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -4845,6 +4848,12 @@
     </button>
   </div>
 </nav>
+
+<!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
+<button class="ask-claude-fab mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude">
+  <span class="ask-claude-spark" aria-hidden="true">✦</span>
+  <span class="ask-claude-word">Claude</span>
+</button>
 
 </div><!-- end appScreen -->
 
