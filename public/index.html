@@ -1624,8 +1624,11 @@
     letter-spacing: -0.01em;
   }
   @media (max-width: 768px) {
-    /* Only on the Schedule tab — not chat / childcare / profile. */
-    body[data-mobile-tab="schedule"] .ask-claude-fab { display: inline-flex; }
+    /* Only on the Schedule tab's Month (calendar) view — not Week / Agenda,
+       not chat / childcare / profile. */
+    body[data-mobile-tab="schedule"][data-cal-layout="month"] .ask-claude-fab {
+      display: inline-flex;
+    }
   }
   /* Hide while the Ask Claude modal itself is open. */
   body.ask-claude-open .ask-claude-fab { display: none; }
@@ -9234,6 +9237,9 @@ function syncLayoutTabsUI() {
     b.classList.toggle("active", b.dataset.layout === ui.calLayout);
     b.setAttribute("aria-selected", b.dataset.layout === ui.calLayout ? "true" : "false");
   });
+  // Mirror the layout onto the body so CSS can scope things (e.g. the
+  // Ask Claude FAB only shows on the Month calendar view).
+  document.body.dataset.calLayout = ui.calLayout || "month";
 }
 
 function setCalLayout(layout) {
