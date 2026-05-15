@@ -1624,11 +1624,9 @@
     letter-spacing: -0.01em;
   }
   @media (max-width: 768px) {
-    /* Only on the Schedule tab's Month (calendar) view — not Week / Agenda,
-       not chat / childcare / profile. */
-    body[data-mobile-tab="schedule"][data-cal-layout="month"] .ask-claude-fab {
-      display: inline-flex;
-    }
+    /* Whole Schedule tab (Month / Week / Agenda) — not chat / childcare /
+       profile. */
+    body[data-mobile-tab="schedule"] .ask-claude-fab { display: inline-flex; }
   }
   /* Hide while the Ask Claude modal itself is open. */
   body.ask-claude-open .ask-claude-fab { display: none; }
