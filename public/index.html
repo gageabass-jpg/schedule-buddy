@@ -1906,6 +1906,21 @@
   .cal-pay-chip.g { background: var(--color-g); }
   .cal-pay-chip.k { background: var(--color-k); }
 
+  /* Confirmed-childcare bar — green strip along the bottom edge of any
+     calendar cell whose coverage request has been accepted. */
+  .cal-cell.has-confirmed-care::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 3px;
+    height: 3px;
+    border-radius: 2px;
+    background: #30D158;
+    box-shadow: 0 0 4px rgba(48,209,88,0.5);
+    pointer-events: none;
+  }
+
   /* Tooltip */
   .cal-tooltip {
     position: absolute;
@@ -8645,6 +8660,13 @@ function paydayIconsForCell(dateIso) {
   if (out.length === 0) return "";
   return `<span class="cal-pay-row">${out.join("")}</span>`;
 }
+
+/** True if a coverage request on this date has been accepted by the
+ *  caregiver — drives the green "confirmed childcare" bar on the cell. */
+function hasConfirmedCoverage(dateIso) {
+  const reqs = (state && state.coverageRequests) || [];
+  return reqs.some(r => r && r.date === dateIso && r.status === "confirmed");
+}
 /** Compact list row used inside the tap-day tooltip. */
 function eventTooltipRowHTML(ev) {
   const color = eventCSSColor(ev.who);
@@ -9012,8 +9034,9 @@ function renderMonthView(gageEvts, kayEvts, view) {
     const eventsHTML = dayEvents.slice(0, 2).map(eventCellChipHTML).join("");
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
     const paydayIcons = paydayIconsForCell(dISO);
+    const careClass = hasConfirmedCoverage(dISO) ? " has-confirmed-care" : "";
 
-    html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}"
+    html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}${careClass}"
                   data-date="${dISO}" data-kind="${kind}" style="background:${bg}">
       <div class="cal-date${isToday ? " today" : ""}">${day.getDate()}</div>
       ${otIcon}${paydayIcons}

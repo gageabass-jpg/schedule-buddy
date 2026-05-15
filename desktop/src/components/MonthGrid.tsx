@@ -60,6 +60,14 @@ export function MonthGrid({
   const weekStartKey = fmtDate(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate());
   const weekEndKey = fmtDate(weekEndDate.getFullYear(), weekEndDate.getMonth(), weekEndDate.getDate());
 
+  // Dates with an accepted coverage request — drives the green "confirmed
+  // childcare" bar along the bottom edge of the cell.
+  const confirmedCareDates = new Set(
+    (state?.coverageRequests ?? [])
+      .filter((r) => r.status === "confirmed")
+      .map((r) => r.date),
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Toolbar */}
@@ -277,6 +285,7 @@ export function MonthGrid({
                     type="button"
                     onClick={() => onSelectDate(key)}
                     style={{
+                      position: "relative",
                       border: 0,
                       padding: 6,
                       cursor: "pointer",
@@ -297,6 +306,22 @@ export function MonthGrid({
                       minHeight: 0,
                     }}
                   >
+                    {confirmedCareDates.has(key) && (
+                      <div
+                        title="Childcare coverage confirmed"
+                        style={{
+                          position: "absolute",
+                          left: 5,
+                          right: 5,
+                          bottom: 3,
+                          height: 3,
+                          borderRadius: 2,
+                          background: "#30D158",
+                          boxShadow: "0 0 4px rgba(48,209,88,0.5)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span
                         style={{
