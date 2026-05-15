@@ -412,6 +412,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         t={t}
         dark={dark}
         shifts={shifts}
+        state={state}
         selfName={selfName}
         partnerName={partnerName}
         onEditShift={handleEditShift}
@@ -419,6 +420,10 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         events={eventsByDate[selected] ?? []}
         onAddEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
+        onSendCoverageForDay={(date) => {
+          setNewRequestPrefill({ date });
+          setNewRequestOpen(true);
+        }}
       />
       <NewShiftModal
         open={newShiftOpen}

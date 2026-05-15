@@ -1,5 +1,5 @@
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import type { Event as SbEvent } from "../state";
+import type { CoverageStatus, Event as SbEvent, HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
@@ -10,6 +10,7 @@ interface Props {
   t: ThemeTokens;
   dark: boolean;
   shifts: ShiftMap;
+  state: HouseholdState | null;
   selfName: string;
   partnerName: string;
   onEditShift?: (date: string, shift: Shift) => void;
@@ -17,11 +18,25 @@ interface Props {
   events: SbEvent[];
   onAddEvent: () => void;
   onEditEvent: (ev: SbEvent) => void;
+  onSendCoverageForDay: (date: string) => void;
 }
 
+const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
+  pending:   "#5E5CE6",
+  confirmed: "#30D158",
+  declined:  "#FF453A",
+  issue:     "#FF9F0A",
+};
+const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
+  pending:   "Pending",
+  confirmed: "Confirmed",
+  declined:  "Declined",
+  issue:     "Issue",
+};
+
 export function Inspector({
-  selected, palette, t, dark, shifts: allShifts, selfName, partnerName,
-  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent,
+  selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
+  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
@@ -29,6 +44,11 @@ export function Inspector({
   const colors = dayColors(kind, palette, dark);
   const accent = colors.accent;
   const dayLabel = `${WEEKDAYS_3[new Date(y, m - 1, d).getDay()]} · ${MONTHS_LONG[m - 1]} ${d}`;
+
+  // Coverage requests on the selected day.
+  const dayCoverage = (state?.coverageRequests ?? []).filter((r) => r.date === selected);
+  // A "gap" worth flagging = both partners working with no caregiver request yet.
+  const isGapDay = kind === "both" && dayCoverage.length === 0;
 
   return (
     <div
@@ -170,6 +190,113 @@ export function Inspector({
           {(!shifts || shifts.length === 0) && (
             <div style={{ fontSize: 12, color: t.text3, padding: 8 }}>Free day. Plan something together.</div>
           )}
+        </div>
+      </div>
+
+      {/* Childcare coverage for the selected day */}
+      <div>
+        <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {dayCoverage.length === 0 && !isGapDay && (
+            <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
+              No coverage needed — not a both-working day.
+            </div>
+          )}
+
+          {isGapDay && (
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                background: rgba("#FF9F0A", dark ? 0.14 : 0.1),
+                border: `0.5px solid ${rgba("#FF9F0A", 0.5)}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
+                <span style={{ fontWeight: 700, color: "#FF9F0A" }}>Both working</span>
+                {" "}— no caregiver lined up for this day.
+              </div>
+              <button
+                type="button"
+                onClick={() => onSendCoverageForDay(selected)}
+                style={{
+                  alignSelf: "flex-start",
+                  padding: "6px 12px",
+                  border: 0,
+                  borderRadius: 7,
+                  background: palette.G,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Send to caregiver
+              </button>
+            </div>
+          )}
+
+          {dayCoverage.map((req) => {
+            const sc = COVERAGE_STATUS_COLOR[req.status];
+            return (
+              <div
+                key={req.id}
+                style={{
+                  padding: "9px 11px",
+                  borderRadius: 9,
+                  background: t.bgElev,
+                  border: `0.5px solid ${t.sep}`,
+                  borderLeft: `3px solid ${sc}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      padding: "2px 7px",
+                      borderRadius: 999,
+                      background: rgba(sc, 0.18),
+                      color: sc,
+                      letterSpacing: "0.04em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {COVERAGE_STATUS_LABEL[req.status]}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums" }}>
+                    {req.startTime} → {req.endTime}{req.endsNextDay ? " +1d" : ""}
+                  </span>
+                </div>
+                {req.arriveBy && (
+                  <div style={{ fontSize: 10.5, color: t.text3 }}>
+                    Arrive by <span style={{ color: t.text2, fontWeight: 600 }}>{req.arriveBy}</span>
+                  </div>
+                )}
+                {req.notes && (
+                  <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4 }}>{req.notes}</div>
+                )}
+                {req.caregiverNote && (
+                  <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4, fontStyle: "italic" }}>
+                    <span style={{ fontStyle: "normal", fontWeight: 600, color: t.text }}>
+                      {req.status === "declined" ? "Caregiver said:" :
+                       req.status === "issue"    ? "Caregiver reported:" :
+                                                    "Caregiver noted:"}
+                    </span>{" "}
+                    {req.caregiverNote}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
