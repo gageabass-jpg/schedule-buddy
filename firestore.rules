@@ -77,5 +77,32 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null
         && uid == request.auth.uid;
     }
+
+    // Wall display photos — metadata only (the bytes live in Firebase
+    // Storage at wallPhotos/{hid}/{photoId}). Each doc records the
+    // persistent download URL + uploader + createdAt. The getWallState
+    // Cloud Function reads these to build the wall's photo rotation.
+    match /households/{householdId}/wallPhotos/{photoId} {
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+    }
+
+    // Wall display tokens. Top-level so the getWallState HTTPS function
+    // can look up a token without knowing the household. Each doc points
+    // at a householdId; only members of that household can create/list/
+    // revoke. The token itself is the document id (a long random string)
+    // so a leaked URL only exposes one household's read-only dashboard.
+    //
+    // The wall page never reads Firestore directly — it calls getWallState
+    // (Admin SDK, bypasses rules). So no public read needed here.
+    match /wallTokens/{token} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(resource.data.householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.memberUids.hasAny([request.auth.uid])
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(resource.data.householdId)).data.memberUids.hasAny([request.auth.uid]);
+    }
   }
 }

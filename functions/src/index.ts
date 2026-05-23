@@ -1,4 +1,5 @@
 export { askClaude } from "./askClaude";
+export { getWallState } from "./wallState";
 
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";

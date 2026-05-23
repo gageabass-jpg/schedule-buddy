@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Firebase Storage rules. Mirrors firestore.rules — most assets are
+// gated by household membership.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Wall display photos. Uploaded by household members from the Mac
+    // app; read by the getWallState Cloud Function (Admin SDK, bypasses
+    // rules) and by the wall.html page via the persistent download URL
+    // returned at upload time.
+    //
+    // Path: wallPhotos/{householdId}/{photoId}
+    //
+    // Members of the household may upload, list, and delete; nobody
+    // else can do anything. Anyone with the persistent download URL
+    // can fetch the bytes (intentional — that's how the wall page reads
+    // them without auth).
+    match /wallPhotos/{householdId}/{photoId} {
+      allow read: if true;
+      // Writes: must be a household member, file under 10 MB, an image.
+      allow create, update: if request.auth != null
+        && firestore.get(/databases/(default)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches("image/.*");
+      // Deletes: just membership — there's no request.resource to size-check.
+      allow delete: if request.auth != null
+        && firestore.get(/databases/(default)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+    }
+  }
+}

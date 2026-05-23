@@ -20,6 +20,12 @@ export class WriteTemplateError extends Error {
 export async function writeTemplate(
   householdId: string,
   template: Array<string | null>,
+  /**
+   * Last day the recurring template applies (inclusive), as "YYYY-MM-DD".
+   * Pass a string to set it, or null/undefined to clear it (template
+   * recurs indefinitely).
+   */
+  templateEndDate?: string | null,
 ): Promise<void> {
   if (template.length !== 7) {
     throw new WriteTemplateError("Template must have exactly 7 entries (Sun..Sat).");
@@ -38,6 +44,13 @@ export async function writeTemplate(
   }
 
   const next: HouseholdState = { ...current, template: [...template] };
+  // Set or clear the end date. We delete the key entirely when cleared so
+  // the document stays clean and the iOS allowlist treats it as absent.
+  if (templateEndDate) {
+    next.templateEndDate = templateEndDate;
+  } else {
+    delete next.templateEndDate;
+  }
 
   try {
     await setDoc(ref, next);

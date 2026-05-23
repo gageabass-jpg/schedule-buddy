@@ -10,12 +10,12 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<!-- Inter — used for the Claude wordmark pill (and any other UI text that
-     wants a more geometric grotesque). System font stack fallback handles
-     offline / first-paint. -->
+<!-- Inter for the Claude wordmark pill. Space Grotesk is the "Schedule
+     Buddy" wordmark — free substitute for Styrene (Commercial Type's
+     paid font). System font fallback handles offline / first paint. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
   :root {
     /* Surfaces (dark default, iOS HIG) */
@@ -1616,12 +1616,12 @@
     opacity: 0.95;
   }
   .ask-claude-word {
-    /* Approximation of Anthropic's Claude wordmark — clean grotesque,
-       slightly tracked, medium weight. */
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-    font-weight: 500;
+    /* Matches the Schedule Buddy wordmark — Space Grotesk for visual
+       cohesion across the app's branding. */
+    font-family: 'Space Grotesk', 'Styrene A', 'Inter', -apple-system, sans-serif;
+    font-weight: 600;
     font-size: 15px;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
   @media (max-width: 768px) {
     /* Whole Schedule tab (Month / Week / Agenda) — not chat / childcare /
@@ -2208,9 +2208,10 @@
     text-align: center;
   }
   .splash-text .title {
+    font-family: "Space Grotesk", "Styrene A", "Inter", -apple-system, sans-serif;
     font-size: 40px;
-    font-weight: 800;
-    letter-spacing: -0.035em;
+    font-weight: 700;
+    letter-spacing: -0.04em;
     line-height: 1.05;
     color: inherit;
   }
@@ -2814,9 +2815,9 @@
   }
   .brand-name {
     font-size: 14px;
-    font-weight: 600;
-    font-family: var(--font);
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    font-family: "Space Grotesk", "Styrene A", "Inter", -apple-system, sans-serif;
+    letter-spacing: -0.02em;
     color: var(--text-2);
   }
   .brand-tag {
@@ -7272,6 +7273,9 @@ function mergeStateFromFirestore(data) {
         ? { anchor: data.paydays.K.anchor, freq: data.paydays.K.freq === "weekly" ? "weekly" : "biweekly" }
         : undefined,
     } : undefined,
+    // Optional last day the recurring weekly template applies (inclusive,
+    // "YYYY-MM-DD"). Set in the desktop manager's weekly-template editor.
+    templateEndDate: typeof data.templateEndDate === "string" ? data.templateEndDate : undefined,
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);
@@ -7796,6 +7800,10 @@ function generateEvents() {
       if (ovShift) events.push(makeEvent(d, ovShift, ovShift.name + " (changed)", "shift"));
       continue;
     }
+
+    // Recurring template (and alt-weekend) stop after templateEndDate.
+    // Overrides above and OT below are explicit per-date and still show.
+    if (state.templateEndDate && dISO > state.templateEndDate) continue;
 
     const dow = d.getDay();
     const tplShift = findShift(state.template[dow]);

@@ -71,7 +71,7 @@ export function Sidebar({
           style={{ display: "block", borderRadius: 6, flexShrink: 0 }}
         />
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>Schedule Buddy</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", fontFamily: "\"Space Grotesk\", \"Styrene A\", \"Inter\", -apple-system, sans-serif" }}>Schedule Buddy</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: MANAGER_ORANGE, letterSpacing: "-0.01em" }}>Manager</span>
         </div>
       </div>
@@ -90,22 +90,6 @@ export function Sidebar({
           paddingRight: 4,
         }}
       >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "5px 8px",
-          borderRadius: 6,
-          background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.05)",
-          fontSize: 12,
-          color: t.text3,
-        }}
-      >
-        <span>⌘K</span>
-        <span style={{ flex: 1 }}>Quick add or search…</span>
-      </div>
-
       <div style={{ padding: "0 4px" }}>
         <MiniMonth y={viewYear} mo={viewMonth} palette={palette} t={t} dark={dark} shifts={shifts} selected={selected} onSelect={onSelectDate} />
       </div>

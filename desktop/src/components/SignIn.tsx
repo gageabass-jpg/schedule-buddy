@@ -52,7 +52,7 @@ export function SignIn({ dark = true }: { dark?: boolean }) {
       <div style={{ width: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
         <BrandMark size={56} palette={palette} dark={true} />
         <div style={{ textAlign: "center", marginBottom: 4 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" }}>Schedule Buddy</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.025em", fontFamily: "\"Space Grotesk\", \"Styrene A\", \"Inter\", -apple-system, sans-serif" }}>Schedule Buddy</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: palette.G, letterSpacing: "-0.01em", marginTop: 2 }}>Manager</div>
         </div>
 

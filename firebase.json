@@ -3,6 +3,7 @@
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      { "source": "/wall", "destination": "/wall.html" },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [
@@ -22,6 +23,9 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   },
   "functions": [
     {

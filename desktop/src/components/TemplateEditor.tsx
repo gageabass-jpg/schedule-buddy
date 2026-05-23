@@ -17,16 +17,21 @@ interface Props {
 
 export function TemplateEditor({ open, onClose, palette, t, dark, householdId, state }: Props) {
   const initialTemplate: Array<string | null> = state?.template ?? [null, null, null, null, null, null, null];
+  const initialEndDate = state?.templateEndDate ?? "";
   const [draft, setDraft] = useState<Array<string | null>>(initialTemplate);
+  const [endEnabled, setEndEnabled] = useState<boolean>(!!initialEndDate);
+  const [endDate, setEndDate] = useState<string>(initialEndDate);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   // Reset draft each time the modal opens or the underlying template changes.
-  const key = `${open}-${JSON.stringify(initialTemplate)}`;
+  const key = `${open}-${JSON.stringify(initialTemplate)}-${initialEndDate}`;
   const [lastKey, setLastKey] = useState(key);
   if (key !== lastKey) {
     setLastKey(key);
     setDraft(initialTemplate);
+    setEndEnabled(!!initialEndDate);
+    setEndDate(initialEndDate);
     setErr(null);
   }
 
@@ -46,10 +51,14 @@ export function TemplateEditor({ open, onClose, palette, t, dark, householdId, s
       setErr("No household linked.");
       return;
     }
+    if (endEnabled && !endDate) {
+      setErr("Pick an end date, or uncheck the box.");
+      return;
+    }
     setErr(null);
     setBusy(true);
     try {
-      await writeTemplate(householdId, draft);
+      await writeTemplate(householdId, draft, endEnabled ? endDate : null);
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the template.");
@@ -132,6 +141,52 @@ export function TemplateEditor({ open, onClose, palette, t, dark, householdId, s
                 </div>
               );
             })}
+          </div>
+
+          {/* End-date control — keeps recurring schedules from running forever. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              padding: "10px 12px",
+              background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              borderRadius: 8,
+            }}
+          >
+            <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={endEnabled}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setEndEnabled(on);
+                  if (!on) setEndDate("");
+                }}
+                style={{ width: 15, height: 15, accentColor: palette.G, cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>
+                Set an end date for this schedule
+              </span>
+            </label>
+            {endEnabled && (
+              <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", alignItems: "center", gap: 10, paddingLeft: 24 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: t.text2, letterSpacing: "-0.01em" }}>
+                  Stops after
+                </span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={inputStyle(t)}
+                />
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: t.text2, lineHeight: 1.45, paddingLeft: endEnabled ? 0 : 24 }}>
+              {endEnabled
+                ? "The recurring template stops after this date. One-off shifts and overtime you've already added still show."
+                : "Leave unchecked to repeat the weekly template indefinitely."}
+            </div>
           </div>
 
           {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}

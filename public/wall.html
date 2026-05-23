@@ -1,0 +1,1710 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Schedule Buddy — Wall</title>
+  <link rel="icon" href="icons/icon-192.png" />
+
+  <!-- Fira Code for hero greeting + clock. Inter for body. Space Grotesk
+       as a free substitute for Styrene (Commercial Type's paid font) on
+       the calendar-dashboard branding. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─────────────────── design tokens (warm amber) ─────────────────── */
+    :root {
+      --bg-base:      #1A1410;
+      --bg-deep:      #110D0A;
+      --card:         rgba(255, 220, 170, 0.05);
+      --card-strong:  rgba(255, 220, 170, 0.08);
+      --border:       rgba(255, 220, 170, 0.10);
+      --border-soft:  rgba(255, 220, 170, 0.06);
+      --text:         #FFF5E0;
+      --text-2:       rgba(255, 245, 224, 0.78);
+      --text-3:       rgba(255, 245, 224, 0.50);
+      --text-4:       rgba(255, 245, 224, 0.32);
+
+      /* person accents */
+      --g:            #7FA86A;
+      --g-soft:       rgba(127, 168, 106, 0.18);
+      --k:            #E8A93C;
+      --k-soft:       rgba(232, 169, 60, 0.18);
+      --both:         #D08B7E;
+      --both-soft:    rgba(208, 139, 126, 0.20);
+
+      /* status colors */
+      --confirmed:    #7FA86A;
+      --pending:      #9B89C9;
+      --gap:          #D87B3A;
+
+      /* occasion flair colors (subtle glow tints) */
+      --flair-payday:      #C9A86A;
+      --flair-birthday:    #D08B7E;
+      --flair-anniversary: #9B89C9;
+      --flair-holiday:     #7FA86A;
+    }
+
+    /* ─────────────────── reset ─────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg-base);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      letter-spacing: -0.01em;
+      user-select: none;
+      cursor: none;
+      cursor: none;
+      transition: background 4s ease;
+    }
+
+    /* ─────────────────── time-of-day gradient ───────────────────
+       Each "tod-*" class applies a different radial gradient whose
+       warm point migrates across the screen across the day, mimicking
+       the sun's apparent position. Transitions slowly to avoid jarring
+       shifts at boundary minutes. */
+    body.tod-dawn      { background: radial-gradient(ellipse at 25% 5%,  #2E1C1A 0%, var(--bg-base) 55%, var(--bg-deep) 100%); }
+    body.tod-morning   { background: radial-gradient(ellipse at 40% 0%,  #2A1F18 0%, var(--bg-base) 55%, var(--bg-deep) 100%); }
+    body.tod-midday    { background: radial-gradient(ellipse at 50% -5%, #241A14 0%, var(--bg-base) 55%, var(--bg-deep) 100%); }
+    body.tod-afternoon { background: radial-gradient(ellipse at 65% 0%,  #281815 0%, var(--bg-base) 55%, var(--bg-deep) 100%); }
+    body.tod-evening   { background: radial-gradient(ellipse at 80% 10%, #2B1419 0%, var(--bg-base) 55%, var(--bg-deep) 100%); }
+    body.tod-night     { background: radial-gradient(ellipse at 50% 95%, #1A1322 0%, var(--bg-deep) 60%, #0A0709 100%); }
+
+    /* ─────────────────── scene system ─────────────────── */
+    .scene {
+      position: fixed; inset: 0;
+      transition: opacity 1.4s ease;
+    }
+    .scene.hidden { opacity: 0; pointer-events: none; }
+
+    /* ─────────────────── dashboard layout ─────────────────── */
+    .root {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr 60px;
+      grid-template-columns: 1fr;
+      width: 100vw; height: 100vh;
+      padding: 22px 36px 18px;
+      gap: 14px;
+    }
+
+    /* top bar */
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+    .topbar .clock {
+      font-size: 42px; font-weight: 600;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      font-family: "Fira Code", ui-monospace, monospace;
+      line-height: 1.0;
+    }
+    .topbar .date {
+      font-size: 18px; color: var(--text-3);
+      letter-spacing: 0.04em; margin-top: 4px;
+      text-align: right;
+    }
+
+    /* Shared "Schedule Buddy / Dynamic Dashboard" branding block —
+       used on both the Static Showcase top bar and the calendar scene
+       header. Single source of styling so it stays in sync. */
+    .brand-block .brand-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.0;
+      color: var(--text);
+    }
+    .brand-block .brand-subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-top: 4px;
+    }
+
+    /* HERO greeting + line */
+    .hero {
+      padding: 8px 10px 0;
+      display: flex; flex-direction: column;
+      gap: 14px;
+    }
+    .greeting {
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 84px; font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.0;
+      color: var(--text);
+    }
+    .hero-line {
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 28px; font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      color: var(--text-2);
+      max-width: 1300px;
+    }
+    .hero-line .accent-g    { color: var(--g);    font-weight: 600; }
+    .hero-line .accent-k    { color: var(--k);    font-weight: 600; }
+    .hero-line .accent-both { color: var(--both); font-weight: 600; }
+    .hero-line .flair {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .hero-line .flair-payday      { background: rgba(201,168,106,0.18); color: var(--flair-payday); }
+    .hero-line .flair-birthday    { background: rgba(208,139,126,0.18); color: var(--flair-birthday); }
+    .hero-line .flair-anniversary { background: rgba(155,137,201,0.18); color: var(--flair-anniversary); }
+    .hero-line .flair-holiday     { background: rgba(127,168,106,0.18); color: var(--flair-holiday); }
+
+    /* today shift cards (compact, side by side) */
+    .today-shifts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding: 0 4px;
+    }
+    .shift-card {
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 22px;
+      border-radius: 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .shift-card.has-shift { background: var(--card-strong); }
+    .shift-card .badge {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 800;
+      color: var(--bg-base);
+      font-family: "Fira Code", ui-monospace, monospace;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .shift-card .badge.off { background: rgba(255,220,170,0.10); color: var(--text-3); }
+    /* Avatar photo inside the badge — fills the circle, ringed in the
+       person's accent color so it still reads as "G" or "K" at a glance. */
+    .shift-card .badge.avatar {
+      padding: 0;
+      box-shadow: 0 0 0 2px var(--accent, var(--text)) inset;
+      background: var(--bg-elev, #1C1C1E);
+    }
+    .shift-card .badge.avatar.off { box-shadow: 0 0 0 1px rgba(255,220,170,0.18) inset; }
+    .shift-card .badge.avatar img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .shift-card .badge.avatar.dim img { opacity: 0.55; filter: grayscale(0.4); }
+    .shift-card .who {
+      font-size: 22px; font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .shift-card .meta {
+      font-size: 14px; color: var(--text-3);
+      margin-top: 2px;
+    }
+    .shift-card .time {
+      margin-left: auto;
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 22px; font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .shift-card.kind-g .time { color: var(--g); }
+    .shift-card.kind-k .time { color: var(--k); }
+
+    /* coverage callout (only when relevant) */
+    .coverage {
+      display: none;
+      padding: 12px 18px;
+      border-radius: 13px;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+      margin: 0 4px;
+    }
+    .coverage.show { display: flex; }
+    .coverage.confirmed { background: rgba(127,168,106,0.13); color: var(--confirmed); border: 1px solid rgba(127,168,106,0.32); }
+    .coverage.pending   { background: rgba(155,137,201,0.13); color: var(--pending);   border: 1px solid rgba(155,137,201,0.32); }
+    .coverage.gap       { background: rgba(216,123,58,0.15);  color: var(--gap);       border: 1px solid rgba(216,123,58,0.42); }
+    .coverage .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .coverage strong { font-weight: 700; }
+
+    /* bottom card grid: week strip on the left, 2×2 cluster of small
+       cards (weather · quote · caregiver · fatigue) on the right. */
+    .cards {
+      display: grid;
+      grid-template-columns: 1.4fr 1.6fr;
+      gap: 14px;
+      min-height: 0;
+    }
+    .cards-cluster {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 12px;
+      min-height: 0;
+      min-width: 0;
+    }
+    .cards-cluster .card {
+      padding: 12px 14px;
+      gap: 6px;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+    /* Scale down content inside the smaller cluster cards so it actually
+       fits — the originals were sized for a full 1/3-width column. */
+    .cards-cluster .weather-current .temp { font-size: 80px; }
+    .cards-cluster .weather-current .temp small { font-size: 36px; }
+    .cards-cluster .weather-current .desc { font-size: 17px; }
+    .cards-cluster .weather-meta .icon { font-size: 56px; }
+    .cards-cluster .weather-meta .hilo { font-size: 17px; }
+    .cards-cluster .weather-meta .tomo { font-size: 14px; }
+    .cards-cluster .weather-body { gap: 10px; }
+    .cards-cluster .fatigue-status { font-size: 38px; line-height: 1.0; font-weight: 600; }
+    .cards-cluster .fatigue-legend { font-size: 9px; }
+    .cards-cluster .quote-text { font-size: 24px; line-height: 1.32; }
+    .cards-cluster .quote-attr { font-size: 14px; }
+    .cards-cluster .care-name { font-size: 19px; }
+    .cards-cluster .care-window { font-size: 13px; }
+    .cards-cluster .care-status { font-size: 11px; }
+    /* Static thank-you note replaces the dynamic caregiver coverage info. */
+    .thanks {
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .thanks-name {
+      font-weight: 700;
+      color: var(--g);
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+    .card .label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--text-3);
+    }
+
+    /* week strip */
+    .week-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      min-height: 0;
+    }
+    .week-cell {
+      display: flex; flex-direction: column;
+      padding: 9px 7px;
+      border-radius: 11px;
+      background: var(--card-strong);
+      border: 1px solid var(--border-soft);
+      min-height: 0;
+      gap: 4px;
+      overflow: hidden;
+    }
+    .week-cell.kind-g    { background: var(--g-soft);    border-color: rgba(127,168,106,0.35); }
+    .week-cell.kind-k    { background: var(--k-soft);    border-color: rgba(232,169,60,0.35);  }
+    .week-cell.kind-both { background: var(--both-soft); border-color: rgba(208,139,126,0.45); }
+    .week-cell .dow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+    .week-cell .dom { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; font-family: "Fira Code", ui-monospace, monospace; }
+    .week-cell .tags { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
+    .week-cell .tag {
+      font-size: 10.5px; font-weight: 600;
+      padding: 1px 5px; border-radius: 4px;
+      background: rgba(255,220,170,0.10);
+      align-self: flex-start;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    }
+
+    /* weather */
+    .weather-body {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 18px;
+      flex: 1;
+      min-height: 0;
+    }
+    .weather-current { display: flex; flex-direction: column; gap: 4px; }
+    .weather-current .temp {
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 64px; font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+    }
+    .weather-current .temp small { font-size: 32px; font-weight: 500; color: var(--text-3); margin-left: 2px; }
+    .weather-current .desc { font-size: 15px; color: var(--text-2); font-weight: 500; }
+    .weather-meta {
+      display: flex; flex-direction: column;
+      gap: 6px; text-align: right;
+    }
+    .weather-meta .icon { font-size: 44px; line-height: 1; }
+    .weather-meta .hilo { font-size: 13px; color: var(--text-3); font-family: "Fira Code", ui-monospace, monospace; }
+    .weather-meta .tomo { font-size: 12px; color: var(--text-4); }
+
+    /* quote-of-the-day card */
+    .card.quote { background: var(--card); }
+    .card.quote .quote-body {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      min-height: 0;
+    }
+    .card.quote .quote-text {
+      font-size: 24px; font-weight: 500;
+      line-height: 1.32;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      font-style: italic;
+    }
+    .card.quote .quote-attr {
+      font-size: 14px; font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* caregiver-on-duty card */
+    .card.caregiver { background: var(--card); }
+    .card.caregiver.has-caregiver {
+      background: rgba(127,168,106,0.12);
+      border-color: rgba(127,168,106,0.32);
+    }
+    .card.caregiver .care-body {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      min-height: 0;
+    }
+    .card.caregiver .care-name {
+      font-size: 24px; font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .card.caregiver .care-window {
+      font-size: 15px; font-weight: 600;
+      font-family: "Fira Code", ui-monospace, monospace;
+      color: var(--confirmed, #7FA86A);
+    }
+    .card.caregiver .care-status {
+      font-size: 13px; color: var(--text-3);
+    }
+    .card.caregiver .care-empty {
+      font-size: 14px; color: var(--text-3);
+      font-style: italic;
+    }
+
+    /* fatigue heatmap — solid near-black card surface so the heat
+       colors pop hard, and every cell has a visible neutral fill so
+       the 6×7 grid structure is always legible. */
+    .card.fatigue {
+      background: #0B0907;
+      border-color: rgba(255, 220, 170, 0.12);
+    }
+    /* 2 weeks × 7 days = 14 cells, edge-to-edge with no gaps. Aspect
+       ratio 7:2 forces each cell to be a perfect square, regardless
+       of how much vertical room the card has. The whole grid reads
+       as a single rounded rectangle (clipped by overflow:hidden). */
+    .fatigue-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 0;
+      width: 100%;
+      aspect-ratio: 7 / 2;
+      border-radius: 10px;
+      /* overflow visible so today's glow can spill past the grid edge */
+      flex-shrink: 0;
+    }
+    .fatigue-cell {
+      background: #2A201A;
+      min-height: 0;
+      position: relative;
+    }
+    .fatigue-cell:first-child       { border-top-left-radius: 10px; }
+    .fatigue-cell:nth-child(7)      { border-top-right-radius: 10px; }
+    .fatigue-cell:nth-child(8)      { border-bottom-left-radius: 10px; }
+    .fatigue-cell:nth-child(14)     { border-bottom-right-radius: 10px; }
+    .fatigue-cell.today {
+      box-shadow:
+        0 0 14px 3px rgba(255,245,224,0.55),
+        0 0 22px 6px rgba(255,245,224,0.18);
+      z-index: 1;
+    }
+
+    /* Dynamic status line above the grid. Fira Code, contextual color
+       based on today's fatigue score: sage when rested, warm orange
+       when in deficit. Sized to read at a glance from across a room. */
+    .fatigue-status {
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 30px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      padding: 6px 0 4px;
+    }
+    .fatigue-status.rested { color: var(--g); }
+    .fatigue-status.tired  { color: var(--gap); }
+    .fatigue-legend {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-3);
+      margin-top: 4px;
+    }
+    .fatigue-legend .bar {
+      flex: 1; height: 5px; border-radius: 3px;
+      background: linear-gradient(90deg, #88BB6E 0%, #F0B544 50%, #DA6E50 100%);
+    }
+
+    /* events strip at the very bottom */
+    .bottom {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 6px;
+      color: var(--text-3);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+    .bottom .events {
+      display: flex; gap: 14px; align-items: center;
+      flex: 1; overflow: hidden;
+    }
+    .event-chip {
+      display: inline-flex; gap: 8px; align-items: center;
+      font-size: 14px;
+      color: var(--text-2);
+      white-space: nowrap;
+    }
+    .event-chip .when { color: var(--text-4); font-family: "Fira Code", ui-monospace, monospace; }
+    .event-chip::before {
+      content: "";
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-4);
+    }
+    .bottom .stamp {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-4);
+      font-family: "Fira Code", ui-monospace, monospace;
+    }
+
+    /* ─────────────────── calendar scene ─────────────────── */
+    /* The "Dynamic Dashboard" — a full 2-week calendar that the wall
+       rotates to occasionally. 7 columns × 2 rows of large day cells,
+       each showing the day's shifts (with start–end times) and any
+       events. Past days are dimmed; today gets a sage outline. */
+    .styrene {
+      font-family: "Space Grotesk", "Styrene A", "Styrene B", "Inter", -apple-system, sans-serif;
+    }
+    .scene-calendar { background: var(--bg-deep); }
+    .cal-root {
+      padding: 30px 44px 32px;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 22px;
+    }
+    .cal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    /* (calendar scene now reuses .brand-block for its header — keeps
+       both scenes' branding visually identical.) */
+    .cal-clock-block { text-align: right; }
+    .cal-clock-block .clock {
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .cal-clock-block .date {
+      font-size: 13px;
+      color: var(--text-3);
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 8px;
+      min-height: 0;
+    }
+    .cal-day {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: hidden;
+      transition: opacity 0.4s ease;
+    }
+    .cal-day.past    { opacity: 0.40; }
+    .cal-day.today   {
+      background: rgba(127, 168, 106, 0.10);
+      border-color: rgba(127, 168, 106, 0.45);
+    }
+    .cal-day .cal-day-head {
+      display: flex; align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .cal-day .dow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .cal-day.today .dow { color: var(--g); }
+    .cal-day .dom {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 0.9;
+      color: var(--text);
+    }
+    .cal-day .shifts {
+      display: flex; flex-direction: column;
+      gap: 4px;
+    }
+    .cal-day .shift-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 7px;
+      letter-spacing: -0.01em;
+      font-family: "Fira Code", ui-monospace, monospace;
+      white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .cal-day .shift-pill.g { background: var(--g-soft); color: var(--g); }
+    .cal-day .shift-pill.k { background: var(--k-soft); color: var(--k); }
+
+    .cal-day .events {
+      display: flex; flex-direction: column;
+      gap: 3px;
+      margin-top: auto;
+    }
+    .cal-day .event-line {
+      font-size: 11.5px;
+      color: var(--text-3);
+      white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+    .cal-day .event-line .e-time {
+      font-family: "Fira Code", ui-monospace, monospace;
+      color: var(--text-4);
+      margin-right: 4px;
+    }
+
+    /* ─────────────────── photo scene ─────────────────── */
+    .scene-photos {
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .photo {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 1.6s ease;
+      z-index: 2;
+    }
+    .photo.active { opacity: 1; }
+    /* Ambient blurred backdrop — uses the same image as the foreground
+       photo, scaled up + heavily blurred so the empty space around a
+       contained image is filled with the photo's own color palette
+       instead of black bars. */
+    .photo-bg {
+      position: absolute; inset: 0;
+      background-size: cover;
+      background-position: center;
+      filter: blur(60px) saturate(1.3) brightness(0.55);
+      transform: scale(1.25);
+      opacity: 0;
+      transition: opacity 1.6s ease;
+      z-index: 1;
+    }
+    .photo-bg.active { opacity: 1; }
+    .photo-overlay {
+      position: absolute; bottom: 36px; right: 40px;
+      padding: 12px 18px; border-radius: 14px;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      text-align: right;
+      z-index: 3;
+    }
+    .photo-overlay .clock {
+      font-size: 40px; font-weight: 700; letter-spacing: -0.02em;
+      font-family: "Fira Code", ui-monospace, monospace;
+      line-height: 1.0;
+    }
+    .photo-overlay .date  { font-size: 18px; color: var(--text-3); margin-top: 4px; }
+
+    /* error overlay */
+    .error-pane {
+      position: fixed; inset: 0;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px;
+      color: #FF9B70;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    body.error .error-pane { display: flex; }
+    body.error .scene-dashboard { opacity: 0.15; filter: blur(2px); }
+
+    /* late-night auto-dim */
+    body.dim .scene { opacity: 0.55; transition: opacity 1.2s ease; }
+    body.dim .scene.hidden { opacity: 0; }
+  </style>
+</head>
+<body class="tod-morning">
+  <!-- DASHBOARD SCENE -->
+  <div class="scene scene-dashboard" id="sceneDashboard">
+    <div class="root">
+      <!-- top bar -->
+      <div class="topbar">
+        <div class="brand-block">
+          <div class="brand-title styrene">Schedule Buddy</div>
+          <div class="brand-subtitle styrene">Dynamic Dashboard</div>
+        </div>
+        <div style="text-align:right">
+          <div class="clock" id="clock">—:—</div>
+          <div class="date" id="date">—</div>
+        </div>
+      </div>
+
+      <!-- HERO greeting + line -->
+      <div class="hero">
+        <div class="greeting" id="greeting">Good Morning.</div>
+        <div class="hero-line" id="heroLine">Loading…</div>
+      </div>
+
+      <!-- today shifts (two side-by-side cards) -->
+      <div class="today-shifts" id="todayShifts"></div>
+
+      <!-- coverage callout (only shows when actionable) -->
+      <div class="coverage" id="coverage">
+        <span class="dot"></span><span id="coverageText"></span>
+      </div>
+
+      <!-- bottom: week / weather / fatigue cards -->
+      <div class="cards">
+        <div class="card week">
+          <div class="label">Next 7 days</div>
+          <div class="week-grid" id="weekGrid"></div>
+        </div>
+
+        <div class="cards-cluster">
+          <div class="card weather">
+            <div class="label">Weather · Charleston</div>
+            <div class="weather-body">
+              <div class="weather-current">
+                <div class="temp" id="wxTemp">—<small>°</small></div>
+                <div class="desc" id="wxDesc">—</div>
+              </div>
+              <div class="weather-meta">
+                <div class="icon" id="wxIcon">·</div>
+                <div class="hilo" id="wxHilo">— / —</div>
+                <div class="tomo" id="wxTomo">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card quote">
+            <div class="label">Parks &amp; Rec · daily</div>
+            <div class="quote-body">
+              <div class="quote-text" id="quoteText">—</div>
+              <div class="quote-attr" id="quoteAttr"></div>
+            </div>
+          </div>
+
+          <div class="card caregiver" id="caregiverCard">
+            <div class="label">Caregiver</div>
+            <div class="care-body">
+              <div class="thanks">
+                <span class="thanks-name">Daisy</span> &mdash; thanks for your help this week!
+              </div>
+            </div>
+          </div>
+
+          <div class="card fatigue">
+          <div class="label">Fatigue index</div>
+          <div class="fatigue-status" id="fatigueStatus">—</div>
+          <div class="fatigue-grid" id="fatigueGrid"></div>
+          <div class="fatigue-legend">
+            <span>Rested</span>
+            <div class="bar"></div>
+            <span>Deficit</span>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- events strip -->
+      <div class="bottom">
+        <div class="events" id="eventsStrip"></div>
+        <div class="stamp" id="stamp">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHOTO SCENE -->
+  <div class="scene scene-photos hidden" id="scenePhotos">
+    <div class="photo-bg" id="photoBgA"></div>
+    <div class="photo-bg" id="photoBgB"></div>
+    <img class="photo" id="photoA" alt="" />
+    <img class="photo" id="photoB" alt="" />
+    <div class="photo-overlay">
+      <div class="clock" id="photoClock">—:—</div>
+      <div class="date"  id="photoDate">—</div>
+    </div>
+  </div>
+
+  <!-- CALENDAR DASHBOARD SCENE — full 2-week grid -->
+  <div class="scene scene-calendar hidden" id="sceneCalendar">
+    <div class="cal-root">
+      <div class="cal-header">
+        <div class="brand-block">
+          <div class="brand-title styrene">Schedule Buddy</div>
+          <div class="brand-subtitle styrene">Dynamic Dashboard</div>
+        </div>
+        <div class="cal-clock-block">
+          <div class="clock" id="calClock">—:—</div>
+          <div class="date"  id="calDate">—</div>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <div class="error-pane">
+    <div id="errorMsg">Connecting…</div>
+    <div style="font-size:14px; color:rgba(255,245,224,0.5); letter-spacing:0.08em">Retrying every 30s</div>
+  </div>
+
+  <script>
+    // ─────────────────── config ───────────────────
+    const params  = new URLSearchParams(window.location.search);
+    const token   = params.get("t");
+    const apiBase = params.get("api") ||
+      "https://us-central1-schedule-buddy-dd2cf.cloudfunctions.net";
+    const isDemo  = params.get("demo") === "1";
+    const refreshMs    = 30_000;
+    const weatherMs    = 15 * 60 * 1000;
+    const photoSceneEveryMs    = 5 * 60 * 1000;     // photos: every 5 min
+    const photoSceneLenMs      = 60 * 1000;         // photos: 60s on screen
+    const photoSwapMs          = 8 * 1000;          // photos: per-image fade
+    const calendarSceneEveryMs = 8 * 60 * 1000;     // calendar: every 8 min
+    const calendarSceneLenMs   = 60 * 1000;         // calendar: 60s on screen
+
+    // Charleston, WV (ZIP 25306).
+    const WX_LAT = 38.34;
+    const WX_LON = -81.59;
+
+    const $ = (id) => document.getElementById(id);
+
+    // ─────────────────── time-of-day theming ───────────────────
+    function todClass(d) {
+      const h = d.getHours();
+      if (h >= 5  && h < 8)  return "tod-dawn";
+      if (h >= 8  && h < 11) return "tod-morning";
+      if (h >= 11 && h < 15) return "tod-midday";
+      if (h >= 15 && h < 18) return "tod-afternoon";
+      if (h >= 18 && h < 22) return "tod-evening";
+      return "tod-night";
+    }
+    function applyToD() {
+      const cls = todClass(new Date());
+      ["tod-dawn","tod-morning","tod-midday","tod-afternoon","tod-evening","tod-night"]
+        .forEach((c) => document.body.classList.toggle(c, c === cls));
+    }
+    setInterval(applyToD, 5 * 60 * 1000);
+    applyToD();
+
+    // ─────────────────── clock + auto-dim ───────────────────
+    function fmtClock(d) {
+      const hh = d.getHours();
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const ap = hh >= 12 ? "PM" : "AM";
+      const h12 = ((hh + 11) % 12) + 1;
+      return `${h12}:${mm} ${ap}`;
+    }
+    function fmtDate(d) {
+      const dow = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];
+      const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+      return `${dow}, ${mon} ${d.getDate()}`;
+    }
+    function tickClock() {
+      const d = new Date();
+      const c = fmtClock(d), dt = fmtDate(d);
+      $("clock").textContent = c;
+      $("date").textContent  = dt;
+      $("photoClock").textContent = c;
+      $("photoDate").textContent  = dt;
+      $("calClock").textContent   = c;
+      $("calDate").textContent    = dt;
+      const hh = d.getHours();
+      document.body.classList.toggle("dim", hh >= 22 || hh < 6);
+    }
+    setInterval(tickClock, 30_000);
+    tickClock();
+
+    // ─────────────────── errors ───────────────────
+    function showError(msg) { $("errorMsg").textContent = msg; document.body.classList.add("error"); }
+    function clearError()   { document.body.classList.remove("error"); }
+    if (!token && !isDemo) {
+      showError("Missing ?t= token. Open this URL with a valid wall token, or append ?demo=1 to preview.");
+    }
+
+    // ─────────────────── helpers ───────────────────
+    const DOW_3 = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+    function parseIso(iso) {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function addDays(iso, n) {
+      const [y, m, d] = iso.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + n);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    }
+    function todayIso() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function parseHM(s) {
+      const [h, m] = s.split(":").map(Number);
+      return (h || 0) * 60 + (m || 0);
+    }
+    // "07:00" → "7am",  "19:30" → "7:30pm",  "00:00" → "12am",  "12:00" → "12pm"
+    function fmtTimeStr(hm) {
+      const [h, m] = hm.split(":").map(Number);
+      const ap = h >= 12 ? "pm" : "am";
+      const h12 = ((h + 11) % 12) + 1;
+      const mStr = (m && m > 0) ? `:${String(m).padStart(2, "0")}` : "";
+      return `${h12}${mStr}${ap}`;
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+    }
+
+    const KIND_OF = (day) => {
+      if (!day || day.length === 0) return "off";
+      const hasG = day.some((s) => s.who === "G");
+      const hasK = day.some((s) => s.who === "K");
+      if (hasG && hasK) return "both";
+      if (hasG) return "g";
+      return "k";
+    };
+
+    // ─────────────────── greeting + hero line ───────────────────
+    function greetingForTime(d) {
+      const h = d.getHours();
+      if (h >= 5  && h < 12) return "Good Morning.";
+      if (h >= 12 && h < 17) return "Good Afternoon.";
+      if (h >= 17 && h < 21) return "Good Evening.";
+      return "Late Night.";
+    }
+
+    // Pool of friendly closers. One is chosen pseudo-randomly per day —
+    // stable within a day so the line doesn't jitter every 30s refresh.
+    const FREE_DAY_CLOSERS = [
+      "Make it a good one.",
+      "Soak it in.",
+      "Coffee's on.",
+      "Enjoy the quiet.",
+      "No alarms today.",
+      "Easy does it.",
+    ];
+    const WORK_DAY_CLOSERS = [
+      "Steady wins.",
+      "Take care out there.",
+      "Don't forget water.",
+      "One shift at a time.",
+    ];
+
+    // Parks & Rec quotes — one selected per day, stable across refreshes.
+    const QUOTES = [
+      { text: "Treat yo' self.", attr: "Tom Haverford" },
+      { text: "What I hear when I'm being yelled at is people caring loudly at me.", attr: "Leslie Knope" },
+      { text: "Crying: acceptable at funerals and the Grand Canyon.", attr: "Ron Swanson" },
+      { text: "There's only one thing I hate more than lying: skim milk. Which is water that's lying about being milk.", attr: "Ron Swanson" },
+      { text: "Ovaries before brovaries. Uteruses before duderuses.", attr: "Leslie Knope" },
+      { text: "We need to remember what's important: friends, waffles, and work. Or waffles, friends, work. Doesn't matter, but work is third.", attr: "Leslie Knope" },
+      { text: "I'm a simple man. I like pretty, dark-haired women and breakfast food.", attr: "Ron Swanson" },
+      { text: "Give a man a fish and feed him for a day. Don't teach a man to fish — feed yourself. He's a grown man. Fishing's not that hard.", attr: "Ron Swanson" },
+      { text: "Capitalism: God's way of determining who is smart and who is poor.", attr: "Ron Swanson" },
+      { text: "When people get too chummy with me, I like to call them by the wrong name to let them know I don't really care about them.", attr: "Ron Swanson" },
+      { text: "I love Lord of the Rings. So good.", attr: "Andy Dwyer" },
+      { text: "Bert Macklin, FBI.", attr: "Andy Dwyer" },
+      { text: "Mouse Rat. The greatest band in the world.", attr: "Andy Dwyer" },
+      { text: "I am Leslie Knope and I love this town.", attr: "Leslie Knope" },
+      { text: "Ann, you beautiful tropical fish.", attr: "Leslie Knope" },
+      { text: "Ann, you poetic and noble land-mermaid.", attr: "Leslie Knope" },
+      { text: "Ann, you opalescent tree shark.", attr: "Leslie Knope" },
+      { text: "Sometimes you gotta work a little, so you can ball a lot.", attr: "Tom Haverford" },
+      { text: "I do what I want.", attr: "Tom Haverford" },
+      { text: "Boom, smell ya later.", attr: "Tom Haverford" },
+      { text: "Time is money. Money is power. Power is pizza. Pizza is knowledge.", attr: "April Ludgate" },
+      { text: "I worked very hard to be perfect, so I am perfect.", attr: "April Ludgate" },
+      { text: "Everything hurts and I'm dying.", attr: "Leslie Knope" },
+      { text: "I'm not interested in caring about people.", attr: "Ron Swanson" },
+      { text: "I'd wish you good luck, but I believe luck is a concept invented by the weak to explain their failures.", attr: "Ron Swanson" },
+      { text: "History began on July 4, 1776. Anything before that was a mistake.", attr: "Ron Swanson" },
+      { text: "I once worked with a guy for three years and never learned his name. Best friend I ever had.", attr: "Ron Swanson" },
+      { text: "Honor: if you need it defined, you don't have it.", attr: "Ron Swanson" },
+      { text: "Hello. Welcome to the boring department of dull.", attr: "April Ludgate" },
+      { text: "Leslie's a giant. A massive, ass-kicking giant.", attr: "Ben Wyatt" },
+      { text: "Compromise: it's the foundation of any healthy government.", attr: "Leslie Knope" },
+      { text: "JJ's Diner. The greatest restaurant on planet Earth.", attr: "Leslie Knope" },
+      { text: "There's no surprise more magical than the surprise of being loved.", attr: "Leslie Knope" },
+      { text: "I'm allergic to all medicine. And dolphins.", attr: "Andy Dwyer" },
+      { text: "There are no shortcuts in life — except a shortcut you can take.", attr: "Ron Swanson" },
+      { text: "Engage your foe, retreat into the wilderness, and live off the land.", attr: "Ron Swanson" },
+      { text: "Why would anybody ever eat anything besides breakfast food?", attr: "Leslie Knope" },
+      { text: "Just remember — every time you look up at the moon, I, too, will be looking at a moon. Not the same moon. That's impossible.", attr: "Andy Dwyer" },
+      { text: "I love games where you can lie.", attr: "Tom Haverford" },
+      { text: "I'm gonna tell you something that's going to blow your mind.", attr: "Andy Dwyer" },
+      { text: "Sorry I'm late. I don't want to be here.", attr: "April Ludgate" },
+      { text: "When life gives you lemons — make lemon bars.", attr: "Leslie Knope" },
+      { text: "Clear alcohols are for rich women on diets.", attr: "Ron Swanson" },
+      { text: "I'd work all night if it meant nothing got accomplished.", attr: "Ron Swanson" },
+      { text: "Champion is my middle name. Actually, my middle name is Wendy.", attr: "Leslie Knope" },
+      { text: "I'm allergic to everything.", attr: "Andy Dwyer" },
+      { text: "Whoever invented the bathtub is a jerk. The shower is much more efficient.", attr: "Ron Swanson" },
+      { text: "Drama is just unnecessary distraction from what's actually fun about life.", attr: "Leslie Knope" },
+      { text: "Don't ever tell anybody anything. If you do, you start missing everybody.", attr: "Ron Swanson, via Salinger" },
+      { text: "Never half-ass two things. Whole-ass one thing.", attr: "Ron Swanson" },
+    ];
+
+    function renderQuote(p) {
+      const q = pickStable(QUOTES, p.today + ":quote");
+      $("quoteText").textContent = `“${q.text}”`;
+      $("quoteAttr").textContent = `— ${q.attr}`;
+    }
+
+    function renderCaregiver(p) {
+      const card = $("caregiverCard");
+      const body = $("caregiverBody");
+      const cov = (p.coverage ?? []).filter(
+        (c) => c.date === p.today && c.status === "confirmed",
+      );
+      if (cov.length === 0) {
+        card.classList.remove("has-caregiver");
+        body.innerHTML = `<div class="care-empty">No coverage today.</div>`;
+        return;
+      }
+      // If multiple windows, show the earliest start → latest end.
+      const start = cov.map((c) => c.startTime).sort()[0];
+      const end   = cov.map((c) => c.endTime).sort().slice(-1)[0];
+      card.classList.add("has-caregiver");
+      body.innerHTML = `
+        <div class="care-name">Daisy is here</div>
+        <div class="care-window">${escapeHtml(start)} – ${escapeHtml(end)}</div>
+        <div class="care-status">Coverage confirmed</div>
+      `;
+    }
+
+    // Recovery: after a shift with sleepHours > 0 ends, the person is
+    // resting for that many hours. Returns { stype, untilHHMM } if so.
+    function findRecoveryFor(who, p) {
+      const stypeById = new Map(p.shiftTypes.map((s) => [s.id, s]));
+      const now = new Date();
+      const [ty, tm, td] = p.today.split("-").map(Number);
+      const yIso = (() => {
+        const d = new Date(ty, tm - 1, td - 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      })();
+      let best = null;
+      for (const date of [p.today, yIso]) {
+        const list = p.shifts[date] ?? [];
+        for (const s of list) {
+          if (s.who !== who) continue;
+          const stype = stypeById.get(s.shiftTypeId);
+          if (!stype) continue;
+          // Default: 8 hours of recovery for any shift that crosses
+          // midnight (night-shift sleep window). User can override per
+          // shift type by setting sleepHours in the Mac app.
+          const sleepHours = stype.sleepHours ?? (stype.crossesMidnight ? 8 : 0);
+          if (sleepHours <= 0) continue;
+          const [eh, em] = stype.end.split(":").map(Number);
+          const [yy, mm, dd] = date.split("-").map(Number);
+          const endDt = new Date(yy, mm - 1, dd, eh, em);
+          if (stype.crossesMidnight) endDt.setDate(endDt.getDate() + 1);
+          const recoveryEnd = new Date(endDt.getTime() + sleepHours * 3600 * 1000);
+          if (now >= endDt && now < recoveryEnd) {
+            if (!best || endDt > best.endDt) {
+              best = { stype, endDt, recoveryEnd };
+            }
+          }
+        }
+      }
+      if (!best) return null;
+      const rh = String(best.recoveryEnd.getHours()).padStart(2, "0");
+      const rm = String(best.recoveryEnd.getMinutes()).padStart(2, "0");
+      return { stype: best.stype, untilHHMM: `${rh}:${rm}` };
+    }
+    function pickStable(arr, seed) {
+      let h = 0;
+      for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+      return arr[Math.abs(h) % arr.length];
+    }
+
+    function buildHeroLine(p) {
+      const today = p.today;
+      const todayShifts = p.shifts[today] ?? [];
+      const kind = KIND_OF(todayShifts);
+      const self = p.household.selfName;
+      const partner = p.household.partnerName;
+      const cov = (p.coverage ?? []).filter((c) => c.date === today);
+
+      const G = (n) => `<span class="accent-g">${escapeHtml(n)}</span>`;
+      const K = (n) => `<span class="accent-k">${escapeHtml(n)}</span>`;
+      const B = (s) => `<span class="accent-both">${escapeHtml(s)}</span>`;
+
+      // Recovery overlay — if a person isn't working today but JUST finished
+      // a night shift, swap "off" for "in recovery" so the wall doesn't
+      // imply they're free.
+      const gRec = findRecoveryFor("G", p);
+      const kRec = findRecoveryFor("K", p);
+      const restStr = (who, name, rec) =>
+        rec ? `${who(name)} is recovering until ${escapeHtml(rec.untilHHMM)}`
+            : `${name}'s off`;
+
+      // Status sentence
+      let status;
+      if (kind === "off") {
+        if (gRec && kRec) {
+          status = `${G(self)} and ${K(partner)} both recovering this morning.`;
+        } else if (gRec) {
+          status = `${restStr(G, self, gRec)}. ${partner}'s off.`;
+        } else if (kRec) {
+          status = `${restStr(K, partner, kRec)}. ${self}'s off.`;
+        } else {
+          status = `${B("Both off today")}.`;
+        }
+      } else if (kind === "g") {
+        const s = todayShifts.find((x) => x.who === "G");
+        const stype = p.shiftTypes.find((t) => t.id === s.shiftTypeId);
+        const timeStr = stype ? `${fmtTimeStr(stype.start)} to ${fmtTimeStr(stype.end)}` : "";
+        status = `${G(self)} is working <span class="accent-g">${escapeHtml(timeStr)}</span>. ${restStr(K, partner, kRec)}.`;
+      } else if (kind === "k") {
+        const s = todayShifts.find((x) => x.who === "K");
+        const stype = p.shiftTypes.find((t) => t.id === s.shiftTypeId);
+        const timeStr = stype ? `${fmtTimeStr(stype.start)} to ${fmtTimeStr(stype.end)}` : "";
+        status = `${K(partner)} is working <span class="accent-k">${escapeHtml(timeStr)}</span>. ${restStr(G, self, gRec)}.`;
+      } else {
+        // both
+        if (cov.length > 0 && cov[0].status === "confirmed") {
+          status = `${B("You're both working")} — caregiver confirmed.`;
+        } else if (cov.length > 0 && cov[0].status === "pending") {
+          status = `${B("You're both working")} — caregiver request pending.`;
+        } else {
+          status = `${B("You're both working today")} — no caregiver lined up yet.`;
+        }
+      }
+
+      // Occasion flair (today only)
+      const todays = (p.occasions ?? []).filter((o) => o.date === today);
+      const flairParts = todays.map((o) =>
+        `<span class="flair flair-${escapeHtml(o.type)}">${escapeHtml(o.label)}</span>`
+      );
+      const flair = flairParts.length > 0 ? ` ${flairParts.join(" ")}` : "";
+
+      // Friendly closer (stable per day + kind)
+      const closer = (kind === "off")
+        ? pickStable(FREE_DAY_CLOSERS, today + ":off")
+        : pickStable(WORK_DAY_CLOSERS, today + ":work");
+
+      return `${status}${flair} <span style="color:var(--text-3)">${escapeHtml(closer)}</span>`;
+    }
+
+    // ─────────────────── fatigue scoring (ported from Mac Inspector) ───────────────────
+    function fatigueForDay(date, shifts, shiftTypes) {
+      const dayShifts = shifts[date] ?? [];
+      if (dayShifts.length === 0) return 0;
+      const todayDt = parseIso(date);
+      const stypeById = new Map(shiftTypes.map((s) => [s.id, s]));
+
+      let worst = 0;
+      for (const s of dayShifts) {
+        if (s.who !== "G" && s.who !== "K") continue;
+        const stype = stypeById.get(s.shiftTypeId);
+        if (!stype) continue;
+        const todayStart = parseHM(stype.start);
+
+        let rest = null;
+        for (let i = 1; i <= 3; i++) {
+          const prevDt = new Date(todayDt);
+          prevDt.setDate(todayDt.getDate() - i);
+          const prevIso = `${prevDt.getFullYear()}-${String(prevDt.getMonth() + 1).padStart(2, "0")}-${String(prevDt.getDate()).padStart(2, "0")}`;
+          const prev = (shifts[prevIso] ?? []).find((p) => p.who === s.who);
+          if (!prev) continue;
+          const ptype = stypeById.get(prev.shiftTypeId);
+          if (!ptype) continue;
+          const prevStart = parseHM(ptype.start);
+          let prevEnd = parseHM(ptype.end);
+          if (ptype.crossesMidnight || prevEnd <= prevStart) prevEnd += 24 * 60;
+          const gap = todayStart + i * 24 * 60 - prevEnd;
+          const sleepNeed = (ptype.sleepHours ?? 0) * 60;
+          rest = gap - sleepNeed;
+          break;
+        }
+
+        let score = 0;
+        if (rest != null) {
+          if (rest < 4 * 60)       score = 1;
+          else if (rest < 8 * 60)  score = 0.7;
+          else if (rest < 12 * 60) score = 0.4;
+          else if (rest < 16 * 60) score = 0.15;
+        }
+        if (score > worst) worst = score;
+      }
+      return worst;
+    }
+    // Color stops for fatigue cells. Punchier than the rest of the
+    // theme so they read clearly against the near-black fatigue card.
+    // Sage (rested) → amber (mid) → tomato (deficit).
+    function fatigueColor(score, hasShift) {
+      // Empty / off-day: return null so the CSS default fill shows
+      // through. We *don't* override — the CSS rule sets the neutral
+      // grid color.
+      if (!hasShift) return "";
+      if (score <= 0.5) {
+        const u = score / 0.5;
+        // (136,187,110) → (240,181,68)
+        const r = Math.round(136 + (240 - 136) * u);
+        const g = Math.round(187 + (181 - 187) * u);
+        const b = Math.round(110 + (68  - 110) * u);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+      const u = (score - 0.5) / 0.5;
+      // (240,181,68) → (218,110,80)
+      const r = Math.round(240 + (218 - 240) * u);
+      const g = Math.round(181 + (110 - 181) * u);
+      const b = Math.round(68  + (80  - 68)  * u);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // ─────────────────── weather (Open-Meteo, no key) ───────────────────
+    const WX_DESC = {
+      0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast",
+      45: "Foggy", 48: "Foggy",
+      51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle",
+      61: "Light rain", 63: "Rain", 65: "Heavy rain",
+      71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains",
+      80: "Showers", 81: "Showers", 82: "Heavy showers",
+      85: "Snow showers", 86: "Heavy snow",
+      95: "Thunderstorms", 96: "Thunderstorms", 99: "Severe storms",
+    };
+    const WX_ICON = (code, isDay) => {
+      if (code === 0)                return isDay ? "☀️" : "🌙";
+      if (code === 1 || code === 2)  return isDay ? "🌤️" : "🌙";
+      if (code === 3)                return "☁️";
+      if (code >= 45 && code <= 48)  return "🌫️";
+      if (code >= 51 && code <= 55)  return "🌦️";
+      if (code >= 61 && code <= 65)  return "🌧️";
+      if (code >= 71 && code <= 77)  return "❄️";
+      if (code >= 80 && code <= 82)  return "🌧️";
+      if (code >= 85 && code <= 86)  return "🌨️";
+      if (code >= 95)                return "⛈️";
+      return "·";
+    };
+    async function refreshWeather() {
+      try {
+        if (isDemo) {
+          renderWeather({ tempNow: 58, code: 2, isDay: 1, todayHi: 64, todayLo: 41, tomoHi: 60, tomoLo: 39 });
+          return;
+        }
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}` +
+                    `&current=temperature_2m,weather_code,is_day` +
+                    `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
+                    `&temperature_unit=fahrenheit&timezone=auto&forecast_days=2`;
+        const r = await fetch(url);
+        const j = await r.json();
+        renderWeather({
+          tempNow:  Math.round(j.current?.temperature_2m),
+          code:     j.current?.weather_code,
+          isDay:    j.current?.is_day,
+          todayHi:  Math.round(j.daily?.temperature_2m_max?.[0]),
+          todayLo:  Math.round(j.daily?.temperature_2m_min?.[0]),
+          tomoHi:   Math.round(j.daily?.temperature_2m_max?.[1]),
+          tomoLo:   Math.round(j.daily?.temperature_2m_min?.[1]),
+        });
+      } catch (err) {
+        $("wxDesc").textContent = "Weather unavailable";
+      }
+    }
+    function renderWeather(w) {
+      $("wxTemp").innerHTML = `${w.tempNow}<small>°</small>`;
+      $("wxDesc").textContent = WX_DESC[w.code] ?? "—";
+      $("wxIcon").textContent = WX_ICON(w.code, w.isDay);
+      $("wxHilo").textContent = `H ${w.todayHi}°  L ${w.todayLo}°`;
+      $("wxTomo").textContent = `Tomorrow ${w.tomoHi}° / ${w.tomoLo}°`;
+    }
+    refreshWeather();
+    setInterval(refreshWeather, weatherMs);
+
+    // ─────────────────── render the dashboard ───────────────────
+    function render(p) {
+      lastPayload = p;            // stash for the calendar scene
+      // Greeting + hero line.
+      $("greeting").textContent = greetingForTime(new Date());
+      $("heroLine").innerHTML = buildHeroLine(p);
+
+      // Quote-of-day card. (Caregiver card is now a static thank-you.)
+      renderQuote(p);
+
+      // Today shifts — two side-by-side cards (one per person).
+      // Four possible states per person, evaluated in order:
+      //   1. Currently working      → show shift name + start-end time
+      //   2. Recovering + working later today
+      //                             → "Recovering until 1600, on at 1900"
+      //   3. Recovering only        → "Recovering until 1600"
+      //   4. Future shift today     → show shift (start-end)
+      //   5. Off                    → "Off today"
+      const todayShifts = p.shifts[p.today] ?? [];
+      const stypeById = new Map(p.shiftTypes.map((s) => [s.id, s]));
+      const AVATARS = { G: "assets/gage.jpg", K: "assets/kaylene.jpeg" };
+      const grid = $("todayShifts");
+      grid.innerHTML = "";
+
+      // Render military 4-digit time from "HH:MM"
+      const mil = (hhmm) => (hhmm || "").replace(":", "");
+      // Compute datetime for a shift on a given date
+      const [tY, tM, tD] = p.today.split("-").map(Number);
+      const shiftStartEnd = (stype) => {
+        const [sh, sm] = stype.start.split(":").map(Number);
+        const [eh, em] = stype.end.split(":").map(Number);
+        const start = new Date(tY, tM - 1, tD, sh, sm);
+        const end   = new Date(tY, tM - 1, tD, eh, em);
+        if (stype.crossesMidnight) end.setDate(end.getDate() + 1);
+        return { start, end };
+      };
+      const now = new Date();
+
+      for (const who of ["G", "K"]) {
+        const name = who === "G" ? p.household.selfName : p.household.partnerName;
+        const accent = who === "G" ? "var(--g)" : "var(--k)";
+        const avatarSrc = AVATARS[who];
+
+        // Resolve all of this person's today shifts with datetimes.
+        const myShifts = todayShifts
+          .filter((s) => s.who === who)
+          .map((s) => {
+            const stype = stypeById.get(s.shiftTypeId);
+            if (!stype) return null;
+            const { start, end } = shiftStartEnd(stype);
+            return { s, stype, start, end };
+          })
+          .filter(Boolean);
+        const current  = myShifts.find((x) => now >= x.start && now < x.end);
+        const upcoming = myShifts.find((x) => now < x.start);
+        const rec      = findRecoveryFor(who, p);
+
+        const card = document.createElement("div");
+
+        // Helper renderers
+        const renderWorking = (entry) => {
+          const { stype, s } = entry;
+          const startEnd = `${stype.start} – ${stype.end}${stype.crossesMidnight ? " +1d" : ""}`;
+          card.className = `shift-card has-shift kind-${who.toLowerCase()}`;
+          card.innerHTML = `
+            <div class="badge avatar" style="--accent:${accent}">
+              <img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(name)}" />
+            </div>
+            <div>
+              <div class="who">${escapeHtml(name)}</div>
+              <div class="meta">${escapeHtml(s.label)}</div>
+            </div>
+            <div class="time">${escapeHtml(startEnd)}</div>
+          `;
+        };
+        const renderRecoveryThenOn = (rec, up) => {
+          const startEnd = `${up.stype.start} – ${up.stype.end}${up.stype.crossesMidnight ? " +1d" : ""}`;
+          card.className = `shift-card has-shift kind-${who.toLowerCase()}`;
+          card.innerHTML = `
+            <div class="badge avatar dim" style="--accent:${accent}">
+              <img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(name)}" />
+            </div>
+            <div>
+              <div class="who">${escapeHtml(name)}</div>
+              <div class="meta">Recovering until ${escapeHtml(mil(rec.untilHHMM))}, on at ${escapeHtml(mil(up.stype.start))}</div>
+            </div>
+            <div class="time" style="opacity:0.7">${escapeHtml(startEnd)}</div>
+          `;
+        };
+        const renderRecovery = (rec) => {
+          card.className = `shift-card has-shift kind-${who.toLowerCase()}`;
+          card.innerHTML = `
+            <div class="badge avatar dim" style="--accent:${accent}">
+              <img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(name)}" />
+            </div>
+            <div>
+              <div class="who">${escapeHtml(name)}</div>
+              <div class="meta">Recovering until ${escapeHtml(mil(rec.untilHHMM))}</div>
+            </div>
+          `;
+        };
+        const renderOff = () => {
+          card.className = "shift-card";
+          card.innerHTML = `
+            <div class="badge avatar off dim">
+              <img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(name)}" />
+            </div>
+            <div>
+              <div class="who" style="color:var(--text-3)">${escapeHtml(name)}</div>
+              <div class="meta">Off today</div>
+            </div>
+          `;
+        };
+
+        if (current)              renderWorking(current);
+        else if (rec && upcoming) renderRecoveryThenOn(rec, upcoming);
+        else if (rec)             renderRecovery(rec);
+        else if (upcoming)        renderWorking(upcoming);
+        else                      renderOff();
+
+        grid.appendChild(card);
+      }
+
+      // Coverage callout — only show when meaningfully relevant.
+      const cov = (p.coverage ?? []).filter((c) => c.date === p.today);
+      const cEl = $("coverage");
+      const cText = $("coverageText");
+      const kind = KIND_OF(todayShifts);
+      cEl.classList.remove("show", "confirmed", "pending", "gap");
+      if (kind === "both" && cov.length === 0) {
+        cEl.classList.add("show", "gap");
+        cText.innerHTML = `<strong>No caregiver lined up.</strong> Send a request from the app.`;
+      } else if (cov.length > 0 && cov[0].status === "pending") {
+        cEl.classList.add("show", "pending");
+        cText.innerHTML = `<strong>Caregiver request pending</strong> · ${cov[0].startTime} → ${cov[0].endTime}`;
+      } else if (cov.length > 0 && cov[0].status === "confirmed") {
+        // The hero line already mentions confirmed, so skip the callout
+        // when it's positive — keeps the page calmer.
+      }
+
+      // Week strip — next 7 days.
+      const wkGrid = $("weekGrid");
+      wkGrid.innerHTML = "";
+      for (let i = 0; i < 7; i++) {
+        const iso = addDays(p.today, i);
+        const day = p.shifts[iso] ?? [];
+        const k = KIND_OF(day);
+        const d = parseIso(iso);
+        const cell = document.createElement("div");
+        cell.className = `week-cell kind-${k}`;
+        const dow = DOW_3[d.getDay()];
+        const tagsHTML = day.slice(0, 2).map((s) => `<div class="tag">${escapeHtml(s.who)}: ${escapeHtml(s.label)}</div>`).join("");
+        cell.innerHTML = `
+          <div class="dow">${i === 0 ? "Today" : dow}</div>
+          <div class="dom">${d.getDate()}</div>
+          <div class="tags">${tagsHTML}</div>
+        `;
+        wkGrid.appendChild(cell);
+      }
+
+      // Fatigue heatmap — 2 weeks × 7 days starting from Sunday of this week.
+      // Plus a Fira Code status line above the grid driven by today's score.
+      const fGrid = $("fatigueGrid");
+      fGrid.innerHTML = "";
+      const todayDt = parseIso(p.today);
+      const sunday = new Date(todayDt);
+      sunday.setDate(todayDt.getDate() - todayDt.getDay());
+
+      const todayScore = fatigueForDay(p.today, p.shifts, p.shiftTypes);
+      const fStatus = $("fatigueStatus");
+      // Threshold: anything 0.15 or below = comfortably rested. Above
+      // that the body has accumulated some deficit and the message
+      // shifts to a nudge.
+      if (todayScore <= 0.15) {
+        fStatus.textContent = "well rested :)";
+        fStatus.className = "fatigue-status rested";
+      } else {
+        fStatus.textContent = "Get some rest.";
+        fStatus.className = "fatigue-status tired";
+      }
+
+      for (let i = 0; i < 2 * 7; i++) {
+        const d = new Date(sunday);
+        d.setDate(sunday.getDate() + i);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const day = p.shifts[iso] ?? [];
+        const score = fatigueForDay(iso, p.shifts, p.shiftTypes);
+        const cell = document.createElement("div");
+        cell.className = "fatigue-cell" + (iso === p.today ? " today" : "");
+        cell.style.background = fatigueColor(score, day.length > 0);
+        fGrid.appendChild(cell);
+      }
+
+      // Events strip.
+      const ev = $("eventsStrip");
+      ev.innerHTML = "";
+      const events = (p.events ?? []).slice(0, 6);
+      for (const e of events) {
+        const d = parseIso(e.date);
+        const when = `${DOW_3[d.getDay()]} ${d.getDate()}${e.startTime ? " · " + e.startTime : ""}`;
+        const chip = document.createElement("div");
+        chip.className = "event-chip";
+        chip.innerHTML = `<span>${escapeHtml(e.title)}</span><span class="when">${escapeHtml(when)}</span>`;
+        ev.appendChild(chip);
+      }
+      if (events.length === 0) {
+        ev.innerHTML = `<span style="color:var(--text-4); font-style:italic">No upcoming events</span>`;
+      }
+
+      $("stamp").textContent = "Updated " + new Date(p.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      // Photo scene rotation.
+      if (p.photos && p.photos.length > 0) setupPhotos(p.photos);
+
+      clearError();
+    }
+
+    // ─────────────────── scene rotation (photos + calendar) ───────────────────
+    // The wall cycles between three scenes:
+    //   1. Static Showcase (default — the dashboard you're looking at)
+    //   2. Photo slideshow (briefly, every 5 min)
+    //   3. Dynamic Dashboard / 2-week calendar (briefly, every 8 min)
+    //
+    // `inAlternateScene` is a global guard so two scenes can't try to
+    // take over at the same time — whoever lands first holds the floor
+    // until their timer expires.
+    let lastPayload = null;
+    let inAlternateScene = false;
+
+    // — Photos
+    let photoUrls = [];
+    let photoIdx = 0;
+    let photoSwapTimer = null;
+    let photoSceneTimer = null;
+    function setupPhotos(urls) {
+      if (JSON.stringify(urls) === JSON.stringify(photoUrls)) return;
+      photoUrls = urls.slice();
+      photoIdx = 0;
+      if (photoSceneTimer) clearInterval(photoSceneTimer);
+      photoSceneTimer = setInterval(showPhotoScene, photoSceneEveryMs);
+    }
+    function setPhoto(imgEl, bgEl, url) {
+      imgEl.src = url;
+      bgEl.style.backgroundImage = `url('${url.replace(/'/g, "\\'")}')`;
+    }
+    function showPhotoScene() {
+      if (photoUrls.length === 0 || inAlternateScene) return;
+      inAlternateScene = true;
+      const a = $("photoA"), b = $("photoB");
+      const bgA = $("photoBgA"), bgB = $("photoBgB");
+      setPhoto(a, bgA, photoUrls[photoIdx % photoUrls.length]);
+      a.classList.add("active");
+      bgA.classList.add("active");
+      $("sceneDashboard").classList.add("hidden");
+      $("scenePhotos").classList.remove("hidden");
+
+      let toggle = false;
+      photoSwapTimer = setInterval(() => {
+        toggle = !toggle;
+        photoIdx = (photoIdx + 1) % photoUrls.length;
+        const showEl   = toggle ? b   : a;
+        const hideEl   = toggle ? a   : b;
+        const showBg   = toggle ? bgB : bgA;
+        const hideBg   = toggle ? bgA : bgB;
+        setPhoto(showEl, showBg, photoUrls[photoIdx]);
+        showEl.classList.add("active");
+        showBg.classList.add("active");
+        hideEl.classList.remove("active");
+        hideBg.classList.remove("active");
+      }, photoSwapMs);
+
+      setTimeout(() => {
+        clearInterval(photoSwapTimer);
+        photoSwapTimer = null;
+        $("scenePhotos").classList.add("hidden");
+        $("sceneDashboard").classList.remove("hidden");
+        a.classList.remove("active");
+        b.classList.remove("active");
+        bgA.classList.remove("active");
+        bgB.classList.remove("active");
+        inAlternateScene = false;
+      }, photoSceneLenMs);
+    }
+
+    // — Calendar (Dynamic Dashboard)
+    function renderCalendar(p) {
+      const grid = $("calGrid");
+      grid.innerHTML = "";
+
+      const todayDt = parseIso(p.today);
+      const sunday = new Date(todayDt);
+      sunday.setDate(todayDt.getDate() - todayDt.getDay());
+
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(sunday);
+        d.setDate(sunday.getDate() + i);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const isToday = iso === p.today;
+        const isPast  = iso < p.today;
+
+        const day    = p.shifts[iso] ?? [];
+        const events = (p.events ?? []).filter((e) => e.date === iso);
+
+        const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+        const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+
+        const shiftsHTML = day.map((s) => {
+          const stype = p.shiftTypes.find((t) => t.id === s.shiftTypeId);
+          const time  = stype ? `${fmtTimeStr(stype.start)}–${fmtTimeStr(stype.end)}` : escapeHtml(s.label);
+          const name  = s.who === "G" ? p.household.selfName : p.household.partnerName;
+          return `<div class="shift-pill ${s.who.toLowerCase()}">${escapeHtml(name)} · ${escapeHtml(time)}</div>`;
+        }).join("");
+
+        const eventsHTML = events.slice(0, 3).map((e) => {
+          const when = e.startTime ? `<span class="e-time">${escapeHtml(fmtTimeStr(e.startTime))}</span>` : "";
+          return `<div class="event-line">${when}${escapeHtml(e.title)}</div>`;
+        }).join("");
+
+        const cell = document.createElement("div");
+        cell.className = `cal-day${isToday ? " today" : ""}${isPast ? " past" : ""}`;
+        cell.innerHTML = `
+          <div class="cal-day-head">
+            <div class="dow">${dow}${isToday ? " · Today" : ""}</div>
+            <div class="dom styrene">${d.getDate()}</div>
+          </div>
+          <div class="shifts">${shiftsHTML}</div>
+          <div class="events">${eventsHTML}</div>
+        `;
+        grid.appendChild(cell);
+      }
+    }
+    function showCalendarScene() {
+      if (inAlternateScene || !lastPayload) return;
+      inAlternateScene = true;
+      renderCalendar(lastPayload);
+      $("sceneDashboard").classList.add("hidden");
+      $("sceneCalendar").classList.remove("hidden");
+      setTimeout(() => {
+        $("sceneCalendar").classList.add("hidden");
+        $("sceneDashboard").classList.remove("hidden");
+        inAlternateScene = false;
+      }, calendarSceneLenMs);
+    }
+    setInterval(showCalendarScene, calendarSceneEveryMs);
+
+    // ─────────────────── demo payload ───────────────────
+    function demoPayload() {
+      const today = todayIso();
+      const plus = (n) => addDays(today, n);
+      return {
+        generatedAt: Date.now(),
+        household: { name: "Bass", selfName: "Gage", partnerName: "Kaylene" },
+        today,
+        shiftTypes: [
+          { id: "d12", name: "Day 12h",   start: "07:00", end: "19:00", crossesMidnight: false, sleepHours: 8 },
+          { id: "n12", name: "Night 12h", start: "19:00", end: "07:00", crossesMidnight: true,  sleepHours: 8 },
+          { id: "ev",  name: "Evening",   start: "15:00", end: "23:00", crossesMidnight: false, sleepHours: 7 },
+        ],
+        shifts: {
+          [plus(-2)]: [{ who: "G", shiftTypeId: "n12", label: "Night 12h" }],
+          [plus(-1)]: [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+          [today]:    [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+          [plus(1)]:  [{ who: "K", shiftTypeId: "ev",  label: "Evening" }],
+          [plus(2)]:  [
+            { who: "G", shiftTypeId: "n12", label: "Night 12h" },
+            { who: "K", shiftTypeId: "d12", label: "Day 12h"   },
+          ],
+          [plus(4)]:  [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+          [plus(5)]:  [{ who: "K", shiftTypeId: "ev",  label: "Evening" }],
+          [plus(6)]:  [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+          [plus(8)]:  [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+          [plus(11)]: [{ who: "K", shiftTypeId: "ev",  label: "Evening" }],
+          [plus(14)]: [{ who: "G", shiftTypeId: "d12", label: "Day 12h" }],
+        },
+        coverage: [
+          { date: today,   startTime: "07:00", endTime: "19:00", status: "confirmed", arriveBy: "06:45" },
+          { date: plus(2), startTime: "06:30", endTime: "20:00", status: "pending" },
+        ],
+        events: [
+          { id: "e1", date: plus(1), startTime: "10:00", endTime: "11:00", title: "Daisy vet check-up", who: "Daisy" },
+          { id: "e2", date: plus(3), startTime: "18:30",                    title: "Dinner with Mom",     who: "family" },
+          { id: "e3", date: plus(5), startTime: "09:00",                    title: "PT — knee follow-up", who: "G" },
+        ],
+        occasions: [
+          { date: today, label: "Payday", type: "payday" },
+        ],
+        photos: [
+          "https://picsum.photos/seed/wall1/1920/1080",
+          "https://picsum.photos/seed/wall2/1920/1080",
+          "https://picsum.photos/seed/wall3/1920/1080",
+          "https://picsum.photos/seed/wall4/1920/1080",
+        ],
+      };
+    }
+
+    // ─────────────────── fetch loop ───────────────────
+    async function refresh() {
+      if (isDemo) { render(demoPayload()); return; }
+      if (!token) return;
+      try {
+        const r = await fetch(`${apiBase}/getWallState?t=${encodeURIComponent(token)}`, { cache: "no-store" });
+        if (!r.ok) {
+          const body = await r.text();
+          showError(`Endpoint returned ${r.status} · ${body.slice(0, 120)}`);
+          return;
+        }
+        const payload = await r.json();
+        render(payload);
+      } catch (err) {
+        showError("Network error — " + String(err.message ?? err));
+      }
+    }
+
+    refresh();
+    setInterval(refresh, refreshMs);
+
+    // Demo mode: trigger both alternate scenes quickly so you don't
+    // have to wait the full 5/8-minute production cadence to preview.
+    if (isDemo) {
+      setTimeout(() => showCalendarScene(), 6_000);   // 6s → calendar for 75s (ends at ~81s)
+      setTimeout(() => showPhotoScene(),   90_000);   // 90s → photos for 30s
+    }
+  </script>
+</body>
+</html>

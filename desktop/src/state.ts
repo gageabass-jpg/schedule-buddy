@@ -233,7 +233,27 @@ export interface HouseholdState {
     G?: PaydaySchedule;
     K?: PaydaySchedule;
   };
+  /** Special occasions surfaced on the wall display's hero line as
+   *  colored flair (birthdays, anniversaries, holidays). Paydays are
+   *  computed separately from `paydays` above and not stored here. */
+  occasions?: OccasionEntry[];
+  /** Optional last day the recurring weekly template (and alt-weekend
+   *  pattern) applies, as "YYYY-MM-DD" (inclusive). After this date the
+   *  template stops producing shifts — one-off overrides and OT still
+   *  show. Absent = the template recurs indefinitely. */
+  templateEndDate?: string;
   _migrations: string[];
+}
+
+export type OccasionType = "birthday" | "anniversary" | "holiday";
+
+export interface OccasionEntry {
+  id: string;
+  date: string;          // YYYY-MM-DD
+  label: string;         // "Daisy's birthday", "Thanksgiving"
+  type: OccasionType;
+  /** If true, repeats every year on the same month-day (year ignored). */
+  annual?: boolean;
 }
 
 export interface HouseholdMeta {
@@ -281,6 +301,13 @@ interface ResolvedSelfShift {
 function selfShiftId(state: HouseholdState, dateISO: string): ResolvedSelfShift {
   const ov = state.overrides.find((o) => o.date === dateISO);
   if (ov !== undefined) return { shiftTypeId: ov.shiftTypeId, source: { kind: "override" } };
+
+  // If the recurring template has an end date and this date is past it,
+  // the template (and alt-weekend) no longer apply. Overrides above and OT
+  // elsewhere still show — they're explicit per-date picks.
+  if (state.templateEndDate && dateISO > state.templateEndDate) {
+    return { shiftTypeId: null, source: { kind: "template" } };
+  }
 
   const [y, mo, d] = dateISO.split("-").map(Number);
   const dow = new Date(y, mo - 1, d).getDay();

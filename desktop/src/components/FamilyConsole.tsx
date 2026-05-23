@@ -12,6 +12,9 @@ import { deleteCoverageRequest, statusLabel } from "../lib/writeCoverageRequest"
 import { doSignOut } from "../hooks/useAuth";
 import { auth } from "../firebase";
 import { PhotoAv } from "./PhotoAv";
+import { WallDisplaySection } from "./WallDisplaySection";
+import { WallPhotosSection } from "./WallPhotosSection";
+import { OccasionsSection } from "./OccasionsSection";
 
 interface Props {
   open: boolean;
@@ -231,6 +234,33 @@ export function FamilyConsole({
                 {caregiverBusy ? "Generating…" : "Generate caregiver code"}
               </button>
             )}
+          </Section>
+
+          {/* Wall display — Raspberry Pi kiosk */}
+          <Section
+            title="Wall display"
+            t={t}
+            hint="Create a read-only URL for a Raspberry Pi (or any browser) running a kitchen wall display. The page auto-refreshes every 30s."
+          >
+            <WallDisplaySection householdId={householdId} t={t} palette={palette} />
+          </Section>
+
+          {/* Wall display photos */}
+          <Section
+            title="Wall display photos"
+            t={t}
+            hint="Family photos that rotate in on the wall display between dashboard views. Resized + compressed on upload."
+          >
+            <WallPhotosSection householdId={householdId} t={t} palette={palette} />
+          </Section>
+
+          {/* Occasions */}
+          <Section
+            title="Occasions"
+            t={t}
+            hint="Birthdays, anniversaries, and holidays — surfaced on the wall display's greeting line on the day-of with colored flair."
+          >
+            <OccasionsSection householdId={householdId} state={state} t={t} palette={palette} />
           </Section>
 
           {/* Members */}

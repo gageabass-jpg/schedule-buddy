@@ -424,6 +424,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           setNewRequestPrefill({ date });
           setNewRequestOpen(true);
         }}
+        onSelectDate={(iso) => setSelected(iso)}
       />
       <NewShiftModal
         open={newShiftOpen}
