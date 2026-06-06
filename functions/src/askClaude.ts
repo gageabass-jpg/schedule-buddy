@@ -48,8 +48,12 @@ interface HouseholdState {
   overrides?: Override[];
   partner?: { name: string; shifts: PartnerShift[] };
   events?: SbEvent[];
+  childcareOff?: ChildcareOffDay[];
   range?: { from: string; to: string };
   selfName?: string;
+}
+interface ChildcareOffDay {
+  date: string; label?: string;
 }
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
@@ -169,6 +173,40 @@ const TOOLS: Anthropic.Messages.Tool[] = [
       required: ["date", "title", "who"],
     },
   },
+  {
+    name: "block_childcare",
+    description:
+      "Mark a date RANGE as having NO childcare available because the " +
+      "caregiver (Daisy) is scheduled off. Stamps EVERY day from `from` to " +
+      "`to` inclusive in a single call — always prefer this over making many " +
+      "per-day calls. Use it for requests like \"Daisy is off next week\", " +
+      "\"no childcare July 5 through 11\", or \"block off that whole week\". " +
+      "Days marked this way show a red bar on the calendar. For a single day, " +
+      "pass the same date for `from` and `to`. Never use add_event for this.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from:  { type: "string", description: "First day YYYY-MM-DD (inclusive)." },
+        to:    { type: "string", description: "Last day YYYY-MM-DD (inclusive). Same as `from` for one day." },
+        label: { type: "string", description: "Optional note; defaults to \"Daisy – Scheduled Off\"." },
+      },
+      required: ["from", "to"],
+    },
+  },
+  {
+    name: "unblock_childcare",
+    description:
+      "Remove the no-childcare mark from a date range (the caregiver is " +
+      "available again). Clears EVERY day from `from` to `to` inclusive.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "First day YYYY-MM-DD (inclusive)." },
+        to:   { type: "string", description: "Last day YYYY-MM-DD (inclusive)." },
+      },
+      required: ["from", "to"],
+    },
+  },
 ];
 
 // ───────────────── Helpers ──────────────────────────────────────────────
@@ -194,6 +232,24 @@ function isoToday(): string {
 
 function genEventId(): string {
   return `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Every YYYY-MM-DD from `from` to `to` inclusive (local calendar days).
+ *  Returns [] for an invalid or inverted range; capped at ~1 year as a guard. */
+function datesInRange(from: string, to: string): string[] {
+  const out: string[] = [];
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  if (!fy || !fm || !fd || !ty || !tm || !td) return out;
+  const cur = new Date(fy, fm - 1, fd);
+  const end = new Date(ty, tm - 1, td);
+  let guard = 0;
+  while (cur <= end && guard < 400) {
+    out.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`);
+    cur.setDate(cur.getDate() + 1);
+    guard++;
+  }
+  return out;
 }
 
 // ───────────────── Tool execution ──────────────────────────────────────
@@ -230,7 +286,8 @@ async function execTool(
       const ot = (state.ot ?? []).filter((o) => o.date >= from && o.date <= to);
       const partner = (state.partner?.shifts ?? []).filter((p) => p.date >= from && p.date <= to);
       const events = (state.events ?? []).filter((e) => e.date >= from && e.date <= to);
-      return { from, to, overrides, ot, partnerShifts: partner, events,
+      const childcareOff = (state.childcareOff ?? []).filter((c) => c.date >= from && c.date <= to);
+      return { from, to, overrides, ot, partnerShifts: partner, events, childcareOff,
         template: state.template, shiftTypeCount: (state.shiftTypes ?? []).length };
     }
 
@@ -314,6 +371,36 @@ async function execTool(
       await ref.set({ ...state, events });
       return { ok: true, event: ev };
     }
+
+    case "block_childcare": {
+      const dates = datesInRange(String(input.from), String(input.to));
+      if (dates.length === 0) {
+        return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
+      }
+      const label = (input.label ? String(input.label).trim() : "") || "Daisy – Scheduled Off";
+      const list = [...(state.childcareOff ?? [])];
+      const have = new Set(list.map((c) => c.date));
+      const added: string[] = [];
+      for (const date of dates) {
+        if (have.has(date)) continue;
+        list.push({ date, label });
+        have.add(date);
+        added.push(date);
+      }
+      await ref.set({ ...state, childcareOff: list });
+      return { ok: true, marked: dates, newlyAdded: added, alreadyMarked: dates.length - added.length, label };
+    }
+
+    case "unblock_childcare": {
+      const dates = new Set(datesInRange(String(input.from), String(input.to)));
+      if (dates.size === 0) {
+        return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
+      }
+      const before = (state.childcareOff ?? []).length;
+      const list = (state.childcareOff ?? []).filter((c) => !dates.has(c.date));
+      await ref.set({ ...state, childcareOff: list });
+      return { ok: true, cleared: [...dates], removed: before - list.length };
+    }
   }
   return { error: `Unknown tool: ${name}` };
 }
@@ -376,11 +463,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `Conventions:\n` +
       `- "Gage" is the household admin. His recurring schedule comes from a weekly template.\n` +
       `- "Kaylene" is Gage's partner. Her shifts are individual dated entries.\n` +
-      `- "Daisy" is a caregiver (supporting role), not an editor.\n` +
+      `- "Daisy" is the family's caregiver (supporting role), not an editor. When Daisy is off, there is no childcare that day.\n` +
       `- When the user picks up an unusual day for Gage, use add_override (action="work").\n` +
       `- When Gage takes off a day he normally works, use add_override (action="off").\n` +
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +
-      `- Kaylene's shifts always go through add_partner_shift.\n\n` +
+      `- Kaylene's shifts always go through add_partner_shift.\n` +
+      `- To mark days with NO childcare (Daisy scheduled off, or "block off" a week for childcare), use block_childcare with a from/to range — it stamps the whole range in ONE call, so a full week is reliably covered. Never use add_event or add_override for childcare availability. Use unblock_childcare to restore childcare.\n\n` +
       `Behavior:\n` +
       `- For read-only questions, call list_shift_types or summarize_period as needed and answer concisely.\n` +
       `- For changes, first describe what you'll do in plain English and ASK for confirmation. ` +
@@ -405,7 +493,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     const MAX_ROUNDS = 6;   // generous cap for tool chains
     for (let i = 0; i < MAX_ROUNDS; i++) {
       const resp = await client.messages.create({
-        model: "claude-sonnet-4-5",
+        model: "claude-opus-4-8",
         max_tokens: 1500,
         system: systemPrompt,
         tools: TOOLS,

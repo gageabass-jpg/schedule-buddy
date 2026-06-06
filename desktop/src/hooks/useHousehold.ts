@@ -20,8 +20,12 @@ export type HouseholdStatus =
  * Resolves the user's household (via memberUids array contains query) and
  * subscribes to its state/main document. Mirrors the iOS app's
  * initFirestoreSync — see BRIDGE.md §5.
+ *
+ * `refreshNonce` is a manual-refresh trigger: bumping it re-runs the effect,
+ * which tears down the live listeners and re-subscribes, forcing a fresh read
+ * from the server. Used by the sidebar's refresh button.
  */
-export function useHousehold(user: User | null): HouseholdStatus {
+export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStatus {
   const [result, setResult] = useState<HouseholdStatus>({ status: "loading" });
 
   useEffect(() => {
@@ -78,7 +82,7 @@ export function useHousehold(user: User | null): HouseholdStatus {
       householdUnsub();
       if (stateUnsub) stateUnsub();
     };
-  }, [user]);
+  }, [user, refreshNonce]);
 
   return result;
 }

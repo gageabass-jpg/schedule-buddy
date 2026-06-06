@@ -1,0 +1,47 @@
+[
+  {
+    "id": "ebay",
+    "title": "eBay Package",
+    "carrier": "USPS",
+    "tracking": "9400 1112 0000 8841 2207 45",
+    "state": "transit",
+    "statusLine": "Preparing for Delivery",
+    "statusSub": "Arrived at hub · Charleston, WV",
+    "eta": "Mon, Jun 1",
+    "fromCity": "Henderson, NV",
+    "toCity": "Charleston, WV",
+    "waypoints": [
+      { "x": 168, "y": 452, "label": "Henderson, NV", "kind": "origin" },
+      { "x": 150, "y": 402, "label": "Las Vegas, NV", "kind": "mid" },
+      { "x": 620, "y": 300, "label": "Indianapolis, IN", "kind": "mid" },
+      { "x": 828, "y": 356, "label": "Charleston, WV", "kind": "current" }
+    ],
+    "events": [
+      { "label": "Preparing for Delivery", "place": "", "date": "", "current": true },
+      { "label": "Arrived at Hub", "place": "CHARLESTON, WV 25301", "date": "May 31 · 12:42 PM" },
+      { "label": "Departed USPS Facility", "place": "CHARLESTON WV PROCESSING CENTER", "date": "May 31 · 6:35 AM" },
+      { "label": "USPS in possession of item", "place": "HENDERSON, NV 89012", "date": "May 27 · 4:46 PM" }
+    ]
+  },
+  {
+    "id": "garden",
+    "title": "Garden Tools",
+    "carrier": "USPS",
+    "tracking": "9400 1000 0000 0000 1111 22",
+    "state": "out",
+    "statusLine": "Out for Delivery",
+    "statusSub": "Arriving today by 8 PM",
+    "eta": "Today",
+    "fromCity": "Atlanta, GA",
+    "toCity": "Charleston, WV",
+    "waypoints": [
+      { "x": 560, "y": 470, "label": "Atlanta, GA", "kind": "origin" },
+      { "x": 720, "y": 400, "label": "Beckley, WV", "kind": "mid" },
+      { "x": 824, "y": 360, "label": "Charleston, WV", "kind": "current" }
+    ],
+    "events": [
+      { "label": "Out for Delivery", "place": "CHARLESTON, WV", "date": "Today · 7:40 AM", "current": true },
+      { "label": "Arrived at Post Office", "place": "CHARLESTON, WV", "date": "Today · 6:05 AM" }
+    ]
+  }
+]

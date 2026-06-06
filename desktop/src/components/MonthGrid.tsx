@@ -42,6 +42,12 @@ const MONTH_LABELS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+// Week-row geometry for the spanning "no childcare" bar: 7 columns with six
+// 4px gaps (24px total). CARE_COL = one column's width, CARE_STEP = the
+// column-to-column stride (column + gap).
+const CARE_COL = "((100% - 24px) / 7)";
+const CARE_STEP = `(${CARE_COL} + 4px)`;
+
 export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
@@ -67,6 +73,28 @@ export function MonthGrid({
       .filter((r) => r.status === "confirmed")
       .map((r) => r.date),
   );
+
+  // Dates explicitly marked "no childcare" (caregiver off), date → label.
+  // Drives the spanning red pill + bar; takes precedence over the green bar.
+  const noCareByDate = new Map<string, string>(
+    (state?.childcareOff ?? []).map((c) => [c.date, c.label || "No childcare"]),
+  );
+
+  // Date → block label, for every date covered by any active schedule
+  // block. Drives the red diagonal-stripe overlay on cells.
+  const blockByDate = new Map<string, string>();
+  for (const b of state?.scheduleBlocks ?? []) {
+    // Walk every day in [startDate, endDate] inclusive and mark it.
+    let cursor = b.startDate;
+    let safety = 0;                            // guard against bad ranges
+    while (cursor <= b.endDate && safety < 400) {
+      blockByDate.set(cursor, b.label || "Schedule block");
+      const [y, m, d] = cursor.split("-").map(Number);
+      const nx = new Date(y!, m! - 1, d! + 1);
+      cursor = `${nx.getFullYear()}-${String(nx.getMonth() + 1).padStart(2, "0")}-${String(nx.getDate()).padStart(2, "0")}`;
+      safety++;
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -262,8 +290,19 @@ export function MonthGrid({
           ))}
         </div>
         <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 4, minHeight: 0 }}>
-          {weeks.map((week, wi) => (
-            <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          {weeks.map((week, wi) => {
+            // Group adjacent no-childcare days in this row into contiguous runs,
+            // each drawn as a single red bar spanning those columns.
+            const careRuns: Array<{ start: number; len: number; label: string }> = [];
+            week.forEach((c, ci) => {
+              const label = noCareByDate.get(fmtDate(c.y, c.mo, c.d));
+              if (label === undefined) return;
+              const last = careRuns[careRuns.length - 1];
+              if (last && last.start + last.len === ci) last.len++;
+              else careRuns.push({ start: ci, len: 1, label });
+            });
+            return (
+            <div key={wi} style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
               {week.map((c, ci) => {
                 const key = fmtDate(c.y, c.mo, c.d);
                 const dayShifts = shifts[key];
@@ -306,7 +345,7 @@ export function MonthGrid({
                       minHeight: 0,
                     }}
                   >
-                    {confirmedCareDates.has(key) && (
+                    {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
                       <div
                         title="Childcare coverage confirmed"
                         style={{
@@ -318,6 +357,21 @@ export function MonthGrid({
                           borderRadius: 2,
                           background: "#30D158",
                           boxShadow: "0 0 4px rgba(48,209,88,0.5)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
+                    {blockByDate.has(key) && (
+                      <div
+                        title={blockByDate.get(key)}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: 8,
+                          // Red diagonal stripes at 50% opacity. Two-color
+                          // repeating-linear-gradient: red stripe → transparent
+                          // → red stripe, on a 45° angle.
+                          background: "repeating-linear-gradient(135deg, rgba(255,69,58,0.5) 0px, rgba(255,69,58,0.5) 6px, rgba(255,69,58,0) 6px, rgba(255,69,58,0) 14px)",
                           pointerEvents: "none",
                         }}
                       />
@@ -437,8 +491,63 @@ export function MonthGrid({
                   </button>
                 );
               })}
+              {careRuns.flatMap((run, ri) => {
+                const left = `calc(${run.start} * ${CARE_STEP} + 5px)`;
+                const width = `calc(${run.len - 1} * ${CARE_STEP} + ${CARE_COL} - 10px)`;
+                return [
+                  // Event-style dashed pill spanning the blocked run, floating
+                  // over the lower part of the cells (not the very bottom).
+                  <div
+                    key={`care-pill-${ri}`}
+                    title={run.label}
+                    style={{
+                      position: "absolute",
+                      bottom: 10,
+                      left,
+                      width,
+                      height: 16,
+                      boxSizing: "border-box",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 6px",
+                      borderRadius: 5,
+                      border: `1px dashed ${rgba("#FF453A", 0.8)}`,
+                      background: dark ? "rgba(255,69,58,0.18)" : "rgba(255,69,58,0.10)",
+                      color: "#FF453A",
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {run.label}
+                    </span>
+                  </div>,
+                  // Thin bar pinned at the very bottom edge.
+                  <div
+                    key={`care-bar-${ri}`}
+                    style={{
+                      position: "absolute",
+                      bottom: 3,
+                      left,
+                      width,
+                      height: 3,
+                      borderRadius: 2,
+                      background: "#FF453A",
+                      boxShadow: "0 0 4px rgba(255,69,58,0.5)",
+                      pointerEvents: "none",
+                    }}
+                  />,
+                ];
+              })}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       )}

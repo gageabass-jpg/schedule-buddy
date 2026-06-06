@@ -369,10 +369,13 @@
 
     /* quote-of-the-day card */
     .card.quote { background: var(--card); }
+    .card.quote .label { text-align: center; }
     .card.quote .quote-body {
       flex: 1;
       display: flex; flex-direction: column;
       justify-content: center;
+      align-items: center;
+      text-align: center;
       gap: 10px;
       min-height: 0;
     }
@@ -388,6 +391,44 @@
       color: var(--text-3);
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+
+    /* now-playing view — replaces the quote when music is playing.
+       Fully centered: album art on top, song + artist below. */
+    .np-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 10px;
+      min-height: 0;
+      min-width: 0;
+    }
+    .np-art {
+      width: 52%;
+      max-width: 144px;
+      aspect-ratio: 1 / 1;
+      border-radius: 11px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    }
+    .np-meta { min-width: 0; width: 100%; }
+    .np-title {
+      font-size: 25px; font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      line-height: 1.2;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .np-artist {
+      font-size: 17px; color: var(--text-2);
+      margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* caregiver-on-duty card */
@@ -747,11 +788,18 @@
             </div>
           </div>
 
-          <div class="card quote">
-            <div class="label">Parks &amp; Rec · daily</div>
-            <div class="quote-body">
+          <div class="card quote" id="quoteCard">
+            <div class="label" id="quoteLabel">Parks &amp; Rec · daily</div>
+            <div class="quote-body" id="quoteBody">
               <div class="quote-text" id="quoteText">—</div>
               <div class="quote-attr" id="quoteAttr"></div>
+            </div>
+            <div class="np-body" id="npBody" style="display:none">
+              <img class="np-art" id="npArt" alt="" />
+              <div class="np-meta">
+                <div class="np-title" id="npTitle"></div>
+                <div class="np-artist" id="npArtist"></div>
+              </div>
             </div>
           </div>
 
@@ -1699,12 +1747,112 @@
     refresh();
     setInterval(refresh, refreshMs);
 
+    // ─────────────────── now-playing (YouTube Music) ───────────────────
+    // Polls getNowPlaying; when something's playing the Parks & Rec card
+    // flips to album art + song + artist, and reverts to the quote when
+    // music stops. Art URL is resolved server-side (iTunes), so the page
+    // just displays whatever the function returns.
+    const nowPlayingMs = 5_000;
+    function applyNowPlaying(np) {
+      const label = $("quoteLabel"), qBody = $("quoteBody"), npBody = $("npBody");
+      if (np && np.live && np.title) {
+        label.textContent = "Now Playing";
+        qBody.style.display = "none";
+        npBody.style.display = "flex";
+        $("npTitle").textContent = np.title;
+        $("npArtist").textContent = np.artist || "";
+        const art = $("npArt");
+        if (np.art) { art.src = np.art; art.style.visibility = "visible"; }
+        else { art.removeAttribute("src"); art.style.visibility = "hidden"; }
+      } else {
+        label.textContent = "Parks & Rec · daily";
+        npBody.style.display = "none";
+        qBody.style.display = "flex";
+      }
+    }
+    async function refreshNowPlaying() {
+      if (isDemo || !token) return;
+      try {
+        const r = await fetch(`${apiBase}/getNowPlaying?t=${encodeURIComponent(token)}`, { cache: "no-store" });
+        if (!r.ok) return;
+        applyNowPlaying(await r.json());
+      } catch (err) { /* leave card as-is on a blip */ }
+    }
+    refreshNowPlaying();
+    setInterval(refreshNowPlaying, nowPlayingMs);
+
     // Demo mode: trigger both alternate scenes quickly so you don't
     // have to wait the full 5/8-minute production cadence to preview.
     if (isDemo) {
       setTimeout(() => showCalendarScene(), 6_000);   // 6s → calendar for 75s (ends at ~81s)
       setTimeout(() => showPhotoScene(),   90_000);   // 90s → photos for 30s
     }
+
+    // ─────────────────── macro keypad handlers ───────────────────
+    // Physical 3-key pad sends (single keys — combos don't map on Linux):
+    //   F7 → cycle displays (showcase → calendar → photos → …)
+    //   F8 → force refresh from Firebase
+    //   F9 → handled by labwc (launches YouTube Music), never reaches
+    //        this page.
+    let manualScene = 0; // 0=showcase, 1=calendar, 2=photos
+
+    function stopPhotoSwap() {
+      if (photoSwapTimer) { clearInterval(photoSwapTimer); photoSwapTimer = null; }
+    }
+    function clearPhotoEls() {
+      ["photoA", "photoB", "photoBgA", "photoBgB"].forEach((id) => $(id).classList.remove("active"));
+    }
+    function gotoShowcase() {
+      stopPhotoSwap();
+      clearPhotoEls();
+      $("scenePhotos").classList.add("hidden");
+      $("sceneCalendar").classList.add("hidden");
+      $("sceneDashboard").classList.remove("hidden");
+      inAlternateScene = false; // resume auto-rotation
+    }
+    function gotoCalendar() {
+      if (!lastPayload) { manualScene = 0; return gotoShowcase(); }
+      stopPhotoSwap();
+      clearPhotoEls();
+      inAlternateScene = true; // park here; blocks auto-rotation
+      renderCalendar(lastPayload);
+      $("scenePhotos").classList.add("hidden");
+      $("sceneDashboard").classList.add("hidden");
+      $("sceneCalendar").classList.remove("hidden");
+    }
+    function gotoPhotos() {
+      if (photoUrls.length === 0) { manualScene = 0; return gotoShowcase(); }
+      inAlternateScene = true; // park here; blocks auto-rotation
+      $("sceneDashboard").classList.add("hidden");
+      $("sceneCalendar").classList.add("hidden");
+      $("scenePhotos").classList.remove("hidden");
+      const a = $("photoA"), b = $("photoB"), bgA = $("photoBgA"), bgB = $("photoBgB");
+      setPhoto(a, bgA, photoUrls[photoIdx % photoUrls.length]);
+      a.classList.add("active"); bgA.classList.add("active");
+      b.classList.remove("active"); bgB.classList.remove("active");
+      stopPhotoSwap();
+      let toggle = false;
+      photoSwapTimer = setInterval(() => {
+        toggle = !toggle;
+        photoIdx = (photoIdx + 1) % photoUrls.length;
+        const showEl = toggle ? b : a, hideEl = toggle ? a : b;
+        const showBg = toggle ? bgB : bgA, hideBg = toggle ? bgA : bgB;
+        setPhoto(showEl, showBg, photoUrls[photoIdx]);
+        showEl.classList.add("active"); showBg.classList.add("active");
+        hideEl.classList.remove("active"); hideBg.classList.remove("active");
+      }, photoSwapMs);
+    }
+    function cycleDisplay() {
+      manualScene = (manualScene + 1) % 3;
+      if (manualScene === 0) gotoShowcase();
+      else if (manualScene === 1) gotoCalendar();
+      else gotoPhotos();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "F7" || e.code === "F7") { e.preventDefault(); cycleDisplay(); }
+      else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); refresh(); }
+    });
   </script>
 </body>
 </html>

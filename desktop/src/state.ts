@@ -169,6 +169,18 @@ export function generateCoverageId(): string {
 }
 
 /**
+ * A single date on which there is NO childcare available — i.e. the caregiver
+ * (Daisy) is scheduled off. Set manually from the Inspector or in bulk via the
+ * Claude helper's block_childcare tool. Drives the red bar along the bottom of
+ * the calendar cell (mirrors the green confirmed-coverage bar).
+ */
+export interface ChildcareOffDay {
+  date: string;          // YYYY-MM-DD
+  /** Cosmetic label, e.g. "Daisy – Scheduled Off". */
+  label?: string;
+}
+
+/**
  * Recurring payday schedule for a household member. Stored as an anchor
  * date + a cadence so we don't have to maintain a list of every payday.
  * Calendar renderers expand the rule on the fly across the visible window.
@@ -227,6 +239,9 @@ export interface HouseholdState {
   /** Requests authored by caregivers — Schedule Block / Shift Conflict / Other.
    *  Surfaced in the manager's Inbox. */
   caregiverRequests?: CaregiverRequest[];
+  /** Dates with no childcare available (caregiver scheduled off). Renders a
+   *  red bar on the calendar. */
+  childcareOff?: ChildcareOffDay[];
   /** Per-person recurring payday rules. Calendar cells render a $ icon
    *  on dates that match. */
   paydays?: {
@@ -237,12 +252,28 @@ export interface HouseholdState {
    *  colored flair (birthdays, anniversaries, holidays). Paydays are
    *  computed separately from `paydays` above and not stored here. */
   occasions?: OccasionEntry[];
+  /** Date-range "schedule blocks" — vacation, travel, hospital stay,
+   *  etc. Calendar cells inside a block render with red diagonal stripes
+   *  at 50% opacity. Created from the Inspector's Utilities → Schedule
+   *  Block tool. iOS preserves the field (round-trips it) but doesn't
+   *  render the stripes yet. */
+  scheduleBlocks?: ScheduleBlock[];
   /** Optional last day the recurring weekly template (and alt-weekend
    *  pattern) applies, as "YYYY-MM-DD" (inclusive). After this date the
    *  template stops producing shifts — one-off overrides and OT still
    *  show. Absent = the template recurs indefinitely. */
   templateEndDate?: string;
   _migrations: string[];
+}
+
+export interface ScheduleBlock {
+  id: string;
+  startDate: string;     // YYYY-MM-DD inclusive
+  endDate: string;       // YYYY-MM-DD inclusive (same as startDate for single day)
+  label?: string;        // optional, e.g., "Vacation", "Out of town"
+  notes?: string;
+  createdAt: number;
+  createdBy: string;
 }
 
 export type OccasionType = "birthday" | "anniversary" | "holiday";

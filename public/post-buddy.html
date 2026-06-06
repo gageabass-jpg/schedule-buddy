@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Post Buddy — Package Tracker</title>
+<link rel="icon" href="icons/icon-192.png" />
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Post Buddy — macOS-native package tracker (Find My / Maps light)
+     Passive WALL DASHBOARD layout: full-bleed journey map (left) +
+     always-on status menu (right). Informative with zero interaction;
+     still clickable on a Mac. Dependency-free vanilla so it loads fast
+     and offline on the Pi kiosk. Feed it real data by dropping a
+     post-buddy-data.json next to this file (see DATA SHAPE below).
+     ───────────────────────────────────────────────────────────── */
+  :root { --pb-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: var(--pb-font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background: var(--pb-window-bg, #e9e9ec);
+    color: var(--pb-text, #1d1d1f);
+  }
+  #app { width: 100vw; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  body.wall { cursor: none; }
+  body.wall .pb-tool-settings, body.wall .pb-tool-add, body.wall .pb-rail-filter { display: none !important; }
+
+  @keyframes pbPulse {
+    0%   { transform: scale(0.55); opacity: 0.55; }
+    70%  { transform: scale(2.6);  opacity: 0; }
+    100% { opacity: 0; }
+  }
+  .pb-pulse { transform-box: fill-box; transform-origin: center; animation: pbPulse 2.2s ease-out infinite; }
+
+  @keyframes pbDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .pb-pulse-dot { animation: pbDot 1.6s ease-in-out infinite; }
+
+  @keyframes pbFlow { to { stroke-dashoffset: -280; } }
+  .pb-flow { animation: pbFlow 7s linear infinite; }
+
+  .pb-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+  .pb-scroll::-webkit-scrollbar-thumb { background: rgba(140,140,150,0.4); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+  .pb-scroll::-webkit-scrollbar-track { background: transparent; }
+
+  .pb-card, .pb-tool, .pb-seg-btn, .pb-swatch, .pb-mapbtn { transition: background .15s, box-shadow .15s, transform .12s; }
+  .pb-fade-in { animation: pbFadeIn .35s ease; }
+  @keyframes pbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pb-pulse, .pb-pulse-dot, .pb-flow, .pb-fade-in { animation: none; }
+  }
+
+  /* narrow-window fallback: rail goes full width, map hides */
+  @media (max-width: 720px) { .pb-maparea { display: none !important; } .pb-rail { left: 14px !important; width: auto !important; } }
+
+  /* ───────────────────────────────────────────────────────────────
+     DATA SHAPE — drop a post-buddy-data.json (array) next to this file,
+     or pass ?data=<url>. The wall re-reads it every 60s. Each item:
+       {
+         "id": "ebay", "title": "eBay Package", "carrier": "USPS",
+         "state": "transit" | "out" | "delivered",
+         "statusLine": "Preparing for Delivery",
+         "statusSub": "Arrived at hub · Charleston, WV",
+         "eta": "Mon, Jun 1",            // short, shown on the card
+         "fromCity": "Henderson, NV", "toCity": "Charleston, WV",
+         "waypoints": [ {"x":168,"y":452,"label":"Henderson, NV","kind":"origin"},
+                        {"x":828,"y":356,"label":"Charleston, WV","kind":"current"} ],
+         "events": [ {"label":"Arrived at Hub","place":"CHARLESTON, WV","date":"May 31 · 12:42 PM"} ]
+       }
+     waypoint x/y are in the map's 0–1000 × 0–600 space; kind is one of
+     origin | mid | current | delivered. Missing fields get sane defaults.
+     ─────────────────────────────────────────────────────────────── */
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+"use strict";
+(function () {
+  // ── hyperscript helper ──
+  function h(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) {
+      const v = props[k];
+      if (v == null || v === false) continue;
+      if (k === "style") Object.assign(e.style, v);
+      else if (k === "class") e.className = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k.slice(0, 2) === "on" && typeof v === "function") e.addEventListener(k.slice(2).toLowerCase(), v);
+      else e.setAttribute(k, v === true ? "" : v);
+    }
+    const add = (c) => {
+      if (c == null || c === false) return;
+      if (Array.isArray(c)) { c.forEach(add); return; }
+      e.appendChild(typeof c === "object" ? c : document.createTextNode(String(c)));
+    };
+    kids.forEach(add);
+    return e;
+  }
+  const FONT = "var(--pb-font)";
+
+  // ── theme tokens (light Find-My / dark), accent tunable ──
+  function getTheme(dark, accent) {
+    if (dark) {
+      return {
+        dark: true,
+        accent, accentInk: "#fff", accentSoft: accent + "2b",
+        windowBg: "#1c1c1e",
+        chrome: "rgba(30,30,32,0.72)",
+        panel: "#2c2c2e", panelGlass: "rgba(36,36,38,0.72)", panelHover: "rgba(255,255,255,0.06)",
+        text: "#f5f5f7", text2: "#a1a1a6", text3: "#7c7c80",
+        sep: "rgba(255,255,255,0.10)", sepStrong: "rgba(255,255,255,0.16)",
+        land: "#26262a", land2: "#2d2d31", water: "#1a2a3c", park: "#1f3324",
+        mapLabel: "rgba(255,255,255,0.55)", mapLabelBg: "rgba(28,28,30,0.7)",
+        mapBorder: "rgba(255,255,255,0.07)", labelStroke: "rgba(255,255,255,0.08)",
+        pinShadow: "rgba(0,0,0,0.5)", dotStroke: "rgba(0,0,0,0.08)",
+        dimRoute: "rgba(255,255,255,0.5)",
+        green: "#30d158", blue: "#0a84ff", red: "#ff453a",
+        shadowWin: "0 0 0 1px rgba(0,0,0,0.6), 0 24px 70px rgba(0,0,0,0.6)",
+        cardShadow: "0 1px 3px rgba(0,0,0,0.4), 0 8px 30px rgba(0,0,0,0.35)",
+        glassBorder: "rgba(255,255,255,0.12)",
+        segBg: "rgba(255,255,255,0.08)", segOn: "#48484a",
+        thumbAlpha: "26", focusBg: "rgba(255,255,255,0.06)",
+      };
+    }
+    return {
+      dark: false,
+      accent, accentInk: "#fff", accentSoft: accent + "1f",
+      windowBg: "#ffffff",
+      chrome: "rgba(248,248,250,0.72)",
+      panel: "#ffffff", panelGlass: "rgba(255,255,255,0.72)", panelHover: "rgba(0,0,0,0.045)",
+      text: "#1d1d1f", text2: "#6e6e73", text3: "#9b9ba1",
+      sep: "rgba(0,0,0,0.08)", sepStrong: "rgba(0,0,0,0.13)",
+      land: "#f1ede4", land2: "#eae5da", water: "#a9d4f5", park: "#c9e7bd",
+      mapLabel: "rgba(60,60,67,0.6)", mapLabelBg: "rgba(255,255,255,0.82)",
+      mapBorder: "rgba(0,0,0,0.07)", labelStroke: "rgba(0,0,0,0.05)",
+      pinShadow: "rgba(0,0,0,0.28)", dotStroke: "rgba(0,0,0,0.08)",
+      dimRoute: "rgba(70,70,75,0.5)",
+      green: "#34c759", blue: "#0a84ff", red: "#ff3b30",
+      shadowWin: "0 0 0 1px rgba(0,0,0,0.16), 0 24px 70px rgba(0,0,0,0.32)",
+      cardShadow: "0 1px 2px rgba(0,0,0,0.06), 0 10px 30px rgba(0,0,0,0.10)",
+      glassBorder: "rgba(255,255,255,0.6)",
+      segBg: "rgba(0,0,0,0.06)", segOn: "#ffffff",
+      thumbAlpha: "18", focusBg: "rgba(0,0,0,0.028)",
+    };
+  }
+  const stateColor = (t, st) => st === "delivered" ? t.green : st === "out" ? t.accent : t.blue;
+
+  // ── seed data (used until a post-buddy-data.json is provided) ──
+  const SEED_PACKAGES = [
+    {
+      id: "ebay", title: "eBay Package", sub: "Vintage camera lens", carrier: "USPS",
+      tracking: "9400 1112 0000 8841 2207 45", state: "transit",
+      statusLine: "Preparing for Delivery", statusSub: "Arrived at hub · Charleston, WV",
+      eta: "Mon, Jun 1", etaLong: "Monday, June 1", progress: 0.9,
+      fromCity: "Henderson, NV", toCity: "Charleston, WV",
+      waypoints: [
+        { x: 168, y: 452, label: "Henderson, NV", kind: "origin" },
+        { x: 150, y: 402, label: "Las Vegas, NV", kind: "mid" },
+        { x: 620, y: 300, label: "Indianapolis, IN", kind: "mid" },
+        { x: 828, y: 356, label: "Charleston, WV", kind: "current" },
+      ],
+      events: [
+        { label: "Preparing for Delivery", place: "", date: "", current: true },
+        { label: "Arrived at Hub", place: "CHARLESTON, WV 25301", date: "May 31, 2026 · 12:42 PM" },
+        { label: "Departed USPS Facility", place: "CHARLESTON WV PROCESSING CENTER", date: "May 31, 2026 · 6:35 AM" },
+        { label: "Arrived at USPS Facility", place: "CHARLESTON WV PROCESSING CENTER", date: "May 30, 2026 · 10:08 AM" },
+        { label: "Departed USPS Facility", place: "INDIANAPOLIS IN DISTRIBUTION CENTER", date: "May 30, 2026 · 7:06 AM" },
+        { label: "Arrived at USPS Facility", place: "INDIANAPOLIS IN DISTRIBUTION CENTER", date: "May 29, 2026 · 11:23 PM" },
+        { label: "Departed USPS Facility", place: "LAS VEGAS NV PACKAGE SORTING CENTER", date: "May 28, 2026 · 3:23 AM" },
+        { label: "Arrived at USPS Facility", place: "LAS VEGAS NV PACKAGE SORTING CENTER", date: "May 27, 2026 · 8:55 PM" },
+        { label: "USPS in possession of item", place: "HENDERSON, NV 89012", date: "May 27, 2026 · 4:46 PM" },
+        { label: "Shipping Label Created", place: "HENDERSON, NV 89002", date: "May 27, 2026 · 2:25 PM" },
+      ],
+    },
+    {
+      id: "airpods", title: "AirPods Pro", sub: "Replacement set", carrier: "UPS",
+      tracking: "1Z 999 AA1 01 2345 6784", state: "out",
+      statusLine: "Out for Delivery", statusSub: "On the delivery vehicle",
+      eta: "Today, by 9 PM", etaLong: "Today, by 9 PM", progress: 0.97,
+      fromCity: "Columbus, OH", toCity: "Charleston, WV",
+      waypoints: [
+        { x: 560, y: 250, label: "Columbus, OH", kind: "origin" },
+        { x: 720, y: 320, label: "Local Facility", kind: "mid" },
+        { x: 824, y: 360, label: "Out for Delivery", kind: "current" },
+      ],
+      events: [
+        { label: "Out for Delivery", place: "CHARLESTON, WV 25301", date: "May 31, 2026 · 7:58 AM", current: true },
+        { label: "Arrived at Local Facility", place: "CHARLESTON, WV", date: "May 31, 2026 · 5:12 AM" },
+        { label: "Departed Hub", place: "COLUMBUS, OH", date: "May 30, 2026 · 9:40 PM" },
+        { label: "Origin Scan", place: "COLUMBUS, OH", date: "May 30, 2026 · 2:15 PM" },
+      ],
+    },
+    {
+      id: "shoes", title: "Trail Runners", sub: "Size 10 · Slate", carrier: "FedEx",
+      tracking: "7712 0048 9930", state: "delivered",
+      statusLine: "Delivered", statusSub: "Left at front door",
+      eta: "Delivered Fri", etaLong: "Delivered Fri, May 29", progress: 1,
+      fromCity: "Memphis, TN", toCity: "Charleston, WV",
+      waypoints: [
+        { x: 430, y: 430, label: "Memphis, TN", kind: "origin" },
+        { x: 650, y: 360, label: "Knoxville, TN", kind: "mid" },
+        { x: 824, y: 358, label: "Charleston, WV", kind: "delivered" },
+      ],
+      events: [
+        { label: "Delivered", place: "Front door · CHARLESTON, WV", date: "May 29, 2026 · 3:09 PM", current: true },
+        { label: "Out for Delivery", place: "CHARLESTON, WV", date: "May 29, 2026 · 8:22 AM" },
+        { label: "At Local FedEx Facility", place: "CHARLESTON, WV", date: "May 29, 2026 · 6:01 AM" },
+        { label: "In Transit", place: "KNOXVILLE, TN", date: "May 28, 2026 · 11:50 PM" },
+        { label: "Shipment Picked Up", place: "MEMPHIS, TN", date: "May 27, 2026 · 4:30 PM" },
+      ],
+    },
+  ];
+
+  // ── glyphs ──
+  function iconStr(name, size, color, stroke) {
+    const a = `fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"`;
+    const P = {
+      plus: `<path d="M9 3.5V14.5M3.5 9H14.5" ${a}/>`,
+      box: `<path d="M9 2.2 15.3 5.6V12.4L9 15.8 2.7 12.4V5.6Z" ${a}/><path d="M2.7 5.6 9 9l6.3-3.4M9 9v6.8" ${a}/>`,
+      truck: `<path d="M1.8 5.2h8.4v6.6H1.8z" ${a}/><path d="M10.2 7.2h3l2 2.2v2.4h-5z" ${a}/><circle cx="5" cy="13" r="1.4" ${a}/><circle cx="12.4" cy="13" r="1.4" ${a}/>`,
+      check: `<path d="M3.5 9.2 7 12.5 14.5 5" ${a}/>`,
+      nav: `<path d="M15 3 3 8.4l5.2 1.7L9.9 15z" ${a}/>`,
+      locate: `<circle cx="9" cy="9" r="3.1" ${a}/><path d="M9 1.5v2.4M9 14.1v2.4M16.5 9h-2.4M3.9 9H1.5" ${a}/>`,
+      sliders: `<path d="M3 6h6" ${a}/><path d="M13 6h2" ${a}/><circle cx="11" cy="6" r="1.9" ${a}/><path d="M3 12h2" ${a}/><path d="M9 12h6" ${a}/><circle cx="7" cy="12" r="1.9" ${a}/>`,
+    };
+    return `<svg width="${size}" height="${size}" viewBox="0 0 18 18" style="display:block;flex-shrink:0">${P[name] || ""}</svg>`;
+  }
+  function icon(name, size, color, stroke) {
+    const w = document.createElement("span");
+    w.style.display = "inline-flex";
+    w.innerHTML = iconStr(name, size || 17, color || "currentColor", stroke || 1.7);
+    return w.firstElementChild;
+  }
+
+  // ── map building blocks ──
+  function routePath(pts) {
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1], b = pts[i];
+      const mx = (p.x + b.x) / 2, my = (p.y + b.y) / 2;
+      const dist = Math.hypot(b.x - p.x, b.y - p.y);
+      const lift = Math.min(dist * 0.16, 70);
+      d += ` Q ${mx} ${my - lift} ${b.x} ${b.y}`;
+    }
+    return d;
+  }
+  const GLYPH = {
+    delivered: `<path d="M3.5 9.2 7 12.5 14.5 5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+    out: `<path d="M1.8 5.2h8.4v6.6H1.8z" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.2 7.2h3l2 2.2v2.4h-5z" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5" cy="13" r="1.3" fill="none" stroke-width="1.8"/><circle cx="12.4" cy="13" r="1.3" fill="none" stroke-width="1.8"/>`,
+    transit: `<path d="M9 2.2 15.3 5.6V12.4L9 15.8 2.7 12.4V5.6Z" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.7 5.6 9 9l6.3-3.4M9 9v6.8" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  };
+  function pinMarkup(w, pinStyle, t, pkgState) {
+    const isMain = w.kind === "current" || w.kind === "delivered";
+    if (!isMain) {
+      const r = w.kind === "origin" ? 6 : 4.5;
+      return `<g>
+        <circle r="${r + 3}" fill="#fff" stroke="${t.dotStroke}" stroke-width="1"/>
+        <circle r="${r}" fill="${w.kind === "origin" ? t.accent : t.text2}"/>
+        ${w.kind === "origin" ? `<circle r="${r - 2.4}" fill="#fff"/>` : ""}
+      </g>`;
+    }
+    const size = 38;
+    const color = w.kind === "delivered" ? t.green : t.accent;
+    const glyph = GLYPH[w.kind === "delivered" ? "delivered" : pkgState] || GLYPH.transit;
+    let body;
+    if (pinStyle === "circle") {
+      body = `<g>
+        <circle r="${size / 2 + 3}" fill="#fff" style="filter:drop-shadow(0 3px 5px ${t.pinShadow})"/>
+        <circle r="${size / 2}" fill="${color}"/>
+        <g transform="translate(-9,-9)" stroke="#fff">${glyph}</g>
+      </g>`;
+    } else if (pinStyle === "tag") {
+      const W = size + 10, H = size;
+      body = `<g>
+        <g style="filter:drop-shadow(0 4px 6px ${t.pinShadow})">
+          <rect x="${-W / 2}" y="${-H / 2 - 8}" width="${W}" height="${H}" rx="11" fill="#fff"/>
+          <rect x="${-W / 2 + 2.5}" y="${-H / 2 - 5.5}" width="${W - 5}" height="${H - 5}" rx="8.5" fill="${color}"/>
+          <path d="M ${-6} ${H / 2 - 5} L 0 ${H / 2 + 4} L 6 ${H / 2 - 5} Z" fill="#fff"/>
+        </g>
+        <g transform="translate(-9,${-9 - 8})" stroke="#fff">${glyph}</g>
+      </g>`;
+    } else {
+      body = `<g>
+        <g style="filter:drop-shadow(0 4px 6px ${t.pinShadow})">
+          <path d="M0 -34 C 13 -34 21 -25 21 -14 C 21 -2 7 7 0 18 C -7 7 -21 -2 -21 -14 C -21 -25 -13 -34 0 -34 Z" fill="#fff"/>
+          <path d="M0 -31 C 11.4 -31 18 -23 18 -14 C 18 -4 6 4 0 13.5 C -6 4 -18 -4 -18 -14 C -18 -23 -11.4 -31 0 -31 Z" fill="${color}"/>
+        </g>
+        <g transform="translate(-9,-23)" stroke="#fff">${glyph}</g>
+      </g>`;
+    }
+    const pulse = w.kind === "current" ? `<circle class="pb-pulse" r="${size / 2}" fill="${color}" opacity="0.35"/>` : "";
+    return `<g>${pulse}${body}</g>`;
+  }
+  function mapLabelMarkup(text, t, strong) {
+    const w = Math.max(40, text.length * 6.6 + 16);
+    return `<g>
+      <rect x="${-w / 2}" y="-11" width="${w}" height="22" rx="7" fill="${t.mapLabelBg}" stroke="${t.labelStroke}" stroke-width="1" style="filter:${strong ? "drop-shadow(0 2px 4px rgba(0,0,0,0.15))" : "none"}"/>
+      <text x="0" y="4.5" text-anchor="middle" font-family="${FONT}" font-size="${strong ? 12.5 : 11.5}" font-weight="${strong ? 700 : 600}" fill="${t.text}">${text}</text>
+    </g>`;
+  }
+  function baseMapInner(t) {
+    const ctx = [
+      { x: 300, y: 250, n: "Denver" }, { x: 470, y: 200, n: "Chicago" },
+      { x: 760, y: 230, n: "Pittsburgh" }, { x: 540, y: 430, n: "Nashville" },
+      { x: 250, y: 360, n: "Phoenix" }, { x: 880, y: 250, n: "D.C." },
+    ];
+    return `
+      <path d="M -40 90 C 120 60 300 70 470 60 C 640 50 820 70 1040 60 L 1040 470 C 980 520 900 470 820 500 C 700 545 560 500 430 540 C 300 580 160 540 60 560 C -10 575 -40 520 -40 470 Z" fill="${t.land}"/>
+      <g opacity="${t.dark ? 0.5 : 0.7}">
+        <path d="M -40 90 C 120 70 260 80 380 120 C 420 240 360 360 300 440 C 180 470 40 470 -40 460 Z" fill="${t.land2}"/>
+        <path d="M 700 70 C 820 80 960 70 1040 70 L 1040 320 C 940 340 820 300 740 320 C 690 230 700 150 700 70 Z" fill="${t.land2}"/>
+      </g>
+      <g stroke="${t.mapBorder}" stroke-width="1.4" fill="none" stroke-linecap="round">
+        <path d="M 300 60 C 290 200 320 360 300 470"/>
+        <path d="M 470 55 C 480 200 460 360 470 545"/>
+        <path d="M 640 55 C 650 200 630 360 640 510"/>
+        <path d="M 800 65 C 810 200 790 360 800 500"/>
+        <path d="M -40 250 C 200 240 600 260 1040 245"/>
+        <path d="M -40 380 C 300 370 700 400 1040 380"/>
+      </g>
+      <path d="M 455 150 C 510 140 540 175 520 205 C 480 225 430 205 440 175 Z" fill="${t.water}" opacity="0.9"/>
+      <path d="M 520 205 C 560 250 540 320 600 360" stroke="${t.water}" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.8"/>
+      <ellipse cx="360" cy="300" rx="34" ry="22" fill="${t.park}" opacity="0.75"/>
+      <ellipse cx="690" cy="420" rx="28" ry="18" fill="${t.park}" opacity="0.75"/>
+      ${ctx.map((c) => `<g><circle cx="${c.x}" cy="${c.y}" r="2.6" fill="${t.text3}" opacity="0.7"/><text x="${c.x + 7}" y="${c.y + 3.5}" font-family="${FONT}" font-size="12" fill="${t.mapLabel}" font-weight="500">${c.n}</text></g>`).join("")}`;
+  }
+  // All journeys at once: every active route start→finish, the focused one
+  // emphasised (glow + flow + pins + labels), the rest drawn dim.
+  function mapSvg(t, pinStyle, packages, focusId) {
+    const focus = packages.find((p) => p.id === focusId) || packages[0];
+    const others = packages.filter((p) => p.id !== focus.id && p.state !== "delivered");
+    const dim = others.map((p) => {
+      const rp = routePath(p.waypoints);
+      const cur = p.waypoints[p.waypoints.length - 1];
+      const c = stateColor(t, p.state);
+      return `<g opacity="0.6">
+        <path d="${rp}" fill="none" stroke="${t.dimRoute}" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="1 7"/>
+        <circle cx="${cur.x}" cy="${cur.y}" r="7" fill="#fff" stroke="${t.dotStroke}" stroke-width="1"/>
+        <circle cx="${cur.x}" cy="${cur.y}" r="4.2" fill="${c}"/>
+      </g>`;
+    }).join("");
+
+    const fp = focus.waypoints;
+    const frp = routePath(fp);
+    const focusColor = focus.state === "delivered" ? t.green : t.accent;
+    const glow = fp.filter((w) => w.kind === "current" || w.kind === "delivered")
+      .map((w) => `<circle cx="${w.x}" cy="${w.y}" r="46" fill="url(#glow-foc)"/>`).join("");
+    const labels = fp.map((w) => {
+      const main = w.kind === "current" || w.kind === "delivered";
+      const above = w.y > 120;
+      const ly = main ? (above ? w.y - 50 : w.y + 30) : w.y + (w.kind === "origin" ? 20 : 16);
+      return `<g transform="translate(${w.x}, ${ly})">${mapLabelMarkup(w.label, t, main)}</g>`;
+    }).join("");
+    const pins = fp.map((w) => `<g transform="translate(${w.x}, ${w.y})">${pinMarkup(w, pinStyle, t, focus.state)}</g>`).join("");
+
+    return `<svg viewBox="70 140 880 410" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;background:${t.water}">
+      <defs>
+        <radialGradient id="glow-foc" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="${focusColor}" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="${focusColor}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      ${baseMapInner(t)}
+      ${dim}
+      <path d="${frp}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity="${t.dark ? 0.25 : 0.9}"/>
+      <path d="${frp}" fill="none" stroke="${focusColor}" stroke-width="4.5" stroke-linecap="round"/>
+      <path class="pb-flow" d="${frp}" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="2 26" opacity="0.9"/>
+      ${glow}
+      ${labels}
+      ${pins}
+    </svg>`;
+  }
+
+  // ── small UI pieces ──
+  const T = () => state.theme;
+
+  function trafficLights() {
+    const dot = (bg) => h("div", { style: { width: "12px", height: "12px", borderRadius: "50%", background: bg, border: "0.5px solid rgba(0,0,0,0.12)" } });
+    return h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, dot("#ff5f57"), dot("#febc2e"), dot("#28c840"));
+  }
+
+  function toolButton({ icon: ic, label, primary, active, onClick, cls }) {
+    const t = T();
+    const bg = primary ? t.accent : active ? t.accentSoft : "transparent";
+    const col = primary ? t.accentInk : active ? t.accent : t.text;
+    const btn = h("button", {
+      class: "pb-tool" + (cls ? " " + cls : ""),
+      onClick,
+      style: { display: "inline-flex", alignItems: "center", gap: "6px", height: "30px", padding: label ? "0 12px" : "0 8px", border: "none", cursor: "pointer", borderRadius: "8px", background: bg, color: col, font: "inherit", fontSize: "13px", fontWeight: primary ? "600" : "500" },
+    }, ic && icon(ic, 16, col, primary ? 2 : 1.8), label);
+    if (!primary && !active) {
+      btn.addEventListener("mouseenter", () => (btn.style.background = t.panelHover));
+      btn.addEventListener("mouseleave", () => (btn.style.background = "transparent"));
+    }
+    return btn;
+  }
+
+  function segmented({ options, value, onChange, cls }) {
+    const t = T();
+    return h("div", {
+      class: cls,
+      style: { display: "flex", padding: "2px", borderRadius: "9px", gap: "2px", background: t.segBg },
+    }, options.map((o) => {
+      const on = o.value === value;
+      return h("button", {
+        class: "pb-seg-btn",
+        onClick: () => onChange(o.value),
+        style: { flex: "1", border: "none", cursor: "pointer", font: "inherit", fontSize: "12px", fontWeight: "600", padding: "4px 10px", borderRadius: "7px", background: on ? t.segOn : "transparent", color: on ? t.text : t.text2, boxShadow: on ? "0 1px 2px rgba(0,0,0,0.16)" : "none" },
+      }, o.label);
+    }));
+  }
+
+  function thumb(pkg, size) {
+    const t = T();
+    const c = stateColor(t, pkg.state);
+    return h("div", {
+      style: { width: size + "px", height: size + "px", borderRadius: (size * 0.27) + "px", flexShrink: "0", background: c + t.thumbAlpha, display: "flex", alignItems: "center", justifyContent: "center" },
+    }, icon("box", Math.round(size * 0.46), c, 1.7));
+  }
+
+  function carrierChip(carrier) {
+    const t = T();
+    return h("span", {
+      style: { display: "inline-flex", alignItems: "center", height: "18px", padding: "0 7px", borderRadius: "6px", background: t.dark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.06)", color: t.text2, fontSize: "10.5px", fontWeight: "700", letterSpacing: "0.04em", whiteSpace: "nowrap" },
+    }, carrier);
+  }
+
+  function progressTrack(pkg) {
+    const t = T();
+    const steps = ["Shipped", "In Transit", "Out for Delivery", "Delivered"];
+    const activeIdx = pkg.state === "delivered" ? 3 : pkg.state === "out" ? 2 : 1;
+    const c = pkg.state === "delivered" ? t.green : t.accent;
+    const dimDot = t.dark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.12)";
+    const dimBar = t.dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.09)";
+    const dots = h("div", { style: { display: "flex", alignItems: "center" } });
+    steps.forEach((s, i) => {
+      dots.appendChild(h("div", { style: { width: "12px", height: "12px", borderRadius: "50%", flexShrink: "0", background: i <= activeIdx ? c : dimDot, border: i === activeIdx ? `3px solid ${c}` : "none", boxShadow: i === activeIdx ? `0 0 0 3px ${c}33` : "none" } }));
+      if (i < steps.length - 1) dots.appendChild(h("div", { style: { flex: "1", height: "3px", borderRadius: "2px", background: i < activeIdx ? c : dimBar } }));
+    });
+    const labels = h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: "7px" } },
+      steps.map((s, i) => h("span", { style: { fontSize: "10px", fontWeight: i === activeIdx ? "700" : "500", color: i <= activeIdx ? t.text2 : t.text3, flex: i === 0 || i === steps.length - 1 ? "0 0 auto" : "1", textAlign: i === 0 ? "left" : i === steps.length - 1 ? "right" : "center", whiteSpace: "nowrap" } }, s)));
+    return h("div", { style: { display: "flex", flexDirection: "column" } }, dots, labels);
+  }
+
+  function glass(styleExtra, ...kids) {
+    const t = T();
+    return h("div", {
+      class: "pb-glass",
+      style: Object.assign({ background: t.panelGlass, backdropFilter: "blur(30px) saturate(180%)", WebkitBackdropFilter: "blur(30px) saturate(180%)", border: `0.5px solid ${t.glassBorder}`, boxShadow: t.cardShadow, borderRadius: "16px" }, styleExtra),
+    }, ...kids);
+  }
+
+  function livePill() {
+    const t = T();
+    return h("div", {
+      style: { display: "inline-flex", alignItems: "center", gap: "6px", height: "26px", padding: "0 10px", borderRadius: "13px", background: t.dark ? "rgba(28,28,30,0.7)" : "rgba(255,255,255,0.8)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: t.cardShadow, fontSize: "11.5px", fontWeight: "700", color: t.text2, letterSpacing: "0.04em" },
+    }, h("span", { class: "pb-pulse-dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: t.accent, display: "inline-block" } }), "LIVE");
+  }
+
+  function mapControls() {
+    const t = T();
+    const mkbtn = (child) => {
+      const b = h("div", { class: "pb-mapbtn", style: { width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, child);
+      b.addEventListener("mouseenter", () => (b.style.background = t.panelHover));
+      b.addEventListener("mouseleave", () => (b.style.background = "transparent"));
+      return b;
+    };
+    return h("div", { class: "pb-mapcontrols", style: { position: "absolute", right: "16px", bottom: "16px", display: "flex", flexDirection: "column", zIndex: "4" } },
+      glass({ borderRadius: "11px", overflow: "hidden", display: "flex", flexDirection: "column" },
+        mkbtn(icon("plus", 16, t.text, 2)),
+        h("div", { style: { height: "1px", background: t.sep } }),
+        mkbtn(h("span", { style: { fontSize: "18px", color: t.text } }, "−"))),
+      h("div", { style: { height: "8px" } }),
+      glass({ borderRadius: "11px", overflow: "hidden" }, mkbtn(icon("locate", 16, t.accent, 2))));
+  }
+
+  // ── status menu card (one per package) ──
+  function statusCard(pkg, focused) {
+    const t = T();
+    const c = stateColor(t, pkg.state);
+    const delivered = pkg.state === "delivered";
+    const etaColor = delivered ? t.green : t.accent;
+    const etaLabel = delivered ? "Delivered" : "ETA";
+    const etaVal = delivered ? (pkg.eta || "").replace(/^Delivered\s*/i, "") || "Done" : (pkg.eta || "—");
+
+    const dot = h("span", { class: delivered ? "" : "pb-pulse-dot", style: { width: "7px", height: "7px", borderRadius: "50%", background: c, flexShrink: "0", display: "inline-block" } });
+
+    const card = h("div", {
+      class: "pb-card",
+      onClick: () => focusPackage(pkg.id),
+      style: {
+        padding: "13px 14px", borderRadius: "13px", cursor: "pointer",
+        background: focused ? t.focusBg : "transparent",
+        boxShadow: focused ? `inset 0 0 0 1.5px ${c}66` : "none",
+        opacity: delivered && !focused ? "0.7" : "1",
+        display: "flex", flexDirection: "column", gap: "11px",
+      },
+    },
+      h("div", { style: { display: "flex", alignItems: "center", gap: "11px" } },
+        thumb(pkg, 40),
+        h("div", { style: { flex: "1", minWidth: "0" } },
+          h("div", { style: { fontSize: "14px", fontWeight: "700", color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, pkg.title),
+          h("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" } },
+            carrierChip(pkg.carrier),
+            h("span", { style: { fontSize: "11.5px", color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (pkg.fromCity || "—") + " → " + (pkg.toCity || "—")))),
+        h("div", { style: { textAlign: "right", flexShrink: "0" } },
+          h("div", { style: { fontSize: "10px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase", color: t.text3 } }, etaLabel),
+          h("div", { style: { fontSize: "13.5px", fontWeight: "700", color: etaColor, marginTop: "1px", whiteSpace: "nowrap" } }, etaVal))),
+      h("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
+        dot,
+        h("div", { style: { minWidth: "0" } },
+          h("div", { style: { fontSize: "13px", fontWeight: "600", color: t.text } }, pkg.statusLine),
+          pkg.statusSub && h("div", { style: { fontSize: "11.5px", color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, pkg.statusSub))),
+      progressTrack(pkg));
+    if (!focused) {
+      card.addEventListener("mouseenter", () => (card.style.background = t.panelHover));
+      card.addEventListener("mouseleave", () => (card.style.background = "transparent"));
+    }
+    return card;
+  }
+
+  // ── "Track a package" sheet ──
+  function openAddSheet() {
+    const t = T();
+    let val = "";
+    const close = () => overlay.remove();
+    const input = h("input", {
+      placeholder: "9400 1000 0000 0000 0000 00",
+      style: { width: "100%", boxSizing: "border-box", height: "40px", padding: "0 12px", borderRadius: "10px", border: `1px solid ${t.sepStrong}`, background: t.dark ? "rgba(0,0,0,0.25)" : "#fff", color: t.text, font: "inherit", fontSize: "14px", outline: "none", fontFamily: "ui-monospace, Menlo, monospace" },
+      onInput: (e) => (val = e.target.value),
+      onKeydown: (e) => { if (e.key === "Enter" && val.trim()) { addPackage(val.trim()); close(); } if (e.key === "Escape") close(); },
+    });
+    const card = glass({ width: "380px", padding: "22px", borderRadius: "18px", background: t.dark ? "rgba(44,44,46,0.92)" : "rgba(255,255,255,0.92)" },
+      h("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" } },
+        h("div", { style: { width: "38px", height: "38px", borderRadius: "10px", background: t.accentSoft, display: "flex", alignItems: "center", justifyContent: "center" } }, icon("plus", 18, t.accent, 2.2)),
+        h("div", {},
+          h("div", { style: { fontSize: "15px", fontWeight: "700", color: t.text } }, "Track a Package"),
+          h("div", { style: { fontSize: "12px", color: t.text2 } }, "Paste any carrier tracking number"))),
+      input,
+      h("div", { style: { display: "flex", gap: "8px", marginTop: "16px", justifyContent: "flex-end" } },
+        h("button", { onClick: close, style: { height: "34px", padding: "0 16px", borderRadius: "9px", border: "none", cursor: "pointer", font: "inherit", fontSize: "13px", fontWeight: "600", background: t.panelHover, color: t.text } }, "Cancel"),
+        h("button", { onClick: () => { if (val.trim()) { addPackage(val.trim()); close(); } }, style: { height: "34px", padding: "0 18px", borderRadius: "9px", border: "none", cursor: "pointer", font: "inherit", fontSize: "13px", fontWeight: "600", background: t.accent, color: t.accentInk } }, "Track")));
+    card.addEventListener("click", (e) => e.stopPropagation());
+    const overlay = h("div", { class: "pb-fade-in", onClick: close, style: { position: "absolute", inset: "0", zIndex: "30", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.22)" } }, card);
+    document.getElementById("app").appendChild(overlay);
+    setTimeout(() => input.focus(), 0);
+  }
+
+  // ── settings popover (Tweaks: dark / accent / pin) ──
+  const ACCENTS = ["#ff9f0a", "#0a84ff", "#34c759", "#5e5ce6", "#ff375f"];
+  const PIN_STYLES = ["teardrop", "circle", "tag"];
+  function toggleSettings(anchorBtn) {
+    const existing = document.getElementById("pb-settings");
+    if (existing) { existing.remove(); return; }
+    const t = T();
+    const sectionLbl = (txt) => h("div", { style: { fontSize: "10.5px", fontWeight: "700", letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, margin: "2px 0 2px" } }, txt);
+    const darkToggle = h("button", {
+      onClick: () => setSetting("dark", !state.settings.dark),
+      style: { position: "relative", width: "38px", height: "23px", border: "none", borderRadius: "999px", cursor: "pointer", padding: "0", background: state.settings.dark ? t.accent : (t.dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)"), transition: "background .15s" },
+    }, h("i", { style: { position: "absolute", top: "2px", left: "2px", width: "19px", height: "19px", borderRadius: "50%", background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.25)", transition: "transform .15s", transform: state.settings.dark ? "translateX(15px)" : "none" } }));
+    const accentRow = h("div", { style: { display: "flex", gap: "8px" } }, ACCENTS.map((c) => {
+      const on = c.toLowerCase() === state.settings.accent.toLowerCase();
+      return h("button", { class: "pb-swatch", title: c, onClick: () => setSetting("accent", c), style: { width: "30px", height: "30px", borderRadius: "50%", border: "none", cursor: "pointer", background: c, boxShadow: on ? `0 0 0 2px ${t.panel}, 0 0 0 4px ${c}` : "0 1px 2px rgba(0,0,0,0.2)" } });
+    }));
+    const pinRow = segmented({ options: PIN_STYLES.map((p) => ({ value: p, label: p[0].toUpperCase() + p.slice(1) })), value: state.settings.pin, onChange: (v) => setSetting("pin", v) });
+    const pop = glass({ position: "absolute", top: "48px", right: "14px", width: "248px", padding: "14px", zIndex: "40", display: "flex", flexDirection: "column", gap: "10px", background: t.dark ? "rgba(44,44,46,0.92)" : "rgba(255,255,255,0.92)" },
+      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+        h("span", { style: { fontSize: "13px", fontWeight: "700", color: t.text } }, "Tweaks"),
+        h("button", { onClick: () => pop.remove(), style: { border: "none", background: "transparent", color: t.text3, cursor: "pointer", fontSize: "15px", lineHeight: "1" } }, "✕")),
+      sectionLbl("Appearance"),
+      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, h("span", { style: { fontSize: "13px", color: t.text } }, "Dark mode"), darkToggle),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } }, h("span", { style: { fontSize: "13px", color: t.text } }, "Accent"), accentRow),
+      sectionLbl("Map pins"),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } }, h("span", { style: { fontSize: "13px", color: t.text } }, "Pin style"), pinRow));
+    pop.id = "pb-settings";
+    pop.classList.add("pb-fade-in");
+    pop.addEventListener("click", (e) => e.stopPropagation());
+    document.getElementById("app").appendChild(pop);
+    setTimeout(() => {
+      const off = (e) => { if (!pop.contains(e.target) && !anchorBtn.contains(e.target)) { pop.remove(); document.removeEventListener("pointerdown", off, true); } };
+      document.addEventListener("pointerdown", off, true);
+    }, 0);
+  }
+
+  // ── clock ──
+  function formatClock() {
+    const d = new Date();
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const mons = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let hr = d.getHours(); const mn = String(d.getMinutes()).padStart(2, "0");
+    const ap = hr < 12 ? "AM" : "PM"; hr = hr % 12 || 12;
+    return `${days[d.getDay()]}, ${mons[d.getMonth()]} ${d.getDate()} · ${hr}:${mn} ${ap}`;
+  }
+
+  // ── state ──
+  const FILTERS = [{ value: "all", label: "All" }, { value: "active", label: "Active" }, { value: "delivered", label: "Delivered" }];
+  function applyFilter(list, f) {
+    if (f === "active") return list.filter((p) => p.state !== "delivered");
+    if (f === "delivered") return list.filter((p) => p.state === "delivered");
+    return list;
+  }
+  function sortPackages(list) {
+    const rank = { out: 0, transit: 1, delivered: 2 };
+    return list.slice().sort((a, b) => (rank[a.state] ?? 1) - (rank[b.state] ?? 1));
+  }
+  function visiblePackages() { return sortPackages(applyFilter(state.packages, state.filter)); }
+  function selectedPkg() { return state.packages.find((p) => p.id === state.selId) || state.packages[0]; }
+
+  const state = {
+    packages: SEED_PACKAGES.map((p) => ({ ...p })),
+    selId: "ebay",
+    filter: "all",
+    settings: loadSettings(),
+    theme: null,
+    refs: {},
+  };
+  state.theme = getTheme(state.settings.dark, state.settings.accent);
+  let cyclePausedUntil = 0;
+  let lastDataRaw = null;
+  let dataSourceLive = false;
+
+  function focusPackage(id) { state.selId = id; cyclePausedUntil = Date.now() + 30000; render(); }
+  function addPackage(tracking) {
+    const id = "t" + Date.now();
+    state.packages.unshift({
+      id, title: "New Shipment", sub: "Just added", carrier: "USPS", tracking,
+      state: "transit", statusLine: "Label Created", statusSub: "Awaiting carrier pickup",
+      eta: "Awaiting scan", etaLong: "Awaiting first scan", progress: 0.05,
+      fromCity: "—", toCity: "Charleston, WV",
+      waypoints: [{ x: 300, y: 320, label: "Origin", kind: "origin" }, { x: 824, y: 358, label: "Charleston, WV", kind: "current" }],
+      events: [{ label: "Shipping Label Created", place: "Awaiting USPS pickup", date: "Just now", current: true }],
+    });
+    state.selId = id; render();
+  }
+  function setSetting(key, value) {
+    state.settings[key] = value;
+    saveSettings(state.settings);
+    state.theme = getTheme(state.settings.dark, state.settings.accent);
+    const wasOpen = !!document.getElementById("pb-settings");
+    render();
+    if (wasOpen && state.refs.settingsBtn) toggleSettings(state.refs.settingsBtn);
+  }
+
+  function loadSettings() {
+    const def = { dark: false, accent: "#34c759", pin: "teardrop" };
+    let s = { ...def };
+    try { const raw = localStorage.getItem("postbuddy.settings"); if (raw) Object.assign(s, JSON.parse(raw)); } catch (e) {}
+    const q = new URLSearchParams(location.search);
+    if (q.has("dark")) s.dark = q.get("dark") === "1" || q.get("dark") === "true";
+    if (q.has("accent")) { let a = q.get("accent"); if (a[0] !== "#") a = "#" + a; s.accent = a; }
+    if (q.has("pin") && PIN_STYLES.includes(q.get("pin"))) s.pin = q.get("pin");
+    return s;
+  }
+  function saveSettings(s) { try { localStorage.setItem("postbuddy.settings", JSON.stringify(s)); } catch (e) {} }
+
+  // ── external data feed (Informed Delivery → JSON) ──
+  const PKG_TEMPLATE = {
+    carrier: "USPS", state: "transit", statusLine: "In Transit", statusSub: "",
+    eta: "—", etaLong: "—", progress: 0.5, fromCity: "—", toCity: "Home", sub: "", tracking: "",
+    waypoints: [{ x: 300, y: 320, label: "Origin", kind: "origin" }, { x: 824, y: 358, label: "Destination", kind: "current" }],
+    events: [],
+  };
+  function normalizePkg(p, i) {
+    const o = Object.assign({}, PKG_TEMPLATE, p);
+    o.id = o.id || ("p" + i);
+    o.title = o.title || "Package";
+    if (!Array.isArray(o.waypoints) || !o.waypoints.length) o.waypoints = PKG_TEMPLATE.waypoints;
+    if (!Array.isArray(o.events)) o.events = [];
+    return o;
+  }
+  function dataUrl() { return new URLSearchParams(location.search).get("data") || "./post-buddy-data.json"; }
+  function parseFeed(j) {
+    const arr = Array.isArray(j) ? j : (j && Array.isArray(j.packages) ? j.packages : null);
+    return arr && arr.length ? arr : null;
+  }
+  async function loadData() {
+    try {
+      const r = await fetch(dataUrl(), { cache: "no-store" });
+      if (r.ok) { const arr = parseFeed(await r.json()); if (arr) { lastDataRaw = JSON.stringify(arr); dataSourceLive = true; return arr.map(normalizePkg); } }
+    } catch (e) {}
+    return null;
+  }
+  function startDataRefresh() {
+    if (!dataSourceLive && !new URLSearchParams(location.search).has("data")) return;
+    setInterval(async () => {
+      try {
+        const r = await fetch(dataUrl(), { cache: "no-store" });
+        if (!r.ok) return;
+        const arr = parseFeed(await r.json());
+        if (!arr) return;
+        const raw = JSON.stringify(arr);
+        if (raw === lastDataRaw) return;
+        lastDataRaw = raw; dataSourceLive = true;
+        state.packages = arr.map(normalizePkg);
+        if (!state.packages.some((p) => p.id === state.selId)) state.selId = state.packages[0].id;
+        render();
+      } catch (e) {}
+    }, 60000);
+  }
+
+  // ── render: full-bleed journey map + right status menu ──
+  const RAIL_W = 344, RAIL_GAP = 14;
+  function render() {
+    const t = state.theme;
+    document.documentElement.style.setProperty("--pb-window-bg", t.windowBg);
+    document.documentElement.style.setProperty("--pb-text", t.text);
+    document.body.style.background = t.windowBg;
+    document.body.style.color = t.text;
+
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+    app.style.background = t.windowBg;
+
+    const pkgs = state.packages;
+    const inTransit = pkgs.filter((p) => p.state !== "delivered").length;
+    const list = visiblePackages();
+    let focus = selectedPkg();
+    if (!list.some((p) => p.id === focus.id) && list.length) focus = list[0];
+
+    // toolbar
+    const settingsBtn = toolButton({ icon: "sliders", cls: "pb-tool-settings", onClick: () => toggleSettings(settingsBtn) });
+    state.refs.settingsBtn = settingsBtn;
+    const toolbar = h("div", {
+      class: "pb-toolbar",
+      style: { height: "52px", flexShrink: "0", display: "flex", alignItems: "center", gap: "12px", padding: "0 14px", borderBottom: `1px solid ${t.sep}`, background: t.chrome, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", position: "relative", zIndex: "5" },
+    },
+      trafficLights(),
+      h("div", { style: { display: "flex", flexDirection: "column", lineHeight: "1.1", marginLeft: "2px" } },
+        h("span", { style: { fontSize: "15px", fontWeight: "700" } }, "Post Buddy"),
+        h("span", { style: { fontSize: "11px", color: t.text2 } }, inTransit + " in transit · " + pkgs.length + " tracked")),
+      h("div", { style: { flex: "1" } }),
+      h("div", { id: "pb-clock", style: { fontSize: "13px", fontWeight: "600", color: t.text2, fontVariantNumeric: "tabular-nums" } }, formatClock()),
+      settingsBtn,
+      toolButton({ icon: "plus", primary: true, cls: "pb-tool-add", onClick: openAddSheet }));
+
+    // map area (everything left of the rail)
+    const mapHost = h("div", { style: { position: "absolute", inset: "0" } });
+    mapHost.innerHTML = mapSvg(t, state.settings.pin, list.length ? list : pkgs, focus.id);
+    state.refs.mapHost = mapHost;
+    const mapArea = h("div", {
+      class: "pb-maparea",
+      style: { position: "absolute", left: "0", top: "0", bottom: "0", right: (RAIL_W + RAIL_GAP * 2) + "px", background: t.water, overflow: "hidden" },
+    },
+      mapHost,
+      h("div", { style: { position: "absolute", left: "16px", top: "16px", zIndex: "4" } }, livePill()),
+      mapControls());
+
+    // right status menu
+    const railBody = h("div", { class: "pb-scroll", style: { flex: "1", overflowY: "auto", padding: "4px 8px 10px" } });
+    if (!list.length) railBody.appendChild(h("div", { style: { padding: "28px", textAlign: "center", fontSize: "12.5px", color: t.text3 } }, "No packages"));
+    else list.forEach((p, i) => {
+      if (i) railBody.appendChild(h("div", { style: { height: "1px", background: t.sep, margin: "2px 12px" } }));
+      railBody.appendChild(statusCard(p, p.id === focus.id));
+    });
+    const rail = glass({ position: "absolute", right: RAIL_GAP + "px", top: RAIL_GAP + "px", bottom: RAIL_GAP + "px", width: RAIL_W + "px", display: "flex", flexDirection: "column", overflow: "hidden" },
+      h("div", { style: { padding: "14px 16px 11px", display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
+        h("div", { style: { fontSize: "16px", fontWeight: "700", color: t.text, letterSpacing: "-0.01em" } }, "Deliveries"),
+        h("span", { style: { fontSize: "12px", color: t.text2 } }, list.length + (list.length === 1 ? " package" : " packages"))),
+      h("div", { class: "pb-rail-filter", style: { padding: "0 12px 11px" } }, segmented({ options: FILTERS, value: state.filter, onChange: (v) => { state.filter = v; render(); } })),
+      h("div", { style: { height: "1px", background: t.sep } }),
+      railBody);
+
+    const stage = h("div", { style: { flex: "1", position: "relative", overflow: "hidden" } }, mapArea, rail);
+    app.appendChild(toolbar);
+    app.appendChild(stage);
+  }
+
+  // ── kiosk: hide cursor + rotate which package the map emphasises ──
+  function setupKiosk() {
+    const q = new URLSearchParams(location.search);
+    const wall = q.get("wall") === "1" || q.get("wall") === "true";
+    if (wall) document.body.classList.add("wall");
+    const cycleParam = q.get("cycle");
+    if (!(wall || cycleParam != null)) return;
+    const secs = Math.max(4, parseInt(cycleParam, 10) || 9);
+    document.addEventListener("pointerdown", () => { cyclePausedUntil = Date.now() + 30000; });
+    setInterval(() => {
+      if (Date.now() < cyclePausedUntil) return;
+      if (document.getElementById("pb-settings") || document.querySelector(".pb-fade-in input")) return;
+      const list = visiblePackages();
+      if (list.length < 2) return;
+      const idx = list.findIndex((p) => p.id === state.selId);
+      state.selId = list[(idx + 1) % list.length].id;
+      render();
+    }, secs * 1000);
+  }
+
+  function startClock() {
+    setInterval(() => { const c = document.getElementById("pb-clock"); if (c) c.textContent = formatClock(); }, 15000);
+  }
+
+  // ── init ──
+  (async function init() {
+    const data = await loadData();
+    if (data) state.packages = data;
+    // Default the map's emphasis to the most urgent package (out for delivery → in transit).
+    const top = visiblePackages()[0];
+    if (top) state.selId = top.id;
+    render();
+    setupKiosk();
+    startClock();
+    startDataRefresh();
+  })();
+})();
+</script>
+</body>
+</html>

@@ -18,6 +18,8 @@ interface SidebarProps {
   householdName: string;
   memberCount: number;
   syncStatus: string;
+  onRefresh: () => void;
+  refreshing?: boolean;
   viewFilter: ViewFilter;
   viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
@@ -32,7 +34,7 @@ interface SidebarProps {
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
-  householdName, memberCount, syncStatus,
+  householdName, memberCount, syncStatus, onRefresh, refreshing,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
   onOpenFamilyConsole, onSendCoverage, onOpenChildcare, onOpenChat, pendingCoverageCount,
 }: SidebarProps) {
@@ -189,38 +191,82 @@ export function Sidebar({
       </SidebarSection>
       </div>{/* /scrollable middle */}
 
-      <button
-        type="button"
-        onClick={onOpenFamilyConsole}
-        title="Open Family Console"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 8px",
-          borderRadius: 8,
-          background: t.bgElev,
-          border: `0.5px solid ${t.sep}`,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          textAlign: "left",
-          width: "100%",
-        }}
-      >
-        <div style={{ display: "flex" }}>
-          <PhotoAv who="G" size={22} palette={palette} dark={dark} />
-          <div style={{ marginLeft: -6 }}>
-            <PhotoAv who="K" size={22} palette={palette} dark={dark} />
+      <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+        <button
+          type="button"
+          onClick={onOpenFamilyConsole}
+          title="Open Family Console"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 8px",
+            borderRadius: 8,
+            background: t.bgElev,
+            border: `0.5px solid ${t.sep}`,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            textAlign: "left",
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <div style={{ display: "flex" }}>
+            <PhotoAv who="G" size={22} palette={palette} dark={dark} />
+            <div style={{ marginLeft: -6 }}>
+              <PhotoAv who="K" size={22} palette={palette} dark={dark} />
+            </div>
           </div>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text }}>{householdName}</div>
-          <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
-        </div>
-        <span style={{ color: t.text3, fontSize: 14 }}>›</span>
-      </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text }}>{householdName}</div>
+            <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
+          </div>
+          <span style={{ color: t.text3, fontSize: 14 }}>›</span>
+        </button>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Refresh — re-sync schedule data"
+          aria-label="Refresh schedule data"
+          style={{
+            flexShrink: 0,
+            width: 34,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 8,
+            background: t.bgElev,
+            border: `0.5px solid ${t.sep}`,
+            cursor: refreshing ? "default" : "pointer",
+            color: refreshing ? t.text3 : t.text2,
+            opacity: refreshing ? 0.5 : 1,
+            fontSize: 18,
+            fontFamily: "inherit",
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              lineHeight: 1,
+              // 0.6s spin inside a 700ms grayed window, so the rotation always
+              // completes (lands upright) before the button un-grays.
+              animation: refreshing ? "sbmSpin 0.6s linear" : undefined,
+            }}
+          >⟳</span>
+        </button>
+      </div>
     </div>
   );
+}
+
+// Inject the refresh-spin keyframes once.
+if (typeof document !== "undefined" && !document.getElementById("sbm-spin-keyframes")) {
+  const style = document.createElement("style");
+  style.id = "sbm-spin-keyframes";
+  style.textContent = "@keyframes sbmSpin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }";
+  document.head.appendChild(style);
 }
 
 function SidebarSection({ label, t, children }: { label: string; t: ThemeTokens; children: ReactNode }) {

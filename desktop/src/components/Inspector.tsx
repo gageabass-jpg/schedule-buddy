@@ -20,7 +20,10 @@ interface Props {
   onAddEvent: () => void;
   onEditEvent: (ev: SbEvent) => void;
   onSendCoverageForDay: (date: string) => void;
+  onToggleChildcareOff: (date: string, off: boolean) => void;
   onSelectDate?: (date: string) => void;
+  onOpenScheduleBlock: () => void;
+  onOpenCleaner: () => void;
 }
 
 const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
@@ -38,7 +41,9 @@ const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
 
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
-  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay, onSelectDate,
+  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay,
+  onToggleChildcareOff, onSelectDate,
+  onOpenScheduleBlock, onOpenCleaner,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
@@ -51,6 +56,8 @@ export function Inspector({
   const dayCoverage = (state?.coverageRequests ?? []).filter((r) => r.date === selected);
   // A "gap" worth flagging = both partners working with no caregiver request yet.
   const isGapDay = kind === "both" && dayCoverage.length === 0;
+  // Has this day been explicitly marked "no childcare" (caregiver off)?
+  const isChildcareOff = (state?.childcareOff ?? []).some((c) => c.date === selected);
 
   return (
     <div
@@ -160,13 +167,51 @@ export function Inspector({
       <div>
         <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {dayCoverage.length === 0 && !isGapDay && (
+          {isChildcareOff && (
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                background: rgba("#FF453A", dark ? 0.14 : 0.1),
+                border: `0.5px solid ${rgba("#FF453A", 0.5)}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
+                <span style={{ fontWeight: 700, color: "#FF453A" }}>No childcare</span>
+                {" "}— caregiver scheduled off this day.
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggleChildcareOff(selected, false)}
+                style={{
+                  alignSelf: "flex-start",
+                  padding: "6px 12px",
+                  border: `0.5px solid ${t.sep}`,
+                  borderRadius: 7,
+                  background: t.bgElev,
+                  color: t.text,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Childcare available again
+              </button>
+            </div>
+          )}
+
+          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
               No coverage needed — not a both-working day.
             </div>
           )}
 
-          {isGapDay && (
+          {!isChildcareOff && isGapDay && (
             <div
               style={{
                 padding: 10,
@@ -260,6 +305,30 @@ export function Inspector({
               </div>
             );
           })}
+
+          {!isChildcareOff && (
+            <button
+              type="button"
+              onClick={() => onToggleChildcareOff(selected, true)}
+              title="Mark this day as having no childcare (caregiver off)"
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 2,
+                padding: "5px 10px",
+                border: `0.5px solid ${t.sep}`,
+                borderRadius: 7,
+                background: "transparent",
+                color: t.text2,
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Mark no childcare
+            </button>
+          )}
         </div>
       </div>
 
@@ -341,7 +410,117 @@ export function Inspector({
         t={t}
         onSelectDate={onSelectDate}
       />
+
+      {/* Utilities — Schedule Block + Cleaner */}
+      <div>
+        <div style={{ ...subhead(t), display: "flex", alignItems: "center", gap: 6 }}>
+          <WrenchIcon size={11} color={t.text3} />
+          <span>Utilities</span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            background: t.bgElev,
+            border: `0.5px solid ${t.sep}`,
+            borderRadius: 10,
+            overflow: "hidden",
+            marginTop: 4,
+          }}
+        >
+          <UtilityRow
+            icon={<StopOctagonInline size={14} />}
+            label="Schedule Block"
+            hint="Block a day or range with red diagonal stripes."
+            onClick={onOpenScheduleBlock}
+            t={t}
+          />
+          <div style={{ height: 0.5, background: t.sep, marginLeft: 38 }} />
+          <UtilityRow
+            icon={<WandIcon size={14} color={palette.G} />}
+            label="Cleaner"
+            hint="Upload a clean schedule. Review add / remove / change."
+            onClick={onOpenCleaner}
+            t={t}
+          />
+        </div>
+      </div>
     </div>
+  );
+}
+
+// ─────────────────── Utilities helpers ───────────────────
+
+function UtilityRow({ icon, label, hint, onClick, t }: {
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  onClick: () => void;
+  t: ThemeTokens;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px 12px",
+        background: "transparent",
+        border: 0,
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: "inherit",
+        color: t.text,
+      }}
+    >
+      <div style={{ width: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</div>
+        <div style={{ fontSize: 11, color: t.text3, marginTop: 1 }}>{hint}</div>
+      </div>
+      <span style={{ color: t.text3, fontSize: 13 }}>›</span>
+    </button>
+  );
+}
+
+function WrenchIcon({ size = 12, color = "currentColor" }: { size?: number; color?: string }) {
+  // Subtle gray wrench — simplified silhouette.
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M22 7a5 5 0 0 1-6.5 4.77L5.83 21.46a2.83 2.83 0 1 1-4-4L11.5 7.83A5 5 0 0 1 18 1.31l-3.18 3.18 2.7 2.7L20.7 4Z"
+        fill={color}
+        opacity={0.65}
+      />
+    </svg>
+  );
+}
+
+function StopOctagonInline({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#FF453A" />
+    </svg>
+  );
+}
+
+function WandIcon({ size = 14, color = "#7FA86A" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      {/* tip star */}
+      <path d="M19 3 l1 2 l2 1 l-2 1 l-1 2 l-1-2 l-2-1 l2-1 z" fill={color} />
+      {/* wand body */}
+      <path
+        d="M3 21 L15 9 L17 11 L5 23 z"
+        fill={color}
+        transform="translate(0,-2)"
+        opacity={0.85}
+      />
+    </svg>
   );
 }
 

@@ -7207,6 +7207,9 @@ function loadStateFromLocalStorage() {
         : d.partner,
       caregiverBlackouts: Array.isArray(parsed.caregiverBlackouts)
         ? parsed.caregiverBlackouts : d.caregiverBlackouts,
+      // Mac-authored arrays — preserve on round-trip.
+      scheduleBlocks: Array.isArray(parsed.scheduleBlocks) ? parsed.scheduleBlocks : [],
+      occasions:      Array.isArray(parsed.occasions)      ? parsed.occasions      : [],
       _migrations: Array.isArray(parsed._migrations) ? parsed._migrations.slice() : [],
     };
     return applyMigrations(merged);
@@ -7276,6 +7279,14 @@ function mergeStateFromFirestore(data) {
     // Optional last day the recurring weekly template applies (inclusive,
     // "YYYY-MM-DD"). Set in the desktop manager's weekly-template editor.
     templateEndDate: typeof data.templateEndDate === "string" ? data.templateEndDate : undefined,
+    // Mac-authored — iOS doesn't render these yet, but preserves them on
+    // round-trip so writes from the phone don't clobber the data.
+    // - scheduleBlocks: date-range blocks (vacation, travel) shown on the
+    //   manager calendar as red diagonal stripes.
+    // - occasions: birthdays / anniversaries / holidays surfaced on the
+    //   wall display's hero greeting line.
+    scheduleBlocks: Array.isArray(data.scheduleBlocks) ? data.scheduleBlocks : [],
+    occasions: Array.isArray(data.occasions) ? data.occasions : [],
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
   return applyMigrations(merged);

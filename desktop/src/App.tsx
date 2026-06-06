@@ -33,6 +33,8 @@ export type EventMap = Record<string, Event[]>;
 import { Sidebar } from "./components/Sidebar";
 import { MonthGrid } from "./components/MonthGrid";
 import { Inspector } from "./components/Inspector";
+import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
+import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
 import { BrandMark } from "./components/BrandMark";
@@ -52,6 +54,7 @@ import { NewRequestModal } from "./components/NewRequestModal";
 import { InboxPanel } from "./components/InboxPanel";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
+import { toggleChildcareOff } from "./lib/writeChildcareOff";
 
 const PALETTE: PaletteName = "modern";
 const FLAT = false;
@@ -90,7 +93,9 @@ interface ManagerAppProps {
 function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const auth = useAuth();
   const user = auth.status === "signed-in" ? auth.user : null;
-  const householdStatus = useHousehold(user);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const householdStatus = useHousehold(user, refreshNonce);
 
   const today = todayISO();
   const [tY, tM, tD] = today.split("-").map(Number);
@@ -106,6 +111,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
   const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [scheduleBlockOpen, setScheduleBlockOpen] = useState(false);
+  const [cleanerOpen, setCleanerOpen] = useState(false);
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
@@ -293,6 +300,14 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     setViewMonth(tM - 1);
     setSelected(fmtDate(tY, tM - 1, tD));
   };
+  const handleRefresh = () => {
+    // Bumping the nonce re-subscribes the Firestore listeners (fresh server
+    // read). Re-subscribing fires near-instantly, so keep the spinner up for a
+    // beat so the tap registers visually even when nothing changed.
+    setRefreshing(true);
+    setRefreshNonce((n) => n + 1);
+    window.setTimeout(() => setRefreshing(false), 700);
+  };
 
   const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;
 
@@ -315,6 +330,13 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       initialShiftTypeId: shift.shiftTypeId,
       initialLabel: "",
       who: shift.who,
+    });
+  };
+
+  const handleToggleChildcareOff = (date: string, off: boolean) => {
+    if (!householdId) return;
+    toggleChildcareOff(householdId, date, off).catch((e) => {
+      window.alert(e instanceof Error ? e.message : "Couldn't update childcare.");
     });
   };
 
@@ -357,6 +379,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdName={householdName}
         memberCount={memberCount}
         syncStatus={syncStatus}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
@@ -424,7 +448,31 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           setNewRequestPrefill({ date });
           setNewRequestOpen(true);
         }}
+        onToggleChildcareOff={handleToggleChildcareOff}
         onSelectDate={(iso) => setSelected(iso)}
+        onOpenScheduleBlock={() => setScheduleBlockOpen(true)}
+        onOpenCleaner={() => setCleanerOpen(true)}
+      />
+      <ScheduleBlockModal
+        open={scheduleBlockOpen}
+        onClose={() => setScheduleBlockOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        defaultDate={selected}
+      />
+      <CleanerModal
+        open={cleanerOpen}
+        onClose={() => setCleanerOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+        selfName={selfName}
+        partnerName={partnerName}
       />
       <NewShiftModal
         open={newShiftOpen}

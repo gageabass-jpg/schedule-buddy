@@ -1,0 +1,44 @@
+[
+  {
+    "id": "depop",
+    "title": "Depop Order",
+    "carrier": "USPS",
+    "tracking": "USPS •••• 7945",
+    "state": "out",
+    "statusLine": "Arriving Today",
+    "statusSub": "Expected today · Charleston, WV",
+    "eta": "Today",
+    "etaLong": "Today",
+    "fromCity": "Depop Ltd",
+    "toCity": "Charleston, WV",
+    "waypoints": [
+      { "x": 700, "y": 300, "label": "In transit", "kind": "origin" },
+      { "x": 822, "y": 356, "label": "Charleston, WV", "kind": "current" }
+    ],
+    "events": [
+      { "label": "Arriving Today", "place": "USPS · Charleston, WV", "date": "Thu, Jun 4", "current": true },
+      { "label": "In Transit to Destination", "place": "From Depop Ltd", "date": "" }
+    ]
+  },
+  {
+    "id": "usps2",
+    "title": "USPS Package",
+    "carrier": "USPS",
+    "tracking": "USPS •••• 9946",
+    "state": "transit",
+    "statusLine": "In Transit",
+    "statusSub": "Estimated Fri, Jun 5",
+    "eta": "Fri, Jun 5",
+    "etaLong": "Friday, June 5",
+    "fromCity": "—",
+    "toCity": "Charleston, WV",
+    "waypoints": [
+      { "x": 520, "y": 285, "label": "In transit", "kind": "origin" },
+      { "x": 660, "y": 320, "label": "En route", "kind": "mid" },
+      { "x": 740, "y": 344, "label": "Arriving Fri", "kind": "current" }
+    ],
+    "events": [
+      { "label": "In Transit", "place": "En route to Charleston, WV", "date": "Est. Fri, Jun 5", "current": true }
+    ]
+  }
+]

@@ -48,6 +48,12 @@ ios/App/CapApp-SPM/Package.resolved.bak
 # Env / secrets — none committed; placeholder
 .env
 .env.local
+
+# Post Buddy — tracking API creds + raw tracking input (full tracking #s stay
+# local; only public/post-buddy-data.json with MASKED numbers is committed/deployed)
+.easypost.key
+.usps.key
+scripts/packages.input.json
 "desktop/dist-electron 2/"
 desktop/release/
 

@@ -1,5 +1,7 @@
 export { askClaude } from "./askClaude";
 export { getWallState } from "./wallState";
+export { cleanSchedule } from "./cleanSchedule";
+export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
