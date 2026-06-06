@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Same web app config as the iOS Schedule Buddy app — Firebase web apiKeys
@@ -17,7 +17,14 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Force long polling instead of WebChannel/QUIC streams. Electron + some
+// home networks intermittently break QUIC, which makes the Firestore
+// onSnapshot listener appear dead until the app is fully restarted.
+// Long polling is slightly slower per-message but vastly more reliable
+// for long-running desktop sessions.
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
