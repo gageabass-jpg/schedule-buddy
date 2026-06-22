@@ -1589,39 +1589,37 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
-  /* Ask Claude — floating action button, bottom-right of the Schedule tab,
-     sitting just above the bottom tab bar. */
+  /* Ask Claude — floating action button, bottom-right of the Schedule
+     tab, sitting just above the bottom tab bar. Square shape with the
+     Claude PNG inside, matching the Mac toolbar's Claude button. */
   .ask-claude-fab {
     position: fixed;
     right: 16px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
     z-index: 50;
-    height: 44px;
-    padding: 0 18px 0 16px;
-    border-radius: 999px;
+    width: 52px;
+    height: 52px;
+    padding: 8px;
+    border-radius: 14px;
     background: linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%);
     border: 0;
-    color: #fff;
     cursor: pointer;
     display: none;          /* shown only on the Schedule tab — see below */
     align-items: center;
-    gap: 7px;
+    justify-content: center;
     -webkit-tap-highlight-color: transparent;
     box-shadow: 0 6px 18px rgba(201,100,66,0.4);
   }
   .ask-claude-fab:active { transform: scale(0.96); }
-  .ask-claude-spark {
-    font-size: 14px;
-    line-height: 1;
-    opacity: 0.95;
-  }
-  .ask-claude-word {
-    /* Matches the Schedule Buddy wordmark — Space Grotesk for visual
-       cohesion across the app's branding. */
-    font-family: 'Space Grotesk', 'Styrene A', 'Inter', -apple-system, sans-serif;
-    font-weight: 600;
-    font-size: 15px;
-    letter-spacing: -0.02em;
+  .ask-claude-fab img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
   @media (max-width: 768px) {
     /* Whole Schedule tab (Month / Week / Agenda) — not chat / childcare /
@@ -1920,6 +1918,29 @@
     box-shadow: 0 0 4px rgba(48,209,88,0.5);
     pointer-events: none;
   }
+
+  /* Schedule-block overlay — red diagonal stripes at 50% opacity over
+     any cell inside an active block range. Authored on Mac via the
+     Inspector's Utilities → Schedule Block tool; iOS mirrors the
+     visual using a ::before pseudo so it stacks under the date
+     number + shift pills. */
+  .cal-cell.has-block::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(255,69,58,0.5)  0px,
+      rgba(255,69,58,0.5)  6px,
+      rgba(255,69,58,0)    6px,
+      rgba(255,69,58,0)   14px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Bump the contents above the ::before overlay. */
+  .cal-cell.has-block > * { position: relative; z-index: 1; }
 
   /* Tooltip */
   .cal-tooltip {
@@ -4847,8 +4868,7 @@
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
 <button class="ask-claude-fab mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude">
-  <span class="ask-claude-spark" aria-hidden="true">✦</span>
-  <span class="ask-claude-word">Claude</span>
+  <img src="/assets/claude-ai.png" alt="" draggable="false" />
 </button>
 
 </div><!-- end appScreen -->
@@ -5046,6 +5066,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// Force long polling instead of WebChannel/QUIC streams. On some home networks
+// QUIC intermittently breaks, which leaves the onSnapshot listener silently
+// dead — so writes from the Mac app (e.g. scanned/approved shifts) never reach
+// this device until a full restart, and sometimes not even then. Mirrors the
+// desktop app's fix (commit "Mac: force Firestore long polling"). Must run
+// before persistence and before any read/listener.
+db.settings({ experimentalForceLongPolling: true });
 
 // Enable offline persistence
 db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -7229,7 +7257,13 @@ function mergeStateFromFirestore(data) {
     alt: { ...d.alt, ...(data.alt || {}) },
     ot: Array.isArray(data.ot) ? data.ot : [],
     otOpportunities: Array.isArray(data.otOpportunities) ? data.otOpportunities : [],
-    overrides: Array.isArray(data.overrides) ? data.overrides : [],
+    overrides: Array.isArray(data.overrides) ? data.overrides.map(ov => ({
+      ...ov,
+      // Canonicalize: the Mac / BRIDGE.md override shape omits `action`
+      // (shiftTypeId null = off). Derive it on read so BOTH the calendar
+      // renderer and the override editor see one consistent shape.
+      action: ov.action || (ov.shiftTypeId == null ? "off" : "work"),
+    })) : [],
     range: { ...d.range, ...(data.range || {}) },
     calName: typeof data.calName === "string" ? data.calName : d.calName,
     calView: typeof data.calView === "string" ? data.calView : d.calView,
@@ -7287,8 +7321,19 @@ function mergeStateFromFirestore(data) {
     //   wall display's hero greeting line.
     scheduleBlocks: Array.isArray(data.scheduleBlocks) ? data.scheduleBlocks : [],
     occasions: Array.isArray(data.occasions) ? data.occasions : [],
+    // No-childcare days (caregiver scheduled off), authored on the Mac. Preserve
+    // so a full iOS save can't silently delete them.
+    childcareOff: Array.isArray(data.childcareOff) ? data.childcareOff : [],
     _migrations: Array.isArray(data._migrations) ? data._migrations.slice() : [],
   };
+  // Guard against the silent cross-client drop bug: if Firestore holds a
+  // top-level field this merge doesn't handle, the next full iOS set() would
+  // wipe it. knownKeys derives from `merged`, so it stays in sync as fields are
+  // added above — no second allowlist to maintain.
+  const knownKeys = new Set(Object.keys(merged));
+  for (const k of Object.keys(data || {})) {
+    if (!knownKeys.has(k)) console.warn("[SB] Firestore field not handled by iOS — would be dropped on next save:", k);
+  }
   return applyMigrations(merged);
 }
 
@@ -7788,6 +7833,11 @@ function renderOt() {
 }
 
 // ---------- Event generation ----------
+// Weekly-template pause: while the future schedule is unpredictable, the
+// recurring weekly template + alt-weekends stop auto-filling shifts AFTER
+// today. Today + past are unaffected; explicit overrides and OT always show.
+// Set back to false (and redeploy) to resume the recurring template.
+const TEMPLATE_PAUSED = true;
 function generateEvents() {
   const from = parseISODate(state.range.from);
   const to = parseISODate(state.range.to);
@@ -7798,23 +7848,38 @@ function generateEvents() {
     if (ov.date) overrideMap[ov.date] = ov;
   }
 
+  // Effective cutoff for the recurring template + alt-weekends. While paused,
+  // cap at today (but never extend past an existing templateEndDate).
+  const todayISO = toISODate(new Date());
+  let tplCutoff = state.templateEndDate || null;
+  if (TEMPLATE_PAUSED) tplCutoff = (tplCutoff && tplCutoff < todayISO) ? tplCutoff : todayISO;
+
   const events = [];
 
   for (const d of eachDay(from, to)) {
     const dISO = toISODate(d);
     const ov = overrideMap[dISO];
 
-    if (ov && ov.action === "off") continue;
-
-    if (ov && ov.action === "work") {
+    // An override always wins for its date, and is exempt from the template
+    // cutoff below (it's an explicit per-date entry). Two shapes are accepted:
+    //  • desktop / BRIDGE.md:  { date, shiftTypeId, label }  (shiftTypeId null = off)
+    //  • legacy iOS:           { date, action: "off"|"work", shiftTypeId }
+    if (ov) {
+      const isOff = ov.action === "off" || (ov.action == null && ov.shiftTypeId == null);
+      if (isOff) continue;
       const ovShift = findShift(ov.shiftTypeId);
-      if (ovShift) events.push(makeEvent(d, ovShift, ovShift.name + " (changed)", "shift"));
+      if (ovShift) {
+        const lbl = (ov.label && ov.label.trim() && ov.label.trim().toLowerCase() !== "off")
+          ? ov.label.trim() : (ovShift.name + " (changed)");
+        events.push(makeEvent(d, ovShift, lbl, "shift"));
+      }
       continue;
     }
 
-    // Recurring template (and alt-weekend) stop after templateEndDate.
-    // Overrides above and OT below are explicit per-date and still show.
-    if (state.templateEndDate && dISO > state.templateEndDate) continue;
+    // Recurring template (and alt-weekend) stop after the effective cutoff
+    // (templateEndDate, or today while TEMPLATE_PAUSED). Overrides above and
+    // OT below are explicit per-date and still show.
+    if (tplCutoff && dISO > tplCutoff) continue;
 
     const dow = d.getDay();
     const tplShift = findShift(state.template[dow]);
@@ -8686,6 +8751,20 @@ function hasConfirmedCoverage(dateIso) {
   const reqs = (state && state.coverageRequests) || [];
   return reqs.some(r => r && r.date === dateIso && r.status === "confirmed");
 }
+/** Returns the first schedule block (if any) that covers this date.
+ *  Mac-authored via the Inspector's Utilities → Schedule Block tool. */
+function scheduleBlockFor(dateIso) {
+  const blocks = (state && state.scheduleBlocks) || [];
+  for (const b of blocks) {
+    if (!b || !b.startDate || !b.endDate) continue;
+    if (dateIso >= b.startDate && dateIso <= b.endDate) return b;
+  }
+  return null;
+}
+/** HTML-attr escape — for stuffing block labels into `title=`. */
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 /** Compact list row used inside the tap-day tooltip. */
 function eventTooltipRowHTML(ev) {
   const color = eventCSSColor(ev.who);
@@ -9054,9 +9133,12 @@ function renderMonthView(gageEvts, kayEvts, view) {
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
     const paydayIcons = paydayIconsForCell(dISO);
     const careClass = hasConfirmedCoverage(dISO) ? " has-confirmed-care" : "";
+    const blockInfo = scheduleBlockFor(dISO);
+    const blockClass = blockInfo ? " has-block" : "";
+    const blockTitle = blockInfo ? ` title="${escapeAttr(blockInfo.label || "Schedule block")}"` : "";
 
-    html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}${careClass}"
-                  data-date="${dISO}" data-kind="${kind}" style="background:${bg}">
+    html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}${careClass}${blockClass}"
+                  data-date="${dISO}" data-kind="${kind}" style="background:${bg}"${blockTitle}>
       <div class="cal-date${isToday ? " today" : ""}">${day.getDate()}</div>
       ${otIcon}${paydayIcons}
       <div class="cal-shifts">${pillsHTML}${eventsHTML}</div>
