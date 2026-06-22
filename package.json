@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/contract-check.mjs",
+    "check:contract": "node scripts/contract-check.mjs"
   },
   "keywords": [],
   "author": "",

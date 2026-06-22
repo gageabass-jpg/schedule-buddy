@@ -1,6 +1,7 @@
 {
   "hosting": {
     "public": "public",
+    "predeploy": ["npm test"],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/wall", "destination": "/wall.html" },
