@@ -124,6 +124,57 @@ ipcMain.handle("key:clear", async () => {
   try { await fs.unlink(keyFile()); } catch { /* not present */ }
 });
 
+// ───────────────── Improvements log ─────────────────
+// The light-bulb button in the sidebar lets the user jot "what can we do
+// better?" ideas. They land in a plain JSON file under userData so they can be
+// picked up later (e.g. "update the app and pull from there") — no Firestore
+// round-trip and readable from disk.
+
+interface ImprovementEntry {
+  id: string;
+  text: string;
+  createdAt: number;   // epoch ms
+  status: "new";       // reserved for future triage (e.g. "done")
+}
+
+function improvementsFile(): string {
+  return path.join(app.getPath("userData"), "improvements.json");
+}
+
+async function readImprovements(): Promise<ImprovementEntry[]> {
+  try {
+    const raw = await fs.readFile(improvementsFile(), "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as ImprovementEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+ipcMain.handle("improvements:add", async (_e, text: string) => {
+  if (typeof text !== "string" || !text.trim()) {
+    return { ok: false, error: "Empty idea." };
+  }
+  try {
+    const list = await readImprovements();
+    const entry: ImprovementEntry = {
+      id: `imp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      text: text.trim(),
+      createdAt: Date.now(),
+      status: "new",
+    };
+    list.push(entry);
+    await fs.writeFile(improvementsFile(), JSON.stringify(list, null, 2), "utf8");
+    return { ok: true, count: list.length, path: improvementsFile() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't save the idea." };
+  }
+});
+
+ipcMain.handle("improvements:list", async () => {
+  return readImprovements();
+});
+
 // ───────────────── Anthropic Vision: parse a schedule photo ─────────────────
 
 interface ParseScheduleRequest {
@@ -326,6 +377,7 @@ function installAppMenu(): void {
   const sendNewShift = (): void => { focused()?.webContents.send("menu:new-shift"); };
   const sendEditShiftTypes = (): void => { focused()?.webContents.send("menu:edit-shift-types"); };
   const sendEditTemplate = (): void => { focused()?.webContents.send("menu:edit-template"); };
+  const sendOpenCoverageRequests = (): void => { focused()?.webContents.send("menu:open-coverage-requests"); };
 
   const isMac = process.platform === "darwin";
 
@@ -401,6 +453,12 @@ function installAppMenu(): void {
     {
       label: "View",
       submenu: [
+        {
+          label: "Coverage Requests",
+          accelerator: "CmdOrCtrl+Shift+C",
+          click: sendOpenCoverageRequests,
+        },
+        { type: "separator" },
         { role: "reload" },
         { role: "forceReload" },
         { role: "toggleDevTools" },

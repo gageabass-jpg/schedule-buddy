@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import type { CoverageStatus, Event as SbEvent, HouseholdState } from "../state";
+import { compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
+import { blockForDate } from "../lib/writeScheduleBlock";
 
 interface Props {
   selected: string;
@@ -50,6 +52,10 @@ export function Inspector({
   const kind = dayKindFromShifts(shifts);
   const colors = dayColors(kind, palette, dark);
   const accent = colors.accent;
+
+  // Which shift row has its edit/delete buttons revealed. Double-click
+  // the row to toggle. Single-click reading-only state stays calm.
+  const [revealedIdx, setRevealedIdx] = useState<number | null>(null);
   const dayLabel = `${WEEKDAYS_3[new Date(y, m - 1, d).getDay()]} · ${MONTHS_LONG[m - 1]} ${d}`;
 
   // Coverage requests on the selected day.
@@ -58,6 +64,9 @@ export function Inspector({
   const isGapDay = kind === "both" && dayCoverage.length === 0;
   // Has this day been explicitly marked "no childcare" (caregiver off)?
   const isChildcareOff = (state?.childcareOff ?? []).some((c) => c.date === selected);
+  // Schedule block covering this day (vacation, travel, etc.) — surfaces a
+  // red striped notice card right under the Selected Day header.
+  const dayBlock = blockForDate(state?.scheduleBlocks, selected);
 
   return (
     <div
@@ -99,9 +108,23 @@ export function Inspector({
             const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
             const deletable = !!s.source && !!onDeleteShift;
             const recurring = s.source?.kind === "template" || s.source?.kind === "alt-weekend";
+            // Pill: shift-type label + start time, no end time.
+            // The user's shift names often embed a "start-end" range
+            // (e.g., "Night (8hr) 11p-730a") which is redundant in the
+            // pill. We strip any trailing "<time>-<time>" pattern from
+            // the name, then append just the compact start time.
+            const stype = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+            const TIME_RANGE = /\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*[-–]\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*$/i;
+            const pillText = stype
+              ? `${stype.name.replace(TIME_RANGE, "").trim()} · ${compactTime(stype.start)}`
+              : s.label;
+            const revealed = revealedIdx === i;
+            const hasActions = editable || deletable;
             return (
               <div
                 key={i}
+                onDoubleClick={() => hasActions && setRevealedIdx(revealed ? null : i)}
+                title={hasActions ? "Double-click to reveal edit/delete" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -109,6 +132,9 @@ export function Inspector({
                   padding: "6px 8px",
                   borderRadius: 8,
                   background: t.bgElev,
+                  cursor: hasActions ? "pointer" : "default",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
                 <PhotoAv who={s.who} size={26} palette={palette} dark={dark} />
@@ -123,36 +149,62 @@ export function Inspector({
                 <span
                   style={{
                     fontSize: 11,
-                    padding: "2px 7px",
+                    padding: "2px 8px",
                     borderRadius: 999,
                     background: rgba(c, 0.18),
                     color: c,
                     fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    fontVariantNumeric: "tabular-nums",
+                    maxWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    flexShrink: 1,
                   }}
+                  title={pillText}
                 >
-                  {s.label}
+                  {pillText}
                 </span>
-                {editable && (
-                  <button
-                    type="button"
-                    aria-label="Edit shift"
-                    onClick={() => onEditShift?.(selected, s)}
-                    style={iconBtnStyle(t)}
-                    title={recurring ? "Edit this date (creates an override)" : "Edit"}
+                {hasActions && (
+                  // Slide-out tray. Hidden (translated off the right edge)
+                  // by default; double-click toggles it into view. Width
+                  // animates so the row stays compact when collapsed.
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      gap: 4,
+                      overflow: "hidden",
+                      maxWidth: revealed ? 70 : 0,
+                      opacity: revealed ? 1 : 0,
+                      transform: `translateX(${revealed ? 0 : 12}px)`,
+                      transition:
+                        "max-width 0.22s ease, opacity 0.18s ease, transform 0.22s ease",
+                      pointerEvents: revealed ? "auto" : "none",
+                    }}
                   >
-                    ✎
-                  </button>
-                )}
-                {deletable && (
-                  <button
-                    type="button"
-                    aria-label="Delete shift"
-                    onClick={() => onDeleteShift?.(selected, s)}
-                    style={iconBtnStyle(t)}
-                    title={recurring ? "Mark this date off" : "Delete"}
-                  >
-                    ✕
-                  </button>
+                    {editable && (
+                      <button
+                        type="button"
+                        aria-label="Edit shift"
+                        onClick={(e) => { e.stopPropagation(); onEditShift?.(selected, s); }}
+                        style={iconBtnStyle(t)}
+                        title={recurring ? "Edit this date (creates an override)" : "Edit"}
+                      >
+                        ✎
+                      </button>
+                    )}
+                    {deletable && (
+                      <button
+                        type="button"
+                        aria-label="Delete shift"
+                        onClick={(e) => { e.stopPropagation(); onDeleteShift?.(selected, s); }}
+                        style={iconBtnStyle(t)}
+                        title={recurring ? "Mark this date off" : "Delete"}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             );
@@ -162,6 +214,88 @@ export function Inspector({
           )}
         </div>
       </div>
+
+      {/* Schedule block — only renders when the selected day is covered
+          by an active block. Red striped header echoes the calendar's
+          diagonal-stripe overlay so users connect the two visually. */}
+      {dayBlock && (
+        <div>
+          <div style={{ ...subhead(t), marginBottom: 6 }}>Schedule Block</div>
+          <div
+            style={{
+              borderRadius: 12,
+              padding: 14,
+              background: "rgba(255,69,58,0.10)",
+              border: `0.5px solid rgba(255,69,58,0.45)`,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Faint diagonal stripe overlay so the card reads as a "blocked" day */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "repeating-linear-gradient(135deg, rgba(255,69,58,0.18) 0px, rgba(255,69,58,0.18) 6px, rgba(255,69,58,0) 6px, rgba(255,69,58,0) 14px)",
+                pointerEvents: "none",
+              }}
+            />
+            <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ScheduleBlockOctagon size={14} />
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>
+                  {dayBlock.label || "Schedule block"}
+                </div>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 9.5, fontWeight: 700,
+                    padding: "2px 7px", borderRadius: 999,
+                    background: "rgba(255,69,58,0.18)",
+                    color: "#FF453A",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Blocked
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: t.text2, fontVariantNumeric: "tabular-nums" }}>
+                {dayBlock.startDate === dayBlock.endDate
+                  ? humanDate(dayBlock.startDate)
+                  : `${humanDate(dayBlock.startDate)} → ${humanDate(dayBlock.endDate)}`}
+                {dayBlock.startDate !== dayBlock.endDate && (
+                  <span style={{ color: t.text3 }}>
+                    {" "}· day {dayOfBlock(dayBlock.startDate, selected)} of {totalBlockDays(dayBlock.startDate, dayBlock.endDate)}
+                  </span>
+                )}
+              </div>
+              {dayBlock.notes && (
+                <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4 }}>{dayBlock.notes}</div>
+              )}
+              <button
+                type="button"
+                onClick={onOpenScheduleBlock}
+                style={{
+                  alignSelf: "flex-start",
+                  padding: "5px 11px",
+                  borderRadius: 7,
+                  border: `0.5px solid rgba(255,69,58,0.45)`,
+                  background: "transparent",
+                  color: "#FF453A",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Manage blocks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Childcare coverage for the selected day */}
       <div>
@@ -431,7 +565,7 @@ export function Inspector({
           <UtilityRow
             icon={<StopOctagonInline size={14} />}
             label="Schedule Block"
-            hint="Block a day or range with red diagonal stripes."
+            hint="Block off a day or date range."
             onClick={onOpenScheduleBlock}
             t={t}
           />
@@ -509,17 +643,29 @@ function StopOctagonInline({ size = 14 }: { size?: number }) {
 }
 
 function WandIcon({ size = 14, color = "#7FA86A" }: { size?: number; color?: string }) {
+  // Four 4-pointed sparkle stars in a loose cluster, varied sizes:
+  //   - Big star, upper-left center (the dominant element)
+  //   - Small star, upper-right corner
+  //   - Medium star, middle-right
+  //   - Tiny star, lower-left
+  // Each star is an 8-point polygon with the inner vertices pulled
+  // close to the center to give the pointed-tip / "sparkle" look.
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      {/* tip star */}
-      <path d="M19 3 l1 2 l2 1 l-2 1 l-1 2 l-1-2 l-2-1 l2-1 z" fill={color} />
-      {/* wand body */}
-      <path
-        d="M3 21 L15 9 L17 11 L5 23 z"
-        fill={color}
-        transform="translate(0,-2)"
-        opacity={0.85}
-      />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      aria-hidden
+    >
+      {/* Big star — upper-left center */}
+      <path d="M8 3.5 L9.5 7.5 L13.5 9 L9.5 10.5 L8 14.5 L6.5 10.5 L2.5 9 L6.5 7.5 Z" />
+      {/* Small star — upper-right */}
+      <path d="M18 2.5 L18.7 4.3 L20.5 5 L18.7 5.7 L18 7.5 L17.3 5.7 L15.5 5 L17.3 4.3 Z" />
+      {/* Medium star — middle-right */}
+      <path d="M17 10.5 L18 13 L20.5 14 L18 15 L17 17.5 L16 15 L13.5 14 L16 13 Z" />
+      {/* Tiny star — lower-left */}
+      <path d="M8 16 L8.5 17.5 L10 18 L8.5 18.5 L8 20 L7.5 18.5 L6 18 L7.5 17.5 Z" />
     </svg>
   );
 }
@@ -552,5 +698,31 @@ function subhead(t: ThemeTokens): React.CSSProperties {
     textTransform: "uppercase",
     marginBottom: 4,
   };
+}
+
+// ─────────────────── schedule block helpers ───────────────────
+
+const BLOCK_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function humanDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${BLOCK_MONTHS[(m ?? 1) - 1]} ${d}, ${y}`;
+}
+function dayOfBlock(startIso: string, todayIso: string): number {
+  // Inclusive 1-based: startIso → 1, startIso+1 → 2, etc.
+  const [y1, m1, d1] = startIso.split("-").map(Number);
+  const [y2, m2, d2] = todayIso.split("-").map(Number);
+  const a = new Date(y1!, (m1 ?? 1) - 1, d1 ?? 1).getTime();
+  const b = new Date(y2!, (m2 ?? 1) - 1, d2 ?? 1).getTime();
+  return Math.round((b - a) / 86400000) + 1;
+}
+function totalBlockDays(startIso: string, endIso: string): number {
+  return dayOfBlock(startIso, endIso);
+}
+function ScheduleBlockOctagon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#FF453A" />
+    </svg>
+  );
 }
 

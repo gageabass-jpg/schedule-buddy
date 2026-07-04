@@ -2015,6 +2015,175 @@
     padding: 2px 0;
   }
 
+  /* Backdrop behind the mobile day sheet (hidden on desktop). */
+  .cal-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+  }
+
+  /* ===== Mobile: day detail slides up as a bottom sheet ===== */
+  @media (max-width: 768px) {
+    .cal-sheet-backdrop {
+      display: block;
+      transition: opacity 0.28s ease;
+    }
+    .cal-sheet-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .cal-tooltip.pinned {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: auto;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      margin: 0;
+      border: none;
+      border-radius: 20px 20px 0 0;
+      padding: 0 20px calc(18px + env(safe-area-inset-bottom)) 20px;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.35);
+      z-index: 1201;
+      max-height: 80vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      font-size: 15px;
+      line-height: 1.55;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .cal-tooltip.pinned.sheet-in {
+      transform: translateY(0);
+    }
+    /* Grey grabber bar, swipe target. Sticks to the top as the sheet scrolls. */
+    .cal-tooltip.pinned .tt-top-bar {
+      display: block;
+      position: sticky;
+      top: 0;
+      height: auto;
+      margin: 0 -20px 6px;
+      padding: 11px 0 8px;
+      background: var(--panel);
+      text-align: center;
+      cursor: grab;
+      touch-action: none;
+    }
+    .cal-tooltip.pinned .tt-top-bar::before {
+      content: "";
+      display: inline-block;
+      width: 40px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--text-dim);
+      opacity: 0.4;
+    }
+    /* Corner X is replaced by the grabber + backdrop tap on mobile. */
+    .cal-tooltip.pinned .tt-close-btn { display: none; }
+    .cal-tooltip.pinned .tt-date {
+      font-size: 17px;
+      margin-bottom: 10px;
+    }
+    .cal-tooltip.pinned .tt-row { padding: 6px 0; }
+    .cal-tooltip.pinned .tt-divider { margin: 8px 0; }
+  }
+
+  /* ===== Redesigned day detail card (.dds) — used for the day tooltip/sheet ===== */
+  .cal-tooltip.has-dds {
+    padding: 0;
+    overflow: hidden;
+    width: 332px;
+    min-width: 300px;
+    max-width: 92vw;
+  }
+  .cal-tooltip.pinned.has-dds {
+    width: 100%;
+    max-width: 100%;
+    padding: 0 0 env(safe-area-inset-bottom) 0;
+  }
+  .cal-tooltip.pinned.has-dds .tt-top-bar { margin: 0; }
+  /* Desktop pinned: float the close X in the top-right corner of the card. */
+  .cal-tooltip.pinned.has-dds .tt-close-btn { right: 10px; top: 10px; }
+
+  .dds-head { padding: 16px 20px 18px; }
+  .dds-eyebrow {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--text-2);
+  }
+  .dds-title {
+    font-size: 26px; font-weight: 700; color: var(--text);
+    letter-spacing: -0.4px; margin-top: 2px; line-height: 1.15;
+  }
+
+  .dds-people { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .dds-person {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-radius: 18px;
+  }
+  .dds-person.working { background: color-mix(in srgb, var(--p) 12%, var(--panel)); }
+  .dds-person.off { background: var(--bg-elev2); }
+  .dds-av {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 600;
+  }
+  .dds-person.working .dds-av { background: var(--p); color: #fff; }
+  .dds-person.off .dds-av { background: color-mix(in srgb, var(--p) 16%, var(--panel)); color: var(--p); }
+  .dds-person-main { flex: 1; min-width: 0; }
+  .dds-name { font-size: 17px; font-weight: 600; color: var(--text); }
+  .dds-status { font-size: 13px; font-weight: 500; margin-top: 1px; }
+  .dds-person.working .dds-status { color: var(--p); }
+  .dds-person.off .dds-status { color: var(--text-2); }
+  .dds-person-right { text-align: right; flex-shrink: 0; }
+  .dds-time { font-size: 17px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .dds-person.off .dds-time { color: var(--text-2); }
+  .dds-sub { font-size: 12px; font-weight: 500; color: var(--text-2); margin-top: 1px; }
+  .dds-person.off .dds-sub { color: var(--text-3); }
+
+  .dds-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+  .dds-tile { padding: 14px 16px; border-radius: 16px; background: var(--bg-elev2); }
+  .dds-tile.dds-tile-row { display: flex; align-items: center; justify-content: space-between; }
+  .dds-tile-label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.3px; color: var(--text-2);
+  }
+  .dds-tile-value { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 4px; }
+  .dds-tile-value.sm { font-size: 18px; }
+  .dds-tile-value.muted { color: var(--text-3); }
+  .dds-tile-value .u { font-size: 14px; font-weight: 600; color: var(--text-2); margin-left: 3px; }
+  /* Severity tints (rest low, childcare state) */
+  .dds-tile.warn { background: color-mix(in srgb, #FF9F0A 15%, var(--panel)); }
+  .dds-tile.warn .dds-tile-label,
+  .dds-tile.warn .dds-tile-value { color: #FF9F0A; }
+  .dds-tile.crit { background: color-mix(in srgb, var(--ot) 13%, var(--panel)); }
+  .dds-tile.crit .dds-tile-label,
+  .dds-tile.crit .dds-tile-value { color: var(--ot); }
+  .dds-tile.good { background: color-mix(in srgb, var(--color-off) 14%, var(--panel)); }
+  .dds-tile.good .dds-tile-label,
+  .dds-tile.good .dds-tile-value { color: var(--color-off); }
+  .dds-badge {
+    width: 24px; height: 24px; border-radius: 50%; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  }
+  .dds-tile.good .dds-badge { background: var(--color-off); }
+  .dds-tile.warn .dds-badge { background: #FF9F0A; }
+  .dds-tile.crit .dds-badge { background: var(--ot); }
+
+  .dds-extra { padding: 0 16px 16px; }
+  .dds-ot-btn {
+    width: 100%; background: color-mix(in srgb, #FF9F0A 15%, var(--panel));
+    border: 1px solid color-mix(in srgb, #FF9F0A 35%, transparent);
+    color: #FF9F0A; font-size: 13px; font-weight: 600;
+    padding: 10px 12px; border-radius: 12px; cursor: pointer; font-family: var(--font);
+  }
+
   /* Partner (left) drawer */
   .partner-backdrop {
     position: fixed;
@@ -2120,8 +2289,7 @@
   .tab-panel {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 var(--radius) var(--radius);
+    border-radius: var(--radius);
     padding: 16px 18px;
     margin-bottom: 16px;
     min-height: 120px;
@@ -2156,6 +2324,77 @@
   .comp-up   { color: var(--ok); font-weight: 600; }
   .comp-down { color: var(--ot); font-weight: 600; }
   .comp-flat { color: var(--text-dim); }
+
+  /* ===== Redesigned changes card (.mc-*) — period comparison ===== */
+  .mc-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 2px 2px 12px;
+  }
+  .mc-title { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); line-height: 1.05; }
+  .mc-sub { margin-top: 6px; font-size: 12.5px; font-weight: 500; color: var(--text-dim); letter-spacing: 0.1px; }
+  .mc-period {
+    position: relative; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+    height: 30px; padding: 0 11px; border-radius: 15px;
+    background: var(--scrim); color: var(--text); font-size: 12.5px; font-weight: 600;
+  }
+  .mc-caret { font-size: 11px; line-height: 1; opacity: 0.55; transform: translateY(-2px); }
+  .mc-period-select {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; border: 0; margin: 0; padding: 0; cursor: pointer;
+    -webkit-appearance: none; appearance: none; font-size: 16px;
+  }
+  .mc-insight {
+    margin: 0 0 10px; padding: 12px 14px; border-radius: 16px;
+    display: flex; align-items: center; gap: 11px;
+  }
+  .mc-insight.bad {
+    background: linear-gradient(135deg, rgba(255,69,58,0.10), rgba(255,159,10,0.08));
+    border: 0.5px solid rgba(255,69,58,0.16);
+  }
+  .mc-insight.good {
+    background: linear-gradient(135deg, rgba(48,209,88,0.12), rgba(10,132,255,0.07));
+    border: 0.5px solid rgba(48,209,88,0.18);
+  }
+  .mc-insight-icon {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .mc-insight.bad .mc-insight-icon { background: rgba(255,69,58,0.15); }
+  .mc-insight.good .mc-insight-icon { background: rgba(48,209,88,0.16); }
+  .mc-insight-text { font-size: 12.5px; line-height: 1.35; color: var(--text-2); }
+  .mc-insight-text b { color: var(--text); font-weight: 600; }
+  .mc-insight-text .bad-v  { color: #D8352A; font-weight: 700; }
+  .mc-insight-text .good-v { color: #1E9E52; font-weight: 700; }
+
+  .mc-row { padding: 13px 4px; }
+  .mc-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mc-label { font-size: 14.5px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
+  .mc-vals { display: flex; align-items: baseline; gap: 8px; }
+  .mc-value { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .mc-delta {
+    display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .mc-delta .mc-arrow { font-size: 9px; line-height: 1; }
+  .mc-delta.good { color: #1E9E52; background: rgba(48,209,88,0.15); }
+  .mc-delta.bad  { color: #D8352A; background: rgba(255,69,58,0.13); }
+  .mc-delta.flat { color: var(--text-dim); background: var(--scrim); }
+  .mc-bar { margin-top: 10px; position: relative; height: 7px; border-radius: 4px; background: var(--scrim); }
+  .mc-bar-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px;
+    transform-origin: left; animation: mcBarGrow 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .mc-bar-prev {
+    position: absolute; top: -2.5px; bottom: -2.5px; width: 2px; border-radius: 1px;
+    background: var(--text-2); transform: translateX(-1px);
+  }
+  .mc-was { margin-top: 7px; font-size: 11.5px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .mc-empty { padding: 16px 4px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  @keyframes mcBarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-color-scheme: dark) {
+    .mc-delta.good, .mc-insight-text .good-v { color: #30D158; }
+    .mc-delta.bad,  .mc-insight-text .bad-v  { color: #FF453A; }
+  }
 
   /* Export toggles */
   .export-bar {
@@ -3470,9 +3709,9 @@
   }
   .mc-sub { font-size: 13px; color: var(--text-dim); }
   .mc-filters {
-    display: flex; gap: 6px; overflow-x: auto;
-    padding: 4px 0;
-    -webkit-overflow-scrolling: touch;
+    display: flex; gap: 10px;
+    padding: 4px 4px;
+    position: relative; z-index: 20;
   }
   .mc-filter {
     flex-shrink: 0;
@@ -3554,6 +3793,73 @@
     font-size: 11px;
     color: var(--text-dim);
     font-weight: 500;
+  }
+
+  /* ---- Filter dropdowns (Status + Month) ---- */
+  .mc-dd { position: relative; }
+  .mc-dd-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; color: var(--text);
+    background: var(--bg-elev); padding: 9px 14px; border-radius: 14px;
+    border: 1px solid var(--border); cursor: pointer; font-family: var(--font);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-dd-caret { font-size: 11px; color: var(--text-3); transform: translateY(-1px); }
+  .mc-dd-menu {
+    display: none; position: absolute; top: 46px; left: 0;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.22);
+    overflow: hidden; min-width: 184px; z-index: 50;
+  }
+  .mc-dd-menu.open { display: block; }
+  .mc-dd-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    width: 100%; font-size: 15px; font-weight: 600; color: var(--text);
+    padding: 12px 16px; cursor: pointer; background: transparent;
+    border: 0; border-bottom: 1px solid var(--border); text-align: left;
+    font-family: var(--font); -webkit-tap-highlight-color: transparent;
+  }
+  .mc-dd-item:last-child { border-bottom: 0; }
+  .mc-dd-item:active { background: var(--scrim); }
+  .mc-dd-check { color: var(--ok); font-weight: 800; }
+
+  /* ---- Redesigned request card ---- */
+  .mc-card2 {
+    display: flex; align-items: stretch;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    --c: #34C759; --ct: #1a9e4b;
+  }
+  .mc-card2.confirmed { --c: #34C759; --ct: #1a9e4b; }
+  .mc-card2.pending   { --c: #FF9F0A; --ct: #b6812a; }
+  .mc-card2.declined  { --c: #FF3B30; --ct: #c0392b; }
+  .mc-card2.issue     { --c: #FF3B30; --ct: #c0392b; }
+  .mc-accent { width: 5px; background: var(--c); flex-shrink: 0; }
+  .mc-card2-body { flex: 1; min-width: 0; }
+  .mc-card2-main { display: flex; align-items: stretch; }
+  .mc-datebk { flex-shrink: 0; width: 70px; padding: 16px 8px 16px 14px; text-align: center; }
+  .mc-mon { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: #FF3B30; text-transform: uppercase; }
+  .mc-day { font-size: 36px; font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -1.5px; margin-top: 2px; }
+  .mc-detail { flex: 1; min-width: 0; padding: 16px 8px 16px 6px; display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+  .mc-times { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--text-2); flex-wrap: wrap; }
+  .mc-times b { font-weight: 700; color: var(--text); }
+  .mc-times .arrow { color: var(--text-3); }
+  .mc-times .nd { font-size: 12px; color: var(--text-3); font-weight: 600; }
+  .mc-pill2 {
+    display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.6px;
+    color: var(--ct); background: color-mix(in srgb, var(--c) 16%, var(--panel));
+    padding: 4px 9px; border-radius: 20px; text-transform: uppercase;
+  }
+  .mc-hours { flex-shrink: 0; padding: 16px 16px 16px 8px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+  .mc-hnum { font-size: 25px; font-weight: 800; color: var(--ct); letter-spacing: -0.8px; line-height: 1; }
+  .mc-hlbl { font-size: 11px; font-weight: 700; color: var(--ct); opacity: 0.6; letter-spacing: 0.5px; margin-top: 3px; }
+  .mc-card2-foot { border-top: 0.5px solid var(--border); margin: 0 16px; padding: 10px 0 12px; display: flex; flex-direction: column; gap: 8px; }
+  @media (prefers-color-scheme: dark) {
+    .mc-card2.confirmed { --ct: #30D158; }
+    .mc-card2.pending   { --ct: #FFB340; }
+    .mc-card2.declined  { --ct: #FF6961; }
+    .mc-card2.issue     { --ct: #FF6961; }
   }
 
   /* ==================== Caregiver-only screen (role: supporting) ==================== */
@@ -4504,7 +4810,6 @@
   <!-- Calendar header panel -->
   <div class="cal-header-panel">
     <div class="cal-header-title" id="calHeaderTitle">Work Schedule</div>
-    <div class="cal-header-dates" id="calHeaderDates"></div>
   </div>
 
   <!-- Today ribbon: at-a-glance summary, populated by renderTodayRibbon() -->
@@ -4580,6 +4885,8 @@
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-tooltip" id="calTooltipHover" style="display:none;"></div>
   </div>
+  <!-- Dimmed backdrop behind the mobile day sheet; tap to dismiss. -->
+  <div class="cal-sheet-backdrop" id="calSheetBackdrop"></div>
 
   <!-- Week timeline view -->
   <div class="week-view" id="weekView" style="display:none;">
@@ -4598,42 +4905,9 @@
   <!-- Agenda list view -->
   <div class="agenda-view" id="agendaView" style="display:none;"></div>
 
-  <!-- Tab bar: desktop tabs, mobile dropdown -->
-  <div class="tab-bar desktop-only">
-    <button class="tab-btn active" data-tab="tabMonthComp">Month Comparison</button>
-    <button class="tab-btn" data-tab="tabChanges">Schedule Changes</button>
-    <button class="tab-btn" data-tab="tabAcceptedOT">Accepted OT</button>
-    <button class="tab-btn" data-tab="tabAvailableOT">Available OT <span id="otApprovalBadge"></span></button>
-  </div>
-  <div class="mobile-only" style="margin-bottom:0;">
-    <select class="mobile-dropdown" id="tabDropdown" style="width:100%;border-radius:8px 8px 0 0;">
-      <option value="tabMonthComp">Month Comparison</option>
-      <option value="tabChanges">Schedule Changes</option>
-      <option value="tabAcceptedOT">Accepted OT</option>
-      <option value="tabAvailableOT">Available OT</option>
-    </select>
-    <span id="otApprovalBadgeMobile"></span>
-  </div>
+  <!-- Monthly changes card (standalone) -->
   <div class="tab-panel">
-    <div class="tab-page active" id="tabMonthComp">
-      <div id="monthCompContent"></div>
-    </div>
-    <div class="tab-page" id="tabChanges">
-      <div class="hint">One-off swaps, extra shifts, or days off that differ from your weekly template.</div>
-      <div class="ot-list" id="overrideList"></div>
-      <button class="secondary" id="overrideAdd">+ Add change</button>
-    </div>
-    <div class="tab-page" id="tabAcceptedOT">
-      <div class="hint">Shifts you've committed to — exported to .ics.</div>
-      <div class="ot-list" id="otList"></div>
-      <button class="secondary" id="otAdd">+ Add accepted OT</button>
-    </div>
-    <div class="tab-page" id="tabAvailableOT">
-      <div class="hint">OT you could pick up — Kaylene reviews and approves/denies.</div>
-      <div id="otApprovalSection"></div>
-      <div class="ot-list" id="otOpList"></div>
-      <button class="secondary" id="otOpAdd">+ Add available OT</button>
-    </div>
+    <div id="monthCompContent"></div>
   </div>
   </div><!-- /.pane-schedule -->
 
@@ -4711,13 +4985,7 @@
       <div class="mc-sub" id="mcSubLine">Every request you've sent the caregiver — pending, accepted, declined, or flagged.</div>
     </header>
 
-    <div class="mc-filters" id="mcFilters" role="tablist" aria-label="Filter by status">
-      <button type="button" class="mc-filter active" data-mc-filter="all">All</button>
-      <button type="button" class="mc-filter" data-mc-filter="pending">Pending</button>
-      <button type="button" class="mc-filter" data-mc-filter="confirmed">Accepted</button>
-      <button type="button" class="mc-filter" data-mc-filter="declined">Declined</button>
-      <button type="button" class="mc-filter" data-mc-filter="issue">Issue</button>
-    </div>
+    <div class="mc-filters" id="mcFilters" aria-label="Filters"><!-- status + month dropdowns, built by renderManagerChildcare --></div>
 
     <div class="mc-list" id="mcList">
       <div class="mc-empty">No coverage requests yet. Use the Manager on your Mac to send a batch.</div>
@@ -6530,6 +6798,7 @@ async function handleCaregiverAction(id, action) {
 // caregiver-only screen (role: supporting) is a separate top-level surface;
 // this pane lives inside the regular app for admins and partners.
 let _mcFilter = "all";
+let _mcMonth = "all";   // "all" (YTD) or "YYYY-MM"
 
 function renderManagerChildcare(requests) {
   const list = document.getElementById("mcList");
@@ -6544,16 +6813,20 @@ function renderManagerChildcare(requests) {
     else { badge.hidden = true; }
   }
 
-  const filtered = _mcFilter === "all"
-    ? requests.slice()
-    : requests.filter(r => r && r.status === _mcFilter);
+  // Status + month filter dropdowns (month options derived from the full list).
+  _mcRenderFilters(requests);
+
+  let filtered = requests.slice();
+  if (_mcFilter !== "all") filtered = filtered.filter(r => r && r.status === _mcFilter);
+  if (_mcMonth !== "all")  filtered = filtered.filter(r => (r && r.date || "").slice(0, 7) === _mcMonth);
   filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
   if (filtered.length === 0) {
+    const noFilters = _mcFilter === "all" && _mcMonth === "all";
     list.innerHTML = `<div class="mc-empty">${
-      _mcFilter === "all"
+      noFilters
         ? "No coverage requests yet. Use the Manager on your Mac to send a batch."
-        : `No ${escapeHtml(_mcFilter)} requests.`
+        : "No requests match these filters."
     }</div>`;
     return;
   }
@@ -6746,70 +7019,141 @@ async function handleManagerClear(id) {
   }
 }
 
+// Caregiver's on-site hours: from arrival (or shift start) to shift end.
+function _mcHours(r) {
+  const start = r.arriveBy || r.startTime;
+  const end = r.endTime;
+  if (!start || !end) return null;
+  const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
+  const s = toMin(start), e = toMin(end);
+  if (Number.isNaN(s) || Number.isNaN(e)) return null;
+  let dur = e - s;
+  if (r.endsNextDay || dur < 0) dur += 24 * 60;
+  return dur / 60;
+}
+
+const _MC_MONTHS_UP = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const _MC_MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
 function mcCardHTML(r) {
   const status = r.status || "pending";
   const statusLabel =
     status === "confirmed" ? "Accepted" :
     status === "declined"  ? "Declined" :
     status === "issue"     ? "Issue"    : "Pending";
-  let dayLabel = r.date || "";
-  try {
-    const [y, m, d] = (r.date || "").split("-").map(Number);
-    if (y && m && d) {
-      dayLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, {
-        weekday: "short", month: "short", day: "numeric",
-      });
-    }
-  } catch (_) {}
-  const reason = r.reason;
-  const reasonLabel =
-    reason === "both-working"   ? "Both working"  :
-    reason === "work-and-sleep" ? "Work + sleep"  :
-    reason === "both-sleeping"  ? "Both sleeping" : null;
 
-  const notesBlock = r.notes
-    ? `<div class="mc-notes">${escapeHtml(r.notes)}</div>` : "";
+  const [y, m, d] = (r.date || "").split("-").map(Number);
+  const mon = (m >= 1 && m <= 12) ? _MC_MONTHS_UP[m - 1] : "";
+  const day = d ? String(d) : "";
 
-  const cgNoteBlock = r.caregiverNote
+  const startDisp = r.arriveBy || r.startTime || "";
+  const endDisp = r.endTime || "";
+  const nd = r.endsNextDay ? `<span class="nd">+1d</span>` : "";
+
+  const hrs = _mcHours(r);
+  const hoursNum = hrs == null ? "—" : (Number.isInteger(hrs) ? String(hrs) : hrs.toFixed(1));
+
+  // Footer (only for flagged requests): caregiver's note + Clear/Reviewed.
+  const cgNote = r.caregiverNote
     ? `<div class="mc-cg-note"><b>${
         status === "declined" ? "Caregiver said:" :
         status === "issue"    ? "Caregiver reported:" :
                                  "Caregiver noted:"}</b> ${escapeHtml(r.caregiverNote)}</div>`
     : "";
-
   const needsReview = (status === "declined" || status === "issue") && !r.managerReviewed;
   const clearBtn = needsReview
     ? `<button type="button" class="mc-clear-btn" data-mc-clear="${escapeHtml(r.id || "")}">Clear</button>`
     : (status === "declined" || status === "issue") && r.managerReviewed
       ? `<span class="mc-reviewed">Reviewed</span>` : "";
+  const footer = (cgNote || clearBtn)
+    ? `<div class="mc-card2-foot">${cgNote}${clearBtn ? `<div class="mc-actions">${clearBtn}</div>` : ""}</div>`
+    : "";
 
   return `
-    <article class="mc-card ${status}">
-      <div class="mc-card-head">
-        <div class="mc-card-date">${escapeHtml(dayLabel)}</div>
-        <span class="mc-pill ${status}">${statusLabel}</span>
+    <article class="mc-card2 ${status}">
+      <div class="mc-accent"></div>
+      <div class="mc-card2-body">
+        <div class="mc-card2-main">
+          <div class="mc-datebk"><div class="mc-mon">${mon}</div><div class="mc-day">${day}</div></div>
+          <div class="mc-detail">
+            <div class="mc-times"><b>${escapeHtml(startDisp)}</b> <span class="arrow">→</span> <b>${escapeHtml(endDisp)}</b> ${nd}</div>
+            <div><span class="mc-pill2">${statusLabel}</span></div>
+          </div>
+          <div class="mc-hours"><div class="mc-hnum">${hoursNum}</div><div class="mc-hlbl">HOURS</div></div>
+        </div>
+        ${footer}
       </div>
-      <div class="mc-meta">
-        <span><b>${escapeHtml(r.startTime || "")}</b> → <b>${escapeHtml(r.endTime || "")}</b>${r.endsNextDay ? " +1d" : ""}</span>
-        ${r.arriveBy ? `<span>· arrive by <b>${escapeHtml(r.arriveBy)}</b></span>` : ""}
-        ${reasonLabel ? `<span>· ${reasonLabel}</span>` : ""}
-      </div>
-      ${notesBlock}
-      ${cgNoteBlock}
-      ${clearBtn ? `<div class="mc-actions">${clearBtn}</div>` : ""}
     </article>`;
 }
 
-// Wire filter pills
-document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    _mcFilter = btn.getAttribute("data-mc-filter") || "all";
-    document.querySelectorAll(".mc-filter[data-mc-filter]").forEach(b => {
-      b.classList.toggle("active", b === btn);
+// Build the Status + Month filter dropdowns into #mcFilters.
+function _mcRenderFilters(requests) {
+  const el = document.getElementById("mcFilters");
+  if (!el) return;
+
+  const monthKeys = [...new Set((requests || []).map(r => (r && r.date || "").slice(0, 7)).filter(Boolean))].sort();
+  if (_mcMonth !== "all" && !monthKeys.includes(_mcMonth)) _mcMonth = "all";  // reset if it fell out of the data
+  const multiYear = new Set(monthKeys.map(k => k.slice(0, 4))).size > 1;
+  const monthLabel = (k) => {
+    const [yy, mm] = k.split("-").map(Number);
+    const name = _MC_MONTHS_FULL[mm - 1] || k;
+    return multiYear ? `${name} ${yy}` : name;
+  };
+
+  const statusOpts = [
+    { key: "all", label: "All statuses" },
+    { key: "pending", label: "Pending" },
+    { key: "confirmed", label: "Accepted" },
+    { key: "declined", label: "Declined" },
+    { key: "issue", label: "Issue" },
+  ];
+  const monthOpts = [{ key: "all", label: "YTD" }, ...monthKeys.map(k => ({ key: k, label: monthLabel(k) }))];
+
+  const statusBtn = (statusOpts.find(o => o.key === _mcFilter) || statusOpts[0]).label;
+  const monthBtn = (monthOpts.find(o => o.key === _mcMonth) || monthOpts[0]).label;
+
+  const item = (o, activeKey, attr) =>
+    `<button type="button" class="mc-dd-item" ${attr}="${escapeHtml(o.key)}"><span>${escapeHtml(o.label)}</span>${
+      o.key === activeKey ? `<span class="mc-dd-check">✓</span>` : ""}</button>`;
+
+  el.innerHTML = `
+    <div class="mc-dd">
+      <button type="button" class="mc-dd-btn" data-mc-dd-toggle="status"><span>${escapeHtml(statusBtn)}</span><span class="mc-dd-caret">▾</span></button>
+      <div class="mc-dd-menu" data-mc-dd-menu="status">${statusOpts.map(o => item(o, _mcFilter, "data-mc-status")).join("")}</div>
+    </div>
+    <div class="mc-dd">
+      <button type="button" class="mc-dd-btn" data-mc-dd-toggle="month"><span>${escapeHtml(monthBtn)}</span><span class="mc-dd-caret">▾</span></button>
+      <div class="mc-dd-menu" data-mc-dd-menu="month">${monthOpts.map(o => item(o, _mcMonth, "data-mc-month")).join("")}</div>
+    </div>`;
+
+  el.querySelectorAll("[data-mc-dd-toggle]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const which = btn.getAttribute("data-mc-dd-toggle");
+      const menu = el.querySelector(`.mc-dd-menu[data-mc-dd-menu="${which}"]`);
+      const wasOpen = menu.classList.contains("open");
+      el.querySelectorAll(".mc-dd-menu").forEach(m => m.classList.remove("open"));
+      if (!wasOpen) menu.classList.add("open");
     });
-    renderManagerChildcare((state && state.coverageRequests) || []);
   });
-});
+  el.querySelectorAll("[data-mc-status]").forEach(it => it.addEventListener("click", () => {
+    _mcFilter = it.getAttribute("data-mc-status") || "all";
+    renderManagerChildcare((state && state.coverageRequests) || []);
+  }));
+  el.querySelectorAll("[data-mc-month]").forEach(it => it.addEventListener("click", () => {
+    _mcMonth = it.getAttribute("data-mc-month") || "all";
+    renderManagerChildcare((state && state.coverageRequests) || []);
+  }));
+}
+
+// Close any open filter menu when tapping outside it (wired once).
+if (!window.__mcDdOutside) {
+  window.__mcDdOutside = true;
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".mc-dd")) return;
+    document.querySelectorAll(".mc-dd-menu.open").forEach(m => m.classList.remove("open"));
+  });
+}
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -7780,6 +8124,7 @@ function shiftName(id) {
 // ---------- Render: OT list ----------
 function renderOt() {
   const list = document.getElementById("otList");
+  if (!list) return;
   list.innerHTML = "";
   state.ot.forEach((ot, idx) => {
     const key = `ot-${idx}`;
@@ -8229,6 +8574,7 @@ function renderPartnerShifts() {
 // ---------- Render: schedule overrides ----------
 function renderOverrides() {
   const list = document.getElementById("overrideList");
+  if (!list) return;
   list.innerHTML = "";
   (state.overrides || []).forEach((ov, idx) => {
     const key = `ov-${idx}`;
@@ -8294,6 +8640,7 @@ function renderOverrides() {
 // ---------- Render: OT opportunities ----------
 function renderOtOpportunities() {
   const list = document.getElementById("otOpList");
+  if (!list) return;
   list.innerHTML = "";
   (state.otOpportunities || []).forEach((op, idx) => {
     const key = `otop-${idx}`;
@@ -8845,14 +9192,40 @@ function computeDayCellData(dateISO, gageEvts, kayEvts, view) {
 
 let _dayAnalysis = {};
 
-function buildDayAnalysisCache() {
+// True if a CONFIRMED coverage request covers `mod` (minutes-of-day) on dISO.
+// Handles overnight requests (endsNextDay) that spill from the previous day into
+// the early morning of dISO.
+function _coverageCoversSlot(confirmed, dISO, prevISO, mod) {
+  for (const r of confirmed) {
+    const start = parseHM(r.startTime), end = parseHM(r.endTime);
+    const overnight = r.endsNextDay || end <= start;
+    if (r.date === dISO) {
+      if (overnight ? (mod >= start) : (mod >= start && mod < end)) return true;
+    } else if (overnight && r.date === prevISO) {
+      if (mod < end) return true;   // early-morning tail of a prev-day overnight request
+    }
+  }
+  return false;
+}
+
+function buildDayAnalysisCache(throughISO) {
   _dayAnalysis = {};
   const from = parseISODate(state.range.from);
-  const to = parseISODate(state.range.to);
+  let to = parseISODate(state.range.to);
+  // Extend the analysis window to cover the month being viewed, so days past the
+  // stored range end still get rest / childcare / couple metrics.
+  if (throughISO) {
+    const t2 = parseISODate(throughISO);
+    if (t2 && (!to || t2 > to)) to = t2;
+  }
   if (!from || !to || from > to) return;
   const days = eachDay(from, to);
   const gageEvts = generateEvents();
   const kayEvts = partnerEvents();
+  // Confirmed caregiver coverage subtracts from the childcare gap/solo tally —
+  // a confirmed request over a blackout window means that window is covered.
+  const confirmedCoverage = ((state && state.coverageRequests) || [])
+    .filter(r => r && r.status === "confirmed" && r.date && r.startTime && r.endTime);
   const gGrid = buildPersonTimeline(gageEvts, days);
   const kGrid = buildPersonTimeline(kayEvts, days);
 
@@ -8883,17 +9256,28 @@ function buildDayAnalysisCache() {
 
     let childcare = "ok";
     let soloMin = 0, gapMin = 0;
-    for (let s = 0; s < SLOTS_PER_DAY; s++) {
-      if (!isBlackoutSlot(d, s)) continue;
-      const g = gGrid[di][s];
-      const k = kGrid[di][s];
-      const gBusy = g !== "free";
-      const kBusy = k !== "free";
-      if (gBusy && kBusy) gapMin += SLOT_MIN;
-      else if (gBusy || kBusy) soloMin += SLOT_MIN;
+    // A confirmed caregiver request FOR THIS DATE means childcare is handled for
+    // the day — authoritative, and consistent with the green "confirmed
+    // coverage" bar the calendar cell already shows. Otherwise fall through to
+    // the slot-by-slot check, which still credits an overnight confirmed request
+    // dated the previous day against this morning's early hours.
+    if (!hasConfirmedCoverage(dISO)) {
+      const prevISO = toISODate(addDays(d, -1));
+      for (let s = 0; s < SLOTS_PER_DAY; s++) {
+        if (!isBlackoutSlot(d, s)) continue;
+        // Partial confirmed coverage still clears the individual slots it spans.
+        if (confirmedCoverage.length &&
+            _coverageCoversSlot(confirmedCoverage, dISO, prevISO, slotMinuteOfDay(s))) continue;
+        const g = gGrid[di][s];
+        const k = kGrid[di][s];
+        const gBusy = g !== "free";
+        const kBusy = k !== "free";
+        if (gBusy && kBusy) gapMin += SLOT_MIN;
+        else if (gBusy || kBusy) soloMin += SLOT_MIN;
+      }
+      if (gapMin > 0) childcare = "gap";
+      else if (soloMin > 0) childcare = "solo";
     }
-    if (gapMin > 0) childcare = "gap";
-    else if (soloMin > 0) childcare = "solo";
 
     let coupleMin = 0;
     for (let s = 0; s < SLOTS_PER_DAY; s++) {
@@ -9057,7 +9441,10 @@ function renderCalendar() {
   const view = state.calView || "schedule";
   const gageEvts = generateEvents();
   const kayEvts = partnerEvents();
-  buildDayAnalysisCache();
+  // Roll the analysis window forward to cover the month being viewed.
+  const _vm = parseISODate(ui.viewMonth) || new Date();
+  const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 1, 0));
+  buildDayAnalysisCache(_viewMonthEnd);
 
   // Compute today's ribbon + the always-visible big-title regardless of layout
   renderTodayRibbon(gageEvts, kayEvts);
@@ -9076,6 +9463,11 @@ function renderMonthView(gageEvts, kayEvts, view) {
   const days = monthGridDays(monthDate);
   const from = parseISODate(state.range.from);
   const to = parseISODate(state.range.to);
+  // Viewable window rolls forward a month at a time: never dim days belonging to
+  // the month being viewed, even past the stored range end. (Shifts still stop
+  // at the paused template end date, so those future days simply render empty.)
+  const viewedMonthEnd = new Date(monthDate.getFullYear(), monthIdx + 1, 0);
+  const effTo = (to && to > viewedMonthEnd) ? to : viewedMonthEnd;
   const todayISO = toISODate(new Date());
 
   // Show Month layout, hide others
@@ -9092,7 +9484,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
   for (const day of days) {
     const dISO = toISODate(day);
     const otherMonth = day.getMonth() !== monthIdx;
-    const outside = (from && day < from) || (to && day > to);
+    const outside = (from && day < from) || (day > effTo);
     const isToday = dISO === todayISO;
     const cell = computeDayCellData(dISO, gageEvts, kayEvts, view);
     const da = _dayAnalysis[dISO] || {};
@@ -9320,8 +9712,12 @@ function renderAgendaView(gageEvts, kayEvts, view) {
 }
 
 function _wireCellHandlers() {
+  let cellTouchStart = null;   // shared — only one finger down at a time
   document.querySelectorAll("#calGrid .cal-cell[data-date]").forEach(el => {
     el.addEventListener("mouseenter", e => {
+      // On touch/mobile the synthetic mouseenter would flash the floating
+      // tooltip a frame before the tap opens the sheet. Suppress hover there.
+      if (_isSheetMode()) return;
       if (e.target.closest(".cal-ot-icon")) return;
       if (_tooltipPinned) return;
       showCalTooltip(el, el.dataset.date, e);
@@ -9329,7 +9725,29 @@ function _wireCellHandlers() {
     el.addEventListener("mouseleave", () => {
       if (!_tooltipPinned) hideCalTooltip();
     });
+    // Touch: open the sheet on the FIRST tap. Cells have a :hover style, so iOS
+    // swallows the first tap as a hover (needing a second tap to fire click).
+    // Handling touchend directly — and preventing the ghost click — makes a
+    // single tap reliable. A movement guard keeps scroll/swipe from triggering.
+    el.addEventListener("touchstart", e => {
+      if (!_isSheetMode()) return;
+      const t = e.touches[0];
+      cellTouchStart = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    el.addEventListener("touchend", e => {
+      if (!_isSheetMode()) return;
+      const start = cellTouchStart; cellTouchStart = null;
+      if (!start || e.target.closest(".cal-ot-icon")) return;
+      if (Date.now() - _tooltipClosedAt < 500) return;
+      const t = e.changedTouches[0];
+      if (Math.abs(t.clientX - start.x) > 10 || Math.abs(t.clientY - start.y) > 10) return; // scroll/swipe
+      e.preventDefault();   // suppress the delayed synthetic click
+      e.stopPropagation();
+      _tooltipPinned = false;
+      showCalTooltip(el, el.dataset.date, e, true);
+    }, { passive: false });
     el.addEventListener("click", e => {
+      if (_isSheetMode()) return;   // handled by touchend on mobile
       if (e.target.closest(".cal-ot-icon")) return;
       if (Date.now() - _tooltipClosedAt < 500) return;
       e.stopPropagation();
@@ -9340,6 +9758,7 @@ function _wireCellHandlers() {
   document.querySelectorAll("#calGrid .cal-ot-icon[data-date]").forEach(el => {
     el.addEventListener("mouseenter", e => {
       e.stopPropagation();
+      if (_isSheetMode()) return;
       if (_tooltipPinned) return;
       showOTTooltip(el.closest(".cal-cell"), el.dataset.date);
     });
@@ -9390,6 +9809,57 @@ function _getTip() {
   return document.getElementById("calTooltipHover");
 }
 
+// Total worked hours across a day's events (handles overnight shifts).
+function _shiftHours(evts) {
+  let mins = 0;
+  for (const e of evts) {
+    if (!e.startTime || !e.endTime) continue;
+    const [sh, sm] = e.startTime.split(":").map(Number);
+    const [eh, em] = e.endTime.split(":").map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff <= 0) diff += 24 * 60;   // crosses midnight
+    mins += diff;
+  }
+  return mins / 60;
+}
+function _fmtHrs(h) {
+  const r = Math.round(h * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+// One "who's on" row for the redesigned day card.
+function _ddsPersonRow(name, colorVar, evts) {
+  const working = evts.length > 0;
+  const initial = escapeHTML((name || "?").trim().charAt(0).toUpperCase() || "?");
+  const time = working
+    ? evts.map(e => `${compactTime(e.startTime)}–${compactTime(e.endTime)}`).join(" · ")
+    : "Off";
+  const sub = working ? `${_fmtHrs(_shiftHours(evts))}h shift` : "Free day";
+  const status = working ? "Working" : "No shift";
+  return `
+    <div class="dds-person ${working ? "working" : "off"}" style="--p:${colorVar}">
+      <div class="dds-av">${initial}</div>
+      <div class="dds-person-main">
+        <div class="dds-name">${escapeHTML(name)}</div>
+        <div class="dds-status">${status}</div>
+      </div>
+      <div class="dds-person-right">
+        <div class="dds-time">${time}</div>
+        <div class="dds-sub">${sub}</div>
+      </div>
+    </div>`;
+}
+// A rest tile, tinted by how little rest there is.
+function _ddsRestTile(label, rest) {
+  let sev = "", value;
+  if (rest == null) {
+    value = "—";
+  } else {
+    value = `${_fmtHrs(rest)}<span class="u">h</span>`;
+    sev = rest < 8 ? "crit" : rest < 12 ? "warn" : "";
+  }
+  return `<div class="dds-tile ${sev}"><div class="dds-tile-label">${label}</div><div class="dds-tile-value">${value}</div></div>`;
+}
+
 function showCalTooltip(cellEl, dateISO, evt, pinned) {
   const da = _dayAnalysis[dateISO] || {};
   const d = parseISODate(dateISO);
@@ -9399,41 +9869,124 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
 
   const gageEvts = eventsOnDate(generateEvents(), dateISO);
   const kayEvts = eventsOnDate(partnerEvents(), dateISO);
-  const gShifts = gageEvts.length ? gageEvts.map(e => `${compactTime(e.startTime)}-${compactTime(e.endTime)}`).join("<br>") : "Off";
-  const kShifts = kayEvts.length ? kayEvts.map(e => `${compactTime(e.startTime)}-${compactTime(e.endTime)}`).join("<br>") : "Off";
 
-  const restG = da.restG != null ? `${da.restG}h` : "--";
-  const restK = da.restK != null ? `${da.restK}h` : "--";
-  const cc = da.childcare === "gap" ? "Gap" : da.childcare === "solo" ? "Solo parent" : "Covered";
-  const couple = `${da.coupleHours || 0}h`;
+  const eyebrow = d.toLocaleDateString(undefined, { weekday: "long" });
+  const title = d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+
+  // Childcare tile state.
+  const ccState = da.childcare;
+  const cc = ccState === "gap"
+    ? { sev: "crit", text: "Gap", badge: "!" }
+    : ccState === "solo"
+      ? { sev: "warn", text: "Solo", badge: "1" }
+      : { sev: "good", text: "Covered", badge: "✓" };
+
+  const coupleStr = da.coupleHours != null ? String(da.coupleHours) : "0.0";
+  const coupleH = parseFloat(coupleStr) || 0;
 
   const dayEvents = getEventsForDate(dateISO);
   const eventsBlock = dayEvents.length
-    ? `<div class="tt-divider"></div>${dayEvents.map(eventTooltipRowHTML).join("")}`
+    ? `<div class="dds-extra"><div class="tt-divider"></div>${dayEvents.map(eventTooltipRowHTML).join("")}</div>`
     : "";
 
   const tip = _getTip();
+  tip.classList.add("has-dds");
   tip.innerHTML = `
     <div class="tt-top-bar"><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>
-    <div class="tt-date"><span>${FULL_DAY_NAMES[d.getDay()]}, ${dateISO}</span></div>
-    <div class="tt-row"><span class="tt-label" style="color:var(--cal-self)">${escapeHTML(self)}</span><span class="tt-val">${gShifts}</span></div>
-    <div class="tt-row"><span class="tt-label" style="color:var(--cal-partner)">${escapeHTML(partner)}</span><span class="tt-val">${kShifts}</span></div>
-    <div class="tt-divider"></div>
-    <div class="tt-row"><span class="tt-label">Rest (${escapeHTML(self)})</span><span class="tt-val">${restG}</span></div>
-    <div class="tt-row"><span class="tt-label">Rest (${escapeHTML(partner)})</span><span class="tt-val">${restK}</span></div>
-    <div class="tt-row"><span class="tt-label">Childcare</span><span class="tt-val">${cc}</span></div>
-    <div class="tt-row"><span class="tt-label">Couple time</span><span class="tt-val">${couple}</span></div>
-    ${eventsBlock}
+    <div class="dds">
+      <div class="dds-head">
+        <div class="dds-eyebrow">${escapeHTML(eyebrow)}</div>
+        <div class="dds-title">${escapeHTML(title)}</div>
+      </div>
+      <div class="dds-people">
+        ${_ddsPersonRow(self, "var(--color-g)", gageEvts)}
+        ${_ddsPersonRow(partner, "var(--color-k)", kayEvts)}
+      </div>
+      <div class="dds-metrics">
+        ${_ddsRestTile(`Rest · ${escapeHTML(self)}`, da.restG != null ? da.restG : null)}
+        ${_ddsRestTile(`Rest · ${escapeHTML(partner)}`, da.restK != null ? da.restK : null)}
+        <div class="dds-tile dds-tile-row ${cc.sev}">
+          <div>
+            <div class="dds-tile-label">Childcare</div>
+            <div class="dds-tile-value sm">${cc.text}</div>
+          </div>
+          <div class="dds-badge">${cc.badge}</div>
+        </div>
+        <div class="dds-tile">
+          <div class="dds-tile-label">Couple time</div>
+          <div class="dds-tile-value ${coupleH > 0 ? "" : "muted"}">${coupleStr}<span class="u">h</span></div>
+        </div>
+      </div>
+      ${eventsBlock}
+    </div>
   `;
-  // If OT is available on this day, add a tappable ⚡ button after the divider
+  // If OT is available on this day, add a tappable ⚡ button inside the card.
   const otOps = getOTOpportunities(dateISO);
   if (otOps.length > 0) {
-    const otHTML = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-      <button data-action="view-ot" data-date="${dateISO}" style="width:100%;background:rgba(255,159,10,0.15);border:1px solid rgba(255,159,10,0.35);color:#ff9f0a;font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer;font-family:var(--font);">⚡ View Available Overtime</button>
+    const otHTML = `<div class="dds-extra" style="padding-top:0;">
+      <button data-action="view-ot" data-date="${dateISO}" class="dds-ot-btn">⚡ View Available Overtime</button>
     </div>`;
-    tip.insertAdjacentHTML("beforeend", otHTML);
+    tip.querySelector(".dds").insertAdjacentHTML("beforeend", otHTML);
   }
   _showTooltip(tip, cellEl, pinned);
+}
+
+// Mobile (≤768px) shows the pinned day card as a bottom sheet instead of a
+// floating tooltip.
+function _isSheetMode() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function _openDaySheet(tip) {
+  // Relocate to <body> so position:fixed is viewport-relative regardless of any
+  // ancestor transform/filter that would otherwise trap a fixed element.
+  if (tip.parentElement !== document.body) document.body.appendChild(tip);
+  tip.style.left = "";
+  tip.style.top = "";
+  tip.style.transform = "";
+  tip.style.display = "block";
+  tip.style.pointerEvents = "auto";
+  const backdrop = document.getElementById("calSheetBackdrop");
+  if (backdrop) backdrop.classList.add("show");
+  // Two frames so the starting translateY(100%) is committed before we animate.
+  requestAnimationFrame(() => requestAnimationFrame(() => tip.classList.add("sheet-in")));
+  _wireDaySheetDrag(tip);
+}
+
+// Swipe-down-to-dismiss on the sheet. Only engages when the sheet is scrolled to
+// the top, so inner scrolling still works on tall content.
+function _wireDaySheetDrag(tip) {
+  if (tip.__sheetDragWired) return;
+  tip.__sheetDragWired = true;
+  let startY = 0, dy = 0, dragging = false, fromTop = false;
+  tip.addEventListener("touchstart", (e) => {
+    fromTop = tip.scrollTop <= 0;
+    startY = e.touches[0].clientY;
+    dy = 0;
+    dragging = true;
+    tip.style.transition = "none";
+  }, { passive: true });
+  tip.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta > 0 && fromTop) {
+      dy = delta;
+      tip.style.transform = `translateY(${delta}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+  tip.addEventListener("touchend", () => {
+    if (!dragging) return;
+    dragging = false;
+    tip.style.transition = "";
+    if (dy > 90) {
+      hideCalTooltip();
+    } else {
+      tip.style.transform = "";
+      tip.classList.add("sheet-in");
+    }
+    dy = 0;
+  }, { passive: true });
 }
 
 function _showTooltip(tip, cellEl, pinned) {
@@ -9442,6 +9995,24 @@ function _showTooltip(tip, cellEl, pinned) {
   const hoverTip = document.getElementById("calTooltipHover");
 
   hoverTip.classList.toggle("pinned", !!pinned);
+
+  // Bottom-sheet path for tap-opened cards on mobile.
+  if (pinned && _isSheetMode()) {
+    _openDaySheet(hoverTip);
+    return;
+  }
+
+  // Desktop/hover path: if a sheet was left mounted on <body> (e.g. the viewport
+  // grew past the breakpoint while open), return it to .cal-wrap first.
+  if (hoverTip.parentElement === document.body) {
+    const wrap = document.querySelector('.cal-wrap[data-layout="month"]');
+    if (wrap) wrap.appendChild(hoverTip);
+    hoverTip.classList.remove("sheet-in");
+    hoverTip.style.transform = "";
+    const bd = document.getElementById("calSheetBackdrop");
+    if (bd) bd.classList.remove("show");
+  }
+
   hoverTip.style.display = "block";
   hoverTip.style.pointerEvents = pinned ? "auto" : "none";
   const rect = cellEl.getBoundingClientRect();
@@ -9465,6 +10036,28 @@ function hideCalTooltip() {
   _tooltipPinned = false;
   _tooltipClosedAt = Date.now();
   const hoverTip = document.getElementById("calTooltipHover");
+  const backdrop = document.getElementById("calSheetBackdrop");
+
+  // Sheet mode: animate down, then reset + move back into .cal-wrap for the
+  // desktop/hover code paths. Keyed on being mounted on <body> (sheet mode) so
+  // an immediate hide before the slide-in class lands still cleans up.
+  if (hoverTip.parentElement === document.body) {
+    if (backdrop) backdrop.classList.remove("show");
+    hoverTip.classList.remove("sheet-in");
+    hoverTip.style.transition = "";
+    hoverTip.style.transform = "translateY(100%)";
+    setTimeout(() => {
+      hoverTip.style.display = "none";
+      hoverTip.classList.remove("pinned");
+      hoverTip.style.transform = "";
+      const wrap = document.querySelector('.cal-wrap[data-layout="month"]');
+      if (wrap) wrap.appendChild(hoverTip);
+    }, 320);
+    _blockCalTapsBriefly();
+    return;
+  }
+
+  if (backdrop) backdrop.classList.remove("show");
   hoverTip.style.display = "none";
   hoverTip.classList.remove("pinned");
   _blockCalTapsBriefly();
@@ -9579,6 +10172,7 @@ function showOTTooltip(cellEl, dateISO, pinned) {
   }
 
   const tip = _getTip();
+  tip.classList.remove("has-dds");   // OT tooltip keeps its own compact styling
   tip.innerHTML = `<div class="tt-top-bar"><button class="tt-close-btn" data-action="close-tooltip">&times;</button></div>` + html;
   _showTooltip(tip, cellEl, pinned);
 }
@@ -9611,72 +10205,173 @@ function computeMonthComparison() {
   return { current, previous, curWeeks, prevWeeks, prevHasData, days, prevFrom, prevTo };
 }
 
+// ---------- Period comparison (redesigned "Changes" card) ----------
+function _periodMeta(period) {
+  if (period === "year")    return { weeks: 52, title: "Yearly Changes",    label: "Year"    };
+  if (period === "quarter") return { weeks: 13, title: "Quarterly Changes", label: "Quarter" };
+  return { weeks: 4, title: "Monthly Changes", label: "Month" };
+}
+function _fmtShortDate(iso) {
+  const d = parseISODate(iso);
+  if (!d) return iso;
+  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${M[d.getMonth()]} ${d.getDate()}`;
+}
+
+// Compare the most recent window (current) against a trailing 3× baseline of the
+// same metrics, both normalised to per-week averages. Anchored at the end of the
+// available data. Returns null baseline when there isn't enough prior history.
+function computePeriodComparison(period) {
+  const dataFrom = parseISODate(state.range.from);
+  const dataTo = parseISODate(state.range.to);
+  if (!dataFrom || !dataTo || dataFrom > dataTo) return null;
+
+  const wDays = _periodMeta(period).weeks * 7;
+  let curStart = addDays(dataTo, -(wDays - 1));
+  if (curStart < dataFrom) curStart = dataFrom;
+  const curEnd = dataTo;
+
+  const baseEnd = addDays(curStart, -1);
+  let baseStart = addDays(curStart, -(wDays * 3));
+  if (baseStart < dataFrom) baseStart = dataFrom;
+
+  const withRange = (from, to) => {
+    const sf = state.range.from, st = state.range.to;
+    state.range.from = toISODate(from);
+    state.range.to = toISODate(to);
+    const a = computeAnalysis();
+    state.range.from = sf;
+    state.range.to = st;
+    return a;
+  };
+
+  const current = withRange(curStart, curEnd);
+  const hasBaselineWindow = baseEnd >= dataFrom && baseEnd >= baseStart;
+  const baseline = hasBaselineWindow ? withRange(baseStart, baseEnd) : null;
+  const t = baseline && baseline.totals;
+  const baseHasData = !!t && (t.totalGageWork > 0 || t.totalCouple > 0 || t.totalSoloG > 0 || t.totalSoloP > 0 || t.totalGap > 0);
+
+  return {
+    period, current,
+    baseline: baseHasData ? baseline : null,
+    curStart: toISODate(curStart), curEnd: toISODate(curEnd),
+    baseStart: toISODate(baseStart), baseEnd: toISODate(baseEnd),
+  };
+}
+
 function renderMonthComparison() {
   const el = document.getElementById("monthCompContent");
-  const comp = computeMonthComparison();
-  if (!comp) {
-    el.innerHTML = `<div style="color:var(--text-dim)">Set a date range to see comparisons.</div>`;
-    return;
-  }
-  if (!comp.prevHasData) {
-    const pf = toISODate(comp.prevFrom), pt = toISODate(comp.prevTo);
-    el.innerHTML = `<div style="color:var(--text-dim)">No data for the previous period (${pf} to ${pt}).<br>Add partner shifts and schedule data for that period to enable comparison.</div>`;
+  if (!el) return;
+  const period = (state.ui && state.ui.monthCompPeriod) || "month";
+  const meta = _periodMeta(period);
+  const comp = computePeriodComparison(period);
+
+  const dropdown = `
+    <div class="mc-period">
+      <span>${meta.label}</span><span class="mc-caret">⌄</span>
+      <select id="mcPeriodSelect" class="mc-period-select" aria-label="Comparison period">
+        <option value="month">Month</option>
+        <option value="quarter">Quarter</option>
+        <option value="year">Year</option>
+      </select>
+    </div>`;
+  const wireDropdown = () => {
+    const sel = document.getElementById("mcPeriodSelect");
+    if (!sel) return;
+    sel.value = period;
+    sel.onchange = (e) => {
+      if (!state.ui) state.ui = {};
+      state.ui.monthCompPeriod = e.target.value;
+      saveState();
+      renderMonthComparison();
+    };
+  };
+
+  if (!comp || !comp.baseline) {
+    el.innerHTML = `
+      <div class="mc-head">
+        <div><div class="mc-title">${meta.title}</div>
+        <div class="mc-sub">${comp ? `${_fmtShortDate(comp.curStart)} – ${_fmtShortDate(comp.curEnd)}` : ""}</div></div>
+        ${dropdown}
+      </div>
+      <div class="mc-empty">Not enough history yet for a ${meta.label.toLowerCase()} comparison — there's no data before ${comp ? _fmtShortDate(comp.curStart) : "the current window"} to average against. This fills in as more schedule history builds up.</div>`;
+    wireDropdown();
     return;
   }
 
   const selfName = state.selfName || "Gage";
   const partnerName = state.partner.name || "Kaylene";
-  const c = comp.current.totals;
-  const p = comp.previous.totals;
-  const cw = comp.curWeeks;
-  const pw = comp.prevWeeks;
+  const cw = comp.current.weekly.length || 1;
+  const bw = comp.baseline.weekly.length || 1;
+  const c = comp.current.totals, b = comp.baseline.totals;
 
   const metrics = [
-    { label: `${selfName}'s hours / week`, cur: c.totalGageWork / cw / 60, prev: p.totalGageWork / pw / 60, moreIsBad: true },
-    { label: "Couple time / week", cur: c.totalCouple / cw / 60, prev: p.totalCouple / pw / 60, moreIsBad: false },
-    { label: `${selfName} solo / week`, cur: c.totalSoloG / cw / 60, prev: p.totalSoloG / pw / 60, moreIsBad: true },
-    { label: `${partnerName} solo / week`, cur: c.totalSoloP / cw / 60, prev: p.totalSoloP / pw / 60, moreIsBad: true },
-    { label: "Childcare gaps / week", cur: c.totalGap / cw / 60, prev: p.totalGap / pw / 60, moreIsBad: true },
+    { label: `${selfName}'s hours`, cur: c.totalGageWork/cw/60, prev: b.totalGageWork/bw/60, moreIsBad: true,  bar: "var(--color-g)" },
+    { label: "Couple time",         cur: c.totalCouple/cw/60,   prev: b.totalCouple/bw/60,   moreIsBad: false, bar: "var(--color-both)" },
+    { label: `${selfName} solo`,    cur: c.totalSoloG/cw/60,    prev: b.totalSoloG/bw/60,    moreIsBad: true,  bar: "var(--color-g)" },
+    { label: `${partnerName} solo`, cur: c.totalSoloP/cw/60,    prev: b.totalSoloP/bw/60,    moreIsBad: true,  bar: "var(--color-k)" },
+    { label: "Childcare gaps",      cur: c.totalGap/cw/60,      prev: b.totalGap/bw/60,      moreIsBad: true,  bar: "#FF9F0A" },
   ];
 
-  // Render in the same style as the Stats screen — bar comparison list with prev/cur tracks
-  const pf = toISODate(comp.prevFrom), pt = toISODate(comp.prevTo);
-  const colors = [
-    "var(--color-g)",      // Gage hours
-    "var(--color-both)",   // Couple time
-    "var(--color-g)",      // Self solo
-    "var(--color-k)",      // Partner solo
-    "var(--ot)",           // Childcare gaps
-  ];
-  const max = Math.max(60, ...metrics.flatMap(m => [m.cur, m.prev]));
-  let html = `<div class="stats-meta" style="margin-bottom:14px;">vs ${pf} — ${pt}</div>`;
-  html += `<div class="bar-list">`;
-  metrics.forEach((m, i) => {
-    const pct  = Math.min(100, (m.cur  / max) * 100);
-    const ppct = Math.min(100, (m.prev / max) * 100);
-    const diff = m.cur - m.prev;
-    let deltaPill = `<span class="bar-delta flat">—</span>`;
-    if (Math.abs(diff) >= 0.1) {
-      const good = m.moreIsBad ? diff < 0 : diff > 0;
-      const dir = good ? "up" : "down";
-      deltaPill = `<span class="bar-delta ${dir}">${diff > 0 ? "+" : ""}${diff.toFixed(1)}h</span>`;
+  // Insight: the biggest UNfavorable change; if everything moved favorably, the
+  // biggest favorable one instead.
+  let worst = null, best = null;
+  metrics.forEach(m => {
+    const delta = m.cur - m.prev;
+    if (Math.abs(delta) < 0.1) return;
+    const good = m.moreIsBad ? delta < 0 : delta > 0;
+    const cand = { m, delta, good, mag: Math.abs(delta) };
+    if (good) { if (!best  || cand.mag > best.mag)  best  = cand; }
+    else      { if (!worst || cand.mag > worst.mag) worst = cand; }
+  });
+  const pick = worst || best;
+  let insight = "";
+  if (pick) {
+    const dir = pick.delta > 0 ? "up" : "down";
+    const sign = pick.delta > 0 ? "+" : "−";
+    insight = `<div class="mc-insight ${pick.good ? "good" : "bad"}">
+      <div class="mc-insight-icon">${pick.good ? "✓" : "⚠︎"}</div>
+      <div class="mc-insight-text"><b>${escapeHTML(pick.m.label)}</b> is ${dir} the most this ${meta.label.toLowerCase()} — <span class="${pick.good ? "good-v" : "bad-v"}">${sign}${pick.mag.toFixed(1)}h/wk</span>.</div>
+    </div>`;
+  }
+
+  let rows = "";
+  metrics.forEach(m => {
+    const delta = m.cur - m.prev;
+    const max = Math.max(m.cur, m.prev, 0.1) * 1.18;
+    const fillPct = Math.max(4, (m.cur / max) * 100).toFixed(1);
+    const prevPct = Math.min(98, (m.prev / max) * 100).toFixed(1);
+    let chip;
+    if (Math.abs(delta) < 0.1) {
+      chip = `<span class="mc-delta flat">—</span>`;
+    } else {
+      const good = m.moreIsBad ? delta < 0 : delta > 0;
+      chip = `<span class="mc-delta ${good ? "good" : "bad"}"><span class="mc-arrow">${delta > 0 ? "▲" : "▼"}</span>${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}h</span>`;
     }
-    html += `<div class="bar-row">
-      <div class="bar-row-head">
-        <span class="bar-label">${escapeHTML(m.label)}</span>
-        <span class="bar-vals">
-          <span class="bar-cur">${m.cur.toFixed(1)}h</span>
-          ${deltaPill}
-        </span>
+    rows += `<div class="mc-row">
+      <div class="mc-row-head">
+        <div class="mc-label">${escapeHTML(m.label)} / wk</div>
+        <div class="mc-vals"><div class="mc-value">${m.cur.toFixed(1)}h</div>${chip}</div>
       </div>
-      <div class="bar-track">
-        <div class="bar-prev"     style="width:${ppct}%;background:${colors[i]};"></div>
-        <div class="bar-cur-fill" style="width:${pct}%;background:${colors[i]};"></div>
+      <div class="mc-bar">
+        <div class="mc-bar-fill" style="width:${fillPct}%;background:${m.bar};"></div>
+        <div class="mc-bar-prev" style="left:${prevPct}%;"></div>
       </div>
+      <div class="mc-was">was ${Math.max(0, m.prev).toFixed(1)}h</div>
     </div>`;
   });
-  html += `</div>`;
-  el.innerHTML = html;
+
+  el.innerHTML = `
+    <div class="mc-head">
+      <div>
+        <div class="mc-title">${meta.title}</div>
+        <div class="mc-sub">vs ${_fmtShortDate(comp.baseStart)} – ${_fmtShortDate(comp.baseEnd)} average</div>
+      </div>
+      ${dropdown}
+    </div>
+    ${insight}
+    <div>${rows}</div>`;
+  wireDropdown();
 }
 
 // ---------- Preview ----------
@@ -9802,7 +10497,7 @@ document.getElementById("addShiftType").addEventListener("click", () => {
   saveState(); renderAll();
 });
 
-document.getElementById("otAdd").addEventListener("click", () => {
+document.getElementById("otAdd")?.addEventListener("click", () => {
   if (!canEditAdminSections()) return;
   const firstId = state.shiftTypes[0] ? state.shiftTypes[0].id : null;
   state.ot.push({
@@ -9815,7 +10510,7 @@ document.getElementById("otAdd").addEventListener("click", () => {
   saveState(); renderOt(); refreshPreview();
 });
 
-document.getElementById("overrideAdd").addEventListener("click", () => {
+document.getElementById("overrideAdd")?.addEventListener("click", () => {
   if (!canEditAdminSections()) return;
   state.overrides.push({
     date: state.range.from || toISODate(new Date()),
@@ -9826,7 +10521,7 @@ document.getElementById("overrideAdd").addEventListener("click", () => {
   saveState(); renderOverrides(); renderCalendar(); refreshPreview(); renderAnalysis();
 });
 
-document.getElementById("otOpAdd").addEventListener("click", () => {
+document.getElementById("otOpAdd")?.addEventListener("click", () => {
   const firstId = state.shiftTypes[0] ? state.shiftTypes[0].id : null;
   state.otOpportunities.push({
     date: state.range.from || toISODate(new Date()),
@@ -9900,7 +10595,7 @@ function switchTab(tabId) {
 document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
-document.getElementById("tabDropdown").addEventListener("change", e => switchTab(e.target.value));
+document.getElementById("tabDropdown")?.addEventListener("change", e => switchTab(e.target.value));
 if (state.activeTab && document.getElementById(state.activeTab)) switchTab(state.activeTab);
 
 // (Mobile view dropdown removed; visualization toggle is desktop-only now,
@@ -10100,6 +10795,12 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
     // Rightward swipe, mostly horizontal, reasonably quick
     if (dx > 80 && dy < 60 && dt < 700) closeFamilyDrawer();
   }, { passive: true });
+})();
+
+// Tap the dimmed area above the mobile day sheet to dismiss it.
+(() => {
+  const backdrop = document.getElementById("calSheetBackdrop");
+  if (backdrop) backdrop.addEventListener("click", () => hideCalTooltip());
 })();
 
 // Capture-phase: catch the close X and "view OT" button before the click can

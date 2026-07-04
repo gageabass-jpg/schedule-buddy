@@ -47,6 +47,8 @@ import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
 import { CoverageRequestModal } from "./components/CoverageRequestModal";
+import { CoverageRequestsPanel } from "./components/CoverageRequestsPanel";
+import { ImprovementsModal } from "./components/ImprovementsModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
@@ -116,6 +118,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
+  const [coverageRequestsOpen, setCoverageRequestsOpen] = useState(false);
+  const [improvementsOpen, setImprovementsOpen] = useState(false);
   const [childcareOpen, setChildcareOpen] = useState(false);
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [newRequestPrefill, setNewRequestPrefill] = useState<{
@@ -167,6 +171,12 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // File → Edit Weekly Template… (Cmd+Shift+W).
   useEffect(() => {
     const unsub = window.sbm?.onMenuEditTemplate(() => setTemplateOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
+  // View → Coverage Requests (Cmd+Shift+C).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenCoverageRequests(() => setCoverageRequestsOpen(true));
     return () => { unsub?.(); };
   }, []);
 
@@ -381,6 +391,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         syncStatus={syncStatus}
         onRefresh={handleRefresh}
         refreshing={refreshing}
+        onOpenImprovements={() => setImprovementsOpen(true)}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
@@ -561,6 +572,21 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdId={householdId}
         state={state}
         shifts={shifts}
+      />
+      <CoverageRequestsPanel
+        open={coverageRequestsOpen}
+        onClose={() => setCoverageRequestsOpen(false)}
+        palette={palette}
+        t={t}
+        dark={dark}
+        householdId={householdId}
+        state={state}
+      />
+      <ImprovementsModal
+        open={improvementsOpen}
+        onClose={() => setImprovementsOpen(false)}
+        t={t}
+        dark={dark}
       />
       <ChildcarePanel
         open={childcareOpen}

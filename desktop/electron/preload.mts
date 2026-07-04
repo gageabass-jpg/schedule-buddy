@@ -33,6 +33,12 @@ const api = {
   clearApiKey: (): Promise<void> => ipcRenderer.invoke("key:clear"),
   parseSchedule: (req: ParseScheduleRequest): Promise<ParseScheduleResult> =>
     ipcRenderer.invoke("vision:parse", req),
+  /** Append an improvement idea to the on-disk log (userData/improvements.json). */
+  addImprovement: (text: string): Promise<{ ok: boolean; count?: number; path?: string; error?: string }> =>
+    ipcRenderer.invoke("improvements:add", text),
+  /** Read all logged improvement ideas. */
+  listImprovements: (): Promise<Array<{ id: string; text: string; createdAt: number; status: string }>> =>
+    ipcRenderer.invoke("improvements:list"),
   /** Fires when the user picks "Settings…" from the macOS App menu (Cmd+,). */
   onMenuOpenApiKey: (cb: () => void): (() => void) => {
     const handler = (): void => cb();
@@ -62,6 +68,12 @@ const api = {
     const handler = (): void => cb();
     ipcRenderer.on("menu:edit-template", handler);
     return () => ipcRenderer.removeListener("menu:edit-template", handler);
+  },
+  /** Fires when the user picks "Coverage Requests" from the View menu. */
+  onMenuOpenCoverageRequests: (cb: () => void): (() => void) => {
+    const handler = (): void => cb();
+    ipcRenderer.on("menu:open-coverage-requests", handler);
+    return () => ipcRenderer.removeListener("menu:open-coverage-requests", handler);
   },
 };
 

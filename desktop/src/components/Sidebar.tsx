@@ -4,6 +4,7 @@ import type { ViewFilter } from "../App";
 import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
+import { LightBulb } from "./ImprovementsModal";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ interface SidebarProps {
   syncStatus: string;
   onRefresh: () => void;
   refreshing?: boolean;
+  onOpenImprovements: () => void;
   viewFilter: ViewFilter;
   viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
@@ -34,7 +36,7 @@ interface SidebarProps {
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
-  householdName, memberCount, syncStatus, onRefresh, refreshing,
+  householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
   onOpenFamilyConsole, onSendCoverage, onOpenChildcare, onOpenChat, pendingCoverageCount,
 }: SidebarProps) {
@@ -63,20 +65,45 @@ export function Sidebar({
           ...({ WebkitAppRegion: "drag" } as React.CSSProperties),
         }}
       />
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 6px" }}>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={refreshing}
+        title="Refresh — re-sync schedule data"
+        aria-label="Refresh schedule data"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "2px 6px",
+          background: "transparent",
+          border: 0,
+          borderRadius: 8,
+          cursor: refreshing ? "default" : "pointer",
+          fontFamily: "inherit",
+          textAlign: "left",
+          width: "100%",
+        }}
+      >
         <img
           src="icon.svg"
           alt=""
           aria-hidden="true"
           width={28}
           height={28}
-          style={{ display: "block", borderRadius: 6, flexShrink: 0 }}
+          style={{
+            display: "block",
+            borderRadius: 6,
+            flexShrink: 0,
+            // Spin the logo once on refresh for visual feedback.
+            animation: refreshing ? "sbmSpin 0.6s linear" : undefined,
+          }}
         />
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", fontFamily: "\"Space Grotesk\", \"Styrene A\", \"Inter\", -apple-system, sans-serif" }}>Schedule Buddy</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: MANAGER_ORANGE, letterSpacing: "-0.01em" }}>Manager</span>
         </div>
-      </div>
+      </button>
 
       <div
         style={{
@@ -225,10 +252,9 @@ export function Sidebar({
         </button>
         <button
           type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-          title="Refresh — re-sync schedule data"
-          aria-label="Refresh schedule data"
+          onClick={onOpenImprovements}
+          title="Improvements — what can we do better?"
+          aria-label="Suggest an improvement"
           style={{
             flexShrink: 0,
             width: 34,
@@ -238,23 +264,13 @@ export function Sidebar({
             borderRadius: 8,
             background: t.bgElev,
             border: `0.5px solid ${t.sep}`,
-            cursor: refreshing ? "default" : "pointer",
-            color: refreshing ? t.text3 : t.text2,
-            opacity: refreshing ? 0.5 : 1,
-            fontSize: 18,
+            cursor: "pointer",
+            color: t.text2,
             fontFamily: "inherit",
             transition: "opacity 0.15s ease",
           }}
         >
-          <span
-            style={{
-              display: "inline-block",
-              lineHeight: 1,
-              // 0.6s spin inside a 700ms grayed window, so the rotation always
-              // completes (lands upright) before the button un-grays.
-              animation: refreshing ? "sbmSpin 0.6s linear" : undefined,
-            }}
-          >⟳</span>
+          <LightBulb size={17} color={MANAGER_ORANGE} />
         </button>
       </div>
     </div>

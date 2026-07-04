@@ -30,11 +30,14 @@ export interface SbmApi {
   setApiKey: (key: string) => Promise<{ ok: boolean; error?: string }>;
   clearApiKey: () => Promise<void>;
   parseSchedule: (req: ParseScheduleRequest) => Promise<ParseScheduleResult>;
+  addImprovement: (text: string) => Promise<{ ok: boolean; count?: number; path?: string; error?: string }>;
+  listImprovements: () => Promise<Array<{ id: string; text: string; createdAt: number; status: string }>>;
   onMenuOpenApiKey: (cb: () => void) => () => void;
   onMenuNewEvent: (cb: () => void) => () => void;
   onMenuNewShift: (cb: () => void) => () => void;
   onMenuEditShiftTypes: (cb: () => void) => () => void;
   onMenuEditTemplate: (cb: () => void) => () => void;
+  onMenuOpenCoverageRequests: (cb: () => void) => () => void;
 }
 
 declare global {
