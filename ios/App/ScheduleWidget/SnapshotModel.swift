@@ -23,6 +23,9 @@ struct WidgetSnapshot: Codable {
         let shifts: [Shift]
         let childcare: String? // "gap" | "solo" | "ok"/"covered" | nil
         let coupleHours: Double?
+        /// Count of life items (non-work commitments) on this day. Optional so
+        /// snapshots written before this field existed still decode.
+        let life: Int?
     }
 
     // Convenience lookups ---------------------------------------------------
@@ -46,7 +49,7 @@ struct WidgetSnapshot: Codable {
         return (0..<7).map { i -> Day in
             let d = cal.date(byAdding: .day, value: i, to: start) ?? date
             let key = Self.iso.string(from: d)
-            return days.first { $0.date == key } ?? Day(date: key, shifts: [], childcare: nil, coupleHours: nil)
+            return days.first { $0.date == key } ?? Day(date: key, shifts: [], childcare: nil, coupleHours: nil, life: nil)
         }
     }
 

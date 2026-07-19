@@ -48,6 +48,14 @@ struct WeekStripView: View {
                         .frame(height: 15)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Palette.color(for: s.who)))
                 }
+                // Life item marker — leaf only, no time, matching the phone
+                // calendar cell. One leaf regardless of count.
+                if (day.life ?? 0) > 0 {
+                    Image("Leaf")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 11, height: 11)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
