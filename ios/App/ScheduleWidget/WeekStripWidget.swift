@@ -17,10 +17,17 @@ struct WeekStripWidget: Widget {
 struct WeekStripView: View {
     var entry: ScheduleEntry
 
+    /// Photo avatar ringed in the person's color. The outer white ring keeps
+    /// the two readable where they overlap (HStack spacing is negative).
     private func avatarDot(_ who: String) -> some View {
-        Circle().fill(Palette.color(for: who))
+        Image(who == "G" ? "Gage" : "Kaylene")
+            .resizable()
+            .scaledToFill()
             .frame(width: 22, height: 22)
-            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Palette.color(for: who), lineWidth: 2))
+            .padding(1.5)
+            .background(Circle().fill(Color.white))
     }
 
     private func dayColumn(_ day: WidgetSnapshot.Day, isToday: Bool) -> some View {

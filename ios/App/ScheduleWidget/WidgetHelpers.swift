@@ -23,8 +23,8 @@ extension Color {
 
 /// Brand palette shared across the widgets.
 enum Palette {
-    static let gage    = Color(hex: "#0A84FF")   // blue
-    static let kaylene = Color(hex: "#FF375F")   // pink
+    static let gage    = Color(hex: "#30D158")   // green
+    static let kaylene = Color(hex: "#BF5AF2")   // purple
     static let couple  = Color(hex: "#AF52DE")   // purple
     static let covered = Color(hex: "#34C759")   // green
     static let gap     = Color(hex: "#E8890C")   // amber
