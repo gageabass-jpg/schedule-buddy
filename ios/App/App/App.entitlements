@@ -8,5 +8,12 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Shared container the widget snapshot is written to. Must match
+	     WidgetBridgePlugin.appGroup and SnapshotStore.appGroup, and must
+	     also be enabled on the ScheduleWidget target. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.gagebass.schedulebuddy</string>
+	</array>
 </dict>
 </plist>
