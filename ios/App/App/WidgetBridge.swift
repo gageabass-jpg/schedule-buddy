@@ -1,6 +1,27 @@
 import Foundation
+import UIKit
 import Capacitor
 import WidgetKit
+
+/// Registers app-local Capacitor plugins.
+///
+/// Capacitor 8 does NOT auto-discover plugins by scanning for `CAPBridgedPlugin`
+/// conformance — `CapacitorBridge.registerPlugins()` only loads classes named in
+/// `packageClassList` inside the bundled `capacitor.config.json`, which `npx cap
+/// sync` generates from installed npm packages. A plugin that lives in the app
+/// target (like WidgetBridgePlugin) is therefore never registered, and the web
+/// app sees no `Capacitor.Plugins.WidgetBridge`.
+///
+/// `registerPluginInstance(_:)` is the supported escape hatch — unlike
+/// `registerPluginType(_:)` it has no `autoRegisterPlugins` guard. Doing it here
+/// survives `cap sync`, whereas hand-editing capacitor.config.json would not.
+///
+/// Wired up via Main.storyboard (customClass = MainViewController).
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        bridge?.registerPluginInstance(WidgetBridgePlugin())
+    }
+}
 
 /// Capacitor plugin (JS name: `WidgetBridge`) that persists the schedule
 /// snapshot handed over from the web app into the shared App Group container,

@@ -90,7 +90,20 @@ is live when the widget reads.
    `ios/App/ScheduleWidget/` into the target (Target Membership = ScheduleWidget).
 
 4. **Add `WidgetBridge.swift`** to the **App** target (Target Membership = App).
-   Capacitor 8 auto-registers it (it conforms to `CAPBridgedPlugin`).
+
+   > **Capacitor 8 does NOT auto-register app-local plugins.** Conforming to
+   > `CAPBridgedPlugin` is not enough: `CapacitorBridge.registerPlugins()` only
+   > loads classes listed in `packageClassList` inside the bundled
+   > `capacitor.config.json`, which `cap sync` generates from npm packages. A
+   > plugin in the app target is never in that list, so the web app sees no
+   > `Capacitor.Plugins.WidgetBridge` and the widget stays empty.
+   >
+   > `WidgetBridge.swift` therefore also defines `MainViewController`, which
+   > overrides `capacitorDidLoad()` and calls `bridge?.registerPluginInstance(...)`.
+   > `Main.storyboard` points at it (customClass `MainViewController`, module
+   > `App`). Don't revert the storyboard to `CAPBridgeViewController` — that
+   > silently unregisters the plugin. (Adding the class to `packageClassList`
+   > also works but is wiped by the next `cap sync`.)
 
 5. **App Group on BOTH targets:** select the project → for the **App** target and
    the **ScheduleWidget** target, Signing & Capabilities → **+ Capability → App

@@ -1,4 +1,8 @@
 import SwiftUI
+// ContainerBackgroundPlacement.widget (used by widgetCard below) is defined in
+// WidgetKit. Swift 6 requires the defining module to be imported explicitly
+// rather than picked up transitively.
+import WidgetKit
 
 extension Color {
     /// "#RRGGBB" → Color.

@@ -9680,11 +9680,26 @@ function buildWidgetSnapshot() {
 
 function pushWidgetSnapshot() {
   const bridge = _widgetBridge();
-  if (!bridge || typeof bridge.writeSnapshot !== "function") return;   // not on iOS
+  if (!bridge || typeof bridge.writeSnapshot !== "function") {
+    console.log("[widget] no bridge — not running in the iOS shell");
+    return;   // not on iOS
+  }
   try {
-    bridge.writeSnapshot({ json: JSON.stringify(buildWidgetSnapshot()) });
-  } catch (_) { /* best-effort */ }
+    const snap = buildWidgetSnapshot();
+    const dayCount = (snap.days || []).length;
+    const shiftCount = (snap.days || []).reduce((n, d) => n + (d.shifts || []).length, 0);
+    // Surface the outcome: a rejected promise here (e.g. "App Group is not
+    // configured") was previously swallowed, leaving a blank widget with no
+    // clue why.
+    Promise.resolve(bridge.writeSnapshot({ json: JSON.stringify(snap) }))
+      .then(() => console.log(`[widget] snapshot written — ${dayCount} days, ${shiftCount} shifts`))
+      .catch((e) => console.warn("[widget] writeSnapshot failed:", e && (e.message || e)));
+  } catch (e) {
+    console.warn("[widget] buildWidgetSnapshot threw:", e && (e.message || e));
+  }
 }
+// Manual trigger for debugging from Safari Web Inspector.
+window.pushWidgetSnapshot = pushWidgetSnapshot;
 
 let _widgetPushTimer = null;
 function scheduleWidgetPush() {
