@@ -74,7 +74,11 @@ is live when the widget reads.
 
 ## Xcode steps
 
-1. **Open the workspace:** `ios/App/App.xcworkspace` (not the `.xcodeproj`).
+1. **Open the project:** `ios/App/App.xcodeproj`.
+
+   This app uses **Capacitor's SPM setup** (`ios/App/CapApp-SPM/`), not
+   CocoaPods — so there is **no `.xcworkspace`**. Open the `.xcodeproj`
+   directly; dependencies resolve as Swift packages.
 
 2. **Add the widget target:** File → New → Target → **Widget Extension**.
    - Product name: `ScheduleWidget`
