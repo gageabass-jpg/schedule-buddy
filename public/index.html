@@ -6971,11 +6971,16 @@ function renderManagerChildcare(requests) {
   if (!list) return;
   requests = Array.isArray(requests) ? requests : [];
 
-  // Pending count → bottom-tab badge
-  const pending = requests.filter(r => r && r.status === "pending").length;
+  // Bottom-tab badge counts only what needs MY action. "Pending" requests are
+  // waiting on Daisy, not on us, so badging the manager for them just showed a
+  // number nothing in this app could clear. Declined / issue responses are the
+  // ones we have to do something about, and they stop counting once reviewed.
+  // (Matches badgeCountFor() in functions/src/index.ts for the app icon.)
+  const needsMe = requests.filter(r =>
+    r && (r.status === "declined" || r.status === "issue") && !r.managerReviewed).length;
   const badge = document.getElementById("mcTabBadge");
   if (badge) {
-    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    if (needsMe > 0) { badge.textContent = String(needsMe); badge.hidden = false; }
     else { badge.hidden = true; }
   }
 
