@@ -3,8 +3,32 @@ import Foundation
 /// Mirror of the JSON produced by `buildWidgetSnapshot()` in public/index.html.
 struct WidgetSnapshot: Codable {
     let generatedAt: Double
-    let people: [String: Person]
-    let days: [Day]
+    /// Manager-shaped payload. Absent in a caregiver snapshot.
+    let people: [String: Person]?
+    let days: [Day]?
+    /// Caregiver-shaped payload (Daisy's own coverage days). Absent for
+    /// managers. Exactly one of `days` / `caregiver` is populated, decided by
+    /// role when the app writes the snapshot.
+    let caregiver: Caregiver?
+
+    /// Daisy's view: her shifts only, plus what's awaiting her reply.
+    struct Caregiver: Codable {
+        let name: String?
+        /// Change requests + unanswered requests, across ALL dates — not just
+        /// the widget's visible window.
+        let pending: Int?
+        let shifts: [CoverageShift]
+
+        struct CoverageShift: Codable {
+            let date: String       // YYYY-MM-DD
+            /// When she should ARRIVE. The 2h lead is already folded in, so
+            /// widgets must never subtract it again.
+            let start: String      // "HH:MM"
+            let end: String        // "HH:MM"
+            let endsNextDay: Bool?
+            let status: String     // "confirmed" | "pending" | "change"
+        }
+    }
 
     struct Person: Codable {
         let name: String
@@ -40,13 +64,13 @@ struct WidgetSnapshot: Codable {
     // Convenience lookups ---------------------------------------------------
 
     func person(_ who: String) -> Person {
-        people[who] ?? Person(name: who == "G" ? "Gage" : "Kaylene",
+        people?[who] ?? Person(name: who == "G" ? "Gage" : "Kaylene",
                               hex: who == "G" ? "#0A84FF" : "#FF375F")
     }
 
     func day(on date: Date) -> Day? {
         let key = Self.iso.string(from: date)
-        return days.first { $0.date == key }
+        return (days ?? []).first { $0.date == key }
     }
 
     /// The 7 days (Sun…Sat) of the week containing `date`, always length 7
@@ -58,7 +82,7 @@ struct WidgetSnapshot: Codable {
         return (0..<7).map { i -> Day in
             let d = cal.date(byAdding: .day, value: i, to: start) ?? date
             let key = Self.iso.string(from: d)
-            return days.first { $0.date == key } ?? Day.empty(key)
+            return (days ?? []).first { $0.date == key } ?? Day.empty(key)
         }
     }
 

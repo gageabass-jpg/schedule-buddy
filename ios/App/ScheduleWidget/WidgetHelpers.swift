@@ -41,6 +41,16 @@ enum Palette {
     static let gapBar      = Color(hex: "#FBE2C0")   // uncovered person's bar
     static let hairline    = Color(hex: "#F0F0F3")
 
+    // Caregiver (Daisy) widget tokens — concepts 1b / 3a / 3b / 3c.
+    static let daisy        = Color(hex: "#FF3B5C")
+    static let daisyBg      = Color(hex: "#FFF0F3")
+    static let daisyBorder  = Color(hex: "#FFD9E0")
+    static let greenText    = Color(hex: "#1F9D57")
+    static let greenPillBg  = Color(hex: "#E4F7EC")
+    static let secondary    = Color(hex: "#6E6E76")
+    static let muted        = Color(hex: "#B4B4BC")
+    static let neutralFill  = Color(hex: "#F2F2F5")
+
     static func color(for who: String) -> Color { who == "G" ? gage : kaylene }
 }
 
@@ -110,6 +120,28 @@ enum WidgetDate {
     static func monthDay(_ date: Date) -> String {
         let f = DateFormatter(); f.dateFormat = "MM/dd"
         return f.string(from: date)
+    }
+    private static func hm(_ t: String) -> (h: Int, m: Int)? {
+        let p = t.split(separator: ":").compactMap { Int($0) }
+        return p.count == 2 ? (p[0], p[1]) : nil
+    }
+    /// "11:00a" / "7:00p" — always shows minutes.
+    static func clock12(_ t: String) -> String {
+        guard let v = hm(t) else { return t }
+        let suffix = v.h < 12 ? "a" : "p"
+        var h12 = v.h % 12; if h12 == 0 { h12 = 12 }
+        return String(format: "%d:%02d%@", h12, v.m, suffix)
+    }
+    /// "11a" / "7:30p" — minutes only when non-zero.
+    static func compact12(_ t: String) -> String {
+        guard let v = hm(t) else { return t }
+        let suffix = v.h < 12 ? "a" : "p"
+        var h12 = v.h % 12; if h12 == 0 { h12 = 12 }
+        return v.m == 0 ? "\(h12)\(suffix)" : String(format: "%d:%02d%@", h12, v.m, suffix)
+    }
+    /// "6.5" / "8" — trims a trailing .0 so hour counts read cleanly.
+    static func hoursText(_ h: Double) -> String {
+        h == h.rounded() ? String(format: "%.0f", h) : String(format: "%.1f", h)
     }
     /// Hours between two "HH:MM" times, wrapping past midnight.
     static func hours(_ start: String?, _ end: String?) -> Double {

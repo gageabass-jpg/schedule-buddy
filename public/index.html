@@ -6168,6 +6168,9 @@ function initCaregiverFirestoreSync() {
 }
 
 function renderCaregiverScreen(requests) {
+  // Caregivers never hit the manager calendar's render path, so this is the
+  // only place their home-screen widgets get refreshed.
+  scheduleWidgetPush();
   const list = document.getElementById("cgRequestsList");
   if (!list) return;
   requests = Array.isArray(requests) ? requests : [];
@@ -9690,6 +9693,43 @@ function buildWidgetSnapshot() {
   };
 }
 
+/**
+ * Caregiver-facing snapshot: Daisy's own coverage days and nothing else.
+ *
+ * She never renders the manager calendar, so buildWidgetSnapshot() would both
+ * never run for her AND expose the whole household's shifts, which her app
+ * screen deliberately doesn't show.
+ *
+ * The stored startTime IS her arrival time — the 2h lead is folded in when the
+ * request is created — so the widgets show one time, never a derived
+ * "arrive by".
+ */
+function buildCaregiverSnapshot() {
+  const all = Array.isArray(state.coverageRequests) ? state.coverageRequests : [];
+  // Declined / issue days aren't hers to work, so they aren't "shifts".
+  const usable = all.filter((r) => r && r.date && (r.status === "confirmed" || r.status === "pending"));
+  const shifts = usable
+    .map((r) => ({
+      date: r.date,
+      start: r.startTime || "",
+      end: r.endTime || "",
+      endsNextDay: !!r.endsNextDay,
+      status: r.proposedChange ? "change" : (r.status === "pending" ? "pending" : "confirmed"),
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
+  // Global (not window-bound) count of what's awaiting her answer: proposed
+  // time changes, plus new requests she hasn't accepted yet.
+  const pending = usable.filter((r) => r.proposedChange || r.status === "pending").length;
+  return {
+    generatedAt: Date.now(),
+    caregiver: {
+      name: (currentUser && currentUser.displayName) || "Daisy",
+      pending,
+      shifts,
+    },
+  };
+}
+
 function pushWidgetSnapshot() {
   const bridge = _widgetBridge();
   if (!bridge || typeof bridge.writeSnapshot !== "function") {
@@ -9697,6 +9737,14 @@ function pushWidgetSnapshot() {
     return;   // not on iOS
   }
   try {
+    // Caregivers get their own shape — see buildCaregiverSnapshot.
+    if (userRole === "supporting") {
+      const cg = buildCaregiverSnapshot();
+      Promise.resolve(bridge.writeSnapshot({ json: JSON.stringify(cg) }))
+        .then(() => console.log(`[widget] caregiver snapshot — ${cg.caregiver.shifts.length} shifts, ${cg.caregiver.pending} awaiting reply`))
+        .catch((e) => console.warn("[widget] writeSnapshot failed:", e && (e.message || e)));
+      return;
+    }
     const snap = buildWidgetSnapshot();
     const dayCount = (snap.days || []).length;
     const shiftCount = (snap.days || []).reduce((n, d) => n + (d.shifts || []).length, 0);

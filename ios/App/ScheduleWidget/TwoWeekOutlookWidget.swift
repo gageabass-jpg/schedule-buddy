@@ -36,7 +36,7 @@ struct TwoWeekOutlookView: View {
         return (0..<14).compactMap { i -> WidgetSnapshot.Day? in
             guard let d = cal.date(byAdding: .day, value: i, to: start) else { return nil }
             let key = WidgetSnapshot.iso.string(from: d)
-            return snap.days.first { $0.date == key } ?? WidgetSnapshot.Day.empty(key)
+            return (snap.days ?? []).first { $0.date == key } ?? WidgetSnapshot.Day.empty(key)
         }
     }
 
