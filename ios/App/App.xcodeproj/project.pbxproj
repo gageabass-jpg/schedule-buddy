@@ -22,6 +22,16 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		18117B44300D5C080058176F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18117B23300C5F740058176F;
+			remoteInfo = ScheduleWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		18117B0F300C5E940058176F /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -178,6 +188,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				18117B45300D5C080058176F /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -271,6 +282,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		18117B45300D5C080058176F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18117B23300C5F740058176F /* ScheduleWidgetExtension */;
+			targetProxy = 18117B44300D5C080058176F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
