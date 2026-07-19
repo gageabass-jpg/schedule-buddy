@@ -31,7 +31,35 @@ enum Palette {
     static let ink     = Color(hex: "#16161A")
     static let subtle  = Color(hex: "#9A9AA2")
 
+    // Two-week outlook (concept 2a) tokens.
+    static let quaternary  = Color(hex: "#A0A0A8")   // weekday letters
+    static let cellBg      = Color(hex: "#F7F8FA")   // day cell background
+    static let offBar      = Color(hex: "#EDEDF0")   // not working
+    static let gapText     = Color(hex: "#C67A0A")
+    static let gapBg       = Color(hex: "#FFF6EC")
+    static let gapBadgeBg  = Color(hex: "#FFF1DC")
+    static let gapBar      = Color(hex: "#FBE2C0")   // uncovered person's bar
+    static let hairline    = Color(hex: "#F0F0F3")
+
     static func color(for who: String) -> Color { who == "G" ? gage : kaylene }
+}
+
+/// Photo avatar ringed in the person's color, with a white outer ring so
+/// overlapping pairs stay readable.
+struct PersonAvatar: View {
+    let who: String
+    var size: CGFloat = 24
+
+    var body: some View {
+        Image(who == "G" ? "Gage" : "Kaylene")
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Palette.color(for: who), lineWidth: 2))
+            .padding(1.5)
+            .background(Circle().fill(Color.white))
+    }
 }
 
 /// White card background. iOS 17 requires `containerBackground`; older falls
