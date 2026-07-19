@@ -106,6 +106,11 @@ enum WidgetDate {
         let f = DateFormatter(); f.dateFormat = "d"
         return f.string(from: date)
     }
+    /// "07/22"
+    static func monthDay(_ date: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "MM/dd"
+        return f.string(from: date)
+    }
     /// Hours between two "HH:MM" times, wrapping past midnight.
     static func hours(_ start: String?, _ end: String?) -> Double {
         guard let start = start, let end = end else { return 0 }

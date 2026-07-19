@@ -9661,15 +9661,20 @@ function buildWidgetSnapshot() {
     for (const e of eventsOnDate(gEvts, iso)) shifts.push({ who: "G", label: e.label || compactTime(e.startTime), start: e.startTime, end: e.endTime });
     for (const e of eventsOnDate(kEvts, iso)) shifts.push({ who: "K", label: e.label || compactTime(e.startTime), start: e.startTime, end: e.endTime });
     const da = _dayAnalysis[iso] || {};
+    const lifeEvents = getEventsForDate(iso);
     days.push({
       date: iso,
       shifts,
       childcare: da.childcare || null,
       coupleHours: da.coupleHours != null ? parseFloat(da.coupleHours) : null,
-      // Life items (non-work commitments) — the widgets show a leaf, matching
-      // the calendar cell. A count is all they need; titles stay out of the
-      // snapshot to keep it small.
-      life: getEventsForDate(iso).length,
+      // Life items (non-work commitments). `life` is the count that drives the
+      // leaf marker; `lifeItems` carries titles for the widgets that list them.
+      // Capped per day so a busy day can't bloat the snapshot.
+      life: lifeEvents.length,
+      lifeItems: lifeEvents
+        .map((e) => String((e && e.title) || "").trim())
+        .filter(Boolean)
+        .slice(0, 4),
     });
   }
   return {

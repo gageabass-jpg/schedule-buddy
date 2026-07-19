@@ -26,6 +26,15 @@ struct WidgetSnapshot: Codable {
         /// Count of life items (non-work commitments) on this day. Optional so
         /// snapshots written before this field existed still decode.
         let life: Int?
+        /// Titles of those life items, for widgets that list them rather than
+        /// just flagging the day. Also optional for the same reason.
+        let lifeItems: [String]?
+
+        /// Stand-in for a date the snapshot doesn't cover. Use this instead of
+        /// the memberwise init so adding a field doesn't break every caller.
+        static func empty(_ date: String) -> Day {
+            Day(date: date, shifts: [], childcare: nil, coupleHours: nil, life: nil, lifeItems: nil)
+        }
     }
 
     // Convenience lookups ---------------------------------------------------
@@ -49,7 +58,7 @@ struct WidgetSnapshot: Codable {
         return (0..<7).map { i -> Day in
             let d = cal.date(byAdding: .day, value: i, to: start) ?? date
             let key = Self.iso.string(from: d)
-            return days.first { $0.date == key } ?? Day(date: key, shifts: [], childcare: nil, coupleHours: nil, life: nil)
+            return days.first { $0.date == key } ?? Day.empty(key)
         }
     }
 

@@ -36,8 +36,7 @@ struct TwoWeekOutlookView: View {
         return (0..<14).compactMap { i -> WidgetSnapshot.Day? in
             guard let d = cal.date(byAdding: .day, value: i, to: start) else { return nil }
             let key = WidgetSnapshot.iso.string(from: d)
-            return snap.days.first { $0.date == key }
-                ?? WidgetSnapshot.Day(date: key, shifts: [], childcare: nil, coupleHours: nil, life: nil)
+            return snap.days.first { $0.date == key } ?? WidgetSnapshot.Day.empty(key)
         }
     }
 
@@ -91,6 +90,30 @@ struct TwoWeekOutlookView: View {
             ForEach(Array(slice), id: \.date) { day in
                 dayCell(day, isToday: day.date == todayKey)
             }
+        }
+    }
+
+    /// Life items across the window, flattened chronologically. Capped to what
+    /// fits under the grid; `lifeOverflow` reports what didn't make it so the
+    /// list never silently hides commitments.
+    private var lifeRows: [(date: String, title: String)] {
+        days.flatMap { day in (day.lifeItems ?? []).map { (day.date, $0) } }
+    }
+    private static let maxLifeRows = 4
+
+    private func lifeRow(_ dateISO: String, _ title: String) -> some View {
+        let d = WidgetDate.parse(dateISO)
+        return HStack(spacing: 6) {
+            Image("Leaf")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 11, height: 11)
+            Text("\(d.map(WidgetDate.monthDay) ?? "") - \(title)")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundColor(Palette.ink)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
         }
     }
 
@@ -168,6 +191,23 @@ struct TwoWeekOutlookView: View {
             VStack(spacing: gridGap) {
                 weekRow("WK 1", all.prefix(7), todayKey: todayKey)
                 weekRow("WK 2", all.dropFirst(7).prefix(7), todayKey: todayKey)
+            }
+
+            // Life items filling the space under the grid.
+            let life = lifeRows
+            if !life.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(life.prefix(Self.maxLifeRows).enumerated()), id: \.offset) { _, row in
+                        lifeRow(row.date, row.title)
+                    }
+                    if life.count > Self.maxLifeRows {
+                        Text("+\(life.count - Self.maxLifeRows) more")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Palette.subtle)
+                            .padding(.leading, 17)
+                    }
+                }
+                .padding(.top, 12)
             }
 
             Spacer(minLength: 8)
