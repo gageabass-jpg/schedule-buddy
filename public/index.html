@@ -11043,6 +11043,42 @@ document.querySelectorAll(".bottom-tab").forEach(btn => {
 // header hides inside the chat pane, so the remaining tabs are the way back.
 const _inboxBtn = document.getElementById("inboxBtn");
 if (_inboxBtn) _inboxBtn.addEventListener("click", () => setMobileTab("chat"));
+
+// Swipe in from the left edge to go back to Schedule. The chat pane hides the
+// header (and its inbox button), so this restores the familiar iOS back
+// gesture instead of forcing a trip to the bottom tabs.
+(function initEdgeSwipeBack() {
+  const EDGE_X   = 30;   // must start within this many px of the left edge
+  const MIN_DX   = 60;   // horizontal travel to count as a swipe
+  const MAX_DY   = 45;   // vertical slop — above this it's a scroll, not a swipe
+  const MAX_MS   = 700;  // a slow drag isn't a swipe
+  let startX = 0, startY = 0, startedAt = 0, tracking = false;
+
+  document.addEventListener("touchstart", (e) => {
+    tracking = false;
+    if (e.touches.length !== 1) return;
+    const tab = document.body.dataset.mobileTab;
+    if (!tab || tab === "schedule") return;                 // already home
+    // Don't hijack the gesture while a drawer is open — they have their own
+    // dismissal and sit above the pane.
+    if (document.querySelector(".settings-drawer.open, .partner-drawer.open, .family-drawer.open")) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE_X) return;
+    startX = t.clientX; startY = t.clientY; startedAt = Date.now();
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    if (Date.now() - startedAt > MAX_MS) return;
+    if (t.clientX - startX < MIN_DX) return;
+    if (Math.abs(t.clientY - startY) > MAX_DY) return;
+    setMobileTab("schedule");
+  }, { passive: true });
+})();
 // Initialize default mobile tab
 if (!document.body.dataset.mobileTab) document.body.dataset.mobileTab = "schedule";
 document.querySelectorAll("#drawerNav .drawer-nav li[data-page]").forEach(li => {
