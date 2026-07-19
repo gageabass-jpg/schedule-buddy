@@ -9671,8 +9671,11 @@ function buildWidgetSnapshot() {
   return {
     generatedAt: Date.now(),
     people: {
-      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
-      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
+      // Widget-facing colors — must match `Palette` in the widget extension's
+      // WidgetHelpers.swift (green / purple). Deliberately NOT the web app's
+      // own --color-g / --color-k, which stay blue / pink.
+      G: { name: state.selfName || "Gage", hex: "#30D158" },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#BF5AF2" },
     },
     days,
   };
