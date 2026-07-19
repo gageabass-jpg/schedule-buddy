@@ -54,12 +54,6 @@ interface CaregiverRequest {
   createdByName?: string;
 }
 
-function caregiverTypeLabel(t: CaregiverRequestType): string {
-  if (t === "schedule-block") return "Schedule block";
-  if (t === "shift-conflict") return "Shift conflict";
-  return "Note";
-}
-
 interface PushTokenDoc {
   token: string;
   uid: string;
@@ -231,42 +225,23 @@ export const onCoverageRequestsChange = onDocumentUpdated(
     const beforeDoc = event.data?.before.data() ?? {};
     const afterDoc  = event.data?.after.data()  ?? {};
 
-    // --- Caregiver inbox (caregiverRequests): notify managers when a
-    // brand-new "new"-status row appears. Acks/dismissals are ignored.
+    // --- Caregiver inbox (caregiverRequests): deliberately does NOT push.
+    //
+    // These used to notify managers whenever Daisy raised something. They now
+    // arrive silently: the Inbox tray shows them live, and badgeCountFor()
+    // still counts "new" entries, so they surface on the app icon at the next
+    // push or app open — just without interrupting.
+    //
+    // Push is reserved for Daisy answering us (status_change, change_resolved)
+    // and In-Basket Messages.
     const cgBefore = byId<CaregiverRequest>((beforeDoc.caregiverRequests ?? []) as CaregiverRequest[]);
     const cgAfter  = (afterDoc.caregiverRequests ?? []) as CaregiverRequest[];
-    const newCaregiverEntries: CaregiverRequest[] = [];
-    for (const r of cgAfter) {
-      if (!r || !r.id) continue;
-      if (cgBefore.has(r.id)) continue;
-      if (r.status === "new") newCaregiverEntries.push(r);
-    }
+    const newCaregiverEntries = cgAfter.filter(
+      (r) => r && r.id && !cgBefore.has(r.id) && r.status === "new");
     if (newCaregiverEntries.length > 0) {
-      const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
-      logger.info("Inbox push tokens resolved", { householdId, count: tokens.length, newEntries: newCaregiverEntries.length });
-      if (tokens.length > 0) {
-        for (const cr of newCaregiverEntries) {
-          const who = cr.createdByName || "Caregiver";
-          const title = `${who}: ${caregiverTypeLabel(cr.type)}`;
-          const dateStr = (() => {
-            const [y, m, d] = (cr.date || "").split("-").map(Number);
-            if (!y || !m || !d) return cr.date || "";
-            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
-          })();
-          const bodyParts: string[] = [dateStr];
-          if (cr.startTime && cr.endTime) bodyParts.push(`${cr.startTime}–${cr.endTime}`);
-          if (cr.notes) bodyParts.push(cr.notes.slice(0, 80));
-          await sendToTokens(tokens, {
-            title,
-            body: bodyParts.filter(Boolean).join(" · "),
-          }, {
-            kind: "caregiver_request",
-            householdId,
-            requestId: cr.id,
-            type: cr.type,
-          }, householdId);
-        }
-      }
+      logger.info("New caregiver requests (no push by design)", {
+        householdId, count: newCaregiverEntries.length,
+      });
     }
 
     // --- Coverage requests (caregivers receive new pending; managers
