@@ -22,9 +22,10 @@ struct TwoWeekOutlookWidget: Widget {
 struct TwoWeekOutlookView: View {
     var entry: ScheduleEntry
 
-    private let cellRadius: CGFloat = 12
-    private let gridGap: CGFloat = 5
-    private let labelWidth: CGFloat = 30
+    private let cellRadius: CGFloat = 14
+    private let gridGap: CGFloat = 6
+    private let labelWidth: CGFloat = 32
+    private let barHeight: CGFloat = 17
 
     /// 14 days starting today. The snapshot covers 21 days from the Sunday of
     /// the current week, so today + 13 always falls inside it.
@@ -56,14 +57,14 @@ struct TwoWeekOutlookView: View {
     private func dayCell(_ day: WidgetSnapshot.Day, isToday: Bool) -> some View {
         let gap = isGap(day)
         let d = WidgetDate.parse(day.date)
-        return VStack(spacing: 2) {
+        return VStack(spacing: 3) {
             Text(d.map(WidgetDate.dayNumber) ?? "")
-                .font(.system(size: 12, weight: isToday ? .heavy : .bold))
+                .font(.system(size: 15, weight: isToday ? .heavy : .bold))
                 .foregroundColor(isToday ? Palette.gage : (gap ? Palette.gapText : Palette.ink))
-            RoundedRectangle(cornerRadius: 4).fill(barColor(day, "G")).frame(height: 11)
-            RoundedRectangle(cornerRadius: 4).fill(barColor(day, "K")).frame(height: 11)
+            RoundedRectangle(cornerRadius: 5).fill(barColor(day, "G")).frame(height: barHeight)
+            RoundedRectangle(cornerRadius: 5).fill(barColor(day, "K")).frame(height: barHeight)
         }
-        .padding(EdgeInsets(top: 6, leading: 4, bottom: 7, trailing: 4))
+        .padding(EdgeInsets(top: 7, leading: 5, bottom: 8, trailing: 5))
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: cellRadius).fill(gap ? Palette.gapBg : Palette.cellBg))
         .overlay(todayOrGapBorder(isToday: isToday, gap: gap))
@@ -157,12 +158,12 @@ struct TwoWeekOutlookView: View {
                 Color.clear.frame(width: labelWidth, height: 1)
                 ForEach(Array(all.prefix(7)), id: \.date) { day in
                     Text(WidgetDate.parse(day.date).map(WidgetDate.weekdayInitial) ?? "")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(Palette.quaternary)
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.bottom, 6)
+            .padding(.bottom, 8)
 
             VStack(spacing: gridGap) {
                 weekRow("WK 1", all.prefix(7), todayKey: todayKey)

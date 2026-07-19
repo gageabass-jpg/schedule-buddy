@@ -119,11 +119,16 @@ enum WidgetDate {
         return Double(d) / 60.0
     }
 
-    /// "Jul 16 – 22" for a week's day list.
+    /// "Jul 16 – 22" within a month, "Jul 19 – Aug 1" across one. Repeating the
+    /// month matters for the 14-day window, which usually straddles two —
+    /// without it the label reads "Jul 19 – 1".
     static func rangeLabel(_ days: [Date]) -> String {
         guard let first = days.first, let last = days.last else { return "" }
         let m = DateFormatter(); m.dateFormat = "MMM d"
         let d = DateFormatter(); d.dateFormat = "d"
-        return "\(m.string(from: first)) – \(d.string(from: last))"
+        let cal = Calendar.current
+        let sameMonth = cal.component(.month, from: first) == cal.component(.month, from: last)
+            && cal.component(.year, from: first) == cal.component(.year, from: last)
+        return "\(m.string(from: first)) – \(sameMonth ? d.string(from: last) : m.string(from: last))"
     }
 }
