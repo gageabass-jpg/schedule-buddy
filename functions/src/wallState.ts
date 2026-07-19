@@ -88,17 +88,6 @@ function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 }
 
-function nowHhMm(): string {
-  // Current HH:MM in Eastern time. Used to decide whether a previous-day
-  // crosses-midnight shift is still in progress this morning.
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(new Date());
-  const h = parts.find((p) => p.type === "hour")?.value ?? "00";
-  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
-  return `${h}:${m}`;
-}
-
 function addDays(iso: string, n: number): string {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y!, (m! - 1), d!);
@@ -281,40 +270,15 @@ export const getWallState = onRequest(
         day.push({ who: "K", shiftTypeId: p.shiftTypeId, label: p.label });
       }
 
-      // Cross-midnight carry: when rendering "today", include yesterday's
-      // shifts whose type crossesMidnight and whose end time hasn't passed
-      // yet. Without this the wall would say "off" between midnight and
-      // the shift's end time even though the person is still at work.
-      if (date === today) {
-        const yesterday = addDays(date, -1);
-        const nowT = nowHhMm();
-        const stillOn = (stId: string | null | undefined): boolean => {
-          if (!stId) return false;
-          const st = stypeById.get(stId);
-          if (!st || !st.crossesMidnight) return false;
-          return nowT <= st.end;
-        };
-        // Yesterday self (override > template). Template honors end date.
-        const yOverride = overrides.find((o) => o.date === yesterday);
-        const ySelfId = yOverride
-          ? yOverride.shiftTypeId
-          : (templateActiveOn(yesterday) ? templateShiftFor(yesterday, template, alt) : null);
-        if (stillOn(ySelfId) && ySelfId) {
-          day.push({ who: "G", shiftTypeId: ySelfId, label: stypeById.get(ySelfId)?.name ?? "" });
-        }
-        // Yesterday self OT
-        for (const o of ot.filter((x) => x.date === yesterday)) {
-          if (stillOn(o.shiftTypeId)) {
-            day.push({ who: "G", shiftTypeId: o.shiftTypeId, label: o.label });
-          }
-        }
-        // Yesterday partner
-        for (const p of (partner?.shifts ?? []).filter((x) => x.date === yesterday)) {
-          if (stillOn(p.shiftTypeId)) {
-            day.push({ who: "K", shiftTypeId: p.shiftTypeId, label: p.label });
-          }
-        }
-      }
+      // NOTE: no cross-midnight carry. A shift is attributed to the
+      // calendar date it's scheduled on — exactly like the Mac Manager's
+      // buildShiftMap (desktop/src/state.ts). We deliberately do NOT pull
+      // yesterday's still-running overnight shift into today: doing so made
+      // the wall read "both working today" (and fire the caregiver-gap
+      // alarm) on mornings when one person is actually home recovering from
+      // a night shift, disagreeing with the Manager. The "recovering
+      // until…" hero state (findRecoveryFor in wall.html) already conveys
+      // the post-shift overnight context without inflating today's roster.
 
       if (day.length > 0) shifts[date] = day;
     }
