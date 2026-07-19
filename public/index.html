@@ -3352,8 +3352,12 @@
   .bottom-tab.active .bt-label { color: var(--color-g); }
   .bt-badge {
     position: absolute;
-    top: 2px;
-    right: 18px;
+    top: 0;
+    /* Anchored to the tab's centre (where the icon sits) rather than its right
+       edge — a fixed right offset drifts as soon as the tab count changes,
+       which is what happened when the Chat tab was removed. */
+    left: 50%;
+    transform: translateX(2px);
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
