@@ -134,8 +134,12 @@ function reasonRank(r: OverlapReason): number {
 
 /**
  * For every dated cell where both G and K have unavailable blocks
- * (working OR sleeping post-shift), compute the widest pairwise
- * intersection. The "reason" surfaces *why* — both-working / work-and-
+ * (working OR sleeping post-shift), compute EVERY pairwise intersection,
+ * then merge overlapping/adjacent ones into contiguous coverage windows —
+ * one candidate per window. A day can produce multiple windows (e.g. an
+ * afternoon work-while-recovering gap AND a both-working evening); we
+ * must report them all, not just the widest, or a real gap silently
+ * disappears. The "reason" surfaces *why* — both-working / work-and-
  * sleep / both-sleeping — so callers can label cards accordingly.
  *
  * We scan today + yesterday's shifts for each parent so a shift type's
@@ -167,29 +171,38 @@ export function computeOverlapCandidates(
     const kBlocks = unavailableBlocks(date, "K", shifts, state);
     if (gBlocks.length === 0 || kBlocks.length === 0) continue;
 
-    let widest: Intersection | null = null;
+    // Collect every pairwise intersection …
+    const hits: Intersection[] = [];
     for (const g of gBlocks) {
       for (const k of kBlocks) {
         const ix = intersectBlocks(g, k);
-        if (!ix) continue;
-        if (
-          !widest ||
-          (ix.endMin - ix.startMin) > (widest.endMin - widest.startMin) ||
-          (
-            (ix.endMin - ix.startMin) === (widest.endMin - widest.startMin) &&
-            reasonRank(ix.reason) < reasonRank(widest.reason)
-          )
-        ) widest = ix;
+        if (ix) hits.push(ix);
       }
     }
-    if (!widest) continue;
+    if (hits.length === 0) continue;
 
-    const endsNextDay = widest.endMin >= MIN_PER_DAY;
-    const startTime = fmtHM(widest.startMin);
-    const endTime = fmtHM(widest.endMin);
-    const label = `${compactTime(startTime)} – ${compactTime(endTime)}${endsNextDay ? " (next day)" : ""}`;
+    // … then merge overlapping/adjacent ones into contiguous windows.
+    // E.g. G leaving 6a meets K's work block (til 7a) and her sleep block
+    // (7a → recovery end) — two touching hits that are ONE coverage need.
+    hits.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+    const windows: Intersection[] = [];
+    for (const ix of hits) {
+      const last = windows[windows.length - 1];
+      if (last && ix.startMin <= last.endMin) {
+        last.endMin = Math.max(last.endMin, ix.endMin);
+        if (reasonRank(ix.reason) < reasonRank(last.reason)) last.reason = ix.reason;
+      } else {
+        windows.push({ ...ix });
+      }
+    }
 
-    out.push({ date, startTime, endTime, endsNextDay, label, reason: widest.reason });
+    for (const w of windows) {
+      const endsNextDay = w.endMin >= MIN_PER_DAY;
+      const startTime = fmtHM(w.startMin);
+      const endTime = fmtHM(w.endMin);
+      const label = `${compactTime(startTime)} – ${compactTime(endTime)}${endsNextDay ? " (next day)" : ""}`;
+      out.push({ date, startTime, endTime, endsNextDay, label, reason: w.reason });
+    }
   }
 
   return out;

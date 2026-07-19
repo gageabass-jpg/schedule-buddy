@@ -131,6 +131,36 @@ export interface CoverageRequest {
   managerReviewed?: boolean;
   managerReviewedAt?: number;
   managerReviewedBy?: string;
+  /** Pending manager-proposed change awaiting the caregiver's approval.
+   *  Present only while unresolved — approving applies it and clears it,
+   *  rejecting just clears it. */
+  proposedChange?: CoverageChangeProposal;
+  /** epoch ms — set when the caregiver approved a proposed change and the
+   *  new times were written onto this request. */
+  changeAppliedAt?: number;
+}
+
+/**
+ * A manager-proposed change to an ALREADY-ANSWERED coverage request.
+ * The caregiver approves (the new times apply and the request stays
+ * confirmed) or rejects (the proposal is dropped and the originally
+ * agreed times stand — no flag, by design).
+ *
+ * Deliberately nested inside CoverageRequest: `coverageRequests` passes
+ * through every client as an opaque array, so fields *inside* a request
+ * survive round-trips that would silently drop a new top-level state key
+ * (see BRIDGE.md §5.2 and scripts/contract-check.mjs).
+ */
+export interface CoverageChangeProposal {
+  startTime: string;            // HH:MM — proposed new start (caregiver arrival)
+  endTime: string;              // HH:MM
+  endsNextDay?: boolean;
+  reason?: "both-working" | "work-and-sleep" | "both-sleeping";
+  /** epoch ms — matches createdAt / managerReviewedAt. */
+  proposedAt: number;
+  proposedBy?: string;          // manager uid
+  /** Optional plain-English why, shown to the caregiver. */
+  note?: string;
 }
 
 export type CaregiverRequestType = "schedule-block" | "shift-conflict" | "other";

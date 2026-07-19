@@ -1550,6 +1550,29 @@
     .ev-chip { font-size: 8.5px; padding: 1px 4px; gap: 3px; }
     .ev-chip .ev-chip-letter { font-size: 8px; }
   }
+  /* Life item marker in a month cell — leaf only, no chip, no time. */
+  .ev-leaf {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 1px;
+  }
+  @media (max-width: 768px) {
+    .ev-leaf { width: 15px; height: 15px; }
+  }
+  /* Inline variant — sits where the person initial used to, in day-sheet
+     rows and agenda chips. Overrides the block/flex-start cell rules.
+     margin-right nudges the following text clear of the leaf. */
+  .ev-leaf-inline {
+    display: inline-block;
+    vertical-align: -2px;
+    align-self: center;
+    margin-top: 0;
+    margin-right: 5px;
+    flex-shrink: 0;
+  }
   /* Cell stacking gap + horizontal clip so chips never overflow the cell. */
   .cal-shifts {
     display: flex;
@@ -4011,6 +4034,27 @@
     font-style: italic;
   }
   .cg-caregiver-note b { color: var(--text); font-style: normal; font-weight: 600; }
+  /* Manager-proposed change to a day already agreed to. Visually set apart
+     so it never reads as the confirmed window itself. */
+  .cg-change {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(94,92,230,0.10);
+    border: 1px dashed rgba(94,92,230,0.55);
+  }
+  .cg-change-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #5E5CE6;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .cg-change-window { font-size: 15px; font-weight: 700; }
+  .cg-change-window .arrow { color: var(--text-dim); margin: 0 6px; }
+  .cg-change-sub { font-size: 12px; color: var(--text-dim); }
   .cg-footer {
     margin-top: auto;
     padding-top: 12px;
@@ -6132,11 +6176,14 @@ function renderCaregiverScreen(requests) {
   const nameEl = document.getElementById("cgHouseholdName");
   if (nameEl && state && state.householdName) nameEl.textContent = state.householdName;
 
-  // --- Requests tab badge (pending count) ---
+  // --- Requests tab badge (anything awaiting her: new requests + proposed
+  // changes to days she already agreed to) ---
   const badge = document.getElementById("cgRequestsBadge");
-  const pending = requests.filter(r => r && r.status === "pending").length;
+  const actionable = requests.filter(r => r && (
+    r.status === "pending" || (r.status === "confirmed" && r.proposedChange)
+  )).length;
   if (badge) {
-    if (pending > 0) { badge.textContent = String(pending); badge.hidden = false; }
+    if (actionable > 0) { badge.textContent = String(actionable); badge.hidden = false; }
     else { badge.hidden = true; }
   }
 
@@ -6152,9 +6199,11 @@ function renderCaregiverScreen(requests) {
   renderCaregiverCalendar();
 
   // --- Requests pane: every request, action buttons on pending ---
+  const needsAction = (r) =>
+    (r.status || "pending") === "pending" || (r.status === "confirmed" && r.proposedChange);
   const sorted = requests.slice().sort((a, b) => {
-    const ap = (a.status || "pending") === "pending" ? 0 : 1;
-    const bp = (b.status || "pending") === "pending" ? 0 : 1;
+    const ap = needsAction(a) ? 0 : 1;
+    const bp = needsAction(b) ? 0 : 1;
     if (ap !== bp) return ap - bp;
     return (a.date || "").localeCompare(b.date || "");
   });
@@ -6393,6 +6442,22 @@ function caregiverCardHTML(r) {
        </div>`
     : "";
 
+  // A manager-proposed change to a day she already agreed to. Her original
+  // times stay in effect above; this asks whether to move to the new window.
+  const pc = r.proposedChange;
+  const changeBlock = (pc && pc.startTime && pc.endTime)
+    ? `<div class="cg-change">
+         <div class="cg-change-title">Change requested</div>
+         <div class="cg-change-window">${escapeHtml(pc.startTime)}<span class="arrow">→</span>${escapeHtml(pc.endTime)}${pc.endsNextDay ? `<span style="font-size:11px;font-weight:600;margin-left:6px;">+1d</span>` : ""}</div>
+         <div class="cg-change-sub">Currently agreed: ${startTime} → ${endTime}</div>
+         ${pc.note ? `<div class="cg-change-sub">${escapeHtml(pc.note)}</div>` : ""}
+         <div class="cg-actions">
+           <button type="button" class="cg-btn cg-btn-accept"  data-cg-id="${id}" data-cg-action="approve_change">Approve change</button>
+           <button type="button" class="cg-btn cg-btn-decline" data-cg-id="${id}" data-cg-action="reject_change">Keep original</button>
+         </div>
+       </div>`
+    : "";
+
   return `
     <article class="cg-card">
       <div class="cg-card-head">
@@ -6403,6 +6468,7 @@ function caregiverCardHTML(r) {
       ${arriveBy ? `<div class="cg-arrive">Arrive by <b>${arriveBy}</b></div>` : ""}
       ${notesBlock}
       ${caregiverNoteBlock}
+      ${changeBlock}
       ${actionsBlock}
     </article>
   `;
@@ -6746,6 +6812,13 @@ function wireAskClaudeUI() {
 
 async function handleCaregiverAction(id, action) {
   if (!householdId || !id) return;
+
+  // Change proposals resolve without a status transition — the request was
+  // and stays confirmed; only the times move (or don't).
+  if (action === "approve_change" || action === "reject_change") {
+    return handleCaregiverChangeResponse(id, action === "approve_change");
+  }
+
   let nextStatus = null;
   let caregiverNote;
   if (action === "accept") {
@@ -6789,6 +6862,51 @@ async function handleCaregiverAction(id, action) {
     await ref.set({ ...data, coverageRequests: list });
   } catch (e) {
     console.error("caregiver action failed:", e);
+    alert("Couldn't update that request. Check your connection.");
+  }
+}
+
+/**
+ * Resolve a manager-proposed change on a confirmed request.
+ *   approve → the proposed window becomes the request's window
+ *   reject  → the proposal is dropped; the originally agreed times stand
+ *             (silently, by design — no flag raised on the family's side)
+ * Either way the proposal is cleared and the request stays confirmed.
+ */
+async function handleCaregiverChangeResponse(id, approve) {
+  try {
+    const ref = db.collection("households").doc(householdId)
+      .collection("state").doc("main");
+    const snap = await ref.get();
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
+    const idx = list.findIndex(r => r && r.id === id);
+    if (idx < 0) return;
+
+    const cur = list[idx];
+    const pc = cur.proposedChange;
+    if (!pc) return;                      // already resolved elsewhere
+
+    const updated = { ...cur };
+    delete updated.proposedChange;
+    updated.caregiverUid = currentUser.uid;
+    updated.caregiverActedAt = new Date().toISOString();
+
+    if (approve) {
+      updated.startTime = pc.startTime;
+      updated.endTime = pc.endTime;
+      if (pc.endsNextDay) updated.endsNextDay = true;
+      else delete updated.endsNextDay;
+      if (pc.reason) updated.reason = pc.reason;
+      // Stamp so the manager side can tell an amended request from an
+      // original one without keeping the (now-applied) proposal around.
+      updated.changeAppliedAt = Date.now();
+    }
+
+    list[idx] = updated;
+    await ref.set({ ...data, coverageRequests: list });
+  } catch (e) {
+    console.error("caregiver change response failed:", e);
     alert("Couldn't update that request. Check your connection.");
   }
 }
@@ -7982,6 +8100,60 @@ function weekStart(date) {
 function findShift(id) {
   return state.shiftTypes.find(s => s.id === id) || null;
 }
+
+/**
+ * Window to generate calendar events over.
+ *
+ * `state.range` is an 84-day window stamped at household creation that NO
+ * client ever updates — and the Mac manager writes shifts with no regard for
+ * it. Gating generation on it alone silently hides any shift dated outside,
+ * which is why Kaylene's late-July shifts showed on Mac but not here.
+ *
+ * So: start from state.range and widen it to cover every dated entry we
+ * actually hold. Analysis still keys off state.range (buildPersonTimeline
+ * bounds-checks its grid), so this only affects what gets rendered.
+ */
+// Always cover today ± this many days, then extend outward for real data up
+// to the hard cap. Anchoring on TODAY (not on the earliest datum) is the
+// point: a single stray old date must never be able to pull the window off
+// the present and hide current shifts.
+const GENERATION_BACK_DAYS = 365;    // 1y of history always covered
+const GENERATION_FWD_DAYS  = 730;    // 2y forward always covered
+const GENERATION_MAX_DAYS  = 1825;   // ~5y hard cap either side of today
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function generationWindow() {
+  let dataFrom = null;
+  let dataTo = null;
+  const consider = (iso) => {
+    // Strict shape check — a malformed date would otherwise sort wrong here
+    // AND parse to an Invalid Date below.
+    if (typeof iso !== "string" || !ISO_DATE_RE.test(iso)) return;
+    if (!dataFrom || iso < dataFrom) dataFrom = iso;   // ISO dates sort lexically
+    if (!dataTo   || iso > dataTo)   dataTo   = iso;
+  };
+  consider(state.range && state.range.from);
+  consider(state.range && state.range.to);
+  for (const o of (state.overrides || [])) consider(o && o.date);
+  for (const o of (state.ot || [])) consider(o && o.date);
+  for (const p of ((state.partner && state.partner.shifts) || [])) consider(p && p.date);
+  for (const e of (state.events || [])) consider(e && e.date);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let from = addDays(today, -GENERATION_BACK_DAYS);
+  let to   = addDays(today,  GENERATION_FWD_DAYS);
+
+  const floor = addDays(today, -GENERATION_MAX_DAYS);
+  const ceil  = addDays(today,  GENERATION_MAX_DAYS);
+  const df = parseISODate(dataFrom);
+  const dt = parseISODate(dataTo);
+  // Only ever WIDEN past the guaranteed base window, never narrow it.
+  if (df && !isNaN(df) && df < from) from = df < floor ? floor : df;
+  if (dt && !isNaN(dt) && dt > to)   to   = dt > ceil  ? ceil  : dt;
+
+  return { from, to };
+}
 function newShiftId() {
   return "st_" + Math.random().toString(36).slice(2, 10);
 }
@@ -8184,9 +8356,10 @@ function renderOt() {
 // Set back to false (and redeploy) to resume the recurring template.
 const TEMPLATE_PAUSED = true;
 function generateEvents() {
-  const from = parseISODate(state.range.from);
-  const to = parseISODate(state.range.to);
-  if (!from || !to || from > to) return [];
+  const win = generationWindow();
+  if (!win) return [];
+  const from = win.from;
+  const to = win.to;
 
   const overrideMap = {};
   for (const ov of (state.overrides || [])) {
@@ -8271,9 +8444,10 @@ function makeEvent(date, shift, label, kind) {
 
 // ---------- Partner event generation ----------
 function partnerEvents() {
-  const from = parseISODate(state.range.from);
-  const to = parseISODate(state.range.to);
-  if (!from || !to || from > to) return [];
+  const win = generationWindow();
+  if (!win) return [];
+  const from = win.from;
+  const to = win.to;
   const out = [];
   for (const row of state.partner.shifts || []) {
     if (!row.date) continue;
@@ -9050,21 +9224,19 @@ function eventCSSColor(who) {
 /** Outlined chip used in Agenda rows + Today ribbon (room for the full title). */
 function eventChipHTML(ev) {
   const color = eventCSSColor(ev.who);
-  const initial = eventInitial(ev.who);
   const timePart = ev.startTime ? `${compactTime(ev.startTime)} ` : "";
+  // Leaf in place of the person initial — same swap as the day sheet.
   return `<span class="ev-chip" style="border-color:${color};">
-    <span class="ev-chip-letter" style="color:${color};">${initial}</span>
+    <img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11">
     <span class="ev-chip-text">${timePart}${escapeHTML(ev.title || "")}</span>
   </span>`;
 }
-/** Compact chip used inside narrow Month cells. Hardcoded "<letter> - Event"
- *  so long titles never push the cell beyond its grid column. Tap-day
- *  tooltip / agenda / today ribbon still show the full title. */
-function eventCellChipHTML(ev) {
-  const color = eventCSSColor(ev.who);
-  return `<span class="ev-chip" style="border-color:${color};">
-    <span class="ev-chip-letter" style="color:${color};">${eventInitial(ev.who)} - Event</span>
-  </span>`;
+/** Life-item marker for narrow Month cells: just the leaf, no time and no
+ *  chip. One leaf per day regardless of how many life items — on a phone
+ *  cell it's a presence indicator. Tap-day tooltip / agenda / today ribbon
+ *  still show each event's full title and time. */
+function eventCellLeafHTML() {
+  return `<img class="ev-leaf" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11">`;
 }
 
 // Mirror of desktop's isPaydayOn — true if dateIso falls on a payday under the
@@ -9116,8 +9288,9 @@ function escapeAttr(s) {
 function eventTooltipRowHTML(ev) {
   const color = eventCSSColor(ev.who);
   const time = ev.startTime ? `${compactTime(ev.startTime)}${ev.endTime ? `–${compactTime(ev.endTime)}` : ""}` : "All day";
+  // Life items lead with the leaf rather than the person's initial.
   return `<div class="tt-row">
-    <span class="tt-label" style="color:${color};">${eventInitial(ev.who)} · ${escapeHTML(ev.title || "")}</span>
+    <span class="tt-label" style="color:${color};"><img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11"> ${escapeHTML(ev.title || "")}</span>
     <span class="tt-val">${time}</span>
   </div>`;
 }
@@ -9454,7 +9627,75 @@ function renderCalendar() {
   if (ui.calLayout === "week")        renderWeekView(gageEvts, kayEvts, view);
   else if (ui.calLayout === "agenda") renderAgendaView(gageEvts, kayEvts, view);
   else                                renderMonthView(gageEvts, kayEvts, view);
+
+  scheduleWidgetPush();
 }
+
+// ─────────────────── iOS home-screen widget snapshot ───────────────────
+// Assembles a compact JSON snapshot of the schedule and hands it to the native
+// WidgetBridge Capacitor plugin, which writes it to a shared App Group container
+// for the WidgetKit extension to read. No-op on the web/desktop (no plugin).
+
+function _widgetBridge() {
+  const C = window.Capacitor;
+  if (!C) return null;
+  if (C.Plugins && C.Plugins.WidgetBridge) return C.Plugins.WidgetBridge;
+  if (typeof C.registerPlugin === "function") {
+    try { return C.registerPlugin("WidgetBridge"); } catch (_) { return null; }
+  }
+  return null;
+}
+
+function buildWidgetSnapshot() {
+  const gEvts = generateEvents();
+  const kEvts = partnerEvents();
+  const today = new Date();
+  // Window: from the Sunday of the current week through +3 weeks, so the
+  // week-based widgets always have their days and can roll over on their own.
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+  const days = [];
+  for (let i = 0; i < 21; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = toISODate(d);
+    const shifts = [];
+    for (const e of eventsOnDate(gEvts, iso)) shifts.push({ who: "G", label: e.label || compactTime(e.startTime), start: e.startTime, end: e.endTime });
+    for (const e of eventsOnDate(kEvts, iso)) shifts.push({ who: "K", label: e.label || compactTime(e.startTime), start: e.startTime, end: e.endTime });
+    const da = _dayAnalysis[iso] || {};
+    days.push({
+      date: iso,
+      shifts,
+      childcare: da.childcare || null,
+      coupleHours: da.coupleHours != null ? parseFloat(da.coupleHours) : null,
+    });
+  }
+  return {
+    generatedAt: Date.now(),
+    people: {
+      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
+    },
+    days,
+  };
+}
+
+function pushWidgetSnapshot() {
+  const bridge = _widgetBridge();
+  if (!bridge || typeof bridge.writeSnapshot !== "function") return;   // not on iOS
+  try {
+    bridge.writeSnapshot({ json: JSON.stringify(buildWidgetSnapshot()) });
+  } catch (_) { /* best-effort */ }
+}
+
+let _widgetPushTimer = null;
+function scheduleWidgetPush() {
+  if (_widgetPushTimer) return;
+  _widgetPushTimer = setTimeout(() => { _widgetPushTimer = null; pushWidgetSnapshot(); }, 1200);
+}
+
+// Refresh the snapshot when the app returns to the foreground.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleWidgetPush();
+});
 
 function renderMonthView(gageEvts, kayEvts, view) {
   const ui = _ensureCalUIState();
@@ -9521,7 +9762,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
 
     const pillsHTML = cell.labels.map(l => l.html).join("");
     const dayEvents = getEventsForDate(dISO);
-    const eventsHTML = dayEvents.slice(0, 2).map(eventCellChipHTML).join("");
+    const eventsHTML = dayEvents.length ? eventCellLeafHTML() : "";
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
     const paydayIcons = paydayIconsForCell(dISO);
     const careClass = hasConfirmedCoverage(dISO) ? " has-confirmed-care" : "";
@@ -9623,7 +9864,7 @@ function renderWeekView(gageEvts, kayEvts, view) {
       const heightPct = Math.max(6, bottom - top);
       const color = eventCSSColor(ev.who);
       return `<div class="week-rail-event" style="top:${top}%;height:${heightPct}%;color:${color};" title="${escapeHTML(ev.title || "")}">
-        <span class="ev-letter">${eventInitial(ev.who)}</span>
+        <img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="10" height="10">
         <span class="ev-title">${escapeHTML(ev.title || "")}</span>
       </div>`;
     }).join("");

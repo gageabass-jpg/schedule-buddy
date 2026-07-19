@@ -18,17 +18,9 @@ interface Props {
   } | null;
 }
 
-const ARRIVE_BY_OFFSET_MIN = 120;
-
 function todayIso(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function arriveByFromStart(startTime: string, offsetMin = ARRIVE_BY_OFFSET_MIN): string {
-  const [h, m] = startTime.split(":").map(Number);
-  const total = ((h || 0) * 60 + (m || 0) - offsetMin + 24 * 60) % (24 * 60);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 /** Single-day coverage request — for one-offs that aren't a scheduling
@@ -40,8 +32,6 @@ export function NewRequestModal({
   const [startTime, setStartTime] = useState<string>("18:00");
   const [endTime, setEndTime] = useState<string>("22:00");
   const [notes, setNotes] = useState<string>("");
-  const [autoArrive, setAutoArrive] = useState<boolean>(true);
-  const [arriveBy, setArriveBy] = useState<string>("16:00");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -53,14 +43,8 @@ export function NewRequestModal({
     setStartTime(pStart);
     setEndTime(pEnd);
     setNotes(prefill?.notes || "");
-    setAutoArrive(true);
-    setArriveBy(arriveByFromStart(pStart));
     setErr(null);
   }, [open, defaultDate, prefill]);
-
-  useEffect(() => {
-    if (autoArrive) setArriveBy(arriveByFromStart(startTime));
-  }, [autoArrive, startTime]);
 
   if (!open) return null;
 
@@ -79,7 +63,6 @@ export function NewRequestModal({
         startTime,
         endTime,
         endsNextDay,
-        arriveBy,
         notes: notes.trim() || undefined,
       }]);
       onClose();
@@ -132,7 +115,7 @@ export function NewRequestModal({
         </Field>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="Start" t={t}>
+          <Field label="Arrives (start)" t={t}>
             <input
               type="time"
               value={startTime}
@@ -154,31 +137,6 @@ export function NewRequestModal({
             End time is on the next day.
           </div>
         )}
-
-        <Field
-          label={
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              Arrive by
-              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: t.text3, textTransform: "none", letterSpacing: 0, fontWeight: 500, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={autoArrive}
-                  onChange={(e) => setAutoArrive(e.target.checked)}
-                  style={{ margin: 0 }}
-                />
-                Auto: 2h before start
-              </label>
-            </span>
-          }
-          t={t}
-        >
-          <input
-            type="time"
-            value={arriveBy}
-            onChange={(e) => { setAutoArrive(false); setArriveBy(e.target.value); }}
-            style={inputStyle(t)}
-          />
-        </Field>
 
         <Field label="Notes (optional)" t={t}>
           <textarea

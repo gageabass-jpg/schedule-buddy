@@ -4,6 +4,7 @@ import type { HouseholdState } from "../state";
 import type { ShiftMap } from "../data";
 import { computeOverlapCandidates, type OverlapCandidate } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
+import { startWithLead } from "../lib/rewriteCoverage";
 
 interface Props {
   open: boolean;
@@ -17,19 +18,12 @@ interface Props {
 }
 
 interface DraftRow extends OverlapCandidate {
+  /** Stable identity for this row — a date can carry multiple coverage
+   *  windows (e.g. afternoon recovery gap + both-working evening), so the
+   *  date alone is no longer unique. */
+  rowId: string;
   notes: string;
   skipped: boolean;
-}
-
-const ARRIVE_BY_OFFSET_MIN = 120;   // caregiver arrives 2 hours before coverage starts
-
-/** "19:00" - 2h → "17:00". Wraps within a 24h clock; the stored HH:MM is
- *  intentionally context-free (no date) — both iOS and the caregiver UI
- *  interpret it relative to the request's date. */
-function arriveByFromStart(startTime: string, offsetMin = ARRIVE_BY_OFFSET_MIN): string {
-  const [h, m] = startTime.split(":").map(Number);
-  const total = ((h || 0) * 60 + (m || 0) - offsetMin + 24 * 60) % (24 * 60);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 export function CoverageRequestModal({
@@ -44,7 +38,15 @@ export function CoverageRequestModal({
     if (!open) return;
     if (!state) { setRows([]); return; }
     const candidates = computeOverlapCandidates(shifts, state);
-    setRows(candidates.map((c) => ({ ...c, notes: "", skipped: false })));
+    // Seed each row's start with the arrival lead already applied — the
+    // start IS when the caregiver needs to arrive (no separate arrive-by).
+    setRows(candidates.map((c, i) => ({
+      ...c,
+      startTime: startWithLead(c.startTime),
+      rowId: `${c.date}#${i}`,
+      notes: "",
+      skipped: false,
+    })));
     setErr(null);
   }, [open, state, shifts]);
 
@@ -52,8 +54,8 @@ export function CoverageRequestModal({
 
   const keep = rows.filter((r) => !r.skipped);
 
-  const update = (date: string, patch: Partial<DraftRow>) =>
-    setRows((arr) => arr.map((r) => (r.date === date ? { ...r, ...patch } : r)));
+  const update = (rowId: string, patch: Partial<DraftRow>) =>
+    setRows((arr) => arr.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
 
   const onSend = async () => {
     if (!householdId) { setErr("No household linked."); return; }
@@ -66,7 +68,6 @@ export function CoverageRequestModal({
         startTime: r.startTime,
         endTime: r.endTime,
         endsNextDay: r.endsNextDay,
-        arriveBy: arriveByFromStart(r.startTime),
         notes: r.notes || undefined,
         reason: r.reason,
       }));
@@ -109,7 +110,7 @@ export function CoverageRequestModal({
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>Send to caregiver</div>
             <div style={{ fontSize: 12, color: t.text2, marginTop: 4, lineHeight: 1.45 }}>
-              Every day where both of you are working at the same time. Review windows, add an arrive-early time or notes, then send the batch.
+              Every day where both of you are unavailable. Start times include a 2-hour arrival lead — the start is when the caregiver should arrive. Adjust times or notes, then send the batch.
             </div>
           </div>
           <div style={{ fontSize: 11, color: t.text3, fontWeight: 600 }}>
@@ -147,7 +148,7 @@ export function CoverageRequestModal({
                   const dt = new Date(y, m - 1, d);
                   const dayLabel = dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
                   return (
-                    <tr key={r.date} style={{ opacity: r.skipped ? 0.4 : 1 }}>
+                    <tr key={r.rowId} style={{ opacity: r.skipped ? 0.4 : 1 }}>
                       <Td t={t}>
                         <div style={{ fontWeight: 600 }}>{dayLabel}</div>
                         <div style={{ fontSize: 10.5, color: t.text3 }}>{r.date}</div>
@@ -157,14 +158,14 @@ export function CoverageRequestModal({
                           <input
                             type="time"
                             value={r.startTime}
-                            onChange={(e) => update(r.date, { startTime: e.target.value })}
+                            onChange={(e) => update(r.rowId, { startTime: e.target.value })}
                             style={tdInput(t)}
                           />
                           <span style={{ color: t.text3 }}>→</span>
                           <input
                             type="time"
                             value={r.endTime}
-                            onChange={(e) => update(r.date, { endTime: e.target.value })}
+                            onChange={(e) => update(r.rowId, { endTime: e.target.value })}
                             style={tdInput(t)}
                           />
                           {r.endsNextDay && (
@@ -172,7 +173,7 @@ export function CoverageRequestModal({
                           )}
                         </div>
                         <div style={{ fontSize: 10.5, color: t.text3, marginTop: 2 }}>
-                          {r.label}<span style={{ marginLeft: 8 }}>· arrives by {arriveByFromStart(r.startTime)}</span>
+                          covers overlap {r.label}
                           {r.reason && (
                             <span
                               title={
@@ -202,7 +203,7 @@ export function CoverageRequestModal({
                         <input
                           type="text"
                           value={r.notes}
-                          onChange={(e) => update(r.date, { notes: e.target.value })}
+                          onChange={(e) => update(r.rowId, { notes: e.target.value })}
                           placeholder="e.g. dinner ready in fridge"
                           style={{ ...tdInput(t), width: "100%" }}
                         />
@@ -210,7 +211,7 @@ export function CoverageRequestModal({
                       <Td t={t}>
                         <button
                           type="button"
-                          onClick={() => update(r.date, { skipped: !r.skipped })}
+                          onClick={() => update(r.rowId, { skipped: !r.skipped })}
                           style={{
                             border: 0,
                             background: "transparent",

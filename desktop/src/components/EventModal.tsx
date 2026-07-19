@@ -29,6 +29,9 @@ export function EventModal({
   const [dates, setDates] = useState<string[]>([editing?.date ?? defaultDate]);
   const [startTime, setStartTime] = useState(editing?.startTime ?? "");
   const [endTime, setEndTime] = useState(editing?.endTime ?? "");
+  // All-day: when checked, the event has no start/end time. Defaults
+  // to true when editing an event that was already saved time-less.
+  const [allDay, setAllDay] = useState(!editing?.startTime);
   const [title, setTitle] = useState(editing?.title ?? "");
   const [who, setWho] = useState<EventWho>(editing?.who ?? "G");
   const [notes, setNotes] = useState(editing?.notes ?? "");
@@ -45,6 +48,7 @@ export function EventModal({
     setDates([editing?.date ?? defaultDate]);
     setStartTime(editing?.startTime ?? "");
     setEndTime(editing?.endTime ?? "");
+    setAllDay(!editing?.startTime);
     setTitle(editing?.title ?? "");
     setWho(editing?.who ?? "G");
     setNotes(editing?.notes ?? "");
@@ -69,8 +73,8 @@ export function EventModal({
   const removeDateAt = (i: number) => setDates((arr) => arr.filter((_, idx) => idx !== i));
 
   const baseInput = {
-    startTime: startTime || undefined,
-    endTime: endTime || undefined,
+    startTime: allDay ? undefined : (startTime || undefined),
+    endTime:   allDay ? undefined : (endTime || undefined),
     title,
     who,
     notes: notes || undefined,
@@ -135,7 +139,7 @@ export function EventModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={isEdit ? "Edit event" : "New event"}
+        aria-label={isEdit ? "Edit life item" : "New life item"}
         style={{
           position: "fixed",
           top: "50%",
@@ -156,7 +160,7 @@ export function EventModal({
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 14 }}>
-          {isEdit ? "Edit event" : "New event"}
+          {isEdit ? "Edit life item" : "New life item"}
         </div>
 
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "auto" }}>
@@ -226,14 +230,36 @@ export function EventModal({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <Field label="Start" t={t}>
-              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={inputStyle(t)} />
-            </Field>
-            <Field label="End" t={t}>
-              <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle(t)} />
-            </Field>
-          </div>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12.5,
+              color: t.text,
+              cursor: "pointer",
+              userSelect: "none",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(e) => setAllDay(e.target.checked)}
+              style={{ accentColor: palette.G, width: 14, height: 14, cursor: "pointer" }}
+            />
+            <span style={{ fontWeight: 500 }}>All day</span>
+          </label>
+          {!allDay && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <Field label="Start" t={t}>
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={inputStyle(t)} />
+              </Field>
+              <Field label="End" t={t}>
+                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle(t)} />
+              </Field>
+            </div>
+          )}
 
           <Field label="For" t={t}>
             <div style={{ display: "flex", gap: 4, padding: 2, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 8 }}>

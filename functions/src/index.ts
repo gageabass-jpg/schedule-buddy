@@ -27,6 +27,15 @@ interface CoverageRequest {
   notes?: string;
   status: CoverageStatus;
   caregiverNote?: string;
+  /** Manager-proposed change awaiting the caregiver's approval. Resolving it
+   *  leaves `status` untouched, so the diff below watches this field
+   *  separately — a status-only diff would miss it entirely. */
+  proposedChange?: {
+    startTime: string;
+    endTime: string;
+    endsNextDay?: boolean;
+    note?: string;
+  };
 }
 
 type CaregiverRequestType = "schedule-block" | "shift-conflict" | "other";
@@ -208,6 +217,9 @@ export const onCoverageRequestsChange = onDocumentUpdated(
 
     const newPending: CoverageRequest[] = [];
     const statusChanges: { req: CoverageRequest; from: CoverageStatus; to: CoverageStatus }[] = [];
+    // Change proposals move no status, so they need their own diff.
+    const newProposals: CoverageRequest[] = [];
+    const resolvedProposals: { req: CoverageRequest; approved: boolean }[] = [];
 
     for (const [id, req] of afterMap) {
       const prev = beforeMap.get(id);
@@ -218,9 +230,21 @@ export const onCoverageRequestsChange = onDocumentUpdated(
       if (prev.status !== req.status) {
         statusChanges.push({ req, from: prev.status, to: req.status });
       }
+      // Proposal appeared → tell the caregiver.
+      if (!prev.proposedChange && req.proposedChange) {
+        newProposals.push(req);
+      }
+      // Proposal cleared → tell the managers whether she took it. If the
+      // request now sits on the proposed window, she approved it.
+      if (prev.proposedChange && !req.proposedChange) {
+        const approved = req.startTime === prev.proposedChange.startTime
+          && req.endTime === prev.proposedChange.endTime;
+        resolvedProposals.push({ req, approved });
+      }
     }
 
-    if (newPending.length === 0 && statusChanges.length === 0) {
+    if (newPending.length === 0 && statusChanges.length === 0
+      && newProposals.length === 0 && resolvedProposals.length === 0) {
       logger.info("No coverage diff to push", { householdId });
       return;
     }
@@ -229,6 +253,8 @@ export const onCoverageRequestsChange = onDocumentUpdated(
       householdId,
       newPending: newPending.length,
       statusChanges: statusChanges.length,
+      newProposals: newProposals.length,
+      resolvedProposals: resolvedProposals.length,
       statusChangeSummary: statusChanges.map((c) => `${c.req.id}:${c.from}->${c.to}`),
     });
 
@@ -271,6 +297,46 @@ export const onCoverageRequestsChange = onDocumentUpdated(
             householdId,
             requestId: ch.req.id,
             status: ch.to,
+          }, householdId);
+        }
+      }
+    }
+
+    // 3. New change proposals → caregivers. She already agreed to this day,
+    //    so this is a "can we move it?" not a new assignment.
+    if (newProposals.length > 0) {
+      const tokens = await tokensForRoles(householdId, ["supporting"]);
+      if (tokens.length > 0) {
+        for (const req of newProposals) {
+          const pc = req.proposedChange!;
+          await sendToTokens(tokens, {
+            title: "Coverage time change requested",
+            body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime}`
+              + ` (was ${req.startTime} → ${req.endTime})`,
+          }, {
+            kind: "change_proposed",
+            householdId,
+            requestId: req.id,
+          }, householdId);
+        }
+      }
+    }
+
+    // 4. Resolved proposals → managers.
+    if (resolvedProposals.length > 0) {
+      const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
+      if (tokens.length > 0) {
+        for (const rp of resolvedProposals) {
+          await sendToTokens(tokens, {
+            title: rp.approved
+              ? "Caregiver approved the new time"
+              : "Caregiver kept the original time",
+            body: `${friendlyDate(rp.req.date)} · ${fmtWindow(rp.req)}`,
+          }, {
+            kind: "change_resolved",
+            householdId,
+            requestId: rp.req.id,
+            approved: rp.approved ? "1" : "0",
           }, householdId);
         }
       }

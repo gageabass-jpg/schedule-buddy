@@ -58,10 +58,17 @@ else pass(`all ${desktopFields.length} desktop fields are in the iOS allowlist`)
 
 // ───────────── CHECK 2 — override shape renders via real generateEvents ─────────────
 console.log("CHECK 2: Mac-shape overrides render through iOS generateEvents()");
-const fns = ["parseISODate", "toISODate", "eachDay", "addDays", "isOnWeekend", "findShift", "makeEvent", "generateEvents"];
+const fns = ["parseISODate", "toISODate", "eachDay", "addDays", "isOnWeekend", "findShift", "makeEvent", "generationWindow", "generateEvents", "partnerEvents"];
 let code = fns.map((f) => extractFn(html, f)).join("\n") + "\n";
 const tp = /const\s+TEMPLATE_PAUSED\s*=\s*(true|false)/.exec(html);
 code += "const TEMPLATE_PAUSED = " + (tp ? tp[1] : "false") + ";\n";
+for (const name of ["GENERATION_BACK_DAYS", "GENERATION_FWD_DAYS", "GENERATION_MAX_DAYS"]) {
+  const m = new RegExp("const\\s+" + name + "\\s*=\\s*(\\d+)").exec(html);
+  if (!m) throw new Error("constant not found: " + name);
+  code += `const ${name} = ${m[1]};\n`;
+}
+const isoRe = /const\s+ISO_DATE_RE\s*=\s*(\/.*?\/);/.exec(html);
+code += "const ISO_DATE_RE = " + (isoRe ? isoRe[1] : "/^\\d{4}-\\d{2}-\\d{2}$/") + ";\n";
 
 const ctx = { state: null, console };
 vm.createContext(ctx);
@@ -88,6 +95,34 @@ if (failures === 0) {
   if (!evs.some((e) => e.startDate === "2026-06-17"))
     pass("off override { shiftTypeId: null } suppresses the day");
   else fail("off override did NOT suppress the day");
+}
+
+// ───────────── CHECK 3 — data outside the stale state.range still renders ─────────────
+// state.range is an 84-day window stamped at household creation that no client
+// ever updates, while the Mac manager writes shifts with no regard for it.
+// Gating generation on range alone silently hides them. (This is the
+// "Kaylene's Jul 26/29/30/31 show on Mac, not iOS" bug.)
+console.log("CHECK 3: shifts dated outside state.range still render");
+if (failures === 0) {
+  const runPartner = (stateObj) => { ctx.state = stateObj; return vm.runInContext("partnerEvents()", ctx); };
+  const outside = {
+    ...base,
+    overrides: [],
+    partner: { name: "Kaylene", shifts: [
+      { date: "2026-07-29", shiftTypeId: "st_w7c861", label: "" },   // past range.to (2026-07-10)
+      { date: "2026-05-20", shiftTypeId: "st_w7c861", label: "" },   // before range.from
+    ] },
+  };
+  const pe = runPartner(outside);
+  if (pe.some((e) => e.startDate === "2026-07-29") && pe.some((e) => e.startDate === "2026-05-20"))
+    pass("partner shifts beyond both ends of state.range render");
+  else fail("partner shift outside state.range did NOT render — the stale-range bug has regressed");
+
+  // A self override past range.to must render too (same root cause).
+  const ovOutside = run({ ...base, overrides: [{ date: "2026-07-29", label: "Evening", shiftTypeId: "st_w7c861" }] });
+  if (ovOutside.some((e) => e.startDate === "2026-07-29"))
+    pass("self override beyond state.range renders");
+  else fail("self override outside state.range did NOT render");
 }
 
 console.log(failures ? `\nFAILED — ${failures} contract check(s) broke.` : "\nAll contract checks passed.");

@@ -413,7 +413,7 @@ function installAppMenu(): void {
           click: sendNewShift,
         },
         {
-          label: "New Event…",
+          label: "New Life Item…",
           accelerator: "CmdOrCtrl+E",
           click: sendNewEvent,
         },

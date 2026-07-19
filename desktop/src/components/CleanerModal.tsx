@@ -8,6 +8,10 @@ import {
   applyCleanerDiffs, cleanSchedule, diffParsedAgainstState,
   type DiffEntry,
 } from "../lib/cleanSchedule";
+import {
+  applyCoverageRewrite, computeCoverageRewrite,
+  type CoverageRewriteEntry,
+} from "../lib/rewriteCoverage";
 
 interface Props {
   open: boolean;
@@ -21,7 +25,8 @@ interface Props {
   partnerName: string;
 }
 
-type Phase = "pick" | "analyzing" | "review" | "applying" | "done";
+type Phase = "pick" | "analyzing" | "review" | "applying" | "done"
+  | "rw-review" | "rw-applying";
 
 export function CleanerModal({
   open, onClose, palette, t, dark, householdId, state, selfName, partnerName,
@@ -32,6 +37,10 @@ export function CleanerModal({
   const [approvals, setApprovals] = useState<Record<string, boolean>>({});
   const [note, setNote]     = useState<string | null>(null);
   const [err, setErr]       = useState<string | null>(null);
+  const [info, setInfo]     = useState<string | null>(null);
+  const [rwEntries, setRwEntries] = useState<CoverageRewriteEntry[]>([]);
+  const [rwApprovals, setRwApprovals] = useState<Record<string, boolean>>({});
+  const [doneMsg, setDoneMsg] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,6 +50,10 @@ export function CleanerModal({
     setApprovals({});
     setNote(null);
     setErr(null);
+    setInfo(null);
+    setRwEntries([]);
+    setRwApprovals({});
+    setDoneMsg(null);
   }, [open]);
 
   if (!open) return null;
@@ -76,12 +89,53 @@ export function CleanerModal({
     try {
       const approved = diffs.filter((d) => approvals[diffKey(d)]);
       await applyCleanerDiffs(householdId, approved);
+      setDoneMsg("Schedule cleaned up.");
       setPhase("done");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't apply.");
       setPhase("review");
     }
   };
+
+  // ── Rewrite utility: refresh pending coverage requests to the latest
+  //    scheduling logic (multi-window engine + arrival-lead starts). ──
+  const onRewrite = () => {
+    if (!state) { setErr("State not loaded."); return; }
+    setErr(null);
+    setInfo(null);
+    const d = new Date();
+    const todayIso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const entries = computeCoverageRewrite(state, todayIso);
+    if (entries.length === 0) {
+      setInfo("All pending coverage requests already match the latest logic — nothing to rewrite.");
+      return;
+    }
+    const init: Record<string, boolean> = {};
+    entries.forEach((e) => { init[e.key] = true; });
+    setRwEntries(entries);
+    setRwApprovals(init);
+    setPhase("rw-review");
+  };
+
+  const onApplyRewrite = async () => {
+    if (!householdId) { setErr("No household linked."); return; }
+    setErr(null);
+    setPhase("rw-applying");
+    try {
+      const approved = rwEntries.filter((e) => rwApprovals[e.key]);
+      const proposed = approved.filter((e) => e.kind === "propose").length;
+      await applyCoverageRewrite(householdId, approved);
+      setDoneMsg(proposed > 0
+        ? `Updated. ${proposed} change request${proposed === 1 ? "" : "s"} sent for approval.`
+        : "Coverage requests rewritten to the latest logic.");
+      setPhase("done");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't rewrite.");
+      setPhase("rw-review");
+    }
+  };
+
+  const rwApprovedCount = rwEntries.filter((e) => rwApprovals[e.key]).length;
 
   const adds    = diffs.filter((d) => d.kind === "add");
   const removes = diffs.filter((d) => d.kind === "remove");
@@ -200,6 +254,33 @@ export function CleanerModal({
               onChange={(e) => { if (e.target.files?.[0]) void onFile(e.target.files[0]); e.target.value = ""; }}
             />
 
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+              <span style={{ flex: 1, height: 1, background: t.sep }} />
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: t.text3, letterSpacing: "0.08em" }}>OR</span>
+              <span style={{ flex: 1, height: 1, background: t.sep }} />
+            </div>
+
+            <div
+              onClick={onRewrite}
+              style={{
+                padding: "16px 16px",
+                borderRadius: 12,
+                border: `1px solid ${t.sep}`,
+                background: t.bgElev,
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>
+                ↻ Rewrite coverage requests
+              </div>
+              <div style={{ fontSize: 12, color: t.text3, marginTop: 4, lineHeight: 1.45 }}>
+                Refresh pending requests using the latest scheduling logic — coverage
+                windows and arrival times are recomputed from today's schedule.
+                Confirmed and answered requests are never touched.
+              </div>
+            </div>
+
+            {info && <div style={{ fontSize: 12, color: t.text2 }}>{info}</div>}
             {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
           </div>
         )}
@@ -315,17 +396,137 @@ export function CleanerModal({
           </>
         )}
 
+        {/* Rewrite review — per-date before → after with approvals */}
+        {phase === "rw-review" && (
+          <>
+            <div
+              style={{
+                fontSize: 12, color: t.text2,
+                background: t.bgElev,
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: `0.5px solid ${t.sep}`,
+              }}
+            >
+              {rwEntries.length} item{rwEntries.length === 1 ? "" : "s"} differ from the
+              latest logic. <b>Rewrite</b> replaces unanswered requests outright.
+              <b> Change request</b> asks the caregiver to approve a new window —
+              the times she already agreed to stand until she does.
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, minHeight: 0 }}>
+              {rwEntries.map((e) => {
+                const approved = rwApprovals[e.key] ?? true;
+                const isPropose = e.kind === "propose";
+                return (
+                  <div
+                    key={e.key}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: t.bg,
+                      border: `0.5px solid ${t.sep}`,
+                      opacity: approved ? 1 : 0.4,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>
+                        {humanDate(e.date)}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 9.5, fontWeight: 700,
+                          padding: "1px 7px", borderRadius: 999,
+                          background: isPropose ? "rgba(94,92,230,0.18)" : "rgba(255,159,10,0.18)",
+                          color: isPropose ? "#5E5CE6" : "#FF9F0A",
+                          letterSpacing: "0.04em", textTransform: "uppercase",
+                        }}
+                      >
+                        {isPropose ? "Change request" : "Rewrite"}
+                      </span>
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setRwApprovals((a) => ({ ...a, [e.key]: true }))}
+                          style={miniBtn(approved ? "#30D158" : t.sep, approved)}
+                          title="Approve"
+                        >✓</button>
+                        <button
+                          type="button"
+                          onClick={() => setRwApprovals((a) => ({ ...a, [e.key]: false }))}
+                          style={miniBtn(!approved ? "#FF453A" : t.sep, !approved)}
+                          title="Deny"
+                        >✕</button>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.5 }}>
+                      <div>
+                        <span style={{ color: t.text3 }}>{isPropose ? "agreed" : "was"}</span>{" "}
+                        {e.before.length === 0
+                          ? "nothing"
+                          : e.before.map((b) => `${b.startTime} → ${b.endTime}${b.endsNextDay ? " +1d" : ""}`).join(" · ")}
+                      </div>
+                      <div>
+                        <span style={{ color: t.text3 }}>{isPropose ? "propose" : "now"}</span>{" "}
+                        {e.after.length === 0
+                          ? "no coverage needed"
+                          : e.after.map((a) => `${a.startTime} → ${a.endTime}${a.endsNextDay ? " +1d" : ""}`).join(" · ")}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 12, color: t.text3 }}>
+                {rwApprovedCount} of {rwEntries.length} approved
+              </div>
+              <button type="button" onClick={() => setPhase("pick")} style={secondaryBtn(t)}>
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onApplyRewrite}
+                disabled={rwApprovedCount === 0}
+                style={{
+                  marginLeft: "auto",
+                  padding: "9px 18px",
+                  borderRadius: 9,
+                  border: 0,
+                  background: palette.G,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: "inherit",
+                  cursor: rwApprovedCount === 0 ? "default" : "pointer",
+                  opacity: rwApprovedCount === 0 ? 0.5 : 1,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Rewrite {rwApprovedCount > 0 ? `(${rwApprovedCount})` : ""}
+              </button>
+            </div>
+          </>
+        )}
+
         {/* Applying / Done */}
-        {phase === "applying" && (
+        {(phase === "applying" || phase === "rw-applying") && (
           <div style={{ padding: "60px 0", textAlign: "center", color: t.text2 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Applying changes…</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>
+              {phase === "rw-applying" ? "Rewriting requests…" : "Applying changes…"}
+            </div>
           </div>
         )}
         {phase === "done" && (
           <div style={{ padding: "30px 0", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>
-              Schedule cleaned up.
+              {doneMsg ?? "Schedule cleaned up."}
             </div>
             <button
               type="button"
@@ -609,15 +810,24 @@ function miniBtn(color: string, active: boolean): React.CSSProperties {
 }
 
 function WandHero({ size = 22, color = "#7FA86A" }: { size?: number; color?: string }) {
+  // Same sparkles cluster as Inspector's WandIcon — kept in sync so the
+  // Utilities row and the Cleaner modal hero feel like the same mark.
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M19 3 l1 2 l2 1 l-2 1 l-1 2 l-1-2 l-2-1 l2-1 z" fill={color} />
-      <path
-        d="M3 21 L15 9 L17 11 L5 23 z"
-        fill={color}
-        transform="translate(0,-2)"
-        opacity={0.85}
-      />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      aria-hidden
+    >
+      {/* Big star — upper-left center */}
+      <path d="M8 3.5 L9.5 7.5 L13.5 9 L9.5 10.5 L8 14.5 L6.5 10.5 L2.5 9 L6.5 7.5 Z" />
+      {/* Small star — upper-right */}
+      <path d="M18 2.5 L18.7 4.3 L20.5 5 L18.7 5.7 L18 7.5 L17.3 5.7 L15.5 5 L17.3 4.3 Z" />
+      {/* Medium star — middle-right */}
+      <path d="M17 10.5 L18 13 L20.5 14 L18 15 L17 17.5 L16 15 L13.5 14 L16 13 Z" />
+      {/* Tiny star — lower-left */}
+      <path d="M8 16 L8.5 17.5 L10 18 L8.5 18.5 L8 20 L7.5 18.5 L6 18 L7.5 17.5 Z" />
     </svg>
   );
 }

@@ -103,3 +103,17 @@ export function eventColor(
     case "family": return palette.BOTH;
   }
 }
+
+/**
+ * Colors for "Life" items. Deliberately independent of the person palette
+ * (which belongs to work shifts) so life reads as its own category at a
+ * glance: Gage green, Kaylene purple, family blue, Daisy orange.
+ */
+export function lifeColor(who: "G" | "K" | "Daisy" | "family"): string {
+  switch (who) {
+    case "G":      return "#30D158";  // systemGreen
+    case "K":      return "#BF5AF2";  // systemPurple
+    case "Daisy":  return "#FF9F0A";  // systemOrange
+    case "family": return "#0A84FF";  // systemBlue
+  }
+}

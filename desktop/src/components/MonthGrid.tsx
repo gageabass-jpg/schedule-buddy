@@ -169,25 +169,31 @@ export function MonthGrid({
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 6,
-            height: 26,
-            padding: "0 12px",
-            borderRadius: 999,
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            padding: 4,
+            borderRadius: 7,
             border: 0,
             background: "linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%)",
-            color: "#fff",
-            fontFamily: "'Space Grotesk', 'Styrene A', 'Inter', -apple-system, sans-serif",
-            fontSize: 12.5,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
             cursor: "pointer",
             boxShadow: "0 1px 2px rgba(201,100,66,0.25)",
-            whiteSpace: "nowrap",
-            lineHeight: 1,
+            flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 11, lineHeight: 1 }}>✦</span>
-          <span>Claude</span>
+          <img
+            src="/assets/claude-ai.png"
+            alt="Claude"
+            draggable={false}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+          />
         </button>
         <InboxTray
           palette={palette}
@@ -451,40 +457,40 @@ export function MonthGrid({
                               </div>
                             );
                           })}
-                          {eventSlice.map((ev) => {
-                            const color = eventColor(ev.who, palette);
-                            return (
-                              <div
-                                key={ev.id}
-                                onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontSize: 10.5,
-                                  fontWeight: 500,
-                                  letterSpacing: "-0.01em",
-                                  padding: "1px 5px",
-                                  borderRadius: 4,
-                                  background: "transparent",
-                                  color: t.text,
-                                  border: `1px dashed ${rgba(color, 0.7)}`,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  cursor: "pointer",
-                                }}
-                                title={ev.title}
-                              >
-                                <span style={{ fontSize: 9.5, fontWeight: 700, color: eventColor(ev.who, palette), opacity: 0.95 }}>
-                                  {eventInitial(ev.who)}
-                                </span>
-                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {ev.startTime ? `${formatChipTime(ev.startTime)} ` : ""}{ev.title}
-                                </span>
-                              </div>
-                            );
-                          })}
+                          {/* Life items — leaf glyph + the event's time. No pill:
+                              these read as a quiet marker next to the work shifts. */}
+                          {eventSlice.map((ev) => (
+                            <div
+                              key={ev.id}
+                              onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                letterSpacing: "-0.01em",
+                                padding: "1px 3px",
+                                color: t.text2,
+                                overflow: "hidden",
+                                whiteSpace: "nowrap",
+                                cursor: "pointer",
+                              }}
+                              title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}`}
+                            >
+                              <img
+                                src="assets/green-leaf.png"
+                                alt=""
+                                aria-hidden="true"
+                                width={11}
+                                height={11}
+                                style={{ display: "block", flexShrink: 0 }}
+                              />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {ev.startTime ? formatChipTime(ev.startTime) : ev.title}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       );
                     })()}

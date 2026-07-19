@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import { compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
-import { dayColors, eventColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
+import { dayColors, eventColor, lifeColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
@@ -469,7 +469,7 @@ export function Inspector({
       {/* Events for the selected day */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-          <span style={subhead(t)}>Events</span>
+          <span style={subhead(t)}>Life</span>
           <button
             type="button"
             onClick={onAddEvent}
@@ -485,17 +485,17 @@ export function Inspector({
               letterSpacing: "-0.01em",
             }}
           >
-            + Add event
+            + Add life item
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {events.length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No events yet. Add a doctor visit, rehab, or anything else.
+              No life items yet. Add a doctor visit, rehab, or anything else.
             </div>
           )}
           {events.map((ev) => {
-            const color = eventColor(ev.who, palette);
+            const color = lifeColor(ev.who);
             const timeLabel = ev.startTime
               ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
               : "All day";
@@ -514,8 +514,8 @@ export function Inspector({
                   gap: 10,
                   padding: "8px 10px",
                   borderRadius: 8,
-                  background: t.bgElev,
-                  border: `1px dashed ${rgba(color, 0.55)}`,
+                  background: rgba(color, dark ? 0.18 : 0.10),
+                  border: `1px solid ${rgba(color, 0.55)}`,
                   cursor: "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
@@ -523,7 +523,29 @@ export function Inspector({
                   width: "100%",
                 }}
               >
-                <EventAvatar who={ev.who} size={26} palette={palette} dark={dark} />
+                {/* Avatar with the life leaf badged into its lower-right. */}
+                <div style={{ position: "relative", flexShrink: 0, lineHeight: 0 }}>
+                  <EventAvatar who={ev.who} size={26} palette={palette} dark={dark} />
+                  <img
+                    src="assets/green-leaf.png"
+                    alt=""
+                    aria-hidden="true"
+                    width={13}
+                    height={13}
+                    style={{
+                      position: "absolute",
+                      right: -3,
+                      bottom: -2,
+                      display: "block",
+                      // Halo in the pill's own tint so the leaf reads cleanly
+                      // against whatever the avatar photo happens to be.
+                      borderRadius: "50%",
+                      background: dark ? "#1C1C1E" : "#FFFFFF",
+                      padding: 1,
+                      boxSizing: "content-box",
+                    }}
+                  />
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>{ev.title}</div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Palette, ThemeTokens } from "../theme";
+import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { deleteCoverageRequest, markCoverageReviewed, statusLabel } from "../lib/writeCoverageRequest";
 import { auth } from "../firebase";
@@ -59,6 +59,8 @@ export function ChildcarePanel({
   open, onClose, palette, t, dark, householdId, state, onSendBatch, onSendSingle,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
+  // Land on the current month by default; toggle off to see all history.
+  const [monthOnly, setMonthOnly] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -75,16 +77,31 @@ export function ChildcarePanel({
 
   const requests = state?.coverageRequests ?? [];
 
+  // "YYYY-MM" for today. Coverage dates are ISO, so a prefix match scopes to
+  // the current calendar month. Recomputed each time the panel opens so a
+  // long-running app doesn't get stuck on last month.
+  const monthPrefix = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, [open]);
+
+  // Narrow to the current month before the status filter, so the pill counts
+  // always describe what's actually in the list.
+  const scoped = useMemo(
+    () => (monthOnly ? requests.filter((r) => r.date.startsWith(monthPrefix)) : requests),
+    [requests, monthOnly, monthPrefix],
+  );
+
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { all: requests.length, pending: 0, confirmed: 0, declined: 0, issue: 0 };
-    for (const r of requests) c[r.status] = (c[r.status] ?? 0) + 1;
+    const c: Record<Filter, number> = { all: scoped.length, pending: 0, confirmed: 0, declined: 0, issue: 0 };
+    for (const r of scoped) c[r.status] = (c[r.status] ?? 0) + 1;
     return c;
-  }, [requests]);
+  }, [scoped]);
 
   const filtered = useMemo(() => {
-    const list = filter === "all" ? requests : requests.filter((r) => r.status === filter);
+    const list = filter === "all" ? scoped : scoped.filter((r) => r.status === filter);
     return [...list].sort((a, b) => a.date.localeCompare(b.date));
-  }, [requests, filter]);
+  }, [scoped, filter]);
 
   if (!open) return null;
 
@@ -130,7 +147,7 @@ export function ChildcarePanel({
                 aria-expanded={menuOpen}
                 style={primaryBtn(palette.G, false)}
               >
-                + New Request <span style={{ marginLeft: 4, fontSize: 10 }}>▾</span>
+                + New Request
               </button>
               {menuOpen && (
                 <div
@@ -175,7 +192,7 @@ export function ChildcarePanel({
         </div>
 
         {/* Filter pills */}
-        <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
           {FILTERS.map((f) => {
             const active = f.key === filter;
             return (
@@ -200,6 +217,32 @@ export function ChildcarePanel({
               </button>
             );
           })}
+
+          {/* Separate axis from the status pills — narrows everything above to
+              the current month. */}
+          <span style={{ width: 1, alignSelf: "stretch", background: t.sep, margin: "0 3px" }} />
+          <button
+            type="button"
+            onClick={() => setMonthOnly((v) => !v)}
+            aria-pressed={monthOnly}
+            title={monthOnly
+              ? "Showing only this month — click to include every request"
+              : "Show only this month's requests"}
+            style={{
+              padding: "5px 10px",
+              borderRadius: 999,
+              border: `0.5px solid ${monthOnly ? "transparent" : t.sep}`,
+              background: monthOnly ? MANAGER_ORANGE : "transparent",
+              color: monthOnly ? "#fff" : t.text2,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            This month
+          </button>
         </div>
 
         {/* List */}
@@ -217,8 +260,10 @@ export function ChildcarePanel({
           {filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: t.text3, fontSize: 13 }}>
               {filter === "all"
-                ? "No coverage requests yet. Right-click Overlap in the sidebar to send a batch."
-                : `No ${filter} requests.`}
+                ? (monthOnly
+                    ? "No coverage requests this month. Turn off “This month” to see everything."
+                    : "No coverage requests yet. Right-click Overlap in the sidebar to send a batch.")
+                : `No ${filter} requests${monthOnly ? " this month" : ""}.`}
             </div>
           ) : (
             filtered.map((r) => (
@@ -268,6 +313,19 @@ export function ChildcarePanel({
                     )}
                     {r.arriveBy && (
                       <span style={{ fontSize: 10.5, color: t.text3 }}>· arrive by {r.arriveBy}</span>
+                    )}
+                    {r.proposedChange && (
+                      <span
+                        title={`Waiting on the caregiver to approve ${r.proposedChange.startTime} → ${r.proposedChange.endTime}`}
+                        style={{
+                          fontSize: 10, fontWeight: 700,
+                          padding: "2px 7px", borderRadius: 999,
+                          background: "rgba(94,92,230,0.18)", color: "#5E5CE6",
+                          letterSpacing: "0.04em", textTransform: "uppercase",
+                        }}
+                      >
+                        change sent · {r.proposedChange.startTime}–{r.proposedChange.endTime}
+                      </span>
                     )}
                   </div>
                   {r.notes && (
@@ -402,5 +460,6 @@ function primaryBtn(color: string, disabled: boolean): React.CSSProperties {
     opacity: disabled ? 0.5 : 1,
     fontFamily: "inherit",
     letterSpacing: "-0.01em",
+    whiteSpace: "nowrap",
   };
 }
