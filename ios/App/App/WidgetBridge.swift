@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import UserNotifications
 import Capacitor
 import WidgetKit
 
@@ -34,7 +35,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "WidgetBridgePlugin"
     public let jsName = "WidgetBridge"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "writeSnapshot", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "writeSnapshot", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearBadge", returnType: CAPPluginReturnPromise)
     ]
 
     /// Must match the App Group enabled on BOTH the app and widget targets,
@@ -61,6 +63,24 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["ok": true])
         } catch {
             call.reject("Failed to write snapshot: \(error.localizedDescription)")
+        }
+    }
+
+    /// Zero the app-icon badge and clear delivered notifications.
+    ///
+    /// The push payload now carries a real count, but nothing ever reset it —
+    /// so the badge stuck to the icon permanently. The web app calls this when
+    /// it comes to the foreground.
+    @objc func clearBadge(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let center = UNUserNotificationCenter.current()
+            center.removeAllDeliveredNotifications()
+            if #available(iOS 16.0, *) {
+                center.setBadgeCount(0) { _ in }
+            } else {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+            }
+            call.resolve(["ok": true])
         }
     }
 }

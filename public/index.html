@@ -9808,10 +9808,28 @@ function scheduleWidgetPush() {
   _widgetPushTimer = setTimeout(() => { _widgetPushTimer = null; pushWidgetSnapshot(); }, 1200);
 }
 
-// Refresh the snapshot when the app returns to the foreground.
+/**
+ * Zero the app-icon badge. The push carries a real per-recipient count, but
+ * iOS keeps it on the icon until something resets it — so opening the app has
+ * to. No-op off-device.
+ */
+function clearAppBadge() {
+  const bridge = _widgetBridge();
+  if (!bridge || typeof bridge.clearBadge !== "function") return;
+  Promise.resolve(bridge.clearBadge())
+    .catch((e) => console.warn("[badge] clearBadge failed:", e && (e.message || e)));
+}
+
+// Refresh the snapshot and drop the icon badge when the app is foregrounded.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") scheduleWidgetPush();
+  if (document.visibilityState === "visible") {
+    scheduleWidgetPush();
+    clearAppBadge();
+  }
 });
+// Also on first load — a cold launch from a notification never fires
+// visibilitychange.
+clearAppBadge();
 
 function renderMonthView(gageEvts, kayEvts, view) {
   const ui = _ensureCalUIState();

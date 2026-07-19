@@ -109,6 +109,61 @@ async function tokensForRoles(
   return out;
 }
 
+/**
+ * How many things actually need this person, for the app-icon badge.
+ *
+ * Previously every push sent a hardcoded `badge: 1`, which meant nothing and
+ * — since nothing ever cleared it — stuck to the icon permanently.
+ *
+ *   caregiver      → requests awaiting her reply (unanswered + proposed changes)
+ *   admin/partner  → caregiver responses needing review + caregiver-raised requests
+ *   everyone       → unread chat messages
+ *
+ * Best-effort: any failure returns 0 rather than blocking the notification.
+ */
+async function badgeCountFor(householdId: string, uid: string): Promise<number> {
+  try {
+    const db = getFirestore();
+    const hh = await db.collection("households").doc(householdId).get();
+    const role = (hh.data()?.roles ?? {})[uid] ?? "partner";
+
+    const stateSnap = await db.collection("households").doc(householdId)
+      .collection("state").doc("main").get();
+    const st = stateSnap.data() ?? {};
+    const coverage = (st.coverageRequests ?? []) as CoverageRequest[];
+
+    let count = 0;
+    if (role === "supporting") {
+      count += coverage.filter((r) =>
+        r && (r.status === "pending" || r.proposedChange)).length;
+    } else {
+      count += coverage.filter((r) =>
+        r && (r.status === "declined" || r.status === "issue") &&
+        !(r as { managerReviewed?: boolean }).managerReviewed).length;
+      count += ((st.caregiverRequests ?? []) as { status?: string }[])
+        .filter((c) => c && c.status === "new").length;
+    }
+
+    // Unread chat — chatRead/{uid}.lastReadAt is written when the pane opens.
+    const readSnap = await db.collection("households").doc(householdId)
+      .collection("chatRead").doc(uid).get();
+    const lastRead = readSnap.data()?.lastReadAt;
+    const lastReadMs = lastRead && typeof lastRead.toMillis === "function" ? lastRead.toMillis() : 0;
+    const chatSnap = await db.collection("households").doc(householdId)
+      .collection("chat").orderBy("createdAt", "desc").limit(50).get();
+    chatSnap.forEach((doc) => {
+      const m = doc.data() as { senderId?: string; createdAt?: { toMillis?: () => number } };
+      if (m.senderId === uid) return;
+      const ms = m.createdAt && typeof m.createdAt.toMillis === "function" ? m.createdAt.toMillis() : 0;
+      if (ms > lastReadMs) count++;
+    });
+    return count;
+  } catch (e) {
+    logger.warn("badgeCountFor failed", { householdId, uid, error: String(e) });
+    return 0;
+  }
+}
+
 async function sendToTokens(
   tokens: { token: string; uid: string }[],
   notification: { title: string; body: string },
@@ -117,7 +172,14 @@ async function sendToTokens(
 ): Promise<void> {
   if (tokens.length === 0) return;
   const messaging = getMessaging();
-  const messages: Message[] = tokens.map(({ token }) => ({
+  // Badge is per-recipient, so resolve each uid's count once (several tokens
+  // can belong to the same person).
+  const uids = Array.from(new Set(tokens.map((t) => t.uid)));
+  const badges = new Map<string, number>();
+  await Promise.all(uids.map(async (uid) => {
+    badges.set(uid, await badgeCountFor(householdId, uid));
+  }));
+  const messages: Message[] = tokens.map(({ token, uid }) => ({
     token,
     notification,
     data,
@@ -126,7 +188,7 @@ async function sendToTokens(
         aps: {
           alert: { title: notification.title, body: notification.body },
           sound: "default",
-          badge: 1,
+          badge: badges.get(uid) ?? 0,
         },
       },
     },
