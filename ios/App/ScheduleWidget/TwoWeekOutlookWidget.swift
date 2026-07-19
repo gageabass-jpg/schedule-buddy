@@ -113,8 +113,10 @@ struct TwoWeekOutlookView: View {
                 .foregroundColor(Palette.ink)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Spacer(minLength: 0)
         }
+        // Each cell claims half the row so the two columns line up even when
+        // the titles are different lengths.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func legendItem(_ label: String, _ color: Color, dashed: Bool = false) -> some View {
@@ -193,12 +195,22 @@ struct TwoWeekOutlookView: View {
                 weekRow("WK 2", all.dropFirst(7).prefix(7), todayKey: todayKey)
             }
 
-            // Life items filling the space under the grid.
+            // Life items filling the space under the grid, as a 2x2 grid.
             let life = lifeRows
             if !life.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(life.prefix(Self.maxLifeRows).enumerated()), id: \.offset) { _, row in
-                        lifeRow(row.date, row.title)
+                let shown = Array(life.prefix(Self.maxLifeRows))
+                let pairs = stride(from: 0, to: shown.count, by: 2).map {
+                    Array(shown[$0..<min($0 + 2, shown.count)])
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
+                        HStack(spacing: 10) {
+                            ForEach(Array(pair.enumerated()), id: \.offset) { _, item in
+                                lifeRow(item.date, item.title)
+                            }
+                            // Keeps the left column half-width on an odd last row.
+                            if pair.count == 1 { Color.clear.frame(maxWidth: .infinity) }
+                        }
                     }
                     if life.count > Self.maxLifeRows {
                         Text("+\(life.count - Self.maxLifeRows) more")
