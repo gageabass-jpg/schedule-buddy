@@ -63,3 +63,8 @@ desktop/release/
 * 2.xml
 * 3.xml
 k-schedule/
+
+# Claude Code: machine-local settings and transient agent worktrees
+# (worktrees hold full nested checkouts — never commit them)
+.claude/settings.local.json
+.claude/worktrees/
