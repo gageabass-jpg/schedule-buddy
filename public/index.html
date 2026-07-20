@@ -5949,6 +5949,15 @@ function handlePushTap(data) {
     return;
   }
 
+  // --- In-Basket Messages — route straight to the thread, either role.
+  // Without this, a chat push fell into the manager catch-all below (opening
+  // Childcare) and did nothing at all for the caregiver.
+  if (kind === "chat_message") {
+    if (userRole === "supporting") setCaregiverTab("chat");
+    else setMobileTab("chat");   // also marks the thread read
+    return;
+  }
+
   // --- Manager-bound — caregiver status changes OR caregiver-authored requests. ---
   if (userRole !== "supporting") {
     // Switch to the Childcare bottom tab if we're on mobile.

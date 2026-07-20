@@ -443,10 +443,11 @@ export const onChatMessageCreate = onDocumentCreated(
     if (tokens.length === 0) return;
 
     const senderName = (data.senderName && data.senderName.trim()) || "Family member";
-    const body = data.text.length > 120 ? data.text.slice(0, 117) + "…" : data.text;
+    // Generic body — message contents never appear on lock screens. The sender
+    // name is the title (who, not what); tapping routes to In-Basket Messages.
     await sendToTokens(tokens, {
       title: senderName,
-      body,
+      body: "You have a new In-Basket Message. Tap to View",
     }, {
       kind: "chat_message",
       householdId,
