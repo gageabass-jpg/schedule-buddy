@@ -59,11 +59,11 @@ export function ChildcarePanel({
   open, onClose, palette, t, dark, householdId, state, onSendBatch, onSendSingle,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
-  // Land on the current month by default; toggle off to see all history.
-  const [monthOnly, setMonthOnly] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const monthMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Click-outside to close the dropdown.
   useEffect(() => {
@@ -75,6 +75,15 @@ export function ChildcarePanel({
     return () => window.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!monthMenuOpen) return;
+    const onDown = (ev: MouseEvent) => {
+      if (monthMenuRef.current && !monthMenuRef.current.contains(ev.target as Node)) setMonthMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [monthMenuOpen]);
+
   const requests = state?.coverageRequests ?? [];
 
   // "YYYY-MM" for today. Coverage dates are ISO, so a prefix match scopes to
@@ -85,11 +94,39 @@ export function ChildcarePanel({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, [open]);
 
-  // Narrow to the current month before the status filter, so the pill counts
-  // always describe what's actually in the list.
+  // "all" (YTD) or a "YYYY-MM" key. Defaults to the current month, matching
+  // the iOS manager pane.
+  const [month, setMonth] = useState<string>(monthPrefix);
+  useEffect(() => { if (open) setMonth(monthPrefix); }, [open, monthPrefix]);
+
+  // Month options come from the data, newest first.
+  const monthKeys = useMemo(() => {
+    const keys = new Set(requests.map((r) => (r.date || "").slice(0, 7)).filter(Boolean));
+    return [...keys].sort().reverse();
+  }, [requests]);
+
+  // Fall back to YTD when the chosen month holds nothing — but only once
+  // there's data, so an empty first render can't discard the default.
+  const effectiveMonth = (month !== "all" && monthKeys.length > 0 && !monthKeys.includes(month))
+    ? "all"
+    : month;
+
+  const multiYear = useMemo(
+    () => new Set(monthKeys.map((k) => k.slice(0, 4))).size > 1,
+    [monthKeys],
+  );
+  const monthLabel = (k: string): string => {
+    if (k === "all") return "YTD";
+    const [yy, mm] = k.split("-").map(Number);
+    const name = new Date(yy, (mm || 1) - 1, 1).toLocaleDateString(undefined, { month: "long" });
+    return multiYear ? `${name} ${yy}` : name;
+  };
+
+  // Narrow by month before the status filter, so the pill counts always
+  // describe what's actually in the list.
   const scoped = useMemo(
-    () => (monthOnly ? requests.filter((r) => r.date.startsWith(monthPrefix)) : requests),
-    [requests, monthOnly, monthPrefix],
+    () => (effectiveMonth === "all" ? requests : requests.filter((r) => r.date.startsWith(effectiveMonth))),
+    [requests, effectiveMonth],
   );
 
   const counts = useMemo(() => {
@@ -218,31 +255,89 @@ export function ChildcarePanel({
             );
           })}
 
-          {/* Separate axis from the status pills — narrows everything above to
-              the current month. */}
+          {/* Separate axis from the status pills — scopes everything above to
+              a month. Defaults to the current one; YTD shows all history. */}
           <span style={{ width: 1, alignSelf: "stretch", background: t.sep, margin: "0 3px" }} />
-          <button
-            type="button"
-            onClick={() => setMonthOnly((v) => !v)}
-            aria-pressed={monthOnly}
-            title={monthOnly
-              ? "Showing only this month — click to include every request"
-              : "Show only this month's requests"}
-            style={{
-              padding: "5px 10px",
-              borderRadius: 999,
-              border: `0.5px solid ${monthOnly ? "transparent" : t.sep}`,
-              background: monthOnly ? MANAGER_ORANGE : "transparent",
-              color: monthOnly ? "#fff" : t.text2,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            This month
-          </button>
+          <div ref={monthMenuRef} style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setMonthMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={monthMenuOpen}
+              title="Filter by month"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "5px 10px",
+                borderRadius: 999,
+                border: `0.5px solid ${effectiveMonth === "all" ? t.sep : "transparent"}`,
+                background: effectiveMonth === "all" ? "transparent" : MANAGER_ORANGE,
+                color: effectiveMonth === "all" ? t.text2 : "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                letterSpacing: "-0.01em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {monthLabel(effectiveMonth)}
+              <span style={{ fontSize: 9, opacity: 0.8 }}>▾</span>
+            </button>
+            {monthMenuOpen && (
+              <div
+                role="menu"
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  marginTop: 6,
+                  minWidth: 150,
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  background: t.bgElev,
+                  color: t.text,
+                  border: `0.5px solid ${t.sep}`,
+                  borderRadius: 10,
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
+                  padding: 4,
+                  zIndex: 20,
+                }}
+              >
+                {["all", ...monthKeys].map((k) => {
+                  const active = k === effectiveMonth;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { setMonth(k); setMonthMenuOpen(false); }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "7px 10px",
+                        borderRadius: 6,
+                        border: 0,
+                        background: active ? "rgba(127,127,127,0.14)" : "transparent",
+                        color: t.text,
+                        fontSize: 12.5,
+                        fontWeight: active ? 700 : 500,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        letterSpacing: "-0.01em",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(127,127,127,0.12)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = active ? "rgba(127,127,127,0.14)" : "transparent"; }}
+                    >
+                      {monthLabel(k)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* List */}
@@ -259,11 +354,11 @@ export function ChildcarePanel({
         >
           {filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: t.text3, fontSize: 13 }}>
-              {filter === "all"
-                ? (monthOnly
-                    ? "No coverage requests this month. Turn off “This month” to see everything."
-                    : "No coverage requests yet. Right-click Overlap in the sidebar to send a batch.")
-                : `No ${filter} requests${monthOnly ? " this month" : ""}.`}
+              {requests.length === 0
+                ? "No coverage requests yet. Right-click Overlap in the sidebar to send a batch."
+                : filter === "all"
+                  ? `No coverage requests in ${monthLabel(effectiveMonth)}. Switch to YTD to see everything.`
+                  : `No ${filter} requests in ${monthLabel(effectiveMonth)}.`}
             </div>
           ) : (
             filtered.map((r) => (
