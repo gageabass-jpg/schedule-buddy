@@ -3507,6 +3507,99 @@
   .profile-danger-btn:hover  { background: rgba(255,69,58,0.08); }
   .profile-danger-btn:active { transform: scale(0.98); }
 
+  /* ===== Profile — iOS grouped-card design, shared by the manager pane
+     (.pane-profile) and the caregiver pane (.cg-pane-profile). Uses theme
+     tokens so it adapts to light/dark. ===== */
+  .pane-profile, .cg-pane-profile { padding: 0; gap: 0; }
+  .pf-view { display: flex; flex-direction: column; width: 100%; }
+  .pf-view-account { display: none; }
+  .pane-profile.show-account   .pf-view-main,
+  .cg-pane-profile.show-account .pf-view-main    { display: none; }
+  .pane-profile.show-account   .pf-view-account,
+  .cg-pane-profile.show-account .pf-view-account { display: flex; }
+  .pf-view-main    { padding-top: max(env(safe-area-inset-top, 0px), 22px); }
+  .pf-view-account { padding-top: max(env(safe-area-inset-top, 0px), 12px); }
+
+  .pf-hero {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 12px 16px 22px;
+  }
+  .pf-avatar-ring {
+    width: 104px; height: 104px; border-radius: 50%; box-sizing: border-box;
+    padding: 3px; border: 2px solid var(--color-g); margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pf-avatar-ring .sb-avatar,
+  .pf-avatar-ring .cg-profile-avatar {
+    width: 94px; height: 94px; font-size: 34px; box-shadow: none; margin: 0;
+  }
+  .pf-name  { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+  .pf-email { font-size: 15px; color: var(--text-2); letter-spacing: -0.01em; }
+
+  .pf-primary {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: calc(100% - 32px); margin: 0 16px 26px; height: 50px;
+    border: 0; border-radius: 25px; background: var(--color-g); color: #fff;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
+    font-family: var(--font); cursor: pointer;
+    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    -webkit-tap-highlight-color: transparent; transition: opacity 0.1s;
+  }
+  .pf-primary:active { opacity: 0.75; }
+
+  .pf-group-label {
+    font-size: 13px; color: var(--text-2); text-transform: uppercase;
+    letter-spacing: -0.01em; padding: 0 32px 7px;
+  }
+  .pf-card {
+    background: var(--panel); border-radius: 22px; margin: 0 16px 22px;
+    overflow: hidden; box-shadow: var(--shadow-card);
+  }
+  .pf-card.tight { margin-bottom: 8px; }
+  .pf-row {
+    display: flex; align-items: center; gap: 12px; min-height: 52px;
+    padding: 0 16px; width: 100%; background: transparent; border: 0;
+    color: var(--text); font-family: var(--font); font-size: 17px;
+    letter-spacing: -0.02em; text-align: left; cursor: pointer;
+    position: relative; -webkit-tap-highlight-color: transparent;
+  }
+  .pf-row:active { background: rgba(127,127,127,0.14); }
+  .pf-row.static, .pf-row.static:active { cursor: default; background: transparent; }
+  /* Inset hairline between rows (starts past the icon). */
+  .pf-row + .pf-row::before {
+    content: ""; position: absolute; top: 0; left: 58px; right: 0;
+    height: 0.5px; background: var(--sep);
+  }
+  .pf-row.no-icon + .pf-row.no-icon::before { left: 16px; }
+  .pf-row-icon {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 17px; font-weight: 700;
+  }
+  .pf-row-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* A row with a trailing value: the label keeps its natural width and the
+     value takes the rest, truncating instead of squeezing the label. */
+  .pf-row.no-icon .pf-row-label { flex: 0 0 auto; }
+  .pf-row-value {
+    flex: 1; min-width: 0; margin-left: 12px; text-align: right;
+    color: var(--text-2); font-size: 17px; letter-spacing: -0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pf-chev { flex-shrink: 0; color: var(--text-3); }
+  .pf-row-center { justify-content: center; text-align: center; font-weight: 400; }
+  .pf-danger { color: var(--ot); }
+  .pf-link   { color: var(--color-g); }
+  .pf-note   { font-size: 13px; color: var(--text-3); padding: 0 32px 22px; letter-spacing: -0.01em; }
+
+  .pf-back {
+    display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
+    padding: 8px; margin: 2px 8px 0; background: transparent; border: 0;
+    color: var(--color-g); font-size: 17px; letter-spacing: -0.02em;
+    font-family: var(--font); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pf-title { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); padding: 4px 16px 20px; }
+
   /* ===== Family code modal ===== */
   .code-modal-backdrop {
     position: fixed;
@@ -4432,109 +4525,103 @@
     z-index: 1100; display: none;
   }
   .cgr-modal {
-    position: fixed; inset: 0;
-    z-index: 1101;
-    display: none;
-    flex-direction: column;
-    background: var(--bg);
-    padding:
-      max(env(safe-area-inset-top, 0px), 18px) 16px
-      max(env(safe-area-inset-bottom, 0px), 16px);
+    position: fixed; inset: 0; z-index: 1101; display: none;
+    flex-direction: column; justify-content: flex-end;
     box-sizing: border-box;
-    overflow-y: auto;
-    overflow-x: hidden;
-    gap: 14px;
-    width: 100%;
-    max-width: 100vw;
   }
   body.cgr-open .cgr-backdrop { display: block; }
   body.cgr-open .cgr-modal    { display: flex; }
+  .cgr-sheet {
+    display: flex; flex-direction: column; max-height: 92vh;
+    background: var(--panel); border-radius: 24px 24px 0 0;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.5); overflow: hidden;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+  }
+  .cgr-grab {
+    width: 36px; height: 5px; border-radius: 3px;
+    background: rgba(120,120,128,0.4); margin: 8px auto 2px;
+  }
   .cgr-head {
-    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-    padding: 6px 4px 0;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    padding: 8px 20px 2px;
   }
-  .cgr-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
-  .cgr-sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .cgr-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+  .cgr-sub { font-size: 14px; color: var(--text-2); margin-top: 3px; letter-spacing: -0.01em; }
   .cgr-close {
-    background: transparent; border: 0; color: var(--text-dim);
-    font-size: 20px; cursor: pointer; padding: 4px;
-    font-family: var(--font);
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+    background: rgba(118,118,128,0.24); border: 0; color: var(--text-2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
   }
-  .cgr-section { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; min-width: 0; }
+  .cgr-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; padding: 16px 16px 0;
+  }
   .cgr-label {
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--text-dim);
+    font-size: 13px; color: var(--text-2); text-transform: uppercase;
+    letter-spacing: -0.01em; padding: 0 16px 7px;
   }
+  /* iOS segmented control */
   .cgr-type-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    display: flex; gap: 2px; background: rgba(118,118,128,0.18);
+    border-radius: 10px; padding: 2px; margin-bottom: 22px;
   }
   .cgr-type {
-    padding: 10px 8px;
-    border-radius: 10px;
-    border: 0.5px solid var(--sep);
-    background: var(--bg-elev);
-    color: var(--text);
-    font-family: var(--font);
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    text-align: center;
+    flex: 1; min-height: 40px; border-radius: 8px; border: 0;
+    background: transparent; color: var(--text); font-family: var(--font);
+    font-size: 13px; font-weight: 400; letter-spacing: -0.02em;
+    line-height: 1.1; white-space: nowrap; padding: 0 4px;
+    cursor: pointer; text-align: center; -webkit-tap-highlight-color: transparent;
   }
   .cgr-type.active {
-    background: #30D158;
-    border-color: transparent;
-    color: #fff;
+    background: var(--bg-elev2); font-weight: 600; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   }
-  .cgr-input, .cgr-textarea {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-    padding: 11px 12px;
-    background: var(--bg-elev);
-    border: 0.5px solid var(--sep);
-    border-radius: 10px;
-    color: var(--text);
-    font-size: 14px;
-    font-family: var(--font);
-    outline: none;
-    color-scheme: dark light;
-    /* WKWebView's native date/time pickers carry an intrinsic min-content
-       width — disabling appearance lets `width: 100%` actually win. */
-    -webkit-appearance: none;
-    appearance: none;
+  /* Grouped "When" card */
+  .cgr-group {
+    background: var(--bg-elev2); border-radius: 16px; overflow: hidden; margin-bottom: 22px;
   }
-  .cgr-textarea { resize: vertical; min-height: 80px; line-height: 1.4; }
-  .cgr-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
-  .cgr-time-row > .cgr-input { min-width: 0; }
-  .cgr-err { font-size: 12px; color: #FF453A; padding: 0 4px; }
+  .cgr-frow {
+    display: flex; align-items: center; gap: 12px; min-height: 50px;
+    padding: 0 16px; position: relative;
+  }
+  .cgr-frow:not(.last)::after {
+    content: ""; position: absolute; left: 16px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--sep);
+  }
+  .cgr-frow-label { flex: 1; font-size: 17px; letter-spacing: -0.02em; color: var(--text); }
+  .cgr-frow .cgr-input {
+    width: auto; min-width: 0; flex-shrink: 0;
+    background: rgba(118,118,128,0.24); border: 0; border-radius: 8px;
+    padding: 6px 11px; color: var(--color-g); font-size: 16px;
+    font-family: var(--font); letter-spacing: -0.02em; outline: none;
+    -webkit-appearance: none; appearance: none; color-scheme: dark light;
+  }
+  .cgr-textarea {
+    width: 100%; box-sizing: border-box; margin-bottom: 8px;
+    background: var(--bg-elev2); border: 0; border-radius: 16px;
+    min-height: 110px; padding: 13px 16px;
+    color: var(--text); font-size: 17px; letter-spacing: -0.02em;
+    font-family: var(--font); line-height: 1.4; resize: none; outline: none;
+  }
+  .cgr-textarea::placeholder { color: var(--text-3); }
+  .cgr-err { font-size: 13px; color: #FF453A; padding: 0 4px 8px; }
   .cgr-actions {
-    display: flex; gap: 8px; padding: 4px 4px 8px;
-    margin-top: auto;
-  }
-  .cgr-cancel, .cgr-submit {
-    flex: 1;
-    padding: 13px 14px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: var(--font);
-    -webkit-tap-highlight-color: transparent;
-    letter-spacing: -0.01em;
-  }
-  .cgr-cancel {
-    background: transparent;
-    border: 0.5px solid var(--sep);
-    color: var(--text);
+    display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0;
   }
   .cgr-submit {
-    background: #30D158;
-    border: 0;
-    color: #fff;
+    height: 50px; border-radius: 25px; border: 0;
+    background: var(--color-g); color: #fff;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
+    font-family: var(--font); cursor: pointer;
+    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    -webkit-tap-highlight-color: transparent;
   }
   .cgr-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .cgr-cancel {
+    height: 44px; border: 0; background: transparent; color: var(--color-g);
+    font-size: 17px; letter-spacing: -0.02em; font-family: var(--font);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
 </style>
 </head>
 <body>
@@ -5150,26 +5237,74 @@
   </div>
 
   <!-- ===== Profile pane (mobile only; shows when bottom Profile tab is active) ===== -->
-  <div class="pane-profile">
-    <div class="profile-hero">
-      <span class="sb-avatar profile-avatar" data-photo="g">G</span>
-      <div class="profile-name" id="profileName">Gage Bass</div>
-      <div class="profile-email" id="profileEmail"></div>
+  <div class="pane-profile" id="paneProfile">
+    <!-- Main profile view -->
+    <div class="pf-view pf-view-main">
+      <div class="pf-hero">
+        <div class="pf-avatar-ring">
+          <span class="sb-avatar profile-avatar" data-photo="g" id="profileAvatar">G</span>
+        </div>
+        <div class="pf-name" id="profileName">Gage Bass</div>
+        <div class="pf-email" id="profileEmail"></div>
+      </div>
+
+      <button class="pf-primary" id="requestEventBtn" type="button">
+        <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
+        Request Event
+      </button>
+
+      <div class="pf-group-label">Family</div>
+      <div class="pf-card">
+        <button class="pf-row" id="profileInsightsBtn" type="button">
+          <span class="pf-row-icon" style="background:var(--color-g)"><svg width="16" height="14" viewBox="0 0 16 14" aria-hidden="true"><rect x="0" y="8" width="3.4" height="6" rx="1" fill="#fff"/><rect x="6.3" y="4" width="3.4" height="10" rx="1" fill="#fff"/><rect x="12.6" y="0" width="3.4" height="14" rx="1" fill="#fff"/></svg></span>
+          <span class="pf-row-label">Schedule Insights</span>
+          <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="pf-row" id="viewFamilyCodeBtn" type="button">
+          <span class="pf-row-icon" style="background:#30D158">#</span>
+          <span class="pf-row-label">View Family Code</span>
+          <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="pf-card tight">
+        <button class="pf-row" id="profileAccountBtn" type="button">
+          <span class="pf-row-icon" style="background:#8E8E93"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="#fff"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" fill="#fff"/></svg></span>
+          <span class="pf-row-label">Account Settings</span>
+          <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="pf-note">Manage sign-in or delete your account.</div>
+
+      <div class="pf-card">
+        <button class="pf-row pf-row-center pf-danger" id="profileSignOutBtn" type="button">Sign Out</button>
+      </div>
     </div>
 
-    <button class="profile-action-btn" id="requestEventBtn" type="button">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-      </svg>
-      Request Event
-    </button>
+    <!-- Account sub-view -->
+    <div class="pf-view pf-view-account">
+      <button class="pf-back" id="profileAccountBack" type="button">
+        <svg width="11" height="18" viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2L2 10l8 8" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Profile
+      </button>
+      <div class="pf-title">Account</div>
 
-    <div class="profile-spacer"></div>
+      <div class="pf-group-label">Sign-in</div>
+      <div class="pf-card">
+        <div class="pf-row no-icon static">
+          <span class="pf-row-label">Email</span>
+          <span class="pf-row-value" id="accountEmail">—</span>
+        </div>
+        <button class="pf-row no-icon pf-link" id="accountChangePwBtn" type="button">
+          <span class="pf-row-label" id="accountChangePwLabel">Change Password</span>
+        </button>
+      </div>
 
-    <button class="profile-secondary-btn" id="profileInsightsBtn" type="button">Schedule Insights</button>
-    <button class="profile-secondary-btn" id="viewFamilyCodeBtn" type="button">View Family Code</button>
-    <button class="profile-signout-btn" id="profileSignOutBtn" type="button">Sign Out</button>
-    <button class="profile-danger-btn" id="profileDeleteAccountBtn" type="button">Delete my account</button>
+      <div class="pf-card tight">
+        <button class="pf-row pf-row-center pf-danger" id="profileDeleteAccountBtn" type="button">Delete My Account</button>
+      </div>
+      <div class="pf-note">Deleting your account removes your family schedule and childcare data. This cannot be undone.</div>
+    </div>
   </div>
 
   <!-- Family Code modal -->
@@ -5293,20 +5428,57 @@
 
   <!-- PROFILE pane: name / email / actions / sign out / delete account -->
   <div class="cg-pane cg-pane-profile" id="cgPaneProfile">
-    <div class="cg-profile-hero">
-      <span class="cg-profile-avatar" id="cgProfileAvatar">D</span>
-      <div class="cg-profile-name" id="cgProfileName">Caregiver</div>
-      <div class="cg-profile-email" id="cgProfileEmail"></div>
+    <!-- Main profile view -->
+    <div class="pf-view pf-view-main">
+      <div class="pf-hero">
+        <div class="pf-avatar-ring"><span class="cg-profile-avatar" id="cgProfileAvatar">D</span></div>
+        <div class="pf-name" id="cgProfileName">Caregiver</div>
+        <div class="pf-email" id="cgProfileEmail"></div>
+      </div>
+
+      <button class="pf-primary" id="cgProfileRequestEvent" type="button">
+        <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
+        Request Event
+      </button>
+
+      <div class="pf-card tight">
+        <button class="pf-row" id="cgProfileAccountBtn" type="button">
+          <span class="pf-row-icon" style="background:#8E8E93"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="#fff"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" fill="#fff"/></svg></span>
+          <span class="pf-row-label">Account Settings</span>
+          <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="pf-note">Manage sign-in or delete your account.</div>
+
+      <div class="pf-card">
+        <button class="pf-row pf-row-center pf-danger" id="cgProfileSignOut" type="button">Sign Out</button>
+      </div>
     </div>
-    <button type="button" class="cg-profile-row primary" id="cgProfileRequestEvent">
-      <span class="cg-profile-row-icon" aria-hidden="true">＋</span>
-      <span class="cg-profile-row-body">
-        <span class="cg-profile-row-title">Request an event</span>
-        <span class="cg-profile-row-sub">Ask the family to plan around your availability</span>
-      </span>
-    </button>
-    <button type="button" class="cg-profile-row signout" id="cgProfileSignOut">Sign out</button>
-    <button type="button" class="cg-profile-row danger" id="cgProfileDelete">Delete my account</button>
+
+    <!-- Account sub-view -->
+    <div class="pf-view pf-view-account">
+      <button class="pf-back" id="cgProfileAccountBack" type="button">
+        <svg width="11" height="18" viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2L2 10l8 8" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Profile
+      </button>
+      <div class="pf-title">Account</div>
+
+      <div class="pf-group-label">Sign-in</div>
+      <div class="pf-card">
+        <div class="pf-row no-icon static">
+          <span class="pf-row-label">Email</span>
+          <span class="pf-row-value" id="cgAccountEmail">—</span>
+        </div>
+        <button class="pf-row no-icon pf-link" id="cgAccountChangePwBtn" type="button">
+          <span class="pf-row-label" id="cgAccountChangePwLabel">Change Password</span>
+        </button>
+      </div>
+
+      <div class="pf-card tight">
+        <button class="pf-row pf-row-center pf-danger" id="cgProfileDelete" type="button">Delete My Account</button>
+      </div>
+      <div class="pf-note">Deleting your account removes your access to this family's schedule. This cannot be undone.</div>
+    </div>
   </div>
 
   <!-- Bottom tab bar for the caregiver -->
@@ -5347,46 +5519,43 @@
 <!-- ==================== Caregiver: Request Event modal ==================== -->
 <div class="cgr-backdrop" id="cgrBackdrop"></div>
 <div class="cgr-modal" id="cgrModal" role="dialog" aria-modal="true" aria-labelledby="cgrTitle">
-  <div class="cgr-head">
-    <div>
-      <div class="cgr-title" id="cgrTitle">Request an event</div>
-      <div class="cgr-sub">Tell the family about a block, conflict, or anything else.</div>
+  <div class="cgr-sheet">
+    <div class="cgr-grab"></div>
+    <div class="cgr-head">
+      <div>
+        <div class="cgr-title" id="cgrTitle">Request Event</div>
+        <div class="cgr-sub">Tell the family about a block, conflict, or anything else.</div>
+      </div>
+      <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">
+        <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
     </div>
-    <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">✕</button>
-  </div>
 
-  <div class="cgr-section">
-    <span class="cgr-label">Type</span>
-    <div class="cgr-type-grid">
-      <button type="button" class="cgr-type active" data-cgr-type="schedule-block">Schedule Block</button>
-      <button type="button" class="cgr-type" data-cgr-type="shift-conflict">Shift Conflict</button>
-      <button type="button" class="cgr-type" data-cgr-type="other">Other</button>
+    <div class="cgr-scroll">
+      <span class="cgr-label">Type</span>
+      <div class="cgr-type-grid">
+        <button type="button" class="cgr-type active" data-cgr-type="schedule-block">Schedule Block</button>
+        <button type="button" class="cgr-type" data-cgr-type="shift-conflict">Shift Conflict</button>
+        <button type="button" class="cgr-type" data-cgr-type="other">Life</button>
+      </div>
+
+      <span class="cgr-label">When</span>
+      <div class="cgr-group">
+        <div class="cgr-frow"><span class="cgr-frow-label">Date</span><input type="date" class="cgr-input" id="cgrDate"></div>
+        <div class="cgr-frow"><span class="cgr-frow-label">Starts</span><input type="time" class="cgr-input" id="cgrStart"></div>
+        <div class="cgr-frow last"><span class="cgr-frow-label">Ends</span><input type="time" class="cgr-input" id="cgrEnd"></div>
+      </div>
+
+      <span class="cgr-label">Comments</span>
+      <textarea class="cgr-textarea" id="cgrNotes" placeholder="What does the family need to know?"></textarea>
+
+      <div class="cgr-err" id="cgrErr" style="display:none;"></div>
     </div>
-  </div>
 
-  <div class="cgr-section">
-    <span class="cgr-label">Date</span>
-    <input type="date" class="cgr-input" id="cgrDate">
-  </div>
-
-  <div class="cgr-section">
-    <span class="cgr-label">Time (optional)</span>
-    <div class="cgr-time-row">
-      <input type="time" class="cgr-input" id="cgrStart" placeholder="Start">
-      <input type="time" class="cgr-input" id="cgrEnd" placeholder="End">
+    <div class="cgr-actions">
+      <button type="button" class="cgr-submit" id="cgrSubmitBtn">Send to Family</button>
+      <button type="button" class="cgr-cancel" id="cgrCancelBtn">Cancel</button>
     </div>
-  </div>
-
-  <div class="cgr-section">
-    <span class="cgr-label">Comments</span>
-    <textarea class="cgr-textarea" id="cgrNotes" placeholder="What does the family need to know?"></textarea>
-  </div>
-
-  <div class="cgr-err" id="cgrErr" style="display:none;"></div>
-
-  <div class="cgr-actions">
-    <button type="button" class="cgr-cancel" id="cgrCancelBtn">Cancel</button>
-    <button type="button" class="cgr-submit" id="cgrSubmitBtn">Send to family</button>
   </div>
 </div>
 
@@ -6181,7 +6350,9 @@ async function submitCaregiverRequest() {
       status: "new",
       createdAt: Date.now(),
       createdBy: currentUser.uid,
-      createdByName: currentUser.displayName || currentUser.email || "Caregiver",
+      // Attach the requestor from their profile — household member name first,
+      // so the family sees "Kaylene"/"Daisy", not a raw Apple/Google name.
+      createdByName: _resolveMyName(),
     };
     if (startTime) entry.startTime = startTime;
     if (endTime)   entry.endTime = endTime;
@@ -6215,6 +6386,10 @@ function setCaregiverTab(tab) {
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (tab === "chat") markChatReadNow();
+  if (tab === "profile") {
+    const p = document.getElementById("cgPaneProfile");
+    if (p) p.classList.remove("show-account");
+  }
 }
 
 // Caregivers only need to read/write `coverageRequests`. We still load the
@@ -7552,6 +7727,86 @@ if (reqEventBtn) {
     openCaregiverRequestModal();
   });
 }
+
+// ---- Account sub-screen (Profile → Account Settings) ----
+// Shared by the manager profile pane and the caregiver pane. Toggles the
+// pane's `.show-account` view, fills in the email, and adapts the password
+// row to the sign-in method.
+function _isPasswordAccount() {
+  const u = auth.currentUser;
+  return !!(u && u.providerData && u.providerData.some(p => p && p.providerId === "password"));
+}
+// Middle-truncate a long email so the domain stays visible, matching the mock
+// (thegagebass022798@icloud.com -> thegagebass…@icloud.com).
+function _maskEmail(email) {
+  if (!email || email.length <= 24) return email;
+  const at = email.indexOf("@");
+  if (at < 0) return email.slice(0, 22) + "…";
+  const local = email.slice(0, at), domain = email.slice(at);
+  return (local.length > 11 ? local.slice(0, 11) + "…" : local) + domain;
+}
+function _providerLabel() {
+  const u = auth.currentUser;
+  const pid = (u && u.providerData && u.providerData[0] && u.providerData[0].providerId) || "";
+  if (pid === "apple.com")  return "Apple";
+  if (pid === "google.com") return "Google";
+  return "";
+}
+async function _sendPasswordReset() {
+  const u = auth.currentUser;
+  const email = (u && u.email) || "";
+  if (!email) { alert("No email is on file for a password reset."); return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    alert("Password reset email sent to " + email + ".");
+  } catch (e) {
+    console.error("password reset failed:", e);
+    alert("Couldn't send the reset email: " + (e && e.message ? e.message : e));
+  }
+}
+function wireAccountSubview(o) {
+  const pane = document.getElementById(o.pane);
+  if (!pane) return;
+  const openBtn = document.getElementById(o.open);
+  const backBtn = document.getElementById(o.back);
+  const emailEl = document.getElementById(o.email);
+  const pwBtn   = document.getElementById(o.pwBtn);
+  const pwLabel = document.getElementById(o.pwLabel);
+
+  const refresh = () => {
+    const u = auth.currentUser;
+    if (emailEl) emailEl.textContent = _maskEmail((u && u.email) || "") || "—";
+    if (pwBtn && pwLabel) {
+      if (_isPasswordAccount()) {
+        pwLabel.textContent = "Change Password";
+        pwBtn.classList.add("pf-link");
+        pwBtn.classList.remove("static");
+        pwBtn.__canReset = true;
+      } else {
+        const prov = _providerLabel();
+        pwLabel.textContent = prov ? ("Signed in with " + prov) : "Managed sign-in";
+        pwBtn.classList.remove("pf-link");
+        pwBtn.classList.add("static");
+        pwBtn.__canReset = false;
+      }
+    }
+  };
+
+  if (openBtn && !openBtn.__wired) {
+    openBtn.__wired = true;
+    openBtn.addEventListener("click", () => { refresh(); pane.classList.add("show-account"); });
+  }
+  if (backBtn && !backBtn.__wired) {
+    backBtn.__wired = true;
+    backBtn.addEventListener("click", () => pane.classList.remove("show-account"));
+  }
+  if (pwBtn && !pwBtn.__wired) {
+    pwBtn.__wired = true;
+    pwBtn.addEventListener("click", () => { if (pwBtn.__canReset) _sendPasswordReset(); });
+  }
+}
+wireAccountSubview({ pane: "paneProfile",  open: "profileAccountBtn",   back: "profileAccountBack",   email: "accountEmail",   pwBtn: "accountChangePwBtn",   pwLabel: "accountChangePwLabel" });
+wireAccountSubview({ pane: "cgPaneProfile", open: "cgProfileAccountBtn", back: "cgProfileAccountBack", email: "cgAccountEmail",  pwBtn: "cgAccountChangePwBtn", pwLabel: "cgAccountChangePwLabel" });
 
 // View Family Code — opens a modal showing the household's invite code with
 // a Copy button. Pulls from the cached householdData populated by
@@ -11160,6 +11415,11 @@ function setMobileTab(tab) {
   if (tab === "childcare") {
     _mcBeginViewing();
     renderManagerChildcare((state && state.coverageRequests) || []);
+  }
+  // Always land on the main Profile view, not a lingering Account sub-view.
+  if (tab === "profile") {
+    const p = document.getElementById("paneProfile");
+    if (p) p.classList.remove("show-account");
   }
 }
 document.querySelectorAll(".bottom-tab").forEach(btn => {
