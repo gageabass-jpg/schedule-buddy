@@ -3792,6 +3792,23 @@
   }
   .mc-filter.active { background: var(--text); color: var(--bg); border-color: transparent; }
   .mc-list { display: flex; flex-direction: column; gap: 10px; }
+  /* Just-accepted marker — green dot beside the status pill, plus a soft
+     green wash on the card. Both vanish on the next visit to the pane. */
+  .mc-newdot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: #30D158;
+    margin-left: 7px;
+    vertical-align: middle;
+    box-shadow: 0 0 0 3px rgba(48,209,88,0.18);
+  }
+  .mc-card2.just-accepted {
+    background: rgba(48,209,88,0.07);
+    box-shadow: inset 0 0 0 1px rgba(48,209,88,0.28);
+  }
+
   .mc-card {
     display: grid;
     grid-template-columns: 1fr;
@@ -6980,7 +6997,44 @@ async function handleCaregiverChangeResponse(id, approve) {
 // caregiver-only screen (role: supporting) is a separate top-level surface;
 // this pane lives inside the regular app for admins and partners.
 let _mcFilter = "all";
-let _mcMonth = "all";   // "all" (YTD) or "YYYY-MM"
+// Default to the current month rather than YTD — the month you're actually
+// working in. Falls back to YTD in _mcRenderFilters if it holds no requests.
+let _mcMonth = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+})();
+
+// --- "Just accepted" highlighting -------------------------------------------
+// Shifts Daisy accepted since the last time this pane was opened get a green
+// dot and sort to the top. Opening the pane stamps "now", so they revert to
+// normal on the NEXT visit — visible for one viewing, then out of the way.
+const MC_SEEN_KEY = "sb.mcAcceptSeenAt";
+
+function _mcReadSeen() {
+  const v = Number(localStorage.getItem(MC_SEEN_KEY));
+  if (Number.isFinite(v) && v > 0) return v;
+  // First run: treat existing history as already seen, so an established
+  // schedule doesn't light up entirely green.
+  const now = Date.now();
+  try { localStorage.setItem(MC_SEEN_KEY, String(now)); } catch (_) { /* private mode */ }
+  return now;
+}
+
+let _mcAcceptSeenAt = _mcReadSeen();
+
+/** Called when the Childcare pane is opened. */
+function _mcBeginViewing() {
+  _mcAcceptSeenAt = _mcReadSeen();                    // threshold for THIS visit
+  try { localStorage.setItem(MC_SEEN_KEY, String(Date.now())); } catch (_) { /* ignore */ }
+}
+
+/** Accepted by the caregiver since we last looked. caregiverActedAt is an ISO
+ *  string (written by handleCaregiverAction), unlike the epoch-ms fields. */
+function _mcIsNewlyAccepted(r) {
+  if (!r || r.status !== "confirmed" || !r.caregiverActedAt) return false;
+  const t = Date.parse(r.caregiverActedAt);
+  return Number.isFinite(t) && t > _mcAcceptSeenAt;
+}
 
 function renderManagerChildcare(requests) {
   const list = document.getElementById("mcList");
@@ -7006,12 +7060,25 @@ function renderManagerChildcare(requests) {
   let filtered = requests.slice();
   if (_mcFilter !== "all") filtered = filtered.filter(r => r && r.status === _mcFilter);
   if (_mcMonth !== "all")  filtered = filtered.filter(r => (r && r.date || "").slice(0, 7) === _mcMonth);
-  filtered.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  // A fresh acceptance surfaces even when the filters would hide it — an
+  // accepted shift in another month would otherwise go unnoticed, which
+  // defeats the point of flagging it.
+  const seen = new Set(filtered.map(r => r && r.id));
+  for (const r of requests) {
+    if (_mcIsNewlyAccepted(r) && !seen.has(r.id)) filtered.push(r);
+  }
+
+  filtered.sort((a, b) => {
+    const an = _mcIsNewlyAccepted(a) ? 0 : 1;
+    const bn = _mcIsNewlyAccepted(b) ? 0 : 1;
+    if (an !== bn) return an - bn;                    // new acceptances first
+    return (a.date || "").localeCompare(b.date || "");
+  });
 
   if (filtered.length === 0) {
-    const noFilters = _mcFilter === "all" && _mcMonth === "all";
     list.innerHTML = `<div class="mc-empty">${
-      noFilters
+      requests.length === 0
         ? "No coverage requests yet. Use the Manager on your Mac to send a batch."
         : "No requests match these filters."
     }</div>`;
@@ -7256,15 +7323,21 @@ function mcCardHTML(r) {
     ? `<div class="mc-card2-foot">${cgNote}${clearBtn ? `<div class="mc-actions">${clearBtn}</div>` : ""}</div>`
     : "";
 
+  // Green dot for a shift accepted since this pane was last opened.
+  const justAccepted = _mcIsNewlyAccepted(r);
+  const newDot = justAccepted
+    ? `<span class="mc-newdot" title="Just accepted" aria-label="Just accepted"></span>`
+    : "";
+
   return `
-    <article class="mc-card2 ${status}">
+    <article class="mc-card2 ${status}${justAccepted ? " just-accepted" : ""}">
       <div class="mc-accent"></div>
       <div class="mc-card2-body">
         <div class="mc-card2-main">
           <div class="mc-datebk"><div class="mc-mon">${mon}</div><div class="mc-day">${day}</div></div>
           <div class="mc-detail">
             <div class="mc-times"><b>${escapeHtml(startDisp)}</b> <span class="arrow">→</span> <b>${escapeHtml(endDisp)}</b> ${nd}</div>
-            <div><span class="mc-pill2">${statusLabel}</span></div>
+            <div><span class="mc-pill2">${statusLabel}</span>${newDot}</div>
           </div>
           <div class="mc-hours"><div class="mc-hnum">${hoursNum}</div><div class="mc-hlbl">HOURS</div></div>
         </div>
@@ -7279,7 +7352,11 @@ function _mcRenderFilters(requests) {
   if (!el) return;
 
   const monthKeys = [...new Set((requests || []).map(r => (r && r.date || "").slice(0, 7)).filter(Boolean))].sort();
-  if (_mcMonth !== "all" && !monthKeys.includes(_mcMonth)) _mcMonth = "all";  // reset if it fell out of the data
+  // Fall back to YTD if the selected month holds no requests — but only once
+  // we actually have data. On the first render the list is empty, and
+  // resetting there would silently discard the current-month default before
+  // the Firestore snapshot ever arrives.
+  if (_mcMonth !== "all" && monthKeys.length > 0 && !monthKeys.includes(_mcMonth)) _mcMonth = "all";
   const multiYear = new Set(monthKeys.map(k => k.slice(0, 4))).size > 1;
   const monthLabel = (k) => {
     const [yy, mm] = k.split("-").map(Number);
@@ -11078,6 +11155,12 @@ function setMobileTab(tab) {
   window.scrollTo({ top: 0, behavior: "smooth" });
   // When entering the chat tab, mark messages read so the badge clears.
   if (tab === "chat") markChatReadNow();
+  // Entering Childcare captures the "just accepted" threshold for this visit
+  // and stamps now, so the green dots clear on the next visit.
+  if (tab === "childcare") {
+    _mcBeginViewing();
+    renderManagerChildcare((state && state.coverageRequests) || []);
+  }
 }
 document.querySelectorAll(".bottom-tab").forEach(btn => {
   btn.addEventListener("click", () => setMobileTab(btn.dataset.tab));
