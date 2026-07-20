@@ -57,12 +57,26 @@ service cloud.firestore {
     // Family chat — one doc per message. Any member can read; only the
     // sender can create their own (senderId pinned to uid) and only the
     // sender can delete. Messages are immutable once posted.
+    //
+    // Manager-only fields: fromManager / toUids drive "sent as Manager"
+    // rendering, targeted visibility, and the generic push. Every client and
+    // the push function trust them, so only manager roles (admin / partner)
+    // may write them — and only managers may claim the name "Manager".
+    // Without this, a supporting member could impersonate the Manager with
+    // messages targeted to be invisible to the real managers.
     match /households/{householdId}/chat/{messageId} {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
       allow create: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
-        && request.resource.data.senderId == request.auth.uid;
+        && request.resource.data.senderId == request.auth.uid
+        && (
+          (
+            !request.resource.data.keys().hasAny(['fromManager', 'toUids'])
+            && request.resource.data.senderName != 'Manager'
+          )
+          || get(/databases/$(database)/documents/households/$(householdId)).data.roles[request.auth.uid] in ['admin', 'partner']
+        );
       allow delete: if request.auth != null
         && resource.data.senderId == request.auth.uid;
       allow update: if false;

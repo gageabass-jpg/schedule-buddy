@@ -30,7 +30,6 @@ interface SidebarProps {
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
   onOpenChildcare: () => void;
-  onOpenChat: () => void;
   pendingCoverageCount: number;
 }
 
@@ -38,7 +37,7 @@ export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, onOpenChat, pendingCoverageCount,
+  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   return (
     <div
@@ -206,13 +205,6 @@ export function Sidebar({
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           onClick={onOpenChildcare}
           title="View all sent coverage requests and caregiver responses"
-          t={t}
-        />
-        <ListRow
-          icon="💬"
-          label="Family chat"
-          onClick={onOpenChat}
-          title="Open the household chat"
           t={t}
         />
       </SidebarSection>

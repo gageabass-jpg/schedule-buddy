@@ -6661,8 +6661,15 @@ function initChat() {
   const ref = db.collection("households").doc(householdId).collection("chat").orderBy("createdAt", "asc");
   _chatUnsub = ref.onSnapshot(snap => {
     _chatMessages = [];
+    const myUid = currentUser ? currentUser.uid : "";
     snap.forEach(doc => {
       const data = doc.data() || {};
+      // Manager messages can be addressed (toUids) — anyone not on the list
+      // never sees them. Untargeted messages and my own always show. This
+      // filter also keeps them out of the unread count, which reads
+      // _chatMessages.
+      const toUids = Array.isArray(data.toUids) ? data.toUids : null;
+      if (toUids && data.senderId !== myUid && !toUids.includes(myUid)) return;
       _chatMessages.push({
         id: doc.id,
         senderId: String(data.senderId || ""),

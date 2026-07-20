@@ -146,8 +146,14 @@ async function badgeCountFor(householdId: string, uid: string): Promise<number> 
     const chatSnap = await db.collection("households").doc(householdId)
       .collection("chat").orderBy("createdAt", "desc").limit(50).get();
     chatSnap.forEach((doc) => {
-      const m = doc.data() as { senderId?: string; createdAt?: { toMillis?: () => number } };
+      const m = doc.data() as {
+        senderId?: string;
+        toUids?: string[];
+        createdAt?: { toMillis?: () => number };
+      };
       if (m.senderId === uid) return;
+      // Addressed messages only count for their recipients.
+      if (Array.isArray(m.toUids) && m.toUids.length > 0 && !m.toUids.includes(uid)) return;
       const ms = m.createdAt && typeof m.createdAt.toMillis === "function" ? m.createdAt.toMillis() : 0;
       if (ms > lastReadMs) count++;
     });
@@ -417,6 +423,10 @@ interface ChatMessageDoc {
   senderId?: string;
   senderName?: string;
   text?: string;
+  /** True for messages composed via the Mac's Chat Manager. */
+  fromManager?: boolean;
+  /** Specific recipient uids; absent = the whole household. */
+  toUids?: string[];
 }
 
 export const onChatMessageCreate = onDocumentCreated(
@@ -432,23 +442,32 @@ export const onChatMessageCreate = onDocumentCreated(
       .collection("households").doc(householdId)
       .collection("pushTokens")
       .get();
+    const toUids = Array.isArray(data.toUids) && data.toUids.length > 0 ? data.toUids : null;
     const tokens: { token: string; uid: string }[] = [];
     tokSnap.forEach((d) => {
       const tdata = d.data() as { token?: string; uid?: string } | undefined;
       const uid = tdata?.uid || d.id;
       if (!tdata?.token || uid === data.senderId) return;
+      // Addressed messages only notify the people they were sent to.
+      if (toUids && !toUids.includes(uid)) return;
       tokens.push({ token: tdata.token, uid });
     });
-    logger.info("Chat push targets", { householdId, recipients: tokens.length });
+    logger.info("Chat push targets", {
+      householdId, recipients: tokens.length,
+      targeted: !!toUids, fromManager: !!data.fromManager,
+    });
     if (tokens.length === 0) return;
 
     const senderName = (data.senderName && data.senderName.trim()) || "Family member";
-    // Generic body — message contents never appear on lock screens. The sender
-    // name is the title (who, not what); tapping routes to In-Basket Messages.
-    await sendToTokens(tokens, {
-      title: senderName,
-      body: "You have a new In-Basket Message. Tap to View",
-    }, {
+    // Manager messages get the generic body — contents stay off lock screens.
+    // Member-to-member messages show who wrote it and what they said.
+    const notification = data.fromManager
+      ? { title: "Manager", body: "You have a new In-Basket Message. Tap to View" }
+      : {
+          title: senderName,
+          body: data.text.length > 120 ? data.text.slice(0, 117) + "…" : data.text,
+        };
+    await sendToTokens(tokens, notification, {
       kind: "chat_message",
       householdId,
       messageId: event.params.messageId,

@@ -51,6 +51,39 @@ export async function sendChatMessage(
   }
 }
 
+/**
+ * Send a message AS THE MANAGER — the email-style compose on the Mac.
+ *
+ * Differences from a member message:
+ *   - senderName is the literal "Manager" (recipients see that, not "Gage").
+ *   - fromManager: true → the push notification is the generic
+ *     "You have a new In-Basket Message. Tap to View" instead of the text.
+ *   - toUids targets specific members; omit (null) for everyone. Clients
+ *     filter the thread on it, and the push function only notifies those uids.
+ */
+export async function sendManagerMessage(
+  householdId: string,
+  text: string,
+  toUids: string[] | null,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const uid = auth.currentUser?.uid;
+  if (!householdId || !uid) throw new ChatError("Not signed in.");
+  try {
+    await addDoc(collection(db, "households", householdId, "chat"), {
+      senderId: uid,
+      senderName: "Manager",
+      fromManager: true,
+      ...(toUids && toUids.length > 0 ? { toUids } : {}),
+      text: trimmed.slice(0, 2000),
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    throw new ChatError("Couldn't send message.", e);
+  }
+}
+
 /** Delete a message you authored. (No-op on others' messages — rules reject.) */
 export async function deleteChatMessage(householdId: string, messageId: string): Promise<void> {
   try {

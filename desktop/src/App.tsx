@@ -50,7 +50,7 @@ import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import { CoverageRequestsPanel } from "./components/CoverageRequestsPanel";
 import { ImprovementsModal } from "./components/ImprovementsModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
-import { ChatPanel } from "./components/ChatPanel";
+import { ChatManagerPanel } from "./components/ChatManagerPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
 import { InboxPanel } from "./components/InboxPanel";
@@ -130,7 +130,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [inboxFocusId, setInboxFocusId] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
 
   const palette = getPalette(PALETTE);
@@ -395,7 +395,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
-        onOpenChat={() => setChatOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
@@ -440,6 +439,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
         inboxRequests={inboxRequests}
         onOpenAskClaude={() => setAskClaudeOpen(true)}
+        onOpenChatManager={() => setChatManagerOpen(true)}
       />
       <Inspector
         selected={selected}
@@ -599,9 +599,9 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSendBatch={() => setCoverageModalOpen(true)}
         onSendSingle={() => setNewRequestOpen(true)}
       />
-      <ChatPanel
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
+      <ChatManagerPanel
+        open={chatManagerOpen}
+        onClose={() => setChatManagerOpen(false)}
         palette={palette}
         t={t}
         dark={dark}

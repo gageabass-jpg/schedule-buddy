@@ -26,6 +26,7 @@ interface Props {
   onToday: () => void;
   onNewShift: () => void;
   onOpenAskClaude: () => void;
+  onOpenChatManager: () => void;
   onOpenInbox: (focusId?: string) => void;
   inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
@@ -51,6 +52,7 @@ const CARE_STEP = `(${CARE_COL} + 4px)`;
 export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
+  onOpenChatManager,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, onOpenInbox, inboxRequests,
 }: Props) {
@@ -202,6 +204,38 @@ export function MonthGrid({
           requests={inboxRequests}
           onOpenFullInbox={(focusId) => onOpenInbox(focusId)}
         />
+        {/* Chat Manager — compose an In-Basket message as "Manager".
+            Deliberately the same dimensions as the inbox button beside it. */}
+        <button
+          type="button"
+          onClick={onOpenChatManager}
+          title="Chat Manager"
+          aria-label="Chat Manager"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 30,
+            height: 26,
+            padding: 0,
+            borderRadius: 6,
+            border: `0.5px solid ${t.sep}`,
+            background: "transparent",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            flexShrink: 0,
+          }}
+        >
+          <img
+            src="assets/chat-bubble.png"
+            alt=""
+            aria-hidden="true"
+            width={15}
+            height={15}
+            draggable={false}
+            style={{ display: "block", userSelect: "none", pointerEvents: "none" }}
+          />
+        </button>
         <button
           type="button"
           onClick={onNewShift}
