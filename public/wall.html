@@ -283,21 +283,11 @@
     .cards-cluster .fatigue-legend { font-size: 9px; }
     .cards-cluster .quote-text { font-size: 24px; line-height: 1.32; }
     .cards-cluster .quote-attr { font-size: 14px; }
-    .cards-cluster .care-name { font-size: 19px; }
-    .cards-cluster .care-window { font-size: 13px; }
-    .cards-cluster .care-status { font-size: 11px; }
-    /* Static thank-you note replaces the dynamic caregiver coverage info. */
-    .thanks {
-      font-size: 22px;
-      font-weight: 500;
-      line-height: 1.35;
-      color: var(--text);
-      letter-spacing: -0.01em;
-    }
-    .thanks-name {
-      font-weight: 700;
-      color: var(--g);
-    }
+    /* Board text steps down again inside the smaller cluster tile. */
+    .cards-cluster .board-text.len-s { font-size: 24px; }
+    .cards-cluster .board-text.len-m { font-size: 19px; }
+    .cards-cluster .board-text.len-l { font-size: 15px; }
+    .cards-cluster .board-meta { font-size: 11px; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -438,33 +428,52 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* caregiver-on-duty card */
-    .card.caregiver { background: var(--card); }
-    .card.caregiver.has-caregiver {
-      background: rgba(127,168,106,0.12);
-      border-color: rgba(127,168,106,0.32);
+    /* message board card — replaces the old caregiver-on-duty card.
+       Any household member posts from the iOS app; the wall shows the most
+       recent unexpired note. Tinted when a message is up so it reads as
+       "something new" from across the room. */
+    .card.board { background: var(--card); }
+    .card.board.has-message {
+      background: rgba(155,137,201,0.12);
+      border-color: rgba(155,137,201,0.34);
     }
-    .card.caregiver .care-body {
+    .card.board .board-body {
       flex: 1;
       display: flex; flex-direction: column;
       justify-content: center;
       gap: 8px;
       min-height: 0;
+      overflow: hidden;
     }
-    .card.caregiver .care-name {
-      font-size: 24px; font-weight: 700;
-      letter-spacing: -0.02em;
+    .card.board .board-text {
+      font-weight: 600;
+      line-height: 1.28;
+      letter-spacing: -0.015em;
       color: var(--text);
+      /* Clamp rather than scroll — the wall has no input device, so an
+         overlong note must degrade gracefully instead of being cut mid-glyph. */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 4;
+      overflow: hidden;
+      word-break: break-word;
     }
-    .card.caregiver .care-window {
-      font-size: 15px; font-weight: 600;
-      font-family: "Fira Code", ui-monospace, monospace;
-      color: var(--confirmed, #7FA86A);
+    /* Size by length so short notes read big from across the room and long
+       ones still fit the tile. Classes are assigned in renderBoard(). */
+    .card.board .board-text.len-s { font-size: 30px; -webkit-line-clamp: 3; }
+    .card.board .board-text.len-m { font-size: 23px; }
+    .card.board .board-text.len-l { font-size: 18px; -webkit-line-clamp: 5; }
+    .card.board .board-meta {
+      font-size: 13px;
+      color: var(--text-3);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex-shrink: 0;
     }
-    .card.caregiver .care-status {
-      font-size: 13px; color: var(--text-3);
+    .card.board .board-meta .board-who {
+      font-weight: 700;
+      color: var(--pending, #9B89C9);
     }
-    .card.caregiver .care-empty {
+    .card.board .board-empty {
       font-size: 14px; color: var(--text-3);
       font-style: italic;
     }
@@ -810,12 +819,10 @@
             </div>
           </div>
 
-          <div class="card caregiver" id="caregiverCard">
-            <div class="label">Caregiver</div>
-            <div class="care-body">
-              <div class="thanks">
-                <span class="thanks-name">Daisy</span> &mdash; thanks for your help this week!
-              </div>
+          <div class="card board" id="boardCard">
+            <div class="label">Message board</div>
+            <div class="board-body" id="boardBody">
+              <div class="board-empty">No messages right now.</div>
             </div>
           </div>
 
@@ -1076,26 +1083,84 @@
       $("quoteAttr").textContent = `— ${q.attr}`;
     }
 
-    function renderCaregiver(p) {
-      const card = $("caregiverCard");
-      const body = $("caregiverBody");
-      const cov = (p.coverage ?? []).filter(
-        (c) => c.date === p.today && c.status === "confirmed",
-      );
-      if (cov.length === 0) {
-        card.classList.remove("has-caregiver");
-        body.innerHTML = `<div class="care-empty">No coverage today.</div>`;
+    // Message board — shows the most recent unexpired note posted from the
+    // iOS app. getWallState already picks the winner and drops expired ones,
+    // so this only has to render whatever it handed us (or the empty state).
+    function renderBoard(p) {
+      const card = $("boardCard");
+      const body = $("boardBody");
+      if (!card || !body) return;
+      const m = p.message;
+      if (!m || !m.text) {
+        card.classList.remove("has-message");
+        body.innerHTML = `<div class="board-empty">No messages right now.</div>`;
         return;
       }
-      // If multiple windows, show the earliest start → latest end.
-      const start = cov.map((c) => c.startTime).sort()[0];
-      const end   = cov.map((c) => c.endTime).sort().slice(-1)[0];
-      card.classList.add("has-caregiver");
+      card.classList.add("has-message");
+      // Bucket by length so the type size suits the note.
+      const n = m.text.length;
+      const size = n <= 40 ? "len-s" : (n <= 110 ? "len-m" : "len-l");
+      const who = (m.senderName || "").trim();
+      const meta = [who ? `<span class="board-who">${escapeHtml(who)}</span>` : "", relTime(m.createdAt)]
+        .filter(Boolean).join(" · ");
       body.innerHTML = `
-        <div class="care-name">Daisy is here</div>
-        <div class="care-window">${escapeHtml(start)} – ${escapeHtml(end)}</div>
-        <div class="care-status">Coverage confirmed</div>
+        <div class="board-text ${size}">${escapeHtml(m.text)}</div>
+        <div class="board-meta">${meta}</div>
       `;
+      fitBoardText(body);
+    }
+
+    // The board tile is small and the note is arbitrary length, so a fixed
+    // -webkit-line-clamp can't know the pixel budget: the text box gets
+    // flex-shrunk below its content and the last visible line is sliced in
+    // half horizontally. Measure what's actually available and clamp to a
+    // whole number of lines so it always cuts cleanly at a line boundary.
+    function fitBoardText(body) {
+      const text = body.querySelector(".board-text");
+      const meta = body.querySelector(".board-meta");
+      if (!text) return;
+      // Clear any previous fit first — measuring against last run's pinned
+      // maxHeight would compound and shrink the box a little every render.
+      text.style.webkitLineClamp = "";
+      text.style.maxHeight = "";
+      // The wall rotates scenes, so render() frequently runs while the
+      // dashboard is display:none and every measurement reads 0. Bail and
+      // leave the CSS clamp as the fallback; the ResizeObserver below
+      // re-fits the moment the card actually has a size.
+      if (body.clientHeight === 0) return;
+      const lineH = parseFloat(getComputedStyle(text).lineHeight);
+      if (!lineH) return;
+      const gap = parseFloat(getComputedStyle(body).rowGap) || 0;
+      const avail = body.clientHeight - (meta ? meta.offsetHeight + gap : 0);
+      const lines = Math.max(1, Math.floor(avail / lineH));
+      text.style.webkitLineClamp = String(lines);
+      // Pin the box to exactly that many lines so flex can't shrink it
+      // further and re-introduce the sliced line.
+      text.style.maxHeight = (lines * lineH) + "px";
+    }
+
+    // Re-fit whenever the board card gains or changes size — covers the
+    // scene rotation revealing the dashboard and any window resize.
+    if (typeof ResizeObserver === "function") {
+      const boardBodyEl = $("boardBody");
+      if (boardBodyEl) {
+        new ResizeObserver(() => {
+          if (boardBodyEl.clientHeight > 0) fitBoardText(boardBodyEl);
+        }).observe(boardBodyEl);
+      }
+    }
+
+    // Coarse "how long ago" for the board byline. The wall re-renders on
+    // every poll, so this stays roughly current without its own timer.
+    function relTime(ms) {
+      if (!ms) return "";
+      const mins = Math.floor((Date.now() - ms) / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return days === 1 ? "yesterday" : `${days}d ago`;
     }
 
     // Recovery: after a shift with sleepHours > 0 ends, the person is
@@ -1345,8 +1410,9 @@
       $("greeting").textContent = greetingForTime(new Date());
       $("heroLine").innerHTML = buildHeroLine(p);
 
-      // Quote-of-day card. (Caregiver card is now a static thank-you.)
+      // Quote-of-day card + the message board that replaced the caregiver card.
       renderQuote(p);
+      renderBoard(p);
 
       // Today shifts — two side-by-side cards (one per person).
       // Four possible states per person, evaluated in order:
@@ -1730,6 +1796,12 @@
           "https://picsum.photos/seed/wall3/1920/1080",
           "https://picsum.photos/seed/wall4/1920/1080",
         ],
+        message: {
+          text: "Trash goes out tonight — bins by the garage door.",
+          senderName: "Kaylene",
+          createdAt: Date.now() - 42 * 60000,
+          expiresAt: Date.now() + 12 * 3600 * 1000,
+        },
       };
     }
 

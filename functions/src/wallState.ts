@@ -78,6 +78,15 @@ interface WallPayload {
     label: string;
     type: "payday" | "birthday" | "anniversary" | "holiday";
   }>;
+  // Wall message board — the single most recent unexpired note posted from
+  // the iOS app by any household member. Null when nothing is current, which
+  // is how the wall knows to fall back to its resting state.
+  message: {
+    text: string;
+    senderName: string;
+    createdAt: number;          // ms epoch
+    expiresAt: number | null;   // ms epoch; null = stays until replaced
+  } | null;
 }
 
 // ───────────────── Helpers ──────────────────────────────────────────────
@@ -365,6 +374,38 @@ export const getWallState = onRequest(
       .map((d) => String(d.data().url ?? ""))
       .filter((u) => u.length > 0);
 
+    // Wall message board — most recent unexpired note.
+    // We pull a small window rather than just the newest doc: the newest may
+    // have expired, in which case the board should fall back to the most
+    // recent note that is still current instead of going blank.
+    //
+    // Note the interaction with CACHE_TTL_MS — a message can linger on the
+    // wall for up to 15s past its expiry before the next uncached read drops
+    // it. Not worth invalidating the cache over for a family notice board.
+    const nowMs = Date.now();
+    const msgSnap = await db.collection("households").doc(householdId)
+      .collection("wallMessages").orderBy("createdAt", "desc").limit(10).get();
+    let message: WallPayload["message"] = null;
+    for (const d of msgSnap.docs) {
+      const m = d.data() ?? {};
+      const text = String(m.text ?? "").trim();
+      if (!text) continue;
+      const expiresAt = typeof m.expiresAt === "number" ? m.expiresAt : null;
+      if (expiresAt !== null && expiresAt <= nowMs) continue;
+      // createdAt is a server Timestamp; tolerate a raw number too in case a
+      // client ever writes one directly.
+      const createdAt = typeof m.createdAt?.toMillis === "function"
+        ? m.createdAt.toMillis()
+        : (typeof m.createdAt === "number" ? m.createdAt : 0);
+      message = {
+        text: text.slice(0, 280),
+        senderName: String(m.senderName ?? "").slice(0, 40),
+        createdAt,
+        expiresAt,
+      };
+      break;
+    }
+
     // Resolve self/partner names from members.
     // Convention: self = household admin, partner = the other adult.
     let selfName = "Gage";
@@ -388,6 +429,7 @@ export const getWallState = onRequest(
       events,
       photos,
       occasions,
+      message,
     };
 
     CACHE.set(token, { payload, expiresAt: Date.now() + CACHE_TTL_MS });

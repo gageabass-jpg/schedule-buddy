@@ -4622,6 +4622,138 @@
     font-size: 17px; letter-spacing: -0.02em; font-family: var(--font);
     cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
+
+  /* ===== Wall message board — header button + composer ===== */
+  /* The icon art is a flat black monitor glyph on transparent. Recoloring a
+     raster image needs a filter: brightness(0) crushes it to pure black, then
+     invert(1) lifts it to white so it reads on the dark header. Opacity gives
+     it the same weight as the neighboring stroked SVG icons. */
+  .wbp-btn {
+    position: relative;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    border: 0; border-radius: 10px; background: transparent;
+    padding: 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wbp-btn:active { transform: scale(0.94); }
+  .wbp-btn img {
+    width: 22px; height: 22px; display: block;
+    filter: brightness(0) invert(1);
+    opacity: 0.82;
+  }
+  /* Light theme: keep the glyph dark instead of white-on-white. */
+  @media (prefers-color-scheme: light) {
+    .wbp-btn img { filter: brightness(0); opacity: 0.66; }
+  }
+
+  .wbp-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 1100; display: none;
+  }
+  .wbp-modal {
+    position: fixed; inset: 0; z-index: 1101; display: none;
+    flex-direction: column; justify-content: flex-end;
+    box-sizing: border-box;
+  }
+  body.wbp-open .wbp-backdrop { display: block; }
+  body.wbp-open .wbp-modal    { display: flex; }
+  .wbp-sheet {
+    display: flex; flex-direction: column; max-height: 92vh;
+    background: var(--panel); border-radius: 24px 24px 0 0;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.5); overflow: hidden;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+  }
+  .wbp-grab {
+    width: 36px; height: 5px; border-radius: 3px;
+    background: rgba(120,120,128,0.4); margin: 8px auto 2px;
+  }
+  .wbp-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    padding: 8px 20px 2px;
+  }
+  .wbp-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
+  .wbp-sub { font-size: 14px; color: var(--text-2); margin-top: 3px; letter-spacing: -0.01em; }
+  .wbp-close {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+    background: rgba(118,118,128,0.24); border: 0; color: var(--text-2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
+  }
+  .wbp-scroll {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; padding: 16px 16px 0;
+  }
+  .wbp-label {
+    font-size: 13px; color: var(--text-2); text-transform: uppercase;
+    letter-spacing: -0.01em; padding: 0 16px 7px;
+  }
+  .wbp-textarea {
+    width: 100%; box-sizing: border-box; margin-bottom: 6px;
+    background: var(--bg-elev2); border: 0; border-radius: 16px;
+    min-height: 104px; padding: 13px 16px;
+    color: var(--text); font-size: 17px; letter-spacing: -0.02em;
+    font-family: var(--font); line-height: 1.4; resize: none; outline: none;
+  }
+  .wbp-textarea::placeholder { color: var(--text-3); }
+  .wbp-count {
+    font-size: 12px; color: var(--text-3); text-align: right;
+    padding: 0 4px 18px;
+  }
+  .wbp-count.over { color: #FF453A; }
+  /* Duration chips — poster picks how long the note stays on the wall. */
+  .wbp-durs {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
+  }
+  .wbp-dur {
+    flex: 1 1 calc(33.333% - 6px);
+    min-height: 42px; border-radius: 12px;
+    border: 1px solid var(--border, rgba(120,120,128,0.3));
+    background: var(--bg-elev2); color: var(--text);
+    font-family: var(--font); font-size: 14px; letter-spacing: -0.02em;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .wbp-dur.active {
+    background: var(--color-g); border-color: var(--color-g);
+    color: #fff; font-weight: 600;
+  }
+  .wbp-err { font-size: 13px; color: #FF453A; padding: 0 4px 8px; }
+  .wbp-current {
+    background: var(--bg-elev2); border-radius: 16px;
+    padding: 12px 16px; margin-bottom: 20px;
+  }
+  .wbp-current-label {
+    font-size: 12px; color: var(--text-3); text-transform: uppercase;
+    letter-spacing: 0.02em; margin-bottom: 5px;
+  }
+  .wbp-current-text {
+    font-size: 15px; color: var(--text); line-height: 1.35;
+    letter-spacing: -0.01em; word-break: break-word;
+  }
+  .wbp-current-meta { font-size: 12px; color: var(--text-3); margin-top: 5px; }
+  .wbp-clear {
+    margin-top: 9px; border: 0; background: transparent; padding: 0;
+    color: #FF453A; font-family: var(--font); font-size: 14px;
+    letter-spacing: -0.02em; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wbp-actions {
+    display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0;
+  }
+  .wbp-submit {
+    height: 50px; border-radius: 25px; border: 0;
+    background: var(--color-g); color: #fff;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
+    font-family: var(--font); cursor: pointer;
+    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wbp-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .wbp-cancel {
+    height: 44px; border: 0; background: transparent; color: var(--color-g);
+    font-size: 17px; letter-spacing: -0.02em; font-family: var(--font);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
 </style>
 </head>
 <body>
@@ -4867,6 +4999,11 @@
           <path d="M5.2 5.5h13.6a2 2 0 0 1 1.9 1.4L23 13v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-4l2.3-6.1a2 2 0 0 1 1.9-1.4z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
         </svg>
         <span class="inbox-badge" id="inboxBtnBadge" hidden></span>
+      </button>
+      <!-- Mobile: post a note to the wall display's message board. Available
+           to every role, including supporting caregivers. -->
+      <button class="wbp-btn mobile-only" id="wallPostBtn" type="button" aria-label="Post to wall message board">
+        <img src="assets/wall-post.png" alt="" aria-hidden="true">
       </button>
       <!-- Mobile: avatar pair opens the Family Members drawer -->
       <button class="header-avatars mobile-only" id="familyBtn" type="button" aria-label="Family members">
@@ -5555,6 +5692,53 @@
     <div class="cgr-actions">
       <button type="button" class="cgr-submit" id="cgrSubmitBtn">Send to Family</button>
       <button type="button" class="cgr-cancel" id="cgrCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Wall message board composer ==================== -->
+<div class="wbp-backdrop" id="wbpBackdrop"></div>
+<div class="wbp-modal" id="wbpModal" role="dialog" aria-modal="true" aria-labelledby="wbpTitle">
+  <div class="wbp-sheet">
+    <div class="wbp-grab"></div>
+    <div class="wbp-head">
+      <div>
+        <div class="wbp-title" id="wbpTitle">Message board</div>
+        <div class="wbp-sub">Post a note to the wall display at home.</div>
+      </div>
+      <button type="button" class="wbp-close" id="wbpCloseBtn" aria-label="Close">
+        <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="wbp-scroll">
+      <!-- What's on the wall right now, so you know what you're replacing. -->
+      <div class="wbp-current" id="wbpCurrent" hidden>
+        <div class="wbp-current-label">On the wall now</div>
+        <div class="wbp-current-text" id="wbpCurrentText"></div>
+        <div class="wbp-current-meta" id="wbpCurrentMeta"></div>
+        <button type="button" class="wbp-clear" id="wbpClearBtn">Take it down</button>
+      </div>
+
+      <span class="wbp-label">Message</span>
+      <textarea class="wbp-textarea" id="wbpText" maxlength="280" placeholder="What should everyone see at home?"></textarea>
+      <div class="wbp-count" id="wbpCount">0 / 280</div>
+
+      <span class="wbp-label">Keep it up for</span>
+      <div class="wbp-durs" id="wbpDurs">
+        <button type="button" class="wbp-dur" data-wbp-hours="4">4 hours</button>
+        <button type="button" class="wbp-dur active" data-wbp-hours="24">1 day</button>
+        <button type="button" class="wbp-dur" data-wbp-hours="72">3 days</button>
+        <button type="button" class="wbp-dur" data-wbp-hours="168">1 week</button>
+        <button type="button" class="wbp-dur" data-wbp-hours="0">Until replaced</button>
+      </div>
+
+      <div class="wbp-err" id="wbpErr" style="display:none;"></div>
+    </div>
+
+    <div class="wbp-actions">
+      <button type="button" class="wbp-submit" id="wbpSubmitBtn" disabled>Post to wall</button>
+      <button type="button" class="wbp-cancel" id="wbpCancelBtn">Cancel</button>
     </div>
   </div>
 </div>
@@ -6903,6 +7087,156 @@ async function sendChatMessage(text) {
     alert("Couldn't send. Check your connection.");
   }
 }
+
+/* ==================== Wall message board ====================
+   Notes posted here render on the wall display's board card. Storage is the
+   households/{hid}/wallMessages subcollection — deliberately NOT a field on
+   state/main, which is written by whole-document overwrite and would let two
+   people posting at once clobber each other.
+
+   The wall itself never reads Firestore; getWallState (Admin SDK) picks the
+   newest unexpired note and puts it in the payload. Everything here just
+   writes docs and mirrors that same "newest unexpired wins" selection so the
+   composer can show what's currently up. */
+
+// Which doc is on the wall right now, so "Take it down" knows what to delete.
+let _wbpCurrentId = null;
+let _wbpHours = 24;              // default: 1 day
+
+function _wbpSetErr(msg) {
+  const el = document.getElementById("wbpErr");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.display = msg ? "" : "none";
+}
+
+// Mirrors the selection getWallState does: newest doc that hasn't expired.
+async function loadCurrentWallMessage() {
+  const box  = document.getElementById("wbpCurrent");
+  const text = document.getElementById("wbpCurrentText");
+  const meta = document.getElementById("wbpCurrentMeta");
+  if (!box || !text || !meta) return;
+  _wbpCurrentId = null;
+  box.hidden = true;
+  if (!householdId || !currentUser) return;
+  try {
+    const snap = await db.collection("households").doc(householdId)
+      .collection("wallMessages").orderBy("createdAt", "desc").limit(10).get();
+    const now = Date.now();
+    for (const d of snap.docs) {
+      const m = d.data() || {};
+      const body = String(m.text || "").trim();
+      if (!body) continue;
+      const exp = typeof m.expiresAt === "number" ? m.expiresAt : null;
+      if (exp !== null && exp <= now) continue;
+      _wbpCurrentId = d.id;
+      text.textContent = body;
+      const who = String(m.senderName || "").trim();
+      meta.textContent = who
+        ? `${who} · ${exp ? "until " + new Date(exp).toLocaleString() : "until replaced"}`
+        : (exp ? `until ${new Date(exp).toLocaleString()}` : "until replaced");
+      box.hidden = false;
+      break;
+    }
+  } catch (e) {
+    // Non-fatal: the composer still works, it just can't show what's up.
+    console.error("loadCurrentWallMessage:", e);
+  }
+}
+
+function openWallPost() {
+  if (!householdId || !currentUser) return;
+  const ta = document.getElementById("wbpText");
+  if (ta) ta.value = "";
+  _wbpSetErr("");
+  _wbpUpdateCount();
+  // Reset the duration chips to the 1-day default on every open.
+  _wbpHours = 24;
+  document.querySelectorAll("[data-wbp-hours]").forEach(b => {
+    b.classList.toggle("active", b.getAttribute("data-wbp-hours") === "24");
+  });
+  document.body.classList.add("wbp-open");
+  loadCurrentWallMessage();
+}
+
+function closeWallPost() {
+  document.body.classList.remove("wbp-open");
+}
+
+function _wbpUpdateCount() {
+  const ta = document.getElementById("wbpText");
+  const c  = document.getElementById("wbpCount");
+  const submit = document.getElementById("wbpSubmitBtn");
+  if (!ta || !c) return;
+  const n = ta.value.trim().length;
+  c.textContent = `${ta.value.length} / 280`;
+  c.classList.toggle("over", ta.value.length >= 280);
+  if (submit) submit.disabled = n === 0;
+}
+
+async function postWallMessage() {
+  const ta = document.getElementById("wbpText");
+  const submit = document.getElementById("wbpSubmitBtn");
+  if (!ta || !householdId || !currentUser) return;
+  const body = ta.value.trim();
+  if (!body) return;
+  if (submit) submit.disabled = true;
+  _wbpSetErr("");
+  try {
+    await db.collection("households").doc(householdId)
+      .collection("wallMessages").add({
+        senderId: currentUser.uid,
+        senderName: _resolveMyName(),
+        text: body.slice(0, 280),
+        // Absolute epoch ms so the function can compare without a clock guess.
+        // 0 hours = "until replaced" → no expiry.
+        expiresAt: _wbpHours > 0 ? Date.now() + _wbpHours * 3600 * 1000 : null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    closeWallPost();
+  } catch (e) {
+    console.error("postWallMessage:", e);
+    _wbpSetErr("Couldn't post. Check your connection.");
+    if (submit) submit.disabled = false;
+  }
+}
+
+async function clearWallMessage() {
+  if (!_wbpCurrentId || !householdId || !currentUser) return;
+  try {
+    await db.collection("households").doc(householdId)
+      .collection("wallMessages").doc(_wbpCurrentId).delete();
+    await loadCurrentWallMessage();
+  } catch (e) {
+    console.error("clearWallMessage:", e);
+    _wbpSetErr("Couldn't take it down. Check your connection.");
+  }
+}
+
+function wireWallPost() {
+  const btn = document.getElementById("wallPostBtn");
+  if (btn) btn.addEventListener("click", openWallPost);
+  const close  = document.getElementById("wbpCloseBtn");
+  const cancel = document.getElementById("wbpCancelBtn");
+  const back   = document.getElementById("wbpBackdrop");
+  if (close)  close.addEventListener("click", closeWallPost);
+  if (cancel) cancel.addEventListener("click", closeWallPost);
+  if (back)   back.addEventListener("click", closeWallPost);
+  const ta = document.getElementById("wbpText");
+  if (ta) ta.addEventListener("input", _wbpUpdateCount);
+  const submit = document.getElementById("wbpSubmitBtn");
+  if (submit) submit.addEventListener("click", postWallMessage);
+  const clear = document.getElementById("wbpClearBtn");
+  if (clear) clear.addEventListener("click", clearWallMessage);
+  document.querySelectorAll("[data-wbp-hours]").forEach(b => {
+    b.addEventListener("click", () => {
+      _wbpHours = Number(b.getAttribute("data-wbp-hours")) || 0;
+      document.querySelectorAll("[data-wbp-hours]").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+}
+wireWallPost();
 
 function wireChatComposer(inputId, sendBtnId) {
   const input = document.getElementById(inputId);

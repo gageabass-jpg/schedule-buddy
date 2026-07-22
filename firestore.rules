@@ -101,6 +101,25 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
     }
 
+    // Wall message board — the note shown on the wall display's board card.
+    // Any member (including supporting caregivers) may post; the wall renders
+    // the most recent unexpired one. senderId is pinned to the caller's uid so
+    // a post can't be attributed to someone else, and messages are immutable
+    // once written. Anyone in the household may delete — the board is shared
+    // and a stale or unwanted note needs to be clearable from any device, not
+    // just the poster's. The getWallState function reads these with the Admin
+    // SDK (bypasses rules) to build the wall payload.
+    match /households/{householdId}/wallMessages/{messageId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && request.resource.data.senderId == request.auth.uid;
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow update: if false;
+    }
+
     // Wall display tokens. Top-level so the getWallState HTTPS function
     // can look up a token without knowing the household. Each doc points
     // at a householdId; only members of that household can create/list/
