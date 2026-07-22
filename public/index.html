@@ -1387,9 +1387,14 @@
     background-position: center;
   }
   .sb-avatar.k { background-color: var(--color-k); box-shadow: 0 0 0 1.5px var(--color-k); }
+  /* Daisy — supporting caregiver. Green to match avatarColor()'s mapping. */
+  .sb-avatar.d { background-color: var(--color-off); box-shadow: 0 0 0 1.5px var(--color-off); }
   .sb-avatar.both { background-color: var(--color-both); box-shadow: 0 0 0 1.5px var(--color-both); }
   .sb-avatar[data-photo="g"] { background-image: url("/assets/gage.jpg"); color: transparent; }
   .sb-avatar[data-photo="k"] { background-image: url("/assets/kaylene.jpeg"); color: transparent; }
+  /* _senderBucket() has returned "d" for Daisy all along; without this rule
+     her avatar rendered as an empty circle everywhere it was used. */
+  .sb-avatar[data-photo="d"] { background-image: url("/assets/daisy.jpeg"); color: transparent; }
 
   /* Reusable shift "card chip" */
   .sb-chip {
@@ -3291,6 +3296,11 @@
     box-shadow:
       0 0 0 1.5px var(--bg),
       0 0 0 3px var(--color-k);
+  }
+  .sb-avatar.d.small.ring {
+    box-shadow:
+      0 0 0 1.5px var(--bg),
+      0 0 0 3px var(--color-off);
   }
 
   /* ========== BOTTOM TAB BAR (mobile only) ========== */
@@ -11857,6 +11867,7 @@ renderAll();
 const _familyMembers = [
   { name: "Gage Bass",    photo: "g", role: "contributing" },
   { name: "Kaylene Bass", photo: "k", role: "contributing" },
+  { name: "Daisy",        photo: "d", role: "supporting"   },
 ];
 
 const _familyDrawer = document.getElementById("familyDrawer");
@@ -11866,7 +11877,8 @@ const _familyClose = document.getElementById("familyDrawerClose");
 const _familyList = document.getElementById("familyList");
 
 function _renderFamilyList() {
-  const ringClass = m => m.photo === "k" ? "sb-avatar k small ring" : "sb-avatar small ring";
+  // "g" is the default styling, so it contributes no extra class.
+  const ringClass = m => `sb-avatar${m.photo === "g" ? "" : " " + m.photo} small ring`;
   const roleLabel = r => r === "contributing" ? "Contributing" : "Supporting";
   _familyList.innerHTML = _familyMembers.map(m => `
     <div class="family-member">
