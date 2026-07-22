@@ -288,6 +288,8 @@
     .cards-cluster .board-text.len-m { font-size: 19px; }
     .cards-cluster .board-text.len-l { font-size: 15px; }
     .cards-cluster .board-meta { font-size: 11px; }
+    .cards-cluster .board-avatar { width: 32px; height: 32px; }
+    .cards-cluster .board-initial { font-size: 15px; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -436,6 +438,30 @@
     .card.board.has-message {
       background: rgba(155,137,201,0.12);
       border-color: rgba(155,137,201,0.34);
+    }
+    /* Label + poster avatar share a row so the avatar sits in the card's top
+       right corner while still reserving its own space — absolutely
+       positioning it would let a long note run underneath. */
+    .card.board .board-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-shrink: 0;
+    }
+    .card.board .board-head .label { margin: 0; }
+    .card.board .board-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      overflow: hidden; flex-shrink: 0;
+      background: var(--bg-elev, #1C1C1E);
+      box-shadow: 0 0 0 2px var(--accent, #9B89C9) inset;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card.board .board-avatar img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    /* Fallback for a poster with no photo asset (e.g. Daisy). */
+    .card.board .board-initial {
+      font-size: 18px; font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--accent, #9B89C9);
     }
     .card.board .board-body {
       flex: 1;
@@ -820,7 +846,10 @@
           </div>
 
           <div class="card board" id="boardCard">
-            <div class="label">Message board</div>
+            <div class="board-head">
+              <div class="label">Message board</div>
+              <div id="boardAvatar"></div>
+            </div>
             <div class="board-body" id="boardBody">
               <div class="board-empty">No messages right now.</div>
             </div>
@@ -1083,19 +1112,45 @@
       $("quoteAttr").textContent = `— ${q.attr}`;
     }
 
+    // Photo assets for the two adults. Hoisted to module scope so both the
+    // today-shift cards and the message board resolve avatars the same way.
+    const AVATARS = { G: "assets/gage.jpg", K: "assets/kaylene.jpeg" };
+
+    // Resolve a poster's avatar from their display name. The payload carries
+    // senderName (not a uid), but both it and household.selfName/partnerName
+    // derive from the same memberNames map, so they match exactly. Anyone
+    // without a photo asset — Daisy, or a future member — gets an initial.
+    function boardAvatarHtml(senderName, p) {
+      const n = (senderName || "").trim();
+      if (!n) return "";
+      const self    = (p.household?.selfName    || "").trim().toLowerCase();
+      const partner = (p.household?.partnerName || "").trim().toLowerCase();
+      const key = n.toLowerCase();
+      let src = null, accent = "#9B89C9";
+      if (key === self)         { src = AVATARS.G; accent = "var(--g)"; }
+      else if (key === partner) { src = AVATARS.K; accent = "var(--k)"; }
+      const inner = src
+        ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(n)}" />`
+        : `<span class="board-initial">${escapeHtml(n[0].toUpperCase())}</span>`;
+      return `<div class="board-avatar" style="--accent:${accent}" title="${escapeHtml(n)}">${inner}</div>`;
+    }
+
     // Message board — shows the most recent unexpired note posted from the
     // iOS app. getWallState already picks the winner and drops expired ones,
     // so this only has to render whatever it handed us (or the empty state).
     function renderBoard(p) {
       const card = $("boardCard");
       const body = $("boardBody");
+      const avatar = $("boardAvatar");
       if (!card || !body) return;
       const m = p.message;
       if (!m || !m.text) {
         card.classList.remove("has-message");
+        if (avatar) avatar.innerHTML = "";
         body.innerHTML = `<div class="board-empty">No messages right now.</div>`;
         return;
       }
+      if (avatar) avatar.innerHTML = boardAvatarHtml(m.senderName, p);
       card.classList.add("has-message");
       // Bucket by length so the type size suits the note.
       const n = m.text.length;
@@ -1424,7 +1479,6 @@
       //   5. Off                    → "Off today"
       const todayShifts = p.shifts[p.today] ?? [];
       const stypeById = new Map(p.shiftTypes.map((s) => [s.id, s]));
-      const AVATARS = { G: "assets/gage.jpg", K: "assets/kaylene.jpeg" };
       const grid = $("todayShifts");
       grid.innerHTML = "";
 
