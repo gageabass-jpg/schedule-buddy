@@ -1117,24 +1117,31 @@
     const AVATARS = { G: "assets/gage.jpg", K: "assets/kaylene.jpeg" };
 
     // Supporting caregivers aren't in the G/K shift model, so they're matched
-    // by name. Keys are lowercased display names as they appear in
-    // memberNames. Anyone not listed still falls back to an initial.
+    // by first name. Keys are lowercased first names. Anyone not listed still
+    // falls back to an initial.
     const CAREGIVER_AVATARS = { daisy: "assets/daisy.jpeg" };
 
-    // Resolve a poster's avatar from their display name. The payload carries
-    // senderName (not a uid), but both it and household.selfName/partnerName
-    // derive from the same memberNames map, so they match exactly. Anyone
-    // without a photo asset — Daisy, or a future member — gets an initial.
+    // First name, lowercased — the matching unit for avatars.
+    function firstName(s) {
+      return (s || "").trim().toLowerCase().split(/\s+/)[0] || "";
+    }
+
+    // Resolve a poster's avatar. The payload carries senderName, which is the
+    // poster's DISPLAY name (e.g. "Gage Bass"), while household.selfName /
+    // partnerName are first names ("Gage"). So match on the first-name token
+    // rather than the whole string — an exact === misses "Gage Bass" vs
+    // "Gage" and drops everyone to an initial. Anyone without a photo asset
+    // (a future member) still falls back to an initial.
     function boardAvatarHtml(senderName, p) {
       const n = (senderName || "").trim();
       if (!n) return "";
-      const self    = (p.household?.selfName    || "").trim().toLowerCase();
-      const partner = (p.household?.partnerName || "").trim().toLowerCase();
-      const key = n.toLowerCase();
+      const sender  = firstName(n);
+      const self    = firstName(p.household?.selfName);
+      const partner = firstName(p.household?.partnerName);
       let src = null, accent = "#9B89C9";
-      if (key === self)         { src = AVATARS.G; accent = "var(--g)"; }
-      else if (key === partner) { src = AVATARS.K; accent = "var(--k)"; }
-      else if (CAREGIVER_AVATARS[key]) { src = CAREGIVER_AVATARS[key]; }
+      if (sender && sender === self)         { src = AVATARS.G; accent = "var(--g)"; }
+      else if (sender && sender === partner) { src = AVATARS.K; accent = "var(--k)"; }
+      else if (CAREGIVER_AVATARS[sender])    { src = CAREGIVER_AVATARS[sender]; }
       const inner = src
         ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(n)}" />`
         : `<span class="board-initial">${escapeHtml(n[0].toUpperCase())}</span>`;
