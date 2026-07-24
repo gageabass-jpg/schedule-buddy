@@ -1967,7 +1967,7 @@
     // ─────────────────── macro keypad handlers ───────────────────
     // Physical 3-key pad sends (single keys — combos don't map on Linux):
     //   F7 → cycle displays (showcase → calendar → photos → …)
-    //   F8 → force refresh from Firebase
+    //   F8 → full page reload
     //   F9 → handled by labwc (launches YouTube Music), never reaches
     //        this page.
     let manualScene = 0; // 0=showcase, 1=calendar, 2=photos
@@ -2027,7 +2027,11 @@
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "F7" || e.code === "F7") { e.preventDefault(); cycleDisplay(); }
-      else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); refresh(); }
+      // F8 is the only "fix it" button on a wall with no keyboard, so it does
+      // a real page reload rather than just re-polling data. A reload runs
+      // refresh() on boot anyway, so this is a strict superset of the old
+      // behavior — and it's the only way new code ever reaches the kiosk.
+      else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); location.reload(); }
     });
   </script>
 </body>
