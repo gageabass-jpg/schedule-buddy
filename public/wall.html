@@ -1893,6 +1893,36 @@
     refresh();
     setInterval(refresh, refreshMs);
 
+    // ─────────────────── self-update ───────────────────
+    // Everything above refreshes DATA. Nothing re-fetches this document, so
+    // a Chromium kiosk keeps running whatever JS it booted with — a deploy
+    // never reaches the wall until someone physically presses F8. That's a
+    // bad property for a display nobody stands in front of.
+    //
+    // Hosting serves a content-derived ETag (identical across query strings,
+    // so the token doesn't fragment it). Poll it with HEAD; when it differs
+    // from the one this page booted with, the served page has changed —
+    // reload to pick it up. location.reload() keeps the full URL, so the
+    // ?t= token survives.
+    const updateCheckMs = 10 * 60 * 1000;
+    let bootEtag = null;
+    async function checkForUpdate() {
+      try {
+        const r = await fetch(location.pathname + location.search, {
+          method: "HEAD",
+          cache: "no-store",
+        });
+        const tag = r.headers.get("etag");
+        if (!tag) return;                 // no etag → nothing to compare
+        if (bootEtag === null) { bootEtag = tag; return; }
+        if (tag !== bootEtag) location.reload();
+      } catch (e) {
+        // Offline or transient — try again next tick. Never block the wall.
+      }
+    }
+    checkForUpdate();                     // establish the baseline
+    setInterval(checkForUpdate, updateCheckMs);
+
     // ─────────────────── now-playing (YouTube Music) ───────────────────
     // Polls getNowPlaying; when something's playing the Parks & Rec card
     // flips to album art + song + artist, and reverts to the quote when
