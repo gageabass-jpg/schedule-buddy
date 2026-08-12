@@ -196,6 +196,24 @@ export function computeOverlapCandidates(
       }
     }
 
+    // One coverage window per day. Disjoint overlaps on the same date (e.g. a
+    // morning work+sleep stretch, a couple of free hours, then a both-working
+    // evening) used to become two separate requests — but nobody sends a
+    // caregiver home for two hours and calls her back, so that's two asks for
+    // one shift. Fold them into a single continuous window: earliest start →
+    // latest end. The start is the earliest overlap, so the arrival lead
+    // applied downstream still lands 2h before the FIRST parent leaves.
+    if (windows.length > 1) {
+      const startMin = Math.min(...windows.map((w) => w.startMin));
+      const endMin = Math.max(...windows.map((w) => w.endMin));
+      // Keep the most "live" framing across the folded windows.
+      const reason = windows.reduce(
+        (best, w) => (reasonRank(w.reason) < reasonRank(best) ? w.reason : best),
+        windows[0].reason,
+      );
+      windows.splice(0, windows.length, { startMin, endMin, reason });
+    }
+
     for (const w of windows) {
       const endsNextDay = w.endMin >= MIN_PER_DAY;
       const startTime = fmtHM(w.startMin);
