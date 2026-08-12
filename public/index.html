@@ -6338,6 +6338,13 @@ function handlePushTap(data) {
     return;
   }
 
+  // --- Schedule cadence reminder (manager) — open the Schedule tab so they
+  // can update it. Without this it fell into the Childcare catch-all below.
+  if (kind === "schedule_reminder") {
+    if (userRole !== "supporting") setMobileTab("schedule");
+    return;
+  }
+
   // --- Manager-bound — caregiver status changes OR caregiver-authored requests. ---
   if (userRole !== "supporting") {
     // Switch to the Childcare bottom tab if we're on mobile.

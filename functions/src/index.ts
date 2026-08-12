@@ -2,11 +2,13 @@ export { askClaude } from "./askClaude";
 export { getWallState } from "./wallState";
 export { cleanSchedule } from "./cleanSchedule";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
+export { sendPiCommand, getPiCommand } from "./piCommand";
 
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging, type Message } from "firebase-admin/messaging";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { logger } from "firebase-functions";
 
@@ -411,6 +413,83 @@ export const onCoverageRequestsCreate = onDocumentCreated(
       householdId,
       requestId: pending.length === 1 ? single.id : "",
     }, householdId);
+  },
+);
+
+// ──────────── Four-week schedule cadence reminder ────────────
+//
+// On the last Friday of each 4-week "schedule", remind the admin (Gage) that
+// it's time to refresh the schedule and send caregiver requests. Delivered
+// two ways: an admin push, and a flag doc the Mac panel reads to raise its
+// two reminder cards.
+//
+// The cycle is anchored to state.alt.refSat — a Saturday. refSat + 27 days is
+// always a Friday (Sat dow 6 → (6+27)%7 = 5 = Fri), and it lands right before
+// a 4-week block closes; cycles repeat every 28 days. So "last Friday of the
+// schedule" = refSat + 27 + 28k. The cron fires every Friday and only acts on
+// the ones where (diff − 27) is a non-negative multiple of 28.
+
+/** Today's local date in America/New_York as YYYY-MM-DD (en-CA formats so). */
+function nyTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+}
+
+/** Whole-day gap between two YYYY-MM-DD dates (a − b), via UTC noon to dodge
+ *  DST — the same trick the app's payday/alt-weekend math uses. */
+function diffDaysIso(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  if (!ay || !am || !ad || !by || !bm || !bd) return NaN;
+  const aMs = Date.UTC(ay, am - 1, ad, 12);
+  const bMs = Date.UTC(by, bm - 1, bd, 12);
+  return Math.round((aMs - bMs) / 86_400_000);
+}
+
+export const checkScheduleCadence = onSchedule(
+  { schedule: "0 9 * * 5", timeZone: "America/New_York", region: "us-central1" },
+  async () => {
+    const db = getFirestore();
+    const today = nyTodayIso();
+    const households = await db.collection("households").get();
+    for (const hh of households.docs) {
+      const householdId = hh.id;
+      try {
+        const stateSnap = await db.collection("households").doc(householdId)
+          .collection("state").doc("main").get();
+        const st = stateSnap.data() as { alt?: { refSat?: string } } | undefined;
+        const refSat = st?.alt?.refSat;
+        if (!refSat || !/^\d{4}-\d{2}-\d{2}$/.test(refSat)) {
+          logger.info("cadence: no usable refSat anchor", { householdId });
+          continue;
+        }
+        const diff = diffDaysIso(today, refSat);
+        // Last Friday of a 4-week cycle = refSat + 27 + 28k (k ≥ 0).
+        const isCycleCloser = Number.isFinite(diff) && diff >= 27 && (diff - 27) % 28 === 0;
+        if (!isCycleCloser) {
+          logger.info("cadence: not a cycle-closing Friday", { householdId, today, refSat, diff });
+          continue;
+        }
+
+        // 1. Raise the flag the Mac panel reads. Merge so a prior cycle's ack
+        //    fields survive — they hold the OLD dueCycle, so they no longer
+        //    match and both cards reappear for the new cycle.
+        await db.collection("households").doc(householdId)
+          .collection("meta").doc("cadence")
+          .set({ dueCycle: today, triggeredAt: Date.now() }, { merge: true });
+
+        // 2. Push the admin.
+        const tokens = await tokensForRoles(householdId, ["admin"]);
+        if (tokens.length > 0) {
+          await sendToTokens(tokens, {
+            title: "Time to update the schedule",
+            body: "This 4-week schedule is wrapping up. Update it and send caregiver requests.",
+          }, { kind: "schedule_reminder", householdId }, householdId);
+        }
+        logger.info("cadence: reminder fired", { householdId, today, refSat, tokens: tokens.length });
+      } catch (e) {
+        logger.warn("cadence: household failed", { householdId, error: String(e) });
+      }
+    }
   },
 );
 

@@ -27,6 +27,7 @@ function resolveDark(pref: ThemePref): boolean {
 }
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
+import { useScheduleReminder } from "./hooks/useScheduleReminder";
 import { buildShiftMap, type Event, type HouseholdState } from "./state";
 
 export type EventMap = Record<string, Event[]>;
@@ -321,6 +322,10 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
 
   const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;
 
+  // 4-week schedule reminder (last-Friday cadence) — drives the two Inspector
+  // cards. See functions/src/index.ts::checkScheduleCadence.
+  const scheduleReminder = useScheduleReminder(householdId);
+
   const handleEditShift = (date: string, shift: Shift) => {
     if (!shift.source || !shift.shiftTypeId) return;
     if (shift.source.kind === "template" || shift.source.kind === "alt-weekend") {
@@ -463,6 +468,10 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSelectDate={(iso) => setSelected(iso)}
         onOpenScheduleBlock={() => setScheduleBlockOpen(true)}
         onOpenCleaner={() => setCleanerOpen(true)}
+        reminderUpdate={scheduleReminder.showUpdate}
+        reminderCaregiver={scheduleReminder.showCaregiver}
+        onDismissReminder={scheduleReminder.dismiss}
+        onSendCaregiverRequests={() => setCoverageModalOpen(true)}
       />
       <ScheduleBlockModal
         open={scheduleBlockOpen}

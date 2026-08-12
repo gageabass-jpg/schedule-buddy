@@ -101,6 +101,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
     }
 
+    // Per-household meta docs written by Cloud Functions (Admin SDK, bypasses
+    // rules) and read/updated by clients. Currently: meta/cadence (the
+    // 4-week schedule reminder flag + the desktop's per-cycle dismissals) and
+    // meta/piCommand (wall remote). Any member may read and write — the flags
+    // are non-sensitive household state and the desktop records dismissals here.
+    match /households/{householdId}/meta/{docId} {
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+    }
+
     // Wall message board — the note shown on the wall display's board card.
     // Any member (including supporting caregivers) may post; the wall renders
     // the most recent unexpired one. senderId is pinned to the caller's uid so

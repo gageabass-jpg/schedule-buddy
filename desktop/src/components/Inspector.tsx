@@ -26,6 +26,11 @@ interface Props {
   onSelectDate?: (date: string) => void;
   onOpenScheduleBlock: () => void;
   onOpenCleaner: () => void;
+  /** 4-week schedule reminder cards (last-Friday cadence). */
+  reminderUpdate?: boolean;
+  reminderCaregiver?: boolean;
+  onDismissReminder?: (which: "update" | "caregiver") => void;
+  onSendCaregiverRequests?: () => void;
 }
 
 const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
@@ -46,6 +51,7 @@ export function Inspector({
   onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay,
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
+  reminderUpdate, reminderCaregiver, onDismissReminder, onSendCaregiverRequests,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
@@ -83,6 +89,35 @@ export function Inspector({
         WebkitBackdropFilter: "blur(20px)",
       }}
     >
+      {/* Schedule cadence reminders — raised by the last-Friday Cloud Function,
+          dismissible, sit above the working card until acted on. */}
+      {(reminderUpdate || reminderCaregiver) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {reminderUpdate && (
+            <AlertCard
+              color="#5E5CE6"
+              title="Update the schedule"
+              body="This 4-week schedule is wrapping up — add the next block of shifts."
+              onDismiss={onDismissReminder ? () => onDismissReminder("update") : undefined}
+              t={t}
+              dark={dark}
+            />
+          )}
+          {reminderCaregiver && (
+            <AlertCard
+              color="#30D158"
+              title="Send caregiver requests"
+              body="Send coverage requests for the new schedule's both-working days."
+              actionLabel="Send to caregiver"
+              onAction={onSendCaregiverRequests}
+              onDismiss={onDismissReminder ? () => onDismissReminder("caregiver") : undefined}
+              t={t}
+              dark={dark}
+            />
+          )}
+        </div>
+      )}
+
       {/* Selected day card */}
       <div
         style={{
@@ -720,6 +755,84 @@ function subhead(t: ThemeTokens): React.CSSProperties {
     textTransform: "uppercase",
     marginBottom: 4,
   };
+}
+
+// A tinted, dismissible reminder card. Matches the existing inline notice
+// pattern (gap warning / no-childcare) but generalized so both cadence
+// reminders share one shape.
+function AlertCard({
+  color, title, body, actionLabel, onAction, onDismiss, t, dark,
+}: {
+  color: string;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  onDismiss?: () => void;
+  t: ThemeTokens;
+  dark: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: 10,
+        borderRadius: 10,
+        background: rgba(color, dark ? 0.14 : 0.1),
+        border: `0.5px solid ${rgba(color, 0.5)}`,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
+          <span style={{ fontWeight: 700, color }}>{title}</span>
+          <div style={{ color: t.text2, marginTop: 2 }}>{body}</div>
+        </div>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss"
+            style={{
+              border: 0,
+              background: "transparent",
+              color: t.text3,
+              cursor: "pointer",
+              fontSize: 13,
+              lineHeight: 1,
+              padding: 2,
+              flexShrink: 0,
+              fontFamily: "inherit",
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          style={{
+            alignSelf: "flex-start",
+            padding: "6px 12px",
+            border: 0,
+            borderRadius: 7,
+            background: color,
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ─────────────────── schedule block helpers ───────────────────
