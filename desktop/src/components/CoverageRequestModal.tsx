@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
-import type { ShiftMap } from "../data";
+import { fmtDate, type ShiftMap } from "../data";
 import { computeOverlapCandidates, type OverlapCandidate } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { startWithLead } from "../lib/rewriteCoverage";
@@ -37,7 +37,21 @@ export function CoverageRequestModal({
   useEffect(() => {
     if (!open) return;
     if (!state) { setRows([]); return; }
-    const candidates = computeOverlapCandidates(shifts, state);
+    // The visible shift window reaches back into last month (App builds it from
+    // the 1st of the previous month), but you can't line up coverage for days
+    // already gone — so only offer today forward. And skip days that already
+    // have coverage lined up: a PENDING or CONFIRMED request. Declined/issue
+    // days stay eligible so a fresh ask can replace a "no". Mirrors the scope
+    // rules in rewriteCoverage.ts.
+    const now = new Date();
+    const today = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+    const linedUp = new Set(
+      (state.coverageRequests ?? [])
+        .filter((r) => r.status === "pending" || r.status === "confirmed")
+        .map((r) => r.date),
+    );
+    const candidates = computeOverlapCandidates(shifts, state)
+      .filter((c) => c.date >= today && !linedUp.has(c.date));
     // Seed each row's start with the arrival lead already applied — the
     // start IS when the caregiver needs to arrive (no separate arrive-by).
     setRows(candidates.map((c, i) => ({
@@ -110,7 +124,7 @@ export function CoverageRequestModal({
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>Send to caregiver</div>
             <div style={{ fontSize: 12, color: t.text2, marginTop: 4, lineHeight: 1.45 }}>
-              Every day where both of you are unavailable. Start times include a 2-hour arrival lead — the start is when the caregiver should arrive. Adjust times or notes, then send the batch.
+              Upcoming days (today forward) where both of you are unavailable and no coverage is lined up yet. Start times include a 2-hour arrival lead — the start is when the caregiver should arrive. Adjust times or notes, then send the batch.
             </div>
           </div>
           <div style={{ fontSize: 11, color: t.text3, fontWeight: 600 }}>
@@ -130,7 +144,7 @@ export function CoverageRequestModal({
         >
           {rows.length === 0 ? (
             <div style={{ padding: 24, textAlign: "center", color: t.text3, fontSize: 13 }}>
-              No overlap days in the current window. Add some shifts or expand the visible range.
+              No upcoming days need coverage. Days before today, and days that already have coverage lined up, are hidden.
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
