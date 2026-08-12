@@ -3,6 +3,25 @@ import type { HouseholdState } from "../state";
 
 const MIN_PER_DAY = 24 * 60;
 
+// ── How a shift actually consumes a parent's day ────────────────────────────
+// A shift is not just its clock hours. The parent is gone before it (getting
+// ready + travelling), still gone after it (travelling home), awake for a
+// while once home, and only then asleep. Modelling only the clock hours made
+// the engine hand back windows that didn't match reality — coverage that
+// started too late, ended before anyone was actually home, and ignored the
+// daytime sleep a night worker needs BEFORE clocking on.
+
+/** Getting ready + travel before a shift. Coverage must start this far ahead:
+ *  the caregiver's arrival time IS the start of the request (BRIDGE.md). */
+export const LEAVE_LEAD_MIN = 120;   // 1h to get ready + 1h to travel
+/** Travel home after a shift ends — still not available to watch anyone. */
+export const TRAVEL_HOME_MIN = 30;
+/** Awake-at-home buffer after arriving, before post-shift sleep begins. */
+export const SETTLE_MIN = 60;
+/** Overlaps shorter than this are handoff slivers (one parent leaving a few
+ *  minutes before the other lands), not something you call a caregiver for. */
+export const MIN_WINDOW_MIN = 60;
+
 /** Minutes from a reference local-day start. Ranges may extend past 24h
  *  when a shift (or its sleep window) spills into the next day. */
 export interface MinuteRange {
@@ -52,7 +71,20 @@ interface UnavailableBlock extends MinuteRange {
   kind: "work" | "sleep";
 }
 
-/** Range a shift occupies as work, plus an optional sleep window after end. */
+/**
+ * Every range a shift makes its owner unavailable, in order:
+ *
+ *   pre-shift sleep → [leaves ─ works ─ travels home] → settle → recovery sleep
+ *
+ * The "away" range folds the leave lead and the drive home into the work
+ * block, so the coverage window this produces already starts when the parent
+ * walks out and ends when someone walks back in — callers do NOT apply a
+ * separate arrival lead on top.
+ *
+ * The settle gap is deliberately NOT a block: they're home and awake then,
+ * which is exactly why a night worker can cover the kid for an hour after a
+ * shift before going down.
+ */
 function shiftBlocksFor(
   shiftTypeId: string | undefined,
   state: HouseholdState,
@@ -66,10 +98,22 @@ function shiftBlocksFor(
   const startMin = parseHM(t.start) + offsetMin;
   let endMin = parseHM(t.end) + offsetMin;
   if (t.crossesMidnight || endMin <= startMin) endMin += MIN_PER_DAY;
-  const blocks: UnavailableBlock[] = [{ startMin, endMin, kind: "work" }];
+
+  const leavesAt = startMin - LEAVE_LEAD_MIN;
+  const homeAt = endMin + TRAVEL_HOME_MIN;
+  const blocks: UnavailableBlock[] = [{ startMin: leavesAt, endMin: homeAt, kind: "work" }];
+
+  // Daytime sleep before a night shift, ending when they start getting ready.
+  const preSleep = (t.preSleepHours ?? 0) * 60;
+  if (preSleep > 0) {
+    blocks.push({ startMin: leavesAt - preSleep, endMin: leavesAt, kind: "sleep" });
+  }
+
+  // Recovery sleep — begins once home and settled, not the moment they clock out.
   const sleep = (t.sleepHours ?? 0) * 60;
   if (sleep > 0) {
-    blocks.push({ startMin: endMin, endMin: endMin + sleep, kind: "sleep" });
+    const sleepStart = homeAt + SETTLE_MIN;
+    blocks.push({ startMin: sleepStart, endMin: sleepStart + sleep, kind: "sleep" });
   }
   return blocks;
 }
@@ -85,10 +129,23 @@ function prevIsoDate(iso: string): string {
   return `${y2}-${m2}-${d2}`;
 }
 
+/** ISO date "YYYY-MM-DD" → next local-day "YYYY-MM-DD". */
+function nextIsoDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setDate(dt.getDate() + 1);
+  const y2 = dt.getFullYear();
+  const m2 = String(dt.getMonth() + 1).padStart(2, "0");
+  const d2 = String(dt.getDate()).padStart(2, "0");
+  return `${y2}-${m2}-${d2}`;
+}
+
 /** Collect every minute-range a parent is unavailable on `date`. Includes
- *  - today's work + sleep-after blocks, and
- *  - yesterday's blocks shifted forward by 24h (so a late-night shift or its
- *    morning sleep tail correctly lands on today's axis). */
+ *  - today's own blocks,
+ *  - yesterday's shifted forward by 24h (a night shift, its drive home, or its
+ *    morning recovery sleep landing on today's axis), and
+ *  - tomorrow's shifted back by 24h, because pre-shift sleep reaches backwards
+ *    and an early enough start puts that sleep on today. */
 function unavailableBlocks(
   date: string,
   who: "G" | "K",
@@ -105,6 +162,15 @@ function unavailableBlocks(
       // Only carry forward the portion that lands on today's axis.
       if (b.endMin <= 0) continue;
       out.push({ ...b, startMin: Math.max(b.startMin, 0) });
+    }
+  }
+  const tdate = nextIsoDate(date);
+  const tomorrow = (shifts[tdate] ?? []).filter((s) => s.who === who);
+  for (const s of tomorrow) {
+    for (const b of shiftBlocksFor(s.shiftTypeId, state, MIN_PER_DAY)) {
+      // Only carry back the portion that reaches into today.
+      if (b.startMin >= MIN_PER_DAY) continue;
+      out.push({ ...b, endMin: Math.min(b.endMin, MIN_PER_DAY) });
     }
   }
   return out;
@@ -195,6 +261,14 @@ export function computeOverlapCandidates(
         windows.push({ ...ix });
       }
     }
+
+    // Drop handoff slivers before folding — otherwise a 30-minute gap while
+    // one parent drives home after the other has already left would drag the
+    // day's whole window hours earlier than anyone actually needs a caregiver.
+    for (let i = windows.length - 1; i >= 0; i--) {
+      if (windows[i].endMin - windows[i].startMin < MIN_WINDOW_MIN) windows.splice(i, 1);
+    }
+    if (windows.length === 0) continue;
 
     // One coverage window per day. Disjoint overlaps on the same date (e.g. a
     // morning work+sleep stretch, a couple of free hours, then a both-working

@@ -17,6 +17,18 @@ export interface ShiftType {
    * Optional + absent both mean 0 (legacy types).
    */
   sleepHours?: number;
+  /**
+   * Hours of sleep needed BEFORE this shift starts. A night worker sleeps
+   * during the day to be up all night, so they're unavailable well before
+   * they leave — the engine used to treat them as free right up to their
+   * shift start, which under-booked the caregiver on the first night of a
+   * stretch.
+   *
+   * Counted backwards from when they start getting ready (shift start minus
+   * the leave lead), not from the shift start itself.
+   * Typical night-shift values: 6–8. Day shifts: 0.
+   */
+  preSleepHours?: number;
 }
 
 export interface OTShift {

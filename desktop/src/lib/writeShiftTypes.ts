@@ -15,6 +15,8 @@ export interface ShiftTypeInput {
   end: string;          // "HH:MM"
   /** Hours of post-shift sleep — used by the coverage engine. 0 / omit = no sleep window. */
   sleepHours?: number;
+  /** Hours of sleep needed BEFORE the shift (night workers). 0 / omit = none. */
+  preSleepHours?: number;
 }
 
 export function generateShiftTypeId(existing: ShiftType[]): string {
@@ -36,6 +38,11 @@ function validate(input: ShiftTypeInput): string | null {
   if (!input.name.trim()) return "Name is required.";
   if (!/^\d{2}:\d{2}$/.test(input.start)) return "Start time must be HH:MM.";
   if (!/^\d{2}:\d{2}$/.test(input.end)) return "End time must be HH:MM.";
+  if (input.preSleepHours !== undefined) {
+    if (!Number.isFinite(input.preSleepHours) || input.preSleepHours < 0 || input.preSleepHours > 24) {
+      return "Sleep-before hours must be between 0 and 24.";
+    }
+  }
   if (input.sleepHours !== undefined) {
     if (!Number.isFinite(input.sleepHours) || input.sleepHours < 0 || input.sleepHours > 24) {
       return "Sleep hours must be between 0 and 24.";
@@ -81,6 +88,7 @@ export async function addShiftType(householdId: string, input: ShiftTypeInput): 
   const list = [...(current.shiftTypes ?? [])];
   const id = generateShiftTypeId(list);
   const sleep = cleanSleep(input.sleepHours);
+  const preSleep = cleanSleep(input.preSleepHours);
   list.push({
     id,
     name: input.name.trim(),
@@ -88,6 +96,7 @@ export async function addShiftType(householdId: string, input: ShiftTypeInput): 
     end: input.end,
     crossesMidnight: crossesMidnight(input.start, input.end),
     ...(sleep !== undefined ? { sleepHours: sleep } : {}),
+    ...(preSleep !== undefined ? { preSleepHours: preSleep } : {}),
   });
   await writeState(householdId, { ...current, shiftTypes: list });
   return id;
@@ -106,6 +115,7 @@ export async function updateShiftType(
   const idx = list.findIndex((t) => t.id === id);
   if (idx < 0) throw new ShiftTypeError("That shift type no longer exists.");
   const sleep = cleanSleep(input.sleepHours);
+  const preSleep = cleanSleep(input.preSleepHours);
   list[idx] = {
     ...list[idx],
     name: input.name.trim(),
@@ -113,9 +123,11 @@ export async function updateShiftType(
     end: input.end,
     crossesMidnight: crossesMidnight(input.start, input.end),
     ...(sleep !== undefined ? { sleepHours: sleep } : { sleepHours: undefined }),
+    ...(preSleep !== undefined ? { preSleepHours: preSleep } : { preSleepHours: undefined }),
   };
-  // Drop the field entirely when zero so Firestore docs stay clean.
+  // Drop the fields entirely when zero so Firestore docs stay clean.
   if (sleep === undefined) delete (list[idx] as Partial<ShiftType>).sleepHours;
+  if (preSleep === undefined) delete (list[idx] as Partial<ShiftType>).preSleepHours;
   await writeState(householdId, { ...current, shiftTypes: list });
 }
 

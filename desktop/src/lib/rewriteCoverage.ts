@@ -22,15 +22,11 @@ import { buildShiftMap, generateCoverageId } from "../state";
 import type { CoverageChangeProposal, CoverageRequest, HouseholdState } from "../state";
 import { computeOverlapCandidates, type OverlapReason } from "./computeOverlap";
 
-export const LEAD_TIME_MIN = 120;   // coverage starts 2 hours before the overlap begins
-
-/** "15:00" - 2h → "13:00", clamped at midnight so an early-morning overlap
- *  can't wrap backwards onto the previous day. */
-export function startWithLead(startTime: string, offsetMin = LEAD_TIME_MIN): string {
-  const [h, m] = startTime.split(":").map(Number);
-  const total = Math.max(0, (h || 0) * 60 + (m || 0) - offsetMin);
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
+// The arrival lead used to be bolted on here, after the fact. It now lives in
+// the overlap engine (computeOverlap.ts::LEAVE_LEAD_MIN) alongside the drive
+// home and the post-shift settle, because those have to be part of computing
+// WHEN nobody is home — not a cosmetic shift applied to the answer afterwards.
+// computeOverlapCandidates therefore already returns send-ready times.
 
 export interface RewriteWindow {
   startTime: string;
@@ -110,7 +106,7 @@ export function computeCoverageRewrite(
   for (const c of candidates) {
     const list = byDate.get(c.date) ?? [];
     list.push({
-      startTime: startWithLead(c.startTime),
+      startTime: c.startTime,
       endTime: c.endTime,
       endsNextDay: c.endsNextDay,
       reason: c.reason,

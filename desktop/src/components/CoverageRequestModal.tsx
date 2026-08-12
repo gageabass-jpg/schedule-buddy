@@ -3,7 +3,6 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
 import { type OverlapCandidate } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
-import { startWithLead } from "../lib/rewriteCoverage";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 
 interface Props {
@@ -43,11 +42,11 @@ export function CoverageRequestModal({
     // rows always agree: today forward, over a fixed window, minus days that
     // already have a pending/confirmed request.
     const candidates = pendingCoverageNeeds(state, today);
-    // Seed each row's start with the arrival lead already applied — the
-    // start IS when the caregiver needs to arrive (no separate arrive-by).
+    // Times come out of the engine ready to send: the window already opens
+    // when the last parent leaves (lead folded in) and closes when the first
+    // one is home, so no arrival lead is applied here.
     setRows(candidates.map((c, i) => ({
       ...c,
-      startTime: startWithLead(c.startTime),
       rowId: `${c.date}#${i}`,
       notes: "",
       skipped: false,
