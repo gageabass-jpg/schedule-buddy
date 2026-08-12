@@ -28,6 +28,7 @@ function resolveDark(pref: ThemePref): boolean {
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
+import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
 import { buildShiftMap, type Event, type HouseholdState } from "./state";
 
 export type EventMap = Record<string, Event[]>;
@@ -100,7 +101,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [refreshing, setRefreshing] = useState(false);
   const householdStatus = useHousehold(user, refreshNonce);
 
-  const today = todayISO();
+  // Ticking, not per-render: this is a long-running Electron app that can sit
+  // open across midnight with no re-render. A frozen `today` made the coverage
+  // card count a day that could no longer be staffed (and disagree with the
+  // modal, which recomputes on open). Also rolls the calendar's today-highlight.
+  const [today, setToday] = useState(todayISO);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setToday((prev) => { const now = todayISO(); return now === prev ? prev : now; });
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const [tY, tM, tD] = today.split("-").map(Number);
   const [selected, setSelected] = useState<string>(today);
   const [viewYear, setViewYear] = useState<number>(tY);
@@ -322,9 +333,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
 
   const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;
 
-  // 4-week schedule reminder (last-Friday cadence) — drives the two Inspector
-  // cards. See functions/src/index.ts::checkScheduleCadence.
-  const scheduleReminder = useScheduleReminder(householdId);
+  // "Send caregiver requests" is condition-driven, not calendar-driven: it
+  // shows whenever upcoming both-working days have no coverage lined up, so
+  // being LATE keeps it on screen instead of it vanishing with its Friday.
+  // `today` is an explicit dependency so the count can't outlive the day it
+  // was computed on — and so this and the modal always resolve the same date.
+  const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
+  const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
+
+  // The "Update the schedule" card stays calendar-driven (4-week cadence).
+  // See functions/src/index.ts::checkScheduleCadence.
+  const scheduleReminder = useScheduleReminder(householdId, coverageNeedsSig, today);
 
   const handleEditShift = (date: string, shift: Shift) => {
     if (!shift.source || !shift.shiftTypeId) return;
@@ -470,6 +489,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onOpenCleaner={() => setCleanerOpen(true)}
         reminderUpdate={scheduleReminder.showUpdate}
         reminderCaregiver={scheduleReminder.showCaregiver}
+        coverageNeedsCount={new Set(coverageNeeds.map((c) => c.date)).size}
         onDismissReminder={scheduleReminder.dismiss}
         onSendCaregiverRequests={() => setCoverageModalOpen(true)}
       />
@@ -580,7 +600,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         dark={dark}
         householdId={householdId}
         state={state}
-        shifts={shifts}
+        today={today}
       />
       <CoverageRequestsPanel
         open={coverageRequestsOpen}

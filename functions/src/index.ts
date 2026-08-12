@@ -445,6 +445,13 @@ function diffDaysIso(a: string, b: string): number {
   return Math.round((aMs - bMs) / 86_400_000);
 }
 
+/** YYYY-MM-DD + n whole days. */
+function addDaysIso(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d! + n, 12));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
 export const checkScheduleCadence = onSchedule(
   { schedule: "0 9 * * 5", timeZone: "America/New_York", region: "us-central1" },
   async () => {
@@ -463,29 +470,42 @@ export const checkScheduleCadence = onSchedule(
           continue;
         }
         const diff = diffDaysIso(today, refSat);
-        // Last Friday of a 4-week cycle = refSat + 27 + 28k (k ≥ 0).
-        const isCycleCloser = Number.isFinite(diff) && diff >= 27 && (diff - 27) % 28 === 0;
-        if (!isCycleCloser) {
-          logger.info("cadence: not a cycle-closing Friday", { householdId, today, refSat, diff });
+        if (!Number.isFinite(diff) || diff < 27) {
+          logger.info("cadence: before the first cycle close", { householdId, today, refSat, diff });
           continue;
         }
 
-        // 1. Raise the flag the Mac panel reads. Merge so a prior cycle's ack
-        //    fields survive — they hold the OLD dueCycle, so they no longer
-        //    match and both cards reappear for the new cycle.
+        // The MOST RECENT cycle-closing Friday on or before today, rather than
+        // "is today one". Two reasons: a missed run (function error, or the
+        // project sitting downgraded for a week) would otherwise skip a whole
+        // cycle silently, and a reminder you didn't act on should keep nagging
+        // instead of evaporating with its Friday. Dismissal is per-cycle, so a
+        // re-set of the same dueCycle stays acknowledged.
+        const cycles = Math.floor((diff - 27) / 28);
+        const dueCycle = addDaysIso(refSat, 27 + cycles * 28);
+        const isCycleCloserToday = dueCycle === today;
+
+        // 1. Raise the flag the Mac panel reads. Merge so acks survive — an
+        //    ack holding the OLD dueCycle no longer matches, so the card
+        //    reappears for the new cycle.
         await db.collection("households").doc(householdId)
           .collection("meta").doc("cadence")
-          .set({ dueCycle: today, triggeredAt: Date.now() }, { merge: true });
+          .set({ dueCycle, triggeredAt: Date.now() }, { merge: true });
 
-        // 2. Push the admin.
-        const tokens = await tokensForRoles(householdId, ["admin"]);
-        if (tokens.length > 0) {
-          await sendToTokens(tokens, {
-            title: "Time to update the schedule",
-            body: "This 4-week schedule is wrapping up. Update it and send caregiver requests.",
-          }, { kind: "schedule_reminder", householdId }, householdId);
+        // 2. Push the admin — only ON the day, so an overdue flag doesn't
+        //    re-notify every Friday until it's dealt with.
+        let pushed = 0;
+        if (isCycleCloserToday) {
+          const tokens = await tokensForRoles(householdId, ["admin"]);
+          if (tokens.length > 0) {
+            await sendToTokens(tokens, {
+              title: "Time to update the schedule",
+              body: "This 4-week schedule is wrapping up. Update it and send caregiver requests.",
+            }, { kind: "schedule_reminder", householdId }, householdId);
+            pushed = tokens.length;
+          }
         }
-        logger.info("cadence: reminder fired", { householdId, today, refSat, tokens: tokens.length });
+        logger.info("cadence: flag set", { householdId, today, refSat, dueCycle, isCycleCloserToday, pushed });
       } catch (e) {
         logger.warn("cadence: household failed", { householdId, error: String(e) });
       }

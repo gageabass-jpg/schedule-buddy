@@ -26,9 +26,12 @@ interface Props {
   onSelectDate?: (date: string) => void;
   onOpenScheduleBlock: () => void;
   onOpenCleaner: () => void;
-  /** 4-week schedule reminder cards (last-Friday cadence). */
+  /** Reminder cards above the day card. `reminderUpdate` is the 4-week
+   *  cadence nudge; `reminderCaregiver` is condition-driven (uncovered days). */
   reminderUpdate?: boolean;
   reminderCaregiver?: boolean;
+  /** How many upcoming days still need a caregiver. */
+  coverageNeedsCount?: number;
   onDismissReminder?: (which: "update" | "caregiver") => void;
   onSendCaregiverRequests?: () => void;
 }
@@ -51,7 +54,8 @@ export function Inspector({
   onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay,
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
-  reminderUpdate, reminderCaregiver, onDismissReminder, onSendCaregiverRequests,
+  reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
+  onDismissReminder, onSendCaregiverRequests,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
@@ -107,7 +111,11 @@ export function Inspector({
             <AlertCard
               color="#30D158"
               title="Send caregiver requests"
-              body="Send coverage requests for the new schedule's both-working days."
+              body={
+                coverageNeedsCount === 1
+                  ? "1 upcoming day has no caregiver lined up."
+                  : `${coverageNeedsCount} upcoming days have no caregiver lined up.`
+              }
               actionLabel="Send to caregiver"
               onAction={onSendCaregiverRequests}
               onDismiss={onDismissReminder ? () => onDismissReminder("caregiver") : undefined}

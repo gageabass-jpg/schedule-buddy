@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
-import { fmtDate, type ShiftMap } from "../data";
-import { computeOverlapCandidates, type OverlapCandidate } from "../lib/computeOverlap";
+import { type OverlapCandidate } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { startWithLead } from "../lib/rewriteCoverage";
+import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 
 interface Props {
   open: boolean;
@@ -14,7 +14,9 @@ interface Props {
   dark: boolean;
   householdId: string | null;
   state: HouseholdState | null;
-  shifts: ShiftMap;
+  /** Same date the Inspector's reminder card used, so the card's count and
+   *  these rows can't resolve different days across a midnight boundary. */
+  today: string;
 }
 
 interface DraftRow extends OverlapCandidate {
@@ -27,7 +29,7 @@ interface DraftRow extends OverlapCandidate {
 }
 
 export function CoverageRequestModal({
-  open, onClose, palette, t, dark, householdId, state, shifts,
+  open, onClose, palette, t, dark, householdId, state, today,
 }: Props) {
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -37,21 +39,10 @@ export function CoverageRequestModal({
   useEffect(() => {
     if (!open) return;
     if (!state) { setRows([]); return; }
-    // The visible shift window reaches back into last month (App builds it from
-    // the 1st of the previous month), but you can't line up coverage for days
-    // already gone — so only offer today forward. And skip days that already
-    // have coverage lined up: a PENDING or CONFIRMED request. Declined/issue
-    // days stay eligible so a fresh ask can replace a "no". Mirrors the scope
-    // rules in rewriteCoverage.ts.
-    const now = new Date();
-    const today = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
-    const linedUp = new Set(
-      (state.coverageRequests ?? [])
-        .filter((r) => r.status === "pending" || r.status === "confirmed")
-        .map((r) => r.date),
-    );
-    const candidates = computeOverlapCandidates(shifts, state)
-      .filter((c) => c.date >= today && !linedUp.has(c.date));
+    // Shared with the Inspector's reminder card so the card's count and these
+    // rows always agree: today forward, over a fixed window, minus days that
+    // already have a pending/confirmed request.
+    const candidates = pendingCoverageNeeds(state, today);
     // Seed each row's start with the arrival lead already applied — the
     // start IS when the caregiver needs to arrive (no separate arrive-by).
     setRows(candidates.map((c, i) => ({
@@ -62,7 +53,7 @@ export function CoverageRequestModal({
       skipped: false,
     })));
     setErr(null);
-  }, [open, state, shifts]);
+  }, [open, state, today]);
 
   if (!open) return null;
 
