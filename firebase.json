@@ -5,6 +5,7 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/wall", "destination": "/wall.html" },
+      { "source": "/remote", "destination": "/remote.html" },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [

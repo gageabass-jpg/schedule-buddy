@@ -2033,6 +2033,35 @@
       // behavior — and it's the only way new code ever reaches the kiosk.
       else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); location.reload(); }
     });
+
+    // ─────────────────── remote-control command consumer ───────────────────
+    // The /remote page writes commands to a Firestore doc via
+    // sendPiCommand; both the wall (page-side commands) and the Pi
+    // watcher (OS-side commands) poll getPiCommand and dedup on nonce.
+    let lastCmdNonce = 0;
+    const goToScene = (scene) => {
+      if (scene === "showcase") { manualScene = 0; gotoShowcase(); }
+      else if (scene === "calendar") { manualScene = 1; gotoCalendar(); }
+      else if (scene === "photos") { manualScene = 2; gotoPhotos(); }
+    };
+    async function pollPiCommand() {
+      if (isDemo || !token) return;
+      try {
+        const r = await fetch(`${apiBase}/getPiCommand?t=${encodeURIComponent(token)}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const c = await r.json();
+        // Prime on first tick so we don't fire a previously-latched command
+        // on page load. After that, only strictly newer nonces trigger.
+        if (lastCmdNonce === 0) { lastCmdNonce = c.nonce || 0; return; }
+        if (!c.nonce || c.nonce <= lastCmdNonce) return;
+        lastCmdNonce = c.nonce;
+        // Wall handles page-side commands only. OS-side ones fall to the Pi.
+        if (c.command === "scene") goToScene((c.args && c.args.scene) || "showcase");
+        else if (c.command === "refresh") location.reload();
+      } catch (err) { /* ignore blip */ }
+    }
+    pollPiCommand();
+    setInterval(pollPiCommand, 3_000);
   </script>
 </body>
 </html>
