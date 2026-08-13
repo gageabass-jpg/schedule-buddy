@@ -286,10 +286,10 @@ export function ChildcarePanel({
                   </div>
                   {/* Hours */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 8px", flexShrink: 0 }}>
-                    <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.8px", color: "#1a9e4b", lineHeight: 1 }}>
+                    <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.8px", color: dark ? "#5fd97e" : "#0d7a34", lineHeight: 1 }}>
                       {durationHours(r.startTime, r.endTime, r.endsNextDay)}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.5px", color: "#7bcf98" }}>HOURS</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.5px", color: dark ? "#7bcf98" : "#137a3a" }}>HOURS</div>
                   </div>
                   {/* Delete */}
                   <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

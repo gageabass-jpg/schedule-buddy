@@ -2,6 +2,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import { rgba } from "../theme";
 import {
   TIMELINE_START_MIN,
+  TIMELINE_END_MIN,
   TIMELINE_SPAN_MIN,
 } from "../lib/computeOverlap";
 
@@ -43,11 +44,18 @@ function rangeLabel(ranges: Range[]): string {
   return `${label(start)}–${label(end)}`;
 }
 
-/** Absolute left/width as % of the 6am–midnight axis. */
+/** Absolute left/width as % of the 6am–midnight axis. Clamps both ends to the
+ *  axis — parent ranges arrive pre-clamped (mergeToAxis) but the coverage range
+ *  is built straight from editable times and can start before 6am (a 7am shift
+ *  minus the 2h leave lead = 5am) or run past midnight. Without clamping the
+ *  width, an early start pinned to the left edge kept its full pre-6am width and
+ *  overhung its true end. */
 function pos(r: Range): { left: string; width: string } {
-  const left = ((r.startMin - TIMELINE_START_MIN) / TIMELINE_SPAN_MIN) * 100;
-  const width = ((r.endMin - r.startMin) / TIMELINE_SPAN_MIN) * 100;
-  return { left: `${Math.max(0, left)}%`, width: `${Math.max(0, Math.min(100 - Math.max(0, left), width))}%` };
+  const start = Math.max(r.startMin, TIMELINE_START_MIN);
+  const end = Math.min(r.endMin, TIMELINE_END_MIN);
+  const left = ((start - TIMELINE_START_MIN) / TIMELINE_SPAN_MIN) * 100;
+  const width = ((end - start) / TIMELINE_SPAN_MIN) * 100;
+  return { left: `${Math.max(0, left)}%`, width: `${Math.max(0, width)}%` };
 }
 
 export function DayTimeline({
