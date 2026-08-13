@@ -390,7 +390,7 @@ export function Inspector({
 
           {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No coverage needed — not a both-working day.
+              No Coverage needed.
             </div>
           )}
 
@@ -540,7 +540,7 @@ export function Inspector({
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {events.length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No life items yet. Add a doctor visit, rehab, or anything else.
+              No Life items yet.
             </div>
           )}
           {events.map((ev) => {
