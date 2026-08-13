@@ -3,6 +3,14 @@ import type { EventMap } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { eventInitial } from "./EventAvatar";
+import { parentDaySegments } from "../lib/computeOverlap";
+
+const COVERAGE_COLOR = "#159c43";
+
+/** Diagonal-hatch fill for resting hours — matches the day timeline. */
+function hatch(color: string): string {
+  return `repeating-linear-gradient(45deg, ${rgba(color, 0.5)} 0, ${rgba(color, 0.5)} 2px, ${rgba(color, 0.1)} 2px, ${rgba(color, 0.1)} 7px)`;
+}
 
 interface Props {
   palette: Palette;
@@ -114,6 +122,13 @@ export function WeekView({
         })}
       </div>
 
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "0 0 8px 52px", flexWrap: "wrap" }}>
+        <LegendChip swatch={rgba(palette.G, 0.5)} label="Working" t={t} />
+        <LegendChip swatch={hatch(t.text2)} label="Resting" t={t} />
+        <LegendChip swatch={`linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
+      </div>
+
       {/* Hour rail + 7 day columns */}
       <div style={{ flex: 1, overflow: "auto" }}>
         <div
@@ -179,6 +194,53 @@ export function WeekView({
                     }}
                   />
                 ))}
+                {/* Resting hours — hatched, under the solid work blocks. Same
+                    per-parent sleep windows the day timeline draws. */}
+                {state && (["G", "K"] as const).flatMap((who) => {
+                  const color = personColor(who, palette);
+                  return parentDaySegments(key, who, shifts, state).sleep.map((r, i) => {
+                    const top = ((r.startMin - HOUR_START * 60) / 60) * PX_PER_HOUR;
+                    const height = ((r.endMin - r.startMin) / 60) * PX_PER_HOUR;
+                    if (height <= 0) return null;
+                    return (
+                      <div
+                        key={`rest-${who}-${i}`}
+                        style={{
+                          position: "absolute", left: 4, right: 4, top, height,
+                          borderRadius: 4, background: hatch(color), opacity: 0.75,
+                          pointerEvents: "none",
+                        }}
+                        title={`${who} resting`}
+                      />
+                    );
+                  });
+                })}
+
+                {/* Coverage window — green stripe on the right edge. */}
+                {(state?.coverageRequests ?? [])
+                  .filter((r) => r.date === key && (r.status === "pending" || r.status === "confirmed"))
+                  .map((r, i) => {
+                    const startMin = parseHM(r.startTime);
+                    let endMin = parseHM(r.endTime);
+                    if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
+                    const winStart = HOUR_START * 60;
+                    const winEnd = HOUR_END * 60;
+                    if (endMin <= winStart || startMin >= winEnd) return null;
+                    const top = (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR;
+                    const height = (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR;
+                    return (
+                      <div
+                        key={`cov-${i}`}
+                        style={{
+                          position: "absolute", right: 3, top, width: 6, height: Math.max(height, 6),
+                          borderRadius: 3, background: `linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`,
+                          boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.5)}`, pointerEvents: "none",
+                        }}
+                        title={`Coverage ${r.startTime}–${r.endTime}`}
+                      />
+                    );
+                  })}
+
                 {/* Shift blocks */}
                 {(shifts[key] ?? []).map((s, i) => {
                   const block = blockForShift(s, state);
@@ -259,6 +321,15 @@ export function WeekView({
         </div>
       </div>
     </div>
+  );
+}
+
+function LegendChip({ swatch, label, t }: { swatch: string; label: string; t: ThemeTokens }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: t.text3 }}>
+      <span style={{ width: 16, height: 10, borderRadius: 3, background: swatch }} />
+      {label}
+    </span>
   );
 }
 
