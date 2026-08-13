@@ -4,7 +4,7 @@ import type { HouseholdState } from "../state";
 import { hmToMin, type OverlapCandidate, type MinuteRange } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
-import { timelineForDate } from "../lib/timelineData";
+import { timelineForDate, parentShiftStarts } from "../lib/timelineData";
 import { DayTimeline } from "./DayTimeline";
 
 interface Props {
@@ -36,11 +36,10 @@ function hm12(min: number): string {
   h = h % 12 || 12;
   return mm === 0 ? `${h}${ap}` : `${h}:${String(mm).padStart(2, "0")}${ap}`;
 }
-function rangeLabel(ranges: MinuteRange[]): string {
-  if (ranges.length === 0) return "off";
-  const s = Math.min(...ranges.map((r) => r.startMin));
-  const e = Math.max(...ranges.map((r) => r.endMin));
-  return `${hm12(s)}–${hm12(e)}`;
+/** Just the shift start time(s) for the "Working hours" column. */
+function startsLabel(starts: number[]): string {
+  if (starts.length === 0) return "off";
+  return starts.map(hm12).join(", ");
 }
 /** "13:00" → "01:00 PM" for a coverage-window pill. */
 function pill12(hhmm: string): string {
@@ -83,12 +82,13 @@ export function CoverageRequestModal({
   // Per-parent availability by date — depends only on the schedule, not on the
   // per-row time edits, so it doesn't rebuild on every keystroke.
   const datesKey = rows.map((r) => r.date).join(",");
-  const rangesByDate = useMemo(() => {
-    const map: Record<string, { selfRanges: MinuteRange[]; partnerRanges: MinuteRange[] }> = {};
+  const dayInfoByDate = useMemo(() => {
+    const map: Record<string, { selfRanges: MinuteRange[]; partnerRanges: MinuteRange[]; selfStarts: number[]; partnerStarts: number[] }> = {};
     for (const r of rows) {
       if (map[r.date]) continue;
       const tl = timelineForDate(state, r.date, null);
-      map[r.date] = { selfRanges: tl.selfRanges, partnerRanges: tl.partnerRanges };
+      const starts = parentShiftStarts(state, r.date);
+      map[r.date] = { selfRanges: tl.selfRanges, partnerRanges: tl.partnerRanges, selfStarts: starts.self, partnerStarts: starts.partner };
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,12 +154,12 @@ export function CoverageRequestModal({
             <span style={{ width: 300, flexShrink: 0 }}>Coverage window</span>
             <span style={{ flex: 1 }}>Working hours</span>
             <span style={{ width: 84, textAlign: "center", flexShrink: 0 }}>Hrs</span>
-            <span style={{ width: 60, flexShrink: 0 }} />
+            <span style={{ width: 34, flexShrink: 0 }} />
           </div>
         )}
 
         {/* Rows */}
-        <div style={{ padding: "0 20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 200 }}>
+        <div style={{ padding: "0 20px 16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 200 }}>
           {rows.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: t.text3, fontSize: 13 }}>
               No upcoming days need coverage. Days before today, and days that already have coverage lined up, are hidden.
@@ -169,12 +169,16 @@ export function CoverageRequestModal({
             const dt = new Date(r.date.split("-").map(Number)[0], (mm || 1) - 1, dd || 1);
             const monthAbbr = dt.toLocaleDateString(undefined, { month: "short" }).toUpperCase();
             const weekday = dt.toLocaleDateString(undefined, { weekday: "short" });
-            const ranges = rangesByDate[r.date] ?? { selfRanges: [], partnerRanges: [] };
+            const info = dayInfoByDate[r.date] ?? { selfRanges: [], partnerRanges: [], selfStarts: [], partnerStarts: [] };
             const isOpen = openRow === r.rowId;
             const coverage: MinuteRange = { startMin: hmToMin(r.startTime), endMin: hmToMin(r.endTime, r.endsNextDay) };
             return (
               <div key={r.rowId} style={{ opacity: r.skipped ? 0.45 : 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, minHeight: 88, background: dark ? "rgba(255,255,255,0.04)" : "#fff", borderRadius: 18, padding: "12px 14px 12px 0", boxShadow: dark ? "none" : "0 1px 3px rgba(0,0,0,0.05)", border: dark ? `0.5px solid ${t.sep}` : "none" }}>
+                <div
+                  onClick={() => setOpenRow(isOpen ? null : r.rowId)}
+                  title={isOpen ? "Hide day timeline" : "Show day timeline"}
+                  style={{ display: "flex", alignItems: "center", gap: 16, minHeight: 88, cursor: "pointer", background: dark ? "rgba(255,255,255,0.04)" : "#fff", borderRadius: 18, padding: "12px 16px 12px 0", boxShadow: dark ? "none" : "0 1px 3px rgba(0,0,0,0.05)", border: dark ? `0.5px solid ${t.sep}` : "none" }}
+                >
                   {/* Accent */}
                   <div style={{ width: 4, alignSelf: "stretch", margin: "8px 0", borderRadius: 4, background: "linear-gradient(180deg,#5fd97e,#34c759)", boxShadow: `0 0 10px ${rgba("#34c759", 0.55)}`, flexShrink: 0 }} />
                   {/* Date */}
@@ -184,16 +188,16 @@ export function CoverageRequestModal({
                     <div style={{ fontSize: 11, fontWeight: 600, color: t.text3 }}>{weekday}</div>
                   </div>
                   {/* Coverage window pills */}
-                  <div style={{ width: 300, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <div onClick={(e) => e.stopPropagation()} style={{ width: 300, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <TimePill value={r.startTime} onChange={(v) => update(r.rowId, { startTime: v })} display={pill12(r.startTime)} t={t} dark={dark} />
                     <span style={{ color: t.text3 }}>→</span>
                     <TimePill value={r.endTime} onChange={(v) => update(r.rowId, { endTime: v })} display={pill12(r.endTime)} t={t} dark={dark} />
                     {r.endsNextDay && <span style={{ fontSize: 10, color: t.text3, fontWeight: 700 }}>+1d</span>}
                   </div>
-                  {/* Working hours */}
+                  {/* Working hours — each parent's shift START time(s) */}
                   <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <HoursPill letter={selfName[0]?.toUpperCase() || "G"} text={rangeLabel(ranges.selfRanges)} accent={palette.G} bg={rgba(palette.G, dark ? 0.22 : 0.12)} t={t} />
-                    <HoursPill letter={partnerName[0]?.toUpperCase() || "K"} text={rangeLabel(ranges.partnerRanges)} accent={palette.K} bg={rgba(palette.K, dark ? 0.24 : 0.12)} t={t} />
+                    <HoursPill letter={selfName[0]?.toUpperCase() || "G"} text={startsLabel(info.selfStarts)} accent={palette.G} bg={rgba(palette.G, dark ? 0.22 : 0.12)} t={t} />
+                    <HoursPill letter={partnerName[0]?.toUpperCase() || "K"} text={startsLabel(info.partnerStarts)} accent={palette.K} bg={rgba(palette.K, dark ? 0.24 : 0.12)} t={t} />
                   </div>
                   {/* Hrs */}
                   <div style={{ width: 84, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 5, flexShrink: 0 }}>
@@ -201,21 +205,16 @@ export function CoverageRequestModal({
                     <span style={{ fontSize: 12, fontWeight: 700, color: dark ? "#7bcf98" : "#137a3a" }}>Hours</span>
                   </div>
                   {/* Approve / deny */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0 }}>
+                  <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0, marginLeft: 4 }}>
                     <RoundBtn label="✓" active={!r.skipped} activeColor="#1a9e4b" activeBg={rgba("#34c759", 0.16)} t={t} dark={dark}
                       title="Approve — include in the batch" onClick={() => update(r.rowId, { skipped: false })} />
                     <RoundBtn label="✕" active={r.skipped} activeColor="#c0392b" activeBg={rgba("#c0392b", 0.16)} t={t} dark={dark}
                       title="Deny — leave out of the batch" onClick={() => update(r.rowId, { skipped: true })} />
                   </div>
-                  {/* Chevron */}
-                  <button type="button" aria-label={isOpen ? "Collapse" : "Expand"} onClick={() => setOpenRow(isOpen ? null : r.rowId)}
-                    style={{ width: 16, background: "transparent", border: 0, color: t.text3, cursor: "pointer", fontSize: 12, padding: 0, flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                    ▾
-                  </button>
                 </div>
                 {isOpen && (
                   <div style={{ padding: "0 6px" }}>
-                    <DayTimeline date={r.date} selfRanges={ranges.selfRanges} partnerRanges={ranges.partnerRanges}
+                    <DayTimeline date={r.date} selfRanges={info.selfRanges} partnerRanges={info.partnerRanges}
                       coverage={coverage} selfName={selfName} partnerName={partnerName} includeWeekday
                       palette={palette} t={t} dark={dark} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 6px 10px" }}>
