@@ -176,6 +176,50 @@ function unavailableBlocks(
   return out;
 }
 
+// ── Day-timeline support ────────────────────────────────────────────────────
+// The redesigned coverage dialogs draw a per-day timeline: one lane per parent
+// showing when they're unavailable, one lane for the coverage window. The axis
+// runs 6am → midnight. These helpers expose the SAME availability the overlap
+// engine computes, so the lanes are truthful rather than illustrative.
+
+export const TIMELINE_START_MIN = 6 * 60;   // 6:00am
+export const TIMELINE_END_MIN = 24 * 60;    // midnight
+export const TIMELINE_SPAN_MIN = TIMELINE_END_MIN - TIMELINE_START_MIN;
+
+/** Merge overlapping/adjacent ranges and clamp them to the timeline axis. */
+function mergeToAxis(ranges: MinuteRange[]): MinuteRange[] {
+  const clamped = ranges
+    .map((r) => ({
+      startMin: Math.max(r.startMin, TIMELINE_START_MIN),
+      endMin: Math.min(r.endMin, TIMELINE_END_MIN),
+    }))
+    .filter((r) => r.endMin > r.startMin)
+    .sort((a, b) => a.startMin - b.startMin);
+  const out: MinuteRange[] = [];
+  for (const r of clamped) {
+    const last = out[out.length - 1];
+    if (last && r.startMin <= last.endMin) last.endMin = Math.max(last.endMin, r.endMin);
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** A parent's unavailable ranges on `date`, clamped to the timeline axis —
+ *  work + travel + sleep already folded in by shiftBlocksFor. */
+export function parentDayRanges(
+  date: string,
+  who: "G" | "K",
+  shifts: ShiftMap,
+  state: HouseholdState,
+): MinuteRange[] {
+  return mergeToAxis(unavailableBlocks(date, who, shifts, state));
+}
+
+/** "HH:MM" (+ optional next-day flag) → minutes on today's axis. */
+export function hmToMin(hhmm: string, nextDay = false): number {
+  return parseHM(hhmm) + (nextDay ? MIN_PER_DAY : 0);
+}
+
 interface Intersection extends MinuteRange {
   reason: OverlapReason;
 }

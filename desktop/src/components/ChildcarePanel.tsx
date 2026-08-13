@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import { MANAGER_ORANGE, rgba, type Palette, type ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { deleteCoverageRequest, markCoverageReviewed, statusLabel } from "../lib/writeCoverageRequest";
+import { hmToMin } from "../lib/computeOverlap";
+import { timelineForDate } from "../lib/timelineData";
+import { DayTimeline } from "./DayTimeline";
 import { auth } from "../firebase";
 
 interface Props {
@@ -18,19 +21,25 @@ interface Props {
 
 type Filter = "all" | CoverageStatus;
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all",       label: "All" },
+const STATUS_OPTIONS: { key: Filter; label: string }[] = [
+  { key: "all",       label: "All statuses" },
   { key: "pending",   label: "Pending" },
   { key: "confirmed", label: "Accepted" },
   { key: "declined",  label: "Declined" },
   { key: "issue",     label: "Issue" },
 ];
 
+/** Badge palette per status: [fg, tint-alpha-base]. Green/amber/red read in
+ *  both themes; the tint is derived from the fg so light matches the handoff
+ *  and dark just deepens it. */
 function statusColor(s: CoverageStatus): string {
-  if (s === "confirmed") return "#30D158";
-  if (s === "declined")  return "#FF453A";
-  if (s === "issue")     return "#FF9F0A";
-  return "#5E5CE6";  // pending
+  if (s === "confirmed") return "#1a9e4b";
+  if (s === "declined")  return "#c0392b";
+  if (s === "issue")     return "#c0392b";
+  return "#b6812a"; // pending
+}
+function statusBadgeLabel(s: CoverageStatus): string {
+  return s === "confirmed" ? "CONFIRMED" : statusLabel(s).toUpperCase();
 }
 
 function reasonLabel(r: CoverageRequest["reason"]): string {
@@ -39,20 +48,17 @@ function reasonLabel(r: CoverageRequest["reason"]): string {
   if (r === "both-sleeping")  return "Both sleeping";
   return "Coverage";
 }
-
-function reasonColor(r: CoverageRequest["reason"], palette: Palette): string {
-  if (r === "both-working")   return palette.G;
-  if (r === "work-and-sleep") return "#FF9F0A";
-  if (r === "both-sleeping")  return "#5E5CE6";
-  return palette.G;
+/** Type-tag colors: blue for both-working, amber for work+sleep. */
+function reasonColor(r: CoverageRequest["reason"]): string {
+  if (r === "work-and-sleep") return "#c77700";
+  if (r === "both-sleeping")  return "#7b3fe4";
+  return "#0a6cff";
 }
 
-function friendlyDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: "short", month: "short", day: "numeric", year: "numeric",
-  });
+function durationHours(startTime: string, endTime: string, endsNextDay?: boolean): string {
+  const mins = hmToMin(endTime, endsNextDay) - hmToMin(startTime);
+  const h = mins / 60;
+  return Number.isInteger(h) ? String(h) : h.toFixed(1);
 }
 
 export function ChildcarePanel({
@@ -60,61 +66,40 @@ export function ChildcarePanel({
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [openDay, setOpenDay] = useState<string | null>(null);   // expanded row id
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [monthMenuOpen, setMonthMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const newMenuRef = useRef<HTMLDivElement | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const monthMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Click-outside to close the dropdown.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (ev: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(ev.target as Node)) setMenuOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
+  useClickOutside(newMenuRef, newMenuOpen, () => setNewMenuOpen(false));
+  useClickOutside(statusMenuRef, statusMenuOpen, () => setStatusMenuOpen(false));
+  useClickOutside(monthMenuRef, monthMenuOpen, () => setMonthMenuOpen(false));
 
-  useEffect(() => {
-    if (!monthMenuOpen) return;
-    const onDown = (ev: MouseEvent) => {
-      if (monthMenuRef.current && !monthMenuRef.current.contains(ev.target as Node)) setMonthMenuOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [monthMenuOpen]);
-
+  const selfName = state?.selfName || "You";
+  const partnerName = state?.partner?.name || "Kaylene";
   const requests = state?.coverageRequests ?? [];
 
-  // "YYYY-MM" for today. Coverage dates are ISO, so a prefix match scopes to
-  // the current calendar month. Recomputed each time the panel opens so a
-  // long-running app doesn't get stuck on last month.
   const monthPrefix = useMemo(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, [open]);
 
-  // "all" (YTD) or a "YYYY-MM" key. Defaults to the current month, matching
-  // the iOS manager pane.
   const [month, setMonth] = useState<string>(monthPrefix);
   useEffect(() => { if (open) setMonth(monthPrefix); }, [open, monthPrefix]);
 
-  // Month options come from the data, newest first.
   const monthKeys = useMemo(() => {
     const keys = new Set(requests.map((r) => (r.date || "").slice(0, 7)).filter(Boolean));
     return [...keys].sort().reverse();
   }, [requests]);
 
-  // Fall back to YTD when the chosen month holds nothing — but only once
-  // there's data, so an empty first render can't discard the default.
   const effectiveMonth = (month !== "all" && monthKeys.length > 0 && !monthKeys.includes(month))
     ? "all"
     : month;
 
-  const multiYear = useMemo(
-    () => new Set(monthKeys.map((k) => k.slice(0, 4))).size > 1,
-    [monthKeys],
-  );
+  const multiYear = useMemo(() => new Set(monthKeys.map((k) => k.slice(0, 4))).size > 1, [monthKeys]);
   const monthLabel = (k: string): string => {
     if (k === "all") return "YTD";
     const [yy, mm] = k.split("-").map(Number);
@@ -122,19 +107,15 @@ export function ChildcarePanel({
     return multiYear ? `${name} ${yy}` : name;
   };
 
-  // Narrow by month before the status filter, so the pill counts always
-  // describe what's actually in the list.
   const scoped = useMemo(
     () => (effectiveMonth === "all" ? requests : requests.filter((r) => r.date.startsWith(effectiveMonth))),
     [requests, effectiveMonth],
   );
-
   const counts = useMemo(() => {
     const c: Record<Filter, number> = { all: scoped.length, pending: 0, confirmed: 0, declined: 0, issue: 0 };
     for (const r of scoped) c[r.status] = (c[r.status] ?? 0) + 1;
     return c;
   }, [scoped]);
-
   const filtered = useMemo(() => {
     const list = filter === "all" ? scoped : scoped.filter((r) => r.status === filter);
     return [...list].sort((a, b) => a.date.localeCompare(b.date));
@@ -142,216 +123,87 @@ export function ChildcarePanel({
 
   if (!open) return null;
 
+  const statusTriggerLabel = STATUS_OPTIONS.find((o) => o.key === filter)?.label ?? "All statuses";
+
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Childcare coverage"
+        aria-label="Assigned shifts"
         style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "min(760px, calc(100vw - 32px))",
-          maxHeight: "calc(100vh - 64px)",
-          background: t.bgElev,
-          color: t.text,
-          borderRadius: 16,
-          padding: "20px 22px 16px",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
-          zIndex: 1101,
-          fontFamily: "inherit",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+          position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+          width: "min(640px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
+          background: dark ? t.bgElev : "#f4f4f6", color: t.text,
+          borderRadius: 22, boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
+          zIndex: 1101, fontFamily: "inherit", display: "flex", flexDirection: "column", overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>Childcare coverage</div>
-            <div style={{ fontSize: 12, color: t.text2, marginTop: 4, lineHeight: 1.45 }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "24px 24px 16px" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: t.text3 }}>
+              Childcare coverage
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: t.text, marginTop: 3 }}>
+              Assigned shifts
+            </div>
+            <div style={{ fontSize: 13, color: t.text2, marginTop: 5, lineHeight: 1.45, maxWidth: 360 }}>
               Every request you've sent — pending, accepted, declined, or flagged. Caregiver notes show inline.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div ref={menuRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                style={primaryBtn(palette.G, false)}
-              >
-                + New Request
-              </button>
-              {menuOpen && (
-                <div
-                  role="menu"
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    right: 0,
-                    marginTop: 6,
-                    minWidth: 220,
-                    background: t.bgElev,
-                    color: t.text,
-                    border: `0.5px solid ${t.sep}`,
-                    borderRadius: 10,
-                    boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-                    padding: 4,
-                    zIndex: 10,
-                  }}
-                >
-                  <MenuItem
-                    label="Single request"
-                    hint="One date — date night, an appointment"
-                    t={t}
-                    onClick={() => { setMenuOpen(false); onClose(); onSendSingle(); }}
-                  />
-                  <MenuItem
-                    label="Batch request"
-                    hint="Every shift-overlap day in the window"
-                    t={t}
-                    onClick={() => { setMenuOpen(false); onClose(); onSendBatch(); }}
-                  />
-                </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+            <div ref={newMenuRef} style={{ position: "relative" }}>
+              <button type="button" onClick={() => setNewMenuOpen((v) => !v)} style={greenBtn}>+ New Request</button>
+              {newMenuOpen && (
+                <Menu t={t} dark={dark}>
+                  <MenuItem label="Single request" hint="One date — date night, an appointment" t={t}
+                    onClick={() => { setNewMenuOpen(false); onClose(); onSendSingle(); }} />
+                  <MenuItem label="Batch request" hint="Every uncovered day, today forward" t={t}
+                    onClick={() => { setNewMenuOpen(false); onClose(); onSendBatch(); }} />
+                </Menu>
               )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ background: "transparent", border: 0, color: t.text2, fontSize: 18, cursor: "pointer", padding: 4, lineHeight: 1, fontFamily: "inherit" }}
-              aria-label="Close"
-            >✕</button>
+            <button type="button" onClick={onClose} aria-label="Close"
+              style={{ width: 34, height: 34, borderRadius: "50%", border: 0, background: dark ? "rgba(255,255,255,0.08)" : "#e9e9ee", color: t.text3, fontSize: 16, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+              ✕
+            </button>
           </div>
         </div>
 
-        {/* Filter pills */}
-        <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap", alignItems: "center" }}>
-          {FILTERS.map((f) => {
-            const active = f.key === filter;
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFilter(f.key)}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: 999,
-                  border: `0.5px solid ${active ? "transparent" : t.sep}`,
-                  background: active ? (f.key === "all" ? t.text2 : statusColor(f.key as CoverageStatus)) : "transparent",
-                  color: active ? "#fff" : t.text2,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                {f.label} <span style={{ opacity: 0.7, marginLeft: 4 }}>{counts[f.key] ?? 0}</span>
-              </button>
-            );
-          })}
-
-          {/* Separate axis from the status pills — scopes everything above to
-              a month. Defaults to the current one; YTD shows all history. */}
-          <span style={{ width: 1, alignSelf: "stretch", background: t.sep, margin: "0 3px" }} />
+        {/* Filters */}
+        <div style={{ display: "flex", gap: 10, padding: "0 24px 14px" }}>
+          <div ref={statusMenuRef} style={{ position: "relative" }}>
+            <button type="button" onClick={() => { setStatusMenuOpen((v) => !v); setMonthMenuOpen(false); }} style={filterTrigger(t, dark)}>
+              {statusTriggerLabel} <span style={{ color: t.text3, fontSize: 10 }}>▾</span>
+            </button>
+            {statusMenuOpen && (
+              <Menu t={t} dark={dark} minWidth={190}>
+                {STATUS_OPTIONS.map((o) => (
+                  <FilterItem key={o.key} label={o.label} count={counts[o.key]} active={o.key === filter} t={t}
+                    onClick={() => { setFilter(o.key); setStatusMenuOpen(false); }} />
+                ))}
+              </Menu>
+            )}
+          </div>
           <div ref={monthMenuRef} style={{ position: "relative" }}>
-            <button
-              type="button"
-              onClick={() => setMonthMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={monthMenuOpen}
-              title="Filter by month"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "5px 10px",
-                borderRadius: 999,
-                border: `0.5px solid ${effectiveMonth === "all" ? t.sep : "transparent"}`,
-                background: effectiveMonth === "all" ? "transparent" : MANAGER_ORANGE,
-                color: effectiveMonth === "all" ? t.text2 : "#fff",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "-0.01em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {monthLabel(effectiveMonth)}
-              <span style={{ fontSize: 9, opacity: 0.8 }}>▾</span>
+            <button type="button" onClick={() => { setMonthMenuOpen((v) => !v); setStatusMenuOpen(false); }} style={filterTrigger(t, dark)}>
+              {monthLabel(effectiveMonth)} <span style={{ color: t.text3, fontSize: 10 }}>▾</span>
             </button>
             {monthMenuOpen && (
-              <div
-                role="menu"
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  marginTop: 6,
-                  minWidth: 150,
-                  maxHeight: 260,
-                  overflowY: "auto",
-                  background: t.bgElev,
-                  color: t.text,
-                  border: `0.5px solid ${t.sep}`,
-                  borderRadius: 10,
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-                  padding: 4,
-                  zIndex: 20,
-                }}
-              >
-                {["all", ...monthKeys].map((k) => {
-                  const active = k === effectiveMonth;
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => { setMonth(k); setMonthMenuOpen(false); }}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "7px 10px",
-                        borderRadius: 6,
-                        border: 0,
-                        background: active ? "rgba(127,127,127,0.14)" : "transparent",
-                        color: t.text,
-                        fontSize: 12.5,
-                        fontWeight: active ? 700 : 500,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        letterSpacing: "-0.01em",
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(127,127,127,0.12)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = active ? "rgba(127,127,127,0.14)" : "transparent"; }}
-                    >
-                      {monthLabel(k)}
-                    </button>
-                  );
-                })}
-              </div>
+              <Menu t={t} dark={dark} minWidth={150}>
+                {["all", ...monthKeys].map((k) => (
+                  <FilterItem key={k} label={monthLabel(k)} active={k === effectiveMonth} t={t} accent={MANAGER_ORANGE}
+                    onClick={() => { setMonth(k); setMonthMenuOpen(false); }} />
+                ))}
+              </Menu>
             )}
           </div>
         </div>
 
         {/* List */}
-        <div
-          style={{
-            marginTop: 14,
-            flex: 1,
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            minHeight: 240,
-          }}
-        >
+        <div style={{ padding: "0 20px 18px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, minHeight: 240 }}>
           {filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: t.text3, fontSize: 13 }}>
               {requests.length === 0
@@ -360,201 +212,194 @@ export function ChildcarePanel({
                   ? `No coverage requests in ${monthLabel(effectiveMonth)}. Switch to YTD to see everything.`
                   : `No ${filter} requests in ${monthLabel(effectiveMonth)}.`}
             </div>
-          ) : (
-            filtered.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "auto 1fr auto",
-                  gap: 12,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
-                  border: `0.5px solid ${t.sep}`,
-                  borderLeft: `3px solid ${statusColor(r.status)}`,
-                  opacity: busyId === r.id ? 0.5 : 1,
-                }}
-              >
-                <div style={{ minWidth: 120 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>
-                    {friendlyDate(r.date)}
+          ) : filtered.map((r) => {
+            const sc = statusColor(r.status);
+            const [, mm, dd] = r.date.split("-").map(Number);
+            const monthAbbr = new Date(2000, (mm || 1) - 1, 1).toLocaleDateString(undefined, { month: "short" }).toUpperCase();
+            const isOpen = openDay === r.id;
+            return (
+              <div key={r.id} style={{ opacity: busyId === r.id ? 0.5 : 1 }}>
+                <div
+                  onClick={() => setOpenDay(isOpen ? null : r.id)}
+                  style={{
+                    display: "flex", alignItems: "stretch", minHeight: 92, cursor: "pointer",
+                    background: dark ? "rgba(255,255,255,0.04)" : "#fff",
+                    borderRadius: 18, overflow: "hidden", boxShadow: dark ? "none" : "0 1px 3px rgba(0,0,0,0.05)",
+                    border: dark ? `0.5px solid ${t.sep}` : "none",
+                  }}
+                >
+                  <div style={{ width: 5, background: sc, flexShrink: 0 }} />
+                  {/* Date block */}
+                  <div style={{ width: 78, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: "#ff3b30" }}>{monthAbbr}</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-1.5px", color: t.text, lineHeight: 1 }}>{dd}</div>
                   </div>
-                  <div style={{ fontSize: 11, color: t.text3, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
-                    {r.startTime} → {r.endTime}{r.endsNextDay ? " +1d" : ""}
-                  </div>
-                </div>
-
-                <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        background: `${statusColor(r.status)}22`,
-                        color: statusColor(r.status),
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {statusLabel(r.status)}
-                    </span>
-                    {r.reason && (
-                      <span style={{ fontSize: 10.5, color: reasonColor(r.reason, palette), fontWeight: 600 }}>
-                        · {reasonLabel(r.reason)}
-                      </span>
-                    )}
-                    {r.arriveBy && (
-                      <span style={{ fontSize: 10.5, color: t.text3 }}>· arrive by {r.arriveBy}</span>
-                    )}
-                    {r.proposedChange && (
-                      <span
-                        title={`Waiting on the caregiver to approve ${r.proposedChange.startTime} → ${r.proposedChange.endTime}`}
-                        style={{
-                          fontSize: 10, fontWeight: 700,
-                          padding: "2px 7px", borderRadius: 999,
-                          background: "rgba(94,92,230,0.18)", color: "#5E5CE6",
-                          letterSpacing: "0.04em", textTransform: "uppercase",
-                        }}
-                      >
-                        change sent · {r.proposedChange.startTime}–{r.proposedChange.endTime}
-                      </span>
-                    )}
-                  </div>
-                  {r.notes && (
-                    <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4 }}>{r.notes}</div>
-                  )}
-                  {r.caregiverNote && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: t.text2,
-                        lineHeight: 1.4,
-                        background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-                        padding: "6px 8px",
-                        borderRadius: 6,
-                        fontStyle: "italic",
-                      }}
-                    >
-                      <b style={{ fontStyle: "normal", color: t.text }}>
-                        {r.status === "declined" ? "Caregiver said:" :
-                         r.status === "issue"    ? "Caregiver reported:" :
-                                                    "Caregiver noted:"}
-                      </b>{" "}
-                      {r.caregiverNote}
+                  {/* Details */}
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8, padding: "10px 6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums" }}>
+                      {r.startTime} <span style={{ color: t.text3 }}>→</span> {r.endTime}{r.endsNextDay ? <span style={{ fontSize: 11, color: t.text3 }}>+1d</span> : null}
                     </div>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                  {(r.status === "declined" || r.status === "issue") && !r.managerReviewed && (
-                    <button
-                      type="button"
-                      title="Mark this response as reviewed — drops it off the caregiver's schedule."
-                      disabled={busyId === r.id}
-                      onClick={async () => {
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.6px", padding: "4px 9px", borderRadius: 20, background: rgba(sc, dark ? 0.22 : 0.14), color: sc }}>
+                        {statusBadgeLabel(r.status)}
+                      </span>
+                      {r.reason && (
+                        <span style={{ fontSize: 10.5, fontWeight: 700, padding: "4px 9px", borderRadius: 20, background: rgba(reasonColor(r.reason), dark ? 0.22 : 0.12), color: reasonColor(r.reason) }}>
+                          {reasonLabel(r.reason)}
+                        </span>
+                      )}
+                      {r.arriveBy && <span style={{ fontSize: 10.5, color: t.text3 }}>· arrive by {r.arriveBy}</span>}
+                      {r.proposedChange && (
+                        <span title={`Waiting on the caregiver to approve ${r.proposedChange.startTime} → ${r.proposedChange.endTime}`}
+                          style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: rgba("#5E5CE6", dark ? 0.24 : 0.14), color: "#5E5CE6", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                          change sent · {r.proposedChange.startTime}–{r.proposedChange.endTime}
+                        </span>
+                      )}
+                    </div>
+                    {r.notes && <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4 }}>{r.notes}</div>}
+                    {r.caregiverNote && (
+                      <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4, background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", padding: "6px 8px", borderRadius: 8, fontStyle: "italic" }}>
+                        <b style={{ fontStyle: "normal", color: t.text }}>
+                          {r.status === "declined" ? "Caregiver said:" : r.status === "issue" ? "Caregiver reported:" : "Caregiver noted:"}
+                        </b>{" "}{r.caregiverNote}
+                      </div>
+                    )}
+                    {(r.status === "declined" || r.status === "issue") && (
+                      r.managerReviewed ? (
+                        <span style={{ fontSize: 10.5, color: t.text3 }}>Reviewed</span>
+                      ) : (
+                        <button type="button" disabled={busyId === r.id}
+                          title="Mark this response as reviewed — drops it off the caregiver's schedule."
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!householdId) return;
+                            setBusyId(r.id);
+                            try { await markCoverageReviewed(householdId, r.id, auth.currentUser?.uid ?? null); }
+                            catch (err) { window.alert(err instanceof Error ? err.message : "Couldn't mark reviewed."); }
+                            finally { setBusyId(null); }
+                          }}
+                          style={{ alignSelf: "flex-start", background: "transparent", border: `0.5px solid ${t.sep}`, borderRadius: 7, color: t.text2, fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: "3px 9px", fontFamily: "inherit" }}>
+                          Clear
+                        </button>
+                      )
+                    )}
+                  </div>
+                  {/* Hours */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 8px", flexShrink: 0 }}>
+                    <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.8px", color: "#1a9e4b", lineHeight: 1 }}>
+                      {durationHours(r.startTime, r.endTime, r.endsNextDay)}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.5px", color: "#7bcf98" }}>HOURS</div>
+                  </div>
+                  {/* Delete */}
+                  <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <button type="button" aria-label="Delete" disabled={busyId === r.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
                         if (!householdId) return;
+                        if (!window.confirm(`Delete coverage request for ${r.date}?`)) return;
                         setBusyId(r.id);
-                        try { await markCoverageReviewed(householdId, r.id, auth.currentUser?.uid ?? null); }
-                        catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't mark reviewed."); }
+                        try { await deleteCoverageRequest(householdId, r.id); }
+                        catch (err) { window.alert(err instanceof Error ? err.message : "Couldn't delete."); }
                         finally { setBusyId(null); }
                       }}
-                      style={{
-                        background: "transparent",
-                        border: `0.5px solid ${t.sep}`,
-                        borderRadius: 6,
-                        color: t.text2,
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        cursor: busyId === r.id ? "wait" : "pointer",
-                        padding: "3px 8px",
-                        fontFamily: "inherit",
-                        letterSpacing: "-0.01em",
-                      }}
-                    >Clear</button>
-                  )}
-                  {(r.status === "declined" || r.status === "issue") && r.managerReviewed && (
-                    <span style={{ fontSize: 10.5, color: t.text3, fontWeight: 500 }}>Reviewed</span>
-                  )}
-                  <button
-                    type="button"
-                    title="Delete this request"
-                    disabled={busyId === r.id}
-                    onClick={async () => {
-                      if (!householdId) return;
-                      if (!window.confirm(`Delete coverage request for ${friendlyDate(r.date)}?`)) return;
-                      setBusyId(r.id);
-                      try { await deleteCoverageRequest(householdId, r.id); }
-                      catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't delete."); }
-                      finally { setBusyId(null); }
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: 0,
-                      color: t.text3,
-                      fontSize: 16,
-                      cursor: busyId === r.id ? "wait" : "pointer",
-                      padding: 4,
-                      lineHeight: 1,
-                      fontFamily: "inherit",
-                    }}
-                    aria-label="Delete"
-                  >✕</button>
+                      style={{ background: "transparent", border: 0, cursor: "pointer", padding: 4, lineHeight: 0 }}>
+                      <TrashIcon />
+                    </button>
+                  </div>
                 </div>
+                {isOpen && (() => {
+                  const tl = timelineForDate(state, r.date, r);
+                  return (
+                    <DayTimeline date={r.date} selfRanges={tl.selfRanges} partnerRanges={tl.partnerRanges}
+                      coverage={tl.coverage} selfName={selfName} partnerName={partnerName}
+                      palette={palette} t={t} dark={dark} />
+                  );
+                })()}
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
       </div>
     </>
   );
 }
 
-function MenuItem({
-  label, hint, t, onClick,
-}: { label: string; hint?: string; t: ThemeTokens; onClick: () => void }) {
+// ── shared bits ─────────────────────────────────────────────────────────────
+
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, active: boolean, close: () => void) {
+  useEffect(() => {
+    if (!active) return;
+    const onDown = (ev: MouseEvent) => {
+      if (ref.current && !ref.current.contains(ev.target as Node)) close();
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [active, ref, close]);
+}
+
+const greenBtn: React.CSSProperties = {
+  padding: "10px 16px", border: 0, borderRadius: 14, background: "#34c759", color: "#fff",
+  fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+  boxShadow: "0 4px 14px rgba(52,199,89,0.35)",
+};
+
+function filterTrigger(t: ThemeTokens, dark: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 14,
+    border: `1px solid ${t.sep}`, background: dark ? "rgba(255,255,255,0.05)" : "#fff",
+    color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+  };
+}
+
+function Menu({ children, t, dark, minWidth = 220 }: { children: React.ReactNode; t: ThemeTokens; dark: boolean; minWidth?: number }) {
   return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      onMouseDown={(e) => e.preventDefault()}
-      style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        padding: "8px 10px",
-        borderRadius: 6,
-        border: 0,
-        background: "transparent",
-        color: t.text,
-        cursor: "pointer",
-        fontFamily: "inherit",
-      }}
+    <div role="menu" style={{
+      position: "absolute", top: "100%", left: 0, marginTop: 6, minWidth, maxHeight: 280, overflowY: "auto",
+      background: dark ? t.bgElev : "#fff", color: t.text, border: `1px solid ${t.sep}`, borderRadius: 14,
+      boxShadow: "0 12px 34px rgba(0,0,0,0.28)", padding: 4, zIndex: 20,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function MenuItem({ label, hint, t, onClick }: { label: string; hint?: string; t: ThemeTokens; onClick: () => void }) {
+  return (
+    <button type="button" role="menuitem" onClick={onClick} onMouseDown={(e) => e.preventDefault()}
+      style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", borderRadius: 10, border: 0, background: "transparent", color: t.text, cursor: "pointer", fontFamily: "inherit" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(127,127,127,0.12)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-    >
-      <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</div>
-      {hint && <div style={{ fontSize: 11, color: t.text3, marginTop: 2 }}>{hint}</div>}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+      <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</div>
+      {hint && <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>{hint}</div>}
     </button>
   );
 }
 
-function primaryBtn(color: string, disabled: boolean): React.CSSProperties {
-  return {
-    padding: "8px 12px",
-    border: 0,
-    borderRadius: 8,
-    background: color,
-    color: "#fff",
-    fontSize: 12.5,
-    fontWeight: 600,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.5 : 1,
-    fontFamily: "inherit",
-    letterSpacing: "-0.01em",
-    whiteSpace: "nowrap",
-  };
+function FilterItem({ label, count, active, t, accent = "#34c759", onClick }: {
+  label: string; count?: number; active: boolean; t: ThemeTokens; accent?: string; onClick: () => void;
+}) {
+  return (
+    <button type="button" role="menuitem" onClick={onClick} onMouseDown={(e) => e.preventDefault()}
+      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: 10, border: 0, background: "transparent", color: active ? t.text : t.text2, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(127,127,127,0.1)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+        {active && <span style={{ color: accent, fontWeight: 800 }}>✓</span>}
+        {label}
+      </span>
+      {typeof count === "number" && <span style={{ color: t.text3, fontSize: 12.5 }}>{count}</span>}
+    </button>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#e5484d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
 }
