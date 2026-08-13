@@ -157,9 +157,12 @@ export function Inspector({
             // pill. We strip any trailing "<time>-<time>" pattern from
             // the name, then append just the compact start time.
             const stype = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+            // Strip a trailing time range from the shift name so the pill stays
+            // short — both "11p-730a" style and a parenthesized 24h "(0930-1800)".
             const TIME_RANGE = /\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*[-–]\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*$/i;
+            const PAREN_RANGE = /\s*\(\s*\d{3,4}\s*[-–]\s*\d{3,4}\s*\)\s*$/;
             const pillText = stype
-              ? `${stype.name.replace(TIME_RANGE, "").trim()} · ${compactTime(stype.start)}`
+              ? `${stype.name.replace(PAREN_RANGE, "").replace(TIME_RANGE, "").trim()} · ${compactTime(stype.start)}`
               : s.label;
             const revealed = revealedIdx === i;
             const hasActions = editable || deletable;
@@ -203,6 +206,9 @@ export function Inspector({
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     flexShrink: 1,
+                    // Without this, flex min-content keeps the pill from
+                    // shrinking, so a long shift name overran the person's name.
+                    minWidth: 0,
                   }}
                   title={pillText}
                 >

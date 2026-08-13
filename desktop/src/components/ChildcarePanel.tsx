@@ -137,7 +137,11 @@ export function ChildcarePanel({
           width: "min(640px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: dark ? t.bgElev : "#f4f4f6", color: t.text,
           borderRadius: 22, boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
-          zIndex: 1101, fontFamily: "inherit", display: "flex", flexDirection: "column", overflow: "hidden",
+          zIndex: 1101, fontFamily: "inherit", display: "flex", flexDirection: "column",
+          // visible (not hidden) so the "New Request" dropdown can spill past
+          // the dialog edge instead of being clipped. The list below owns its
+          // own scroll clipping, so nothing else leaks.
+          overflow: "visible",
         }}
       >
         {/* Header */}
@@ -203,7 +207,7 @@ export function ChildcarePanel({
         </div>
 
         {/* List */}
-        <div style={{ padding: "0 20px 18px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, minHeight: 240 }}>
+        <div style={{ padding: "0 20px 18px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
           {filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: t.text3, fontSize: 13 }}>
               {requests.length === 0
