@@ -251,9 +251,10 @@ export function WeekView({
                       <div
                         key={`cov-${i}`}
                         style={{
-                          position: "absolute", right: 3, top, width: 6, height: Math.max(height, 6),
-                          borderRadius: 3, background: `linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`,
-                          boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.5)}`, pointerEvents: "none",
+                          // Right-side block, half the width of a shift block.
+                          position: "absolute", right: 4, width: "calc(50% - 6px)", top, height: Math.max(height, 12),
+                          borderRadius: 4, background: `linear-gradient(180deg, ${rgba("#2fbe5a", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
+                          boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.45)}`, pointerEvents: "none",
                         }}
                         title={`Coverage ${r.startTime}–${r.endTime}`}
                       />

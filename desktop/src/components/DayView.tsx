@@ -259,9 +259,17 @@ export function DayView({
                 return (
                   <div
                     key={`cov-${i}`}
-                    style={{ position: "absolute", right: 6, top, width: 7, height: Math.max(height, 6), borderRadius: 3, background: `linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`, boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.5)}`, pointerEvents: "none" }}
+                    style={{
+                      // Right-side block, half the width of a shift block.
+                      position: "absolute", right: 8, width: "calc(50% - 10px)", top, height: Math.max(height, 22),
+                      borderRadius: 6, background: `linear-gradient(180deg, ${rgba("#2fbe5a", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
+                      boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.4)}`, padding: "4px 8px", overflow: "hidden",
+                      color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em", pointerEvents: "none",
+                    }}
                     title={`Coverage ${r.startTime}–${r.endTime}`}
-                  />
+                  >
+                    Coverage
+                  </div>
                 );
               })}
 
