@@ -311,7 +311,7 @@ export function ChildcarePanel({
                 {isOpen && (() => {
                   const tl = timelineForDate(state, r.date, r);
                   return (
-                    <DayTimeline date={r.date} selfRanges={tl.selfRanges} partnerRanges={tl.partnerRanges}
+                    <DayTimeline date={r.date} self={tl.self} partner={tl.partner}
                       coverage={tl.coverage} selfName={selfName} partnerName={partnerName}
                       palette={palette} t={t} dark={dark} />
                   );

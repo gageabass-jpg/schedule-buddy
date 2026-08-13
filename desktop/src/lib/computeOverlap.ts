@@ -215,6 +215,61 @@ export function parentDayRanges(
   return mergeToAxis(unavailableBlocks(date, who, shifts, state));
 }
 
+/** Working hours vs resting hours, split for the day timeline. `work` is the
+ *  PURE shift clock hours (not the lead/travel the coverage engine folds in);
+ *  `sleep` is the pre-shift and post-shift rest windows. Both clamped to the
+ *  6am–midnight axis. */
+export interface DaySegments { work: MinuteRange[]; sleep: MinuteRange[]; }
+
+function shiftSegmentsFor(
+  shiftTypeId: string | undefined,
+  state: HouseholdState,
+  offsetMin: number,
+): { work: MinuteRange; sleep: MinuteRange[] } | null {
+  if (!shiftTypeId) return null;
+  const t = state.shiftTypes.find((s) => s.id === shiftTypeId);
+  if (!t) return null;
+  const startMin = parseHM(t.start) + offsetMin;
+  let endMin = parseHM(t.end) + offsetMin;
+  if (t.crossesMidnight || endMin <= startMin) endMin += MIN_PER_DAY;
+
+  const sleep: MinuteRange[] = [];
+  const leavesAt = startMin - LEAVE_LEAD_MIN;
+  const homeAt = endMin + TRAVEL_HOME_MIN;
+  const pre = (t.preSleepHours ?? 0) * 60;
+  if (pre > 0) sleep.push({ startMin: leavesAt - pre, endMin: leavesAt });
+  const post = (t.sleepHours ?? 0) * 60;
+  if (post > 0) {
+    const s = homeAt + SETTLE_MIN;
+    sleep.push({ startMin: s, endMin: s + post });
+  }
+  return { work: { startMin, endMin }, sleep };
+}
+
+export function parentDaySegments(
+  date: string,
+  who: "G" | "K",
+  shifts: ShiftMap,
+  state: HouseholdState,
+): DaySegments {
+  const work: MinuteRange[] = [];
+  const sleep: MinuteRange[] = [];
+  // today, yesterday shifted +24h, tomorrow shifted −24h — same span
+  // unavailableBlocks scans, so cross-midnight work and next-day pre-sleep land.
+  const collect = (d: string, offset: number) => {
+    for (const s of (shifts[d] ?? []).filter((x) => x.who === who)) {
+      const seg = shiftSegmentsFor(s.shiftTypeId, state, offset);
+      if (!seg) continue;
+      work.push(seg.work);
+      sleep.push(...seg.sleep);
+    }
+  };
+  collect(date, 0);
+  collect(prevIsoDate(date), -MIN_PER_DAY);
+  collect(nextIsoDate(date), MIN_PER_DAY);
+  return { work: mergeToAxis(work), sleep: mergeToAxis(sleep) };
+}
+
 /** "HH:MM" (+ optional next-day flag) → minutes on today's axis. */
 export function hmToMin(hhmm: string, nextDay = false): number {
   return parseHM(hhmm) + (nextDay ? MIN_PER_DAY : 0);

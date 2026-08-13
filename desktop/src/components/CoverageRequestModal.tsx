@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { rgba, type Palette, type ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
-import { hmToMin, type OverlapCandidate, type MinuteRange } from "../lib/computeOverlap";
+import { hmToMin, type OverlapCandidate, type MinuteRange, type DaySegments } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 import { timelineForDate, parentShiftStarts } from "../lib/timelineData";
@@ -83,12 +83,12 @@ export function CoverageRequestModal({
   // per-row time edits, so it doesn't rebuild on every keystroke.
   const datesKey = rows.map((r) => r.date).join(",");
   const dayInfoByDate = useMemo(() => {
-    const map: Record<string, { selfRanges: MinuteRange[]; partnerRanges: MinuteRange[]; selfStarts: number[]; partnerStarts: number[] }> = {};
+    const map: Record<string, { self: DaySegments; partner: DaySegments; selfStarts: number[]; partnerStarts: number[] }> = {};
     for (const r of rows) {
       if (map[r.date]) continue;
       const tl = timelineForDate(state, r.date, null);
       const starts = parentShiftStarts(state, r.date);
-      map[r.date] = { selfRanges: tl.selfRanges, partnerRanges: tl.partnerRanges, selfStarts: starts.self, partnerStarts: starts.partner };
+      map[r.date] = { self: tl.self, partner: tl.partner, selfStarts: starts.self, partnerStarts: starts.partner };
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,7 +169,7 @@ export function CoverageRequestModal({
             const dt = new Date(r.date.split("-").map(Number)[0], (mm || 1) - 1, dd || 1);
             const monthAbbr = dt.toLocaleDateString(undefined, { month: "short" }).toUpperCase();
             const weekday = dt.toLocaleDateString(undefined, { weekday: "short" });
-            const info = dayInfoByDate[r.date] ?? { selfRanges: [], partnerRanges: [], selfStarts: [], partnerStarts: [] };
+            const info = dayInfoByDate[r.date] ?? { self: { work: [], sleep: [] }, partner: { work: [], sleep: [] }, selfStarts: [], partnerStarts: [] };
             const isOpen = openRow === r.rowId;
             const coverage: MinuteRange = { startMin: hmToMin(r.startTime), endMin: hmToMin(r.endTime, r.endsNextDay) };
             return (
@@ -206,15 +206,15 @@ export function CoverageRequestModal({
                   </div>
                   {/* Approve / deny */}
                   <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0, marginLeft: 4 }}>
-                    <RoundBtn label="✓" active={!r.skipped} activeColor="#1a9e4b" activeBg={rgba("#34c759", 0.16)} t={t} dark={dark}
+                    <RoundBtn label="✓" active={!r.skipped} color="#1a9e4b" t={t} dark={dark}
                       title="Approve — include in the batch" onClick={() => update(r.rowId, { skipped: false })} />
-                    <RoundBtn label="✕" active={r.skipped} activeColor="#c0392b" activeBg={rgba("#c0392b", 0.16)} t={t} dark={dark}
+                    <RoundBtn label="✕" active={r.skipped} color="#e5484d" t={t} dark={dark}
                       title="Deny — leave out of the batch" onClick={() => update(r.rowId, { skipped: true })} />
                   </div>
                 </div>
                 {isOpen && (
                   <div style={{ padding: "0 6px" }}>
-                    <DayTimeline date={r.date} selfRanges={info.selfRanges} partnerRanges={info.partnerRanges}
+                    <DayTimeline date={r.date} self={info.self} partner={info.partner}
                       coverage={coverage} selfName={selfName} partnerName={partnerName} includeWeekday
                       palette={palette} t={t} dark={dark} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 6px 10px" }}>
@@ -282,16 +282,19 @@ function HoursPill({ letter, text, accent, bg, t }: { letter: string; text: stri
   );
 }
 
-function RoundBtn({ label, active, activeColor, activeBg, title, onClick, t, dark }: {
-  label: string; active: boolean; activeColor: string; activeBg: string; title: string; onClick: () => void; t: ThemeTokens; dark: boolean;
+function RoundBtn({ label, active, color, title, onClick, t, dark }: {
+  label: string; active: boolean; color: string; title: string; onClick: () => void; t: ThemeTokens; dark: boolean;
 }) {
+  // The glyph always carries its color (green ✓ / red ✕) so the affordance
+  // reads at a glance; the tinted fill just deepens on the active choice.
   return (
     <button type="button" title={title} onClick={onClick}
       style={{
         width: 30, height: 30, borderRadius: "50%", border: 0, cursor: "pointer", fontFamily: "inherit",
         fontSize: 13, fontWeight: 800, lineHeight: 1,
-        background: active ? activeBg : (dark ? "rgba(255,255,255,0.06)" : "#f2f2f5"),
-        color: active ? activeColor : t.text3,
+        background: active ? rgba(color, dark ? 0.3 : 0.18) : (dark ? "rgba(255,255,255,0.06)" : "#f2f2f5"),
+        color: color,
+        opacity: active ? 1 : 0.6,
       }}>
       {label}
     </button>
