@@ -1,9 +1,32 @@
-import { DAYS_LONG, MONTHS_LONG, type Shift, type ShiftMap } from "../data";
+import { DAYS_LONG, MONTHS_LONG, fmtDate, type Shift, type ShiftMap } from "../data";
 import { eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { compactTime } from "../state";
+import { parentDaySegments } from "../lib/computeOverlap";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
+
+const COVERAGE_COLOR = "#159c43";
+
+/** Diagonal-hatch fill for resting hours — matches the day timeline. */
+function hatch(color: string): string {
+  return `repeating-linear-gradient(45deg, ${rgba(color, 0.5)} 0, ${rgba(color, 0.5)} 2px, ${rgba(color, 0.1)} 2px, ${rgba(color, 0.1)} 7px)`;
+}
+
+/** ISO "YYYY-MM-DD" one day earlier. */
+function prevDayKey(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, (d || 1) - 1);
+  return fmtDate(dt.getFullYear(), dt.getMonth(), dt.getDate());
+}
+
+/** Short end-time label for a carried-over shift, e.g. "7:30a". */
+function endLabel(typ: { end: string }): string {
+  const [h, mm] = typ.end.split(":").map(Number);
+  const ap = (h || 0) < 12 ? "a" : "p";
+  const h12 = (h || 0) % 12 || 12;
+  return mm ? `${h12}:${String(mm).padStart(2, "0")}${ap}` : `${h12}${ap}`;
+}
 
 interface Props {
   palette: Palette;
@@ -28,18 +51,30 @@ function parseHM(hhmm: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+function LegendChip({ swatch, label, t }: { swatch: string; label: string; t: ThemeTokens }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: t.text3 }}>
+      <span style={{ width: 16, height: 10, borderRadius: 3, background: swatch }} />
+      {label}
+    </span>
+  );
+}
+
 interface PlacedBlock {
   startMin: number;          // relative to HOUR_START * 60
   endMin: number;
 }
 
-function blockForShift(shift: Shift, state: HouseholdState | null): PlacedBlock | null {
+/** `offsetMin` of -1440 renders the tail of the PREVIOUS day's overnight shift
+ *  at the top of this day's column. */
+function blockForShift(shift: Shift, state: HouseholdState | null, offsetMin = 0): PlacedBlock | null {
   if (!state || !shift.shiftTypeId) return null;
   const typ = state.shiftTypes.find((s) => s.id === shift.shiftTypeId);
   if (!typ) return null;
-  let startMin = parseHM(typ.start);
+  const startMin = parseHM(typ.start) + offsetMin;
   let endMin = parseHM(typ.end);
-  if (typ.crossesMidnight || endMin <= startMin) endMin += 24 * 60;
+  if (typ.crossesMidnight || endMin <= parseHM(typ.start)) endMin += 24 * 60;
+  endMin += offsetMin;
   const winStart = HOUR_START * 60;
   const winEnd = HOUR_END * 60;
   if (endMin <= winStart || startMin >= winEnd) return null;
@@ -110,6 +145,13 @@ export function DayView({
             {list.some((s) => s.who === "K") && <PhotoAv who="K" size={28} palette={palette} dark={dark} />}
           </div>
         )}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginTop: -4 }}>
+        <LegendChip swatch={rgba(palette.G, 0.5)} label="Working" t={t} />
+        <LegendChip swatch={hatch(t.text2)} label="Resting" t={t} />
+        <LegendChip swatch={`linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
       </div>
 
       {/* Timeline */}
@@ -184,6 +226,67 @@ export function DayView({
                 />
               );
             })()}
+            {/* Resting hours — hatched, under the solid work blocks. Same
+                per-parent sleep the day timeline and week view draw. */}
+            {state && (["G", "K"] as const).flatMap((who) => {
+              const color = personColor(who, palette);
+              return parentDaySegments(selected, who, shifts, state).sleep.map((r, i) => {
+                const top = ((r.startMin - HOUR_START * 60) / 60) * PX_PER_HOUR;
+                const height = ((r.endMin - r.startMin) / 60) * PX_PER_HOUR;
+                if (height <= 0) return null;
+                return (
+                  <div
+                    key={`rest-${who}-${i}`}
+                    style={{ position: "absolute", left: 8, right: 8, top, height, borderRadius: 6, background: hatch(color), opacity: 0.75, pointerEvents: "none" }}
+                    title={`${who} resting`}
+                  />
+                );
+              });
+            })}
+
+            {/* Coverage window — green stripe on the right edge. */}
+            {(state?.coverageRequests ?? [])
+              .filter((r) => r.date === selected && (r.status === "pending" || r.status === "confirmed"))
+              .map((r, i) => {
+                const startMin = parseHM(r.startTime);
+                let endMin = parseHM(r.endTime);
+                if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
+                const winStart = HOUR_START * 60;
+                const winEnd = HOUR_END * 60;
+                if (endMin <= winStart || startMin >= winEnd) return null;
+                const top = (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR;
+                const height = (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR;
+                return (
+                  <div
+                    key={`cov-${i}`}
+                    style={{ position: "absolute", right: 6, top, width: 7, height: Math.max(height, 6), borderRadius: 3, background: `linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`, boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.5)}`, pointerEvents: "none" }}
+                    title={`Coverage ${r.startTime}–${r.endTime}`}
+                  />
+                );
+              })}
+
+            {/* Overnight carry-over: tail of the previous day's cross-midnight shift. */}
+            {(shifts[prevDayKey(selected)] ?? []).map((s, i) => {
+              const block = blockForShift(s, state, -24 * 60);
+              if (!block) return null;
+              const typ = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+              const color = personColor(s.who, palette);
+              const top = (block.startMin / 60) * PX_PER_HOUR;
+              const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
+              if (height <= 1) return null;
+              return (
+                <div
+                  key={`tail-${i}`}
+                  style={{ position: "absolute", left: 8, right: 8, top, height: Math.max(height, 22), background: rgba(color, 0.22), borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "6px 10px", color: dark ? "#fff" : t.text, overflow: "hidden" }}
+                  title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>
+                    {s.who === "G" ? selfName : partnerName} · until {typ ? endLabel(typ) : ""}
+                  </div>
+                </div>
+              );
+            })}
+
             {/* Event blocks (outlined; click to edit) */}
             {events.map((ev) => {
               if (!ev.startTime) return null;
