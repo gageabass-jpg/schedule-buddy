@@ -19,6 +19,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
   const [target, setTarget] = useState<ShiftTarget>("self-ot");
   const [date, setDate] = useState<string>(defaultDate);
   const [shiftTypeId, setShiftTypeId] = useState<string>(state?.shiftTypes?.[0]?.id ?? "");
+  const [customTime, setCustomTime] = useState(false);
+  const [customStart, setCustomStart] = useState("09:00");
+  const [customEnd, setCustomEnd] = useState("17:00");
   const [label, setLabel] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -30,6 +33,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     setLastOpenKey(openKey);
     setDate(defaultDate);
     setShiftTypeId(state?.shiftTypes?.[0]?.id ?? "");
+    setCustomTime(false);
+    setCustomStart("09:00");
+    setCustomEnd("17:00");
     setLabel("");
     setErr(null);
   }
@@ -42,14 +48,21 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
       setErr("No household linked.");
       return;
     }
-    if (!shiftTypeId) {
-      setErr("Pick a shift type.");
+    if (!customTime && !shiftTypeId) {
+      setErr("Pick a shift type or add a custom time.");
+      return;
+    }
+    if (customTime && customEnd === customStart) {
+      setErr("Custom start and end can't be the same.");
       return;
     }
     setErr(null);
     setBusy(true);
     try {
-      await writeNewShift({ householdId, target, date, shiftTypeId, label });
+      await writeNewShift({
+        householdId, target, date, shiftTypeId, label,
+        customTime: customTime ? { start: customStart, end: customEnd } : undefined,
+      });
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the shift.");
@@ -120,8 +133,8 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             <select
               value={shiftTypeId}
               onChange={(e) => setShiftTypeId(e.target.value)}
-              required
-              style={selectStyle(t)}
+              disabled={customTime}
+              style={{ ...selectStyle(t), opacity: customTime ? 0.5 : 1 }}
             >
               {(state?.shiftTypes ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -130,6 +143,30 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
               ))}
             </select>
           </Field>
+
+          {/* Custom time — override the shift type's times for this one shift. */}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: -4 }}>
+            <input
+              type="checkbox"
+              checked={customTime}
+              onChange={(e) => setCustomTime(e.target.checked)}
+              style={{ accentColor: palette.G, width: 15, height: 15, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: t.text2, letterSpacing: "-0.01em" }}>
+              Add custom time
+            </span>
+          </label>
+
+          {customTime && (
+            <div style={{ display: "flex", gap: 10 }}>
+              <Field label="Start" t={t}>
+                <input type="time" value={customStart} onChange={(e) => setCustomStart(e.target.value)} style={inputStyle(t)} />
+              </Field>
+              <Field label="End" t={t}>
+                <input type="time" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} style={inputStyle(t)} />
+              </Field>
+            </div>
+          )}
 
           <Field label="Label (optional)" t={t}>
             <input
@@ -149,7 +186,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>
               Cancel
             </button>
-            <button type="submit" disabled={busy || !shiftTypeId} style={primaryBtn(palette.G, busy || !shiftTypeId)}>
+            <button type="submit" disabled={busy || (!customTime && !shiftTypeId)} style={primaryBtn(palette.G, busy || (!customTime && !shiftTypeId))}>
               {busy ? "Saving…" : "Add shift"}
             </button>
           </div>

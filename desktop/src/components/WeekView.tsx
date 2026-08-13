@@ -39,13 +39,17 @@ function parseHM(hhmm: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
-function blockForShift(shift: Shift, state: HouseholdState | null): PlacedBlock | null {
+/** Place a shift on a day column. `offsetMin` of -1440 renders the tail of the
+ *  PREVIOUS day's overnight shift at the top of this column (so a 7p→7:30a
+ *  night carries into the next day until 7:30a instead of just vanishing). */
+function blockForShift(shift: Shift, state: HouseholdState | null, offsetMin = 0): PlacedBlock | null {
   if (!state || !shift.shiftTypeId) return null;
   const typ = state.shiftTypes.find((s) => s.id === shift.shiftTypeId);
   if (!typ) return null;
-  let startMin = parseHM(typ.start);
+  const startMin = parseHM(typ.start) + offsetMin;
   let endMin = parseHM(typ.end);
-  if (typ.crossesMidnight || endMin <= startMin) endMin += 24 * 60;
+  if (typ.crossesMidnight || endMin <= parseHM(typ.start)) endMin += 24 * 60;
+  endMin += offsetMin;
   const winStart = HOUR_START * 60;
   const winEnd = HOUR_END * 60;
   if (endMin <= winStart || startMin >= winEnd) return null;
@@ -53,6 +57,21 @@ function blockForShift(shift: Shift, state: HouseholdState | null): PlacedBlock 
     startMin: Math.max(startMin, winStart) - winStart,
     endMin: Math.min(endMin, winEnd) - winStart,
   };
+}
+
+/** ISO "YYYY-MM-DD" one day earlier. */
+function prevDayKey(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, (d || 1) - 1);
+  return fmtDate(dt.getFullYear(), dt.getMonth(), dt.getDate());
+}
+
+/** Short end-time label for a carried-over shift, e.g. "7:30a". */
+function endLabel(typ: { start: string; end: string }): string {
+  const [h, mm] = typ.end.split(":").map(Number);
+  const ap = (h || 0) < 12 ? "a" : "p";
+  const h12 = (h || 0) % 12 || 12;
+  return mm ? `${h12}:${String(mm).padStart(2, "0")}${ap}` : `${h12}${ap}`;
 }
 
 export function WeekView({
@@ -240,6 +259,33 @@ export function WeekView({
                       />
                     );
                   })}
+
+                {/* Overnight carry-over: the tail of the previous day's
+                    cross-midnight shift, drawn at the top of this column. */}
+                {(shifts[prevDayKey(key)] ?? []).map((s, i) => {
+                  const block = blockForShift(s, state, -24 * 60);
+                  if (!block) return null;
+                  const typ = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+                  const color = personColor(s.who, palette);
+                  const top = (block.startMin / 60) * PX_PER_HOUR;
+                  const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
+                  if (height <= 1) return null;
+                  return (
+                    <div
+                      key={`tail-${i}`}
+                      style={{
+                        position: "absolute", left: 4, right: 4, top, height: Math.max(height, 14),
+                        background: rgba(color, 0.28), borderLeft: `3px solid ${color}`, borderRadius: 4,
+                        padding: "2px 6px", fontSize: 10.5, fontWeight: 600, color: dark ? "#fff" : t.text,
+                        overflow: "hidden", whiteSpace: "nowrap", letterSpacing: "-0.01em",
+                      }}
+                      title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
+                    >
+                      <span style={{ opacity: 0.85, marginRight: 4 }}>{s.who}</span>
+                      until {typ ? endLabel(typ) : ""}
+                    </div>
+                  );
+                })}
 
                 {/* Shift blocks */}
                 {(shifts[key] ?? []).map((s, i) => {

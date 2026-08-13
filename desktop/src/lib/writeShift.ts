@@ -1,7 +1,8 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import type { HouseholdState } from "../state";
+import { compactTime, type HouseholdState } from "../state";
 import type { ShiftSource } from "../data";
+import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";
 
 export type ShiftTarget = "self-ot" | "partner";
 
@@ -12,6 +13,10 @@ export interface NewShiftInput {
   shiftTypeId: string;
   label?: string;
   coworkers?: string;
+  /** One-off custom times ("HH:MM"). When given, a matching basic shift type
+   *  is reused (or created) and referenced — so the shift works everywhere
+   *  that keys off shiftTypeId with no other changes. */
+  customTime?: { start: string; end: string };
 }
 
 export class WriteShiftError extends Error {
@@ -30,7 +35,7 @@ export class WriteShiftError extends Error {
  *   target === "partner"  →  state.partner.shifts.push({ date, shiftTypeId, label })
  */
 export async function writeNewShift(input: NewShiftInput): Promise<void> {
-  const { householdId, target, date, shiftTypeId } = input;
+  const { householdId, target, date } = input;
   const label = input.label?.trim() ?? "";
 
   const ref = doc(db, "households", householdId, "state", "main");
@@ -50,7 +55,36 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
     ...current,
     ot: [...(current.ot ?? [])],
     partner: { ...current.partner, shifts: [...(current.partner?.shifts ?? [])] },
+    shiftTypes: [...(current.shiftTypes ?? [])],
   };
+
+  // Resolve the shift type. A custom time reuses a matching basic type or
+  // mints a new one, in this same write, so the entry can reference it by id.
+  let shiftTypeId = input.shiftTypeId;
+  if (input.customTime) {
+    const { start, end } = input.customTime;
+    if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) {
+      throw new WriteShiftError("Enter a valid custom start and end time.");
+    }
+    const match = next.shiftTypes.find(
+      (s) => s.start === start && s.end === end && !s.sleepHours && !s.preSleepHours,
+    );
+    if (match) {
+      shiftTypeId = match.id;
+    } else {
+      shiftTypeId = generateShiftTypeId(next.shiftTypes);
+      next.shiftTypes.push({
+        id: shiftTypeId,
+        name: `Custom ${compactTime(start)}-${compactTime(end)}`,
+        start,
+        end,
+        crossesMidnight: crossesMidnight(start, end),
+      });
+    }
+  }
+  if (!shiftTypeId) {
+    throw new WriteShiftError("Pick a shift type or enter a custom time.");
+  }
 
   if (target === "self-ot") {
     next.ot.push({
