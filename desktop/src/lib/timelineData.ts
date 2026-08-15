@@ -5,7 +5,7 @@
 // engine computes, so an expanded row shows exactly why coverage was needed.
 
 import { buildShiftMap, type HouseholdState } from "../state";
-import { parentDaySegments, hmToMin, type MinuteRange, type DaySegments } from "./computeOverlap";
+import { parentDaySegments, daisyDayRanges, hmToMin, type MinuteRange, type DaySegments } from "./computeOverlap";
 
 /** Each parent's actual shift START time(s) on `date`, as minutes-past-midnight,
  *  sorted. This is the clock-in time (e.g. a 3pm Evening shift → 900), NOT the
@@ -38,6 +38,8 @@ export interface DayTimelineData {
   self: DaySegments;
   partner: DaySegments;
   coverage: MinuteRange | null;
+  /** Daisy's school time that day (when she can't cover). */
+  daisy: MinuteRange[];
 }
 
 function addDays(iso: string, delta: number): string {
@@ -51,7 +53,7 @@ export function timelineForDate(
   date: string,
   coverage: { startTime: string; endTime: string; endsNextDay?: boolean } | null,
 ): DayTimelineData {
-  if (!state) return { self: { work: [], sleep: [] }, partner: { work: [], sleep: [] }, coverage: null };
+  if (!state) return { self: { work: [], sleep: [] }, partner: { work: [], sleep: [] }, coverage: null, daisy: [] };
   const st: HouseholdState = {
     ...state,
     template: state.template ?? [],
@@ -68,5 +70,6 @@ export function timelineForDate(
     self: parentDaySegments(date, "G", shifts, st),
     partner: parentDaySegments(date, "K", shifts, st),
     coverage: cov,
+    daisy: daisyDayRanges(st, date),
   };
 }

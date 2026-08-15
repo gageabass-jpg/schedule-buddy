@@ -6,6 +6,7 @@ import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
+import { daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
 
 interface Props {
   selected: string;
@@ -77,6 +78,9 @@ export function Inspector({
   // Schedule block covering this day (vacation, travel, etc.) — surfaces a
   // red striped notice card right under the Selected Day header.
   const dayBlock = blockForDate(state?.scheduleBlocks, selected);
+  // Daisy's (caregiver) school time on the selected day — when she can't cover.
+  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisySchool = state ? daisyDayRanges(state, selected) : [];
 
   return (
     <div
@@ -350,6 +354,11 @@ export function Inspector({
       <div>
         <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {daisySchool.length > 0 && (
+            <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
+              {daisyName} has school {schoolSpanLabel(daisySchool)} — {dayCoverage.some((r) => daisyCoverageConflict(state!, r.date, r.startTime, r.endTime, r.endsNextDay)) ? "overlaps a coverage window; she may not be able to cover" : "unavailable to cover then"}
+            </div>
+          )}
           {isChildcareOff && (
             <div
               style={{
@@ -758,6 +767,19 @@ function iconBtnStyle(t: ThemeTokens): React.CSSProperties {
     alignItems: "center",
     justifyContent: "center",
   };
+}
+
+/** Daisy school ranges → "8a–3p" span. */
+function schoolSpanLabel(rs: MinuteRange[]): string {
+  const f = (m: number) => {
+    const mm = ((m % 1440) + 1440) % 1440;
+    let h = Math.floor(mm / 60); const min = mm % 60;
+    const ap = h < 12 ? "a" : "p"; h = h % 12 || 12;
+    return min ? `${h}:${String(min).padStart(2, "0")}${ap}` : `${h}${ap}`;
+  };
+  const s = Math.min(...rs.map((r) => r.startMin));
+  const e = Math.max(...rs.map((r) => r.endMin));
+  return `${f(s)}–${f(e)}`;
 }
 
 function subhead(t: ThemeTokens): React.CSSProperties {

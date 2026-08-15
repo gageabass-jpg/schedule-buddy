@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MANAGER_ORANGE, rgba, type Palette, type ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { deleteCoverageRequest, markCoverageReviewed, statusLabel } from "../lib/writeCoverageRequest";
-import { hmToMin } from "../lib/computeOverlap";
+import { hmToMin, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
 import { timelineForDate } from "../lib/timelineData";
 import { DayTimeline } from "./DayTimeline";
 import { auth } from "../firebase";
@@ -40,6 +40,17 @@ function statusColor(s: CoverageStatus): string {
 }
 function statusBadgeLabel(s: CoverageStatus): string {
   return s === "confirmed" ? "CONFIRMED" : statusLabel(s).toUpperCase();
+}
+
+/** A Daisy school range → "8a–3p". */
+function schoolLabel(r: MinuteRange): string {
+  const f = (m: number) => {
+    const mm = ((m % 1440) + 1440) % 1440;
+    let h = Math.floor(mm / 60); const min = mm % 60;
+    const ap = h < 12 ? "a" : "p"; h = h % 12 || 12;
+    return min ? `${h}:${String(min).padStart(2, "0")}${ap}` : `${h}${ap}`;
+  };
+  return `${f(r.startMin)}–${f(r.endMin)}`;
 }
 
 function reasonLabel(r: CoverageRequest["reason"]): string {
@@ -80,6 +91,7 @@ export function ChildcarePanel({
 
   const selfName = state?.selfName || "You";
   const partnerName = state?.partner?.name || "Kaylene";
+  const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const requests = state?.coverageRequests ?? [];
 
   const monthPrefix = useMemo(() => {
@@ -260,6 +272,14 @@ export function ChildcarePanel({
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const clash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
+                      return clash ? (
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#c77700", display: "flex", alignItems: "center", gap: 5 }}>
+                          ⚠ {daisyName} has school {schoolLabel(clash)} — may not be able to cover
+                        </div>
+                      ) : null;
+                    })()}
                     {r.notes && <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4 }}>{r.notes}</div>}
                     {r.caregiverNote && (
                       <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4, background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", padding: "6px 8px", borderRadius: 8, fontStyle: "italic" }}>
@@ -316,7 +336,8 @@ export function ChildcarePanel({
                   const tl = timelineForDate(state, r.date, r);
                   return (
                     <DayTimeline date={r.date} self={tl.self} partner={tl.partner}
-                      coverage={tl.coverage} selfName={selfName} partnerName={partnerName}
+                      coverage={tl.coverage} daisy={tl.daisy} daisyName={daisyName}
+                      selfName={selfName} partnerName={partnerName}
                       palette={palette} t={t} dark={dark} />
                   );
                 })()}

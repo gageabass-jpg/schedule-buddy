@@ -17,6 +17,9 @@ interface Props {
   partner: DaySegments;
   /** The coverage window for this day (request or candidate). */
   coverage: Range | null;
+  /** Daisy's school time (when she can't cover). Lane hidden when empty. */
+  daisy?: Range[];
+  daisyName?: string;
   selfName: string;
   partnerName: string;
   /** Assigned-shifts heading omits the weekday; the batch one includes it. */
@@ -27,6 +30,7 @@ interface Props {
 }
 
 const TICKS = ["6a", "9a", "12p", "3p", "6p", "9p", "12a"];
+const DAISY_COLOR = "#FF9F0A";   // amber — Daisy's school time (unavailable to cover)
 
 /** Minutes-past-midnight → "5pm" / "11:30pm" style label. */
 function label(min: number): string {
@@ -60,7 +64,7 @@ function hatch(color: string): string {
 }
 
 export function DayTimeline({
-  date, self, partner, coverage, selfName, partnerName,
+  date, self, partner, coverage, daisy, daisyName, selfName, partnerName,
   includeWeekday, palette, t, dark,
 }: Props) {
   const [y, m, d] = date.split("-").map(Number);
@@ -136,6 +140,27 @@ export function DayTimeline({
           {coverage ? spanLabel([coverage]) : "—"}
         </div>
       </div>
+
+      {/* Daisy (caregiver) school lane — only when she has school that day. */}
+      {daisy && daisy.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 11 }}>
+          <div style={{ width: 92, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: DAISY_COLOR, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {daisyName || "Daisy"}
+            </span>
+          </div>
+          <div style={{ position: "relative", flex: 1, height: 20, background: trackBg, borderRadius: 7 }}>
+            {daisy.map((r, i) => {
+              const p = pos(r);
+              return <div key={i} style={{ position: "absolute", top: 2, bottom: 2, left: p.left, width: p.width, borderRadius: 6, background: DAISY_COLOR }} title="school — can't cover" />;
+            })}
+          </div>
+          <div style={{ width: 92, fontSize: 12, color: t.text3, textAlign: "right", flexShrink: 0 }}>
+            {spanLabel(daisy)} · school
+          </div>
+        </div>
+      )}
 
       {/* Tick labels aligned to the track area. */}
       <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 104px 0" }}>

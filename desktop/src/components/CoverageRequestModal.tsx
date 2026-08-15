@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { rgba, type Palette, type ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
-import { hmToMin, type OverlapCandidate, type MinuteRange, type DaySegments } from "../lib/computeOverlap";
+import { hmToMin, daisyCoverageConflict, type OverlapCandidate, type MinuteRange, type DaySegments } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 import { timelineForDate, parentShiftStarts } from "../lib/timelineData";
@@ -75,6 +75,7 @@ export function CoverageRequestModal({
 
   const selfName = state?.selfName || "You";
   const partnerName = state?.partner?.name || "Kaylene";
+  const daisyName = state?.dependents?.daisy?.name || "Daisy";
   // Design green as a solid accent color, darkened in light / lightened in dark
   // so it clears contrast on both the tinted chip and the white card.
   const greenText = dark ? "#5fd97e" : "#0d7a34";
@@ -83,12 +84,12 @@ export function CoverageRequestModal({
   // per-row time edits, so it doesn't rebuild on every keystroke.
   const datesKey = rows.map((r) => r.date).join(",");
   const dayInfoByDate = useMemo(() => {
-    const map: Record<string, { self: DaySegments; partner: DaySegments; selfStarts: number[]; partnerStarts: number[] }> = {};
+    const map: Record<string, { self: DaySegments; partner: DaySegments; selfStarts: number[]; partnerStarts: number[]; daisy: MinuteRange[] }> = {};
     for (const r of rows) {
       if (map[r.date]) continue;
       const tl = timelineForDate(state, r.date, null);
       const starts = parentShiftStarts(state, r.date);
-      map[r.date] = { self: tl.self, partner: tl.partner, selfStarts: starts.self, partnerStarts: starts.partner };
+      map[r.date] = { self: tl.self, partner: tl.partner, selfStarts: starts.self, partnerStarts: starts.partner, daisy: tl.daisy };
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,7 +170,8 @@ export function CoverageRequestModal({
             const dt = new Date(r.date.split("-").map(Number)[0], (mm || 1) - 1, dd || 1);
             const monthAbbr = dt.toLocaleDateString(undefined, { month: "short" }).toUpperCase();
             const weekday = dt.toLocaleDateString(undefined, { weekday: "short" });
-            const info = dayInfoByDate[r.date] ?? { self: { work: [], sleep: [] }, partner: { work: [], sleep: [] }, selfStarts: [], partnerStarts: [] };
+            const info = dayInfoByDate[r.date] ?? { self: { work: [], sleep: [] }, partner: { work: [], sleep: [] }, selfStarts: [], partnerStarts: [], daisy: [] };
+            const daisyClash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
             const isOpen = openRow === r.rowId;
             const coverage: MinuteRange = { startMin: hmToMin(r.startTime), endMin: hmToMin(r.endTime, r.endsNextDay) };
             return (
@@ -198,6 +200,12 @@ export function CoverageRequestModal({
                   <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                     <HoursPill letter={selfName[0]?.toUpperCase() || "G"} text={startsLabel(info.selfStarts)} accent={palette.G} bg={rgba(palette.G, dark ? 0.22 : 0.12)} t={t} />
                     <HoursPill letter={partnerName[0]?.toUpperCase() || "K"} text={startsLabel(info.partnerStarts)} accent={palette.K} bg={rgba(palette.K, dark ? 0.24 : 0.12)} t={t} />
+                    {daisyClash && (
+                      <span title="Daisy has school during this window — she may not be able to cover"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#c77700" }}>
+                        ⚠ {daisyName} at school
+                      </span>
+                    )}
                   </div>
                   {/* Hrs */}
                   <div style={{ width: 84, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 5, flexShrink: 0 }}>
@@ -214,7 +222,7 @@ export function CoverageRequestModal({
                 </div>
                 {isOpen && (
                   <div style={{ padding: "0 6px" }}>
-                    <DayTimeline date={r.date} self={info.self} partner={info.partner}
+                    <DayTimeline date={r.date} self={info.self} partner={info.partner} daisy={info.daisy} daisyName={daisyName}
                       coverage={coverage} selfName={selfName} partnerName={partnerName} includeWeekday
                       palette={palette} t={t} dark={dark} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 6px 10px" }}>

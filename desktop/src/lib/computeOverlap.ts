@@ -1,5 +1,5 @@
 import type { ShiftMap } from "../data";
-import type { HouseholdState } from "../state";
+import type { HouseholdState, ShiftType } from "../state";
 
 const MIN_PER_DAY = 24 * 60;
 
@@ -273,6 +273,80 @@ export function parentDaySegments(
 /** "HH:MM" (+ optional next-day flag) → minutes on today's axis. */
 export function hmToMin(hhmm: string, nextDay = false): number {
   return parseHM(hhmm) + (nextDay ? MIN_PER_DAY : 0);
+}
+
+// ── Daisy (caregiver) availability ──────────────────────────────────────────
+// Daisy is the supporting caregiver. Her school schedule — her recurring
+// weekly template plus any one-off school days — is time she CAN'T cover. These
+// helpers surface it on the coverage timeline and flag coverage windows that
+// collide with it.
+
+function shiftRange(t: ShiftType | undefined): MinuteRange | null {
+  if (!t) return null;
+  const startMin = parseHM(t.start);
+  let endMin = parseHM(t.end);
+  if (t.crossesMidnight || endMin <= startMin) endMin += MIN_PER_DAY;
+  return { startMin, endMin };
+}
+
+/** Merge overlapping/adjacent ranges (no axis clamp). */
+function mergeRanges(ranges: MinuteRange[]): MinuteRange[] {
+  const sorted = ranges.slice().sort((a, b) => a.startMin - b.startMin);
+  const out: MinuteRange[] = [];
+  for (const r of sorted) {
+    const last = out[out.length - 1];
+    if (last && r.startMin <= last.endMin) last.endMin = Math.max(last.endMin, r.endMin);
+    else out.push({ ...r });
+  }
+  return out;
+}
+
+/** Daisy's school time ranges on `date` — her weekly template (inside its
+ *  window) plus one-off school days. Only entries with known times count.
+ *  Returned unclamped; the timeline clamps for display. */
+export function daisyDayRanges(state: HouseholdState, date: string): MinuteRange[] {
+  const out: MinuteRange[] = [];
+  const types = new Map(state.shiftTypes.map((t) => [t.id, t]));
+
+  for (const s of state.dependents?.daisy?.shifts ?? []) {
+    if (s.date !== date) continue;
+    const r = shiftRange(s.shiftTypeId ? types.get(s.shiftTypeId) : undefined);
+    if (r) out.push(r);
+  }
+
+  const tmpl = state.weeklyTemplates?.daisy;
+  if (tmpl && !(tmpl.startDate && date < tmpl.startDate) && !(tmpl.endDate && date > tmpl.endDate)) {
+    const [y, m, d] = date.split("-").map(Number);
+    const dow = new Date(y, (m || 1) - 1, d || 1).getDay();
+    const slot = tmpl.days[dow];
+    if (typeof slot === "string") {
+      const r = shiftRange(types.get(slot));
+      if (r) out.push(r);
+    } else if (slot && typeof slot === "object") {
+      let endMin = parseHM(slot.end);
+      const startMin = parseHM(slot.start);
+      if (endMin <= startMin) endMin += MIN_PER_DAY;
+      out.push({ startMin, endMin });
+    }
+  }
+  return mergeRanges(out);
+}
+
+/** The Daisy school range that collides with a coverage window, or null. */
+export function daisyCoverageConflict(
+  state: HouseholdState,
+  date: string,
+  startTime: string,
+  endTime: string,
+  endsNextDay?: boolean,
+): MinuteRange | null {
+  const covStart = parseHM(startTime);
+  let covEnd = parseHM(endTime);
+  if (endsNextDay || covEnd <= covStart) covEnd += MIN_PER_DAY;
+  for (const r of daisyDayRanges(state, date)) {
+    if (Math.min(covEnd, r.endMin) > Math.max(covStart, r.startMin)) return r;
+  }
+  return null;
 }
 
 interface Intersection extends MinuteRange {
