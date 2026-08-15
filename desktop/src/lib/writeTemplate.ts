@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import type { HouseholdState } from "../state";
+import type { HouseholdState, PersonWeeklyTemplate } from "../state";
 
 export class WriteTemplateError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -9,28 +9,28 @@ export class WriteTemplateError extends Error {
   }
 }
 
-/**
- * Replace self's weekly template (state.template) with the given 7-entry
- * array. Index 0 = Sunday, 6 = Saturday. Each entry is either a
- * shiftTypeId or null (= off).
- *
- * Uses the whole-document overwrite pattern from BRIDGE.md §5.1 so the iOS
- * app's strict allowlist round-trip stays intact.
- */
-export async function writeTemplate(
-  householdId: string,
-  template: Array<string | null>,
-  /**
-   * Last day the recurring template applies (inclusive), as "YYYY-MM-DD".
-   * Pass a string to set it, or null/undefined to clear it (template
-   * recurs indefinitely).
-   */
-  templateEndDate?: string | null,
-): Promise<void> {
-  if (template.length !== 7) {
-    throw new WriteTemplateError("Template must have exactly 7 entries (Sun..Sat).");
-  }
+export type TemplatePerson = "G" | "K" | "daisy";
+export type WeeklyTemplates = NonNullable<HouseholdState["weeklyTemplates"]>;
 
+/**
+ * Save every person's redesigned weekly template into `weeklyTemplates` in a
+ * single document write (no races between people). People with no template are
+ * omitted. Whole-document overwrite per BRIDGE.md §5.1; `weeklyTemplates` is a
+ * single nested top-level object, so the iOS allowlist needs only the one key.
+ *
+ * For Gage this supersedes the legacy `template` / `templateEndDate`, which are
+ * left in place (ignored once `weeklyTemplates.G` exists).
+ */
+export async function saveWeeklyTemplates(
+  householdId: string,
+  templates: WeeklyTemplates,
+): Promise<void> {
+  for (const p of ["G", "K", "daisy"] as const) {
+    const tmpl = templates[p];
+    if (tmpl && tmpl.days.length !== 7) {
+      throw new WriteTemplateError("Each template must have exactly 7 entries (Sun..Sat).");
+    }
+  }
   const ref = doc(db, "households", householdId, "state", "main");
   let current: HouseholdState | null;
   try {
@@ -43,14 +43,20 @@ export async function writeTemplate(
     throw new WriteTemplateError("Schedule document doesn't exist yet — open the iOS app once to initialize it.");
   }
 
-  const next: HouseholdState = { ...current, template: [...template] };
-  // Set or clear the end date. We delete the key entirely when cleared so
-  // the document stays clean and the iOS allowlist treats it as absent.
-  if (templateEndDate) {
-    next.templateEndDate = templateEndDate;
-  } else {
-    delete next.templateEndDate;
+  // Keep only non-empty entries with tidy optional dates.
+  const wt: WeeklyTemplates = {};
+  for (const p of ["G", "K", "daisy"] as const) {
+    const tmpl = templates[p];
+    if (!tmpl) continue;
+    const clean: PersonWeeklyTemplate = { days: tmpl.days };
+    if (tmpl.startDate) clean.startDate = tmpl.startDate;
+    if (tmpl.endDate) clean.endDate = tmpl.endDate;
+    wt[p] = clean;
   }
+
+  const next: HouseholdState = { ...current };
+  if (Object.keys(wt).length > 0) next.weeklyTemplates = wt;
+  else delete next.weeklyTemplates;
 
   try {
     await setDoc(ref, next);

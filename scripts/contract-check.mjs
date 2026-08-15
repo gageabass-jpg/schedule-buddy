@@ -58,7 +58,7 @@ else pass(`all ${desktopFields.length} desktop fields are in the iOS allowlist`)
 
 // ───────────── CHECK 2 — override shape renders via real generateEvents ─────────────
 console.log("CHECK 2: Mac-shape overrides render through iOS generateEvents()");
-const fns = ["parseISODate", "toISODate", "eachDay", "addDays", "isOnWeekend", "findShift", "makeEvent", "generationWindow", "generateEvents", "partnerEvents"];
+const fns = ["parseISODate", "toISODate", "eachDay", "addDays", "isOnWeekend", "findShift", "parseHM", "compactTime", "templateSlotShift", "personTemplate", "makeEvent", "generationWindow", "generateEvents", "partnerEvents"];
 let code = fns.map((f) => extractFn(html, f)).join("\n") + "\n";
 const tp = /const\s+TEMPLATE_PAUSED\s*=\s*(true|false)/.exec(html);
 code += "const TEMPLATE_PAUSED = " + (tp ? tp[1] : "false") + ";\n";
@@ -123,6 +123,39 @@ if (failures === 0) {
   if (ovOutside.some((e) => e.startDate === "2026-07-29"))
     pass("self override beyond state.range renders");
   else fail("self override outside state.range did NOT render");
+}
+
+// ───────────── CHECK 4 — per-person weekly templates + inline custom times ─────────────
+// The redesigned template tool stores weeklyTemplates { G, K, daisy } where a
+// day is null | shiftTypeId | { start, end }. iOS must render G via
+// generateEvents and K via partnerEvents, honoring each person's start/end
+// window and resolving inline custom times.
+console.log("CHECK 4: per-person weekly templates + inline custom render on iOS");
+if (failures === 0) {
+  const wtBase = {
+    shiftTypes: SHIFTS, template: [null, null, null, null, null, null, null],
+    alt: { enabled: false, refSat: "", sat: null, sun: null }, ot: [],
+    overrides: [], partner: { name: "Kaylene", shifts: [] },
+    range: { from: "2026-08-01", to: "2026-08-31" },
+    weeklyTemplates: {
+      G: { days: [null, null, null, { start: "13:00", end: "21:00" }, null, null, null] }, // Wed custom
+      K: { days: [null, null, null, null, "st_w7c861", null, null], startDate: "2026-08-10" }, // Thu preset from Aug 10
+    },
+  };
+  ctx.state = wtBase;
+  const g4 = vm.runInContext("generateEvents()", ctx);            // 2026-08-12 = Wed
+  const gCustom = g4.find((e) => e.startDate === "2026-08-12");
+  if (gCustom && gCustom.startTime === "13:00" && gCustom.endTime === "21:00")
+    pass("Gage custom template slot renders with its inline times");
+  else fail("Gage custom slot did NOT render correctly: " + JSON.stringify(gCustom));
+
+  const k4 = vm.runInContext("partnerEvents()", ctx);
+  if (k4.some((e) => e.startDate === "2026-08-13" && e.kind === "partner"))  // Thu, in window
+    pass("Kaylene weekly template renders inside its window");
+  else fail("Kaylene template did NOT render: " + JSON.stringify(k4));
+  if (!k4.some((e) => e.startDate === "2026-08-06"))                          // Thu, before startDate
+    pass("Kaylene template respects its startDate");
+  else fail("Kaylene template ignored startDate (rendered 2026-08-06)");
 }
 
 console.log(failures ? `\nFAILED — ${failures} contract check(s) broke.` : "\nAll contract checks passed.");

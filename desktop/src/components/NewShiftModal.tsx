@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
 import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
-import { compactTime } from "../state";
+import { compactTime, isCustomType } from "../state";
 
 interface Props {
   open: boolean;
@@ -136,7 +136,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
               disabled={customTime}
               style={{ ...selectStyle(t), opacity: customTime ? 0.5 : 1 }}
             >
-              {(state?.shiftTypes ?? []).map((s) => (
+              {(state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} — {compactTime(s.start)} to {compactTime(s.end)}
                 </option>

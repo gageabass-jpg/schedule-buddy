@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState, ShiftType } from "../state";
-import { compactTime } from "../state";
+import { compactTime, isCustomType } from "../state";
 import {
   addShiftType,
   updateShiftType,
@@ -37,7 +37,8 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
 
   if (!open) return null;
 
-  const types = state?.shiftTypes ?? [];
+  // Hide synthetic "Custom …" types minted from inline template slots.
+  const types = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
 
   return (
     <>

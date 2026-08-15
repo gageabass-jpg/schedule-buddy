@@ -29,7 +29,7 @@ import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
 import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
-import { buildShiftMap, type Event, type HouseholdState } from "./state";
+import { buildShiftMap, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
 
 export type EventMap = Record<string, Event[]>;
 import { Sidebar } from "./components/Sidebar";
@@ -194,8 +194,12 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
 
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
-  const state: HouseholdState | null =
+  // Normalized so custom template slots resolve to synthetic shift types every
+  // renderer can look up by id; the synthetic types never persist (writes read
+  // raw from Firestore) and are filtered out of the type-picker lists.
+  const rawState: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
+  const state: HouseholdState | null = rawState ? expandCustomTemplateTypes(rawState) : null;
 
   const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
   const inboxRequests = state?.caregiverRequests ?? [];

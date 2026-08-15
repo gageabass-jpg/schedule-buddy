@@ -8432,6 +8432,8 @@ function loadStateFromLocalStorage() {
         ? parsed.shiftTypes : d.shiftTypes,
       template: Array.isArray(parsed.template) && parsed.template.length === 7
         ? parsed.template : d.template,
+      weeklyTemplates: (parsed.weeklyTemplates && typeof parsed.weeklyTemplates === "object" && !Array.isArray(parsed.weeklyTemplates))
+        ? parsed.weeklyTemplates : undefined,
       alt: { ...d.alt, ...(parsed.alt || {}) },
       ot: Array.isArray(parsed.ot) ? parsed.ot : [],
       otOpportunities: Array.isArray(parsed.otOpportunities) ? parsed.otOpportunities : [],
@@ -8527,6 +8529,13 @@ function mergeStateFromFirestore(data) {
     // Optional last day the recurring weekly template applies (inclusive,
     // "YYYY-MM-DD"). Set in the desktop manager's weekly-template editor.
     templateEndDate: typeof data.templateEndDate === "string" ? data.templateEndDate : undefined,
+    // Per-person recurring weekly templates (redesigned template tool). One
+    // nested object { G?, K?, daisy? }, each { days:[7], startDate?, endDate? }
+    // where a day is null | shiftTypeId | { start, end }. iOS renders G & K
+    // (see generateEvents / partnerEvents); daisy is preserved for the family
+    // schedule. Nested, so this one allowlist key is all the contract needs.
+    weeklyTemplates: (data.weeklyTemplates && typeof data.weeklyTemplates === "object" && !Array.isArray(data.weeklyTemplates))
+      ? data.weeklyTemplates : undefined,
     // Mac-authored — iOS doesn't render these yet, but preserves them on
     // round-trip so writes from the phone don't clobber the data.
     // - scheduleBlocks: date-range blocks (vacation, travel) shown on the
@@ -8853,6 +8862,35 @@ function findShift(id) {
   return state.shiftTypes.find(s => s.id === id) || null;
 }
 
+// Resolve a weekly-template day slot to a shift-like object.
+//   null           → off (no shift)
+//   "shiftTypeId"   → the saved preset
+//   { start, end }  → a one-off custom time (synthetic shift, times inline)
+function templateSlotShift(slot) {
+  if (slot == null) return null;
+  if (typeof slot === "string") return findShift(slot);
+  if (typeof slot === "object" && slot.start && slot.end) {
+    return {
+      id: "__cst_" + slot.start.replace(":", "") + "_" + slot.end.replace(":", ""),
+      name: "Custom " + compactTime(slot.start) + "-" + compactTime(slot.end),
+      start: slot.start, end: slot.end,
+      crossesMidnight: parseHM(slot.end) <= parseHM(slot.start),
+    };
+  }
+  return null;
+}
+
+// Effective weekly template for a person. Gage falls back to the legacy
+// `template` / `templateEndDate`; Kaylene has no legacy template.
+function personTemplate(who) {
+  const wt = state.weeklyTemplates && state.weeklyTemplates[who];
+  if (wt) return wt;
+  if (who === "G" && Array.isArray(state.template)) {
+    return { days: state.template, endDate: state.templateEndDate };
+  }
+  return null;
+}
+
 /**
  * Window to generate calendar events over.
  *
@@ -9118,11 +9156,16 @@ function generateEvents() {
     if (ov.date) overrideMap[ov.date] = ov;
   }
 
-  // Effective cutoff for the recurring template + alt-weekends. While paused,
-  // cap at today (but never extend past an existing templateEndDate).
+  // Gage's effective template. The redesigned per-person template
+  // (weeklyTemplates.G) supersedes the legacy fields and carries its own
+  // start/end window; once it's set, the user controls dates explicitly, so
+  // the TEMPLATE_PAUSED "cap at today" only applies to the legacy path.
   const todayISO = toISODate(new Date());
-  let tplCutoff = state.templateEndDate || null;
-  if (TEMPLATE_PAUSED) tplCutoff = (tplCutoff && tplCutoff < todayISO) ? tplCutoff : todayISO;
+  const gTmpl = personTemplate("G");
+  const usingNewTpl = !!(state.weeklyTemplates && state.weeklyTemplates.G);
+  const tplStart = (gTmpl && gTmpl.startDate) || null;
+  let tplCutoff = (gTmpl && gTmpl.endDate) || null;
+  if (!usingNewTpl && TEMPLATE_PAUSED) tplCutoff = (tplCutoff && tplCutoff < todayISO) ? tplCutoff : todayISO;
 
   const events = [];
 
@@ -9146,13 +9189,13 @@ function generateEvents() {
       continue;
     }
 
-    // Recurring template (and alt-weekend) stop after the effective cutoff
-    // (templateEndDate, or today while TEMPLATE_PAUSED). Overrides above and
-    // OT below are explicit per-date and still show.
+    // Recurring template (and alt-weekend) apply only inside the template's
+    // window. Overrides above and OT below are explicit per-date and still show.
+    if (tplStart && dISO < tplStart) continue;
     if (tplCutoff && dISO > tplCutoff) continue;
 
     const dow = d.getDay();
-    const tplShift = findShift(state.template[dow]);
+    const tplShift = gTmpl ? templateSlotShift(gTmpl.days[dow]) : null;
     if (tplShift) events.push(makeEvent(d, tplShift, tplShift.name, "shift"));
 
     if (state.alt.enabled && state.alt.refSat && isOnWeekend(d, state.alt.refSat)) {
@@ -9201,6 +9244,20 @@ function partnerEvents() {
   const from = win.from;
   const to = win.to;
   const out = [];
+
+  // Kaylene's recurring weekly template (new), inside its own start/end window.
+  // One-off partner shifts below still stack on top.
+  const kTmpl = personTemplate("K");
+  if (kTmpl) {
+    for (const d of eachDay(from, to)) {
+      const dISO = toISODate(d);
+      if (kTmpl.startDate && dISO < kTmpl.startDate) continue;
+      if (kTmpl.endDate && dISO > kTmpl.endDate) continue;
+      const shift = templateSlotShift(kTmpl.days[d.getDay()]);
+      if (shift) out.push(makeEvent(d, shift, shift.name, "partner"));
+    }
+  }
+
   for (const row of state.partner.shifts || []) {
     if (!row.date) continue;
     const d = parseISODate(row.date);

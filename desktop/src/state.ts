@@ -305,7 +305,29 @@ export interface HouseholdState {
    *  template stops producing shifts — one-off overrides and OT still
    *  show. Absent = the template recurs indefinitely. */
   templateEndDate?: string;
+  /** Per-person recurring weekly templates (redesigned template tool). Each
+   *  person's `days` is 7 slots Sun..Sat: null = off, a shiftTypeId string =
+   *  a saved preset, or `{ start, end }` = a one-off custom time stored inline.
+   *  Optional per-person start/end bound the recurrence window.
+   *
+   *  Gage's entry supersedes the legacy `template` / `templateEndDate` (kept
+   *  for back-compat). Kaylene renders on the G/K calendar; Daisy feeds her
+   *  school schedule (dependents.daisy), not the G/K grid. */
+  weeklyTemplates?: {
+    G?: PersonWeeklyTemplate;
+    K?: PersonWeeklyTemplate;
+    daisy?: PersonWeeklyTemplate;
+  };
   _migrations: string[];
+}
+
+/** A single day's slot in a weekly template. */
+export type TemplateSlot = string | { start: string; end: string } | null;
+
+export interface PersonWeeklyTemplate {
+  days: TemplateSlot[];      // 7 entries, Sun..Sat
+  startDate?: string;        // YYYY-MM-DD inclusive; before this the template is off
+  endDate?: string;          // YYYY-MM-DD inclusive; after this the template is off
 }
 
 export interface ScheduleBlock {
@@ -363,6 +385,85 @@ function chipLabel(types: Record<string, ShiftType>, id: string | null | undefin
   return t ? compactTime(t.start) : null;
 }
 
+// ── Custom template slots → synthetic shift types ───────────────────────────
+// Custom times are stored inline on the template slot, but the whole rendering
+// pipeline (Mac + iOS) resolves times from a shiftTypeId. So on read we mint a
+// deterministic, ephemeral shift type per distinct custom time and reference it
+// by id — the stored data stays inline, every renderer works unchanged, and the
+// synthetic types never enter the saved catalog (prefixed __cst_, filtered out
+// of the Shift Types editor).
+
+const CUSTOM_TYPE_PREFIX = "__cst_";
+
+export function customTypeId(start: string, end: string): string {
+  return `${CUSTOM_TYPE_PREFIX}${start.replace(":", "")}_${end.replace(":", "")}`;
+}
+export function isCustomType(id: string): boolean {
+  return id.startsWith(CUSTOM_TYPE_PREFIX);
+}
+
+/** A template slot resolved to a shiftTypeId (custom → synthetic id) or null. */
+function slotToTypeId(slot: TemplateSlot | undefined): string | null {
+  if (slot == null) return null;
+  if (typeof slot === "string") return slot;
+  return customTypeId(slot.start, slot.end);
+}
+
+/** Return a copy of state with a synthetic ShiftType for every distinct custom
+ *  template slot across all people. Call once on load; pass the result to the
+ *  renderers so they can look custom times up by id like any other type. */
+export function expandCustomTemplateTypes(state: HouseholdState): HouseholdState {
+  const wt = state.weeklyTemplates;
+  if (!wt) return state;
+  const have = new Set(state.shiftTypes.map((t) => t.id));
+  const extra: ShiftType[] = [];
+  const add = (start: string, end: string) => {
+    const id = customTypeId(start, end);
+    if (have.has(id)) return;
+    have.add(id);
+    extra.push({
+      id,
+      name: `Custom ${compactTime(start)}-${compactTime(end)}`,
+      start,
+      end,
+      crossesMidnight: parseHM(end) <= parseHM(start),
+    });
+  };
+  for (const key of ["G", "K", "daisy"] as const) {
+    for (const slot of wt[key]?.days ?? []) {
+      if (slot && typeof slot === "object") add(slot.start, slot.end);
+    }
+  }
+  if (extra.length === 0) return state;
+  return { ...state, shiftTypes: [...state.shiftTypes, ...extra] };
+}
+
+function parseHM(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** The effective weekly template for a person, folding the legacy Gage fields
+ *  into the new shape so both old and new documents resolve the same way. */
+function personTemplate(state: HouseholdState, who: "G" | "K"): PersonWeeklyTemplate | undefined {
+  const wt = state.weeklyTemplates?.[who];
+  if (wt) return wt;
+  if (who === "G" && state.template) {
+    return { days: state.template, endDate: state.templateEndDate };
+  }
+  return undefined;
+}
+
+/** Resolve a person's recurring template shiftTypeId for a date, honoring the
+ *  per-person start/end window. Returns `undefined` when there's no template at
+ *  all (so the caller can fall through), else a shiftTypeId or null (= off). */
+function templateShiftId(tmpl: PersonWeeklyTemplate | undefined, dateISO: string, dow: number): string | null | undefined {
+  if (!tmpl) return undefined;
+  if (tmpl.startDate && dateISO < tmpl.startDate) return null;
+  if (tmpl.endDate && dateISO > tmpl.endDate) return null;
+  return slotToTypeId(tmpl.days[dow]);
+}
+
 interface ResolvedSelfShift {
   shiftTypeId: string | null;
   source: ShiftSource;
@@ -375,12 +476,12 @@ function selfShiftId(state: HouseholdState, dateISO: string): ResolvedSelfShift 
   const ov = state.overrides.find((o) => o.date === dateISO);
   if (ov !== undefined) return { shiftTypeId: ov.shiftTypeId, source: { kind: "override" } };
 
-  // If the recurring template has an end date and this date is past it,
-  // the template (and alt-weekend) no longer apply. Overrides above and OT
-  // elsewhere still show — they're explicit per-date picks.
-  if (state.templateEndDate && dateISO > state.templateEndDate) {
-    return { shiftTypeId: null, source: { kind: "template" } };
-  }
+  const tmpl = personTemplate(state, "G");
+  // Outside Gage's template window (before start / after end), the template
+  // and alt-weekend no longer apply. Overrides above and OT elsewhere still
+  // show — they're explicit per-date picks.
+  if (tmpl?.startDate && dateISO < tmpl.startDate) return { shiftTypeId: null, source: { kind: "template" } };
+  if (tmpl?.endDate && dateISO > tmpl.endDate) return { shiftTypeId: null, source: { kind: "template" } };
 
   const [y, mo, d] = dateISO.split("-").map(Number);
   const dow = new Date(y, mo - 1, d).getDay();
@@ -404,7 +505,7 @@ function selfShiftId(state: HouseholdState, dateISO: string): ResolvedSelfShift 
     }
   }
 
-  return { shiftTypeId: state.template[dow] ?? null, source: { kind: "template" } };
+  return { shiftTypeId: slotToTypeId(tmpl?.days[dow]), source: { kind: "template" } };
 }
 
 /**
@@ -451,7 +552,22 @@ export function buildShiftMap(
     });
   });
 
-  // Partner shifts.
+  // Kaylene's recurring template — same shape as Gage's, no alt-weekend or
+  // overrides layer. One-off partner shifts (below) still stack on top.
+  const kTmpl = personTemplate(state, "K");
+  if (kTmpl) {
+    for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+      const key = fmtDate(cur.getFullYear(), cur.getMonth(), cur.getDate());
+      const dow = cur.getDay();
+      const id = templateShiftId(kTmpl, key, dow);
+      const label = chipLabel(types, id);
+      if (label && id) {
+        push(out, key, { who: "K", label, source: { kind: "template" }, shiftTypeId: id });
+      }
+    }
+  }
+
+  // Partner shifts (one-off) — additive on top of Kaylene's template.
   (state.partner?.shifts ?? []).forEach((p, index) => {
     const label = chipLabel(types, p.shiftTypeId);
     if (label) push(out, p.date, {
