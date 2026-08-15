@@ -92,6 +92,8 @@ export function DayView({
   const date = new Date(y, m - 1, d);
   const isToday = selected === today;
   const list = shifts[selected] ?? [];
+  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const whoName = (who: string) => who === "G" ? selfName : who === "K" ? partnerName : daisyName;
   const totalHeight = (HOUR_END - HOUR_START) * PX_PER_HOUR;
 
   return (
@@ -143,6 +145,7 @@ export function DayView({
           <div style={{ display: "flex", gap: 6 }}>
             {list.some((s) => s.who === "G") && <PhotoAv who="G" size={28} palette={palette} dark={dark} />}
             {list.some((s) => s.who === "K") && <PhotoAv who="K" size={28} palette={palette} dark={dark} />}
+            {list.some((s) => s.who === "D") && <PhotoAv who="D" size={28} palette={palette} dark={dark} />}
           </div>
         )}
       </div>
@@ -289,7 +292,7 @@ export function DayView({
                   title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>
-                    {s.who === "G" ? selfName : partnerName} · until {typ ? endLabel(typ) : ""}
+                    {whoName(s.who)} · until {typ ? endLabel(typ) : ""}
                   </div>
                 </div>
               );
@@ -376,7 +379,7 @@ export function DayView({
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>
-                    {s.who === "G" ? selfName : partnerName} · {s.label}
+                    {whoName(s.who)} · {s.label}
                   </div>
                   {typ && (
                     <div style={{ fontSize: 10.5, color: dark ? "rgba(255,255,255,0.65)" : t.text2 }}>

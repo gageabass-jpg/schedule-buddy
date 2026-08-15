@@ -350,7 +350,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const scheduleReminder = useScheduleReminder(householdId, coverageNeedsSig, today);
 
   const handleEditShift = (date: string, shift: Shift) => {
-    if (!shift.source || !shift.shiftTypeId) return;
+    // Daisy's cells are read-only (no source); editing is for Gage/Kaylene.
+    if (shift.who === "D" || !shift.source || !shift.shiftTypeId) return;
     if (shift.source.kind === "template" || shift.source.kind === "alt-weekend") {
       // Edit recurring shift for one date → write an override for this date.
       setEditTarget({

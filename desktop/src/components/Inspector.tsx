@@ -190,7 +190,7 @@ export function Inspector({
                 <PhotoAv who={s.who} size={26} palette={palette} dark={dark} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
-                    {s.who === "G" ? selfName : partnerName}
+                    {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   </div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>
                     {s.label}{recurring ? " · recurring" : ""}

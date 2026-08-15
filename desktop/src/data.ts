@@ -1,6 +1,6 @@
 import type { DayKind } from "./theme";
 
-export type Who = "G" | "K";
+export type Who = "G" | "K" | "D";
 
 /**
  * Where a rendered shift chip came from in the underlying state. Used to

@@ -578,6 +578,26 @@ export function buildShiftMap(
     });
   });
 
+  // Daisy (supporting caregiver) — her own cells: recurring school template
+  // within its window, plus one-off school days. Rendered with who "D" so she
+  // sits beside Gage/Kaylene on the calendar; the coverage overlap engine
+  // ignores "D" (it only pairs G and K), so this is display only. Left without
+  // a `source` so the day card treats her rows as read-only.
+  const dTmpl = state.weeklyTemplates?.daisy;
+  if (dTmpl) {
+    for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+      const key = fmtDate(cur.getFullYear(), cur.getMonth(), cur.getDate());
+      const id = templateShiftId(dTmpl, key, cur.getDay());
+      const label = chipLabel(types, id);
+      if (label && id) push(out, key, { who: "D", label, shiftTypeId: id });
+    }
+  }
+  for (const s of state.dependents?.daisy?.shifts ?? []) {
+    if (!s.date) continue;
+    const label = s.shiftTypeId ? chipLabel(types, s.shiftTypeId) : (s.label || null);
+    if (label) push(out, s.date, { who: "D", label, shiftTypeId: s.shiftTypeId });
+  }
+
   return out;
 }
 

@@ -86,8 +86,14 @@ export function dayColors(kind: DayKind, palette: Palette, dark: boolean) {
   return map[kind] ?? map.off;
 }
 
-export function personColor(who: "G" | "K", palette: Palette): string {
-  return who === "G" ? palette.G : palette.K;
+/** Daisy (supporting caregiver) — green, distinct from Gage/Kaylene and
+ *  consistent with her identity color elsewhere in the app. */
+export const DAISY_COLOR = "#30D158";
+
+export function personColor(who: "G" | "K" | "D", palette: Palette): string {
+  if (who === "K") return palette.K;
+  if (who === "D") return DAISY_COLOR;
+  return palette.G;
 }
 
 /** Color for an Event chip's tint + icon. "family" uses the BOTH (purple) accent;

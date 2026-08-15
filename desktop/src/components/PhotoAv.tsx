@@ -12,6 +12,7 @@ interface Props {
 const PHOTOS: Record<Who, string> = {
   G: "assets/gage.jpg",
   K: "assets/kaylene.jpeg",
+  D: "assets/daisy.jpeg",
 };
 
 export function PhotoAv({ who, size = 22, palette, dark = true, ring = false }: Props) {
