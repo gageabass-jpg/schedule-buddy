@@ -1,13 +1,13 @@
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
-import type { CaregiverRequest, Event as SbEvent, HouseholdState } from "../state";
+import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
-import { InboxTray } from "./InboxTray";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { eventInitial } from "./EventAvatar";
+import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
   palette: Palette;
@@ -27,8 +27,6 @@ interface Props {
   onNewShift: () => void;
   onOpenAskClaude: () => void;
   onOpenChatManager: () => void;
-  onOpenInbox: (focusId?: string) => void;
-  inboxRequests: CaregiverRequest[];
   viewFilter: ViewFilter;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
@@ -36,6 +34,7 @@ interface Props {
   partnerName: string;
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
+  wvuGames: Map<string, WvuGame>;
 }
 
 const MONTH_LABELS = [
@@ -54,7 +53,7 @@ export function MonthGrid({
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   onOpenChatManager,
   viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onEditEvent, onOpenInbox, inboxRequests,
+  eventsByDate, onEditEvent, wvuGames,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -197,13 +196,6 @@ export function MonthGrid({
             }}
           />
         </button>
-        <InboxTray
-          palette={palette}
-          t={t}
-          dark={dark}
-          requests={inboxRequests}
-          onOpenFullInbox={(focusId) => onOpenInbox(focusId)}
-        />
         {/* Chat Manager — compose an In-Basket message as "Manager".
             Deliberately the same dimensions as the inbox button beside it. */}
         <button
@@ -290,6 +282,7 @@ export function MonthGrid({
           onSelectDate={onSelectDate}
           eventsByDate={eventsByDate}
           onEditEvent={onEditEvent}
+          wvuGames={wvuGames}
         />
       )}
 
@@ -306,6 +299,7 @@ export function MonthGrid({
           partnerName={partnerName}
           events={eventsByDate[selected] ?? []}
           onEditEvent={onEditEvent}
+          wvuGames={wvuGames}
         />
       )}
 
@@ -416,6 +410,25 @@ export function MonthGrid({
                         }}
                       />
                     )}
+                    {wvuGames.has(key) && (
+                      <img
+                        src="assets/wvu.png"
+                        alt=""
+                        aria-hidden="true"
+                        title={wvuGameLabel(wvuGames.get(key)!)}
+                        draggable={false}
+                        style={{
+                          position: "absolute",
+                          right: 4,
+                          bottom: 4,
+                          width: 24,
+                          height: 22,
+                          objectFit: "contain",
+                          pointerEvents: "none",
+                          filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))",
+                        }}
+                      />
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span
                         style={{
@@ -505,21 +518,25 @@ export function MonthGrid({
                                 fontWeight: 600,
                                 letterSpacing: "-0.01em",
                                 padding: "1px 3px",
-                                color: t.text2,
+                                color: ev.pending ? "#c77700" : t.text2,
                                 overflow: "hidden",
                                 whiteSpace: "nowrap",
                                 cursor: "pointer",
                               }}
-                              title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}`}
+                              title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}${ev.pending ? " (pending)" : ""}`}
                             >
-                              <img
-                                src="assets/green-leaf.png"
-                                alt=""
-                                aria-hidden="true"
-                                width={11}
-                                height={11}
-                                style={{ display: "block", flexShrink: 0 }}
-                              />
+                              {ev.pending ? (
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#FF9F0A", flexShrink: 0, boxShadow: "0 0 4px rgba(255,159,10,0.6)" }} />
+                              ) : (
+                                <img
+                                  src="assets/green-leaf.png"
+                                  alt=""
+                                  aria-hidden="true"
+                                  width={11}
+                                  height={11}
+                                  style={{ display: "block", flexShrink: 0 }}
+                                />
+                              )}
                               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {ev.startTime ? formatChipTime(ev.startTime) : ev.title}
                               </span>

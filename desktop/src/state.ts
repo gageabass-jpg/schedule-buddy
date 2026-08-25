@@ -99,6 +99,12 @@ export interface Event {
   /** Shared by every Event created in a single batch (multi-day / recurring).
    *  Lets the user "Delete series" without hunting each occurrence. */
   seriesId?: string;
+  /** True while a caregiver-submitted "Life" event is awaiting the manager's
+   *  confirmation. Renders amber "(pending)" and is confirmed/rejected from the
+   *  Inbox. Cleared on confirm; the whole event is deleted on reject. */
+  pending?: boolean;
+  /** Links a pending event back to the caregiver request that auto-posted it. */
+  sourceRequestId?: string;
 }
 
 export function generateEventId(): string {

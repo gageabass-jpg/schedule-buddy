@@ -28,6 +28,7 @@ function resolveDark(pref: ThemePref): boolean {
 import { useAuth, doSignOut } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
+import { useWvuGames } from "./hooks/useWvuGames";
 import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
 import { buildShiftMap, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
 
@@ -55,8 +56,7 @@ import { ChildcarePanel } from "./components/ChildcarePanel";
 import { ChatManagerPanel } from "./components/ChatManagerPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
-import { InboxPanel } from "./components/InboxPanel";
-import type { Event as SbEvent } from "./state";
+import type { Event as SbEvent, EventWho, CaregiverRequest } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
 
@@ -140,8 +140,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     endTime?: string;
     notes?: string;
   } | null>(null);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [inboxFocusId, setInboxFocusId] = useState<string | null>(null);
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
 
@@ -202,7 +200,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const state: HouseholdState | null = rawState ? expandCustomTemplateTypes(rawState) : null;
 
   const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
-  const inboxRequests = state?.caregiverRequests ?? [];
 
   const eventsByDate: EventMap = useMemo(() => {
     const out: EventMap = {};
@@ -348,6 +345,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // The "Update the schedule" card stays calendar-driven (4-week cadence).
   // See functions/src/index.ts::checkScheduleCadence.
   const scheduleReminder = useScheduleReminder(householdId, coverageNeedsSig, today);
+  const wvuGames = useWvuGames();
 
   const handleEditShift = (date: string, shift: Shift) => {
     // Daisy's cells are read-only (no source); editing is for Gage/Kaylene.
@@ -465,13 +463,13 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
-        onOpenInbox={(focusId) => { setInboxFocusId(focusId ?? null); setInboxOpen(true); }}
-        inboxRequests={inboxRequests}
         onOpenAskClaude={() => setAskClaudeOpen(true)}
         onOpenChatManager={() => setChatManagerOpen(true)}
+        wvuGames={wvuGames}
       />
       <Inspector
         selected={selected}
+        wvuGames={wvuGames}
         palette={palette}
         t={t}
         dark={dark}
@@ -657,26 +655,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdId={householdId}
         defaultDate={selected}
         prefill={newRequestPrefill}
-      />
-      <InboxPanel
-        open={inboxOpen}
-        onClose={() => setInboxOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        focusId={inboxFocusId}
-        onConvertToCoverage={(req) => {
-          setNewRequestPrefill({
-            date: req.date,
-            startTime: req.startTime,
-            endTime: req.endTime,
-            notes: req.notes,
-          });
-          setInboxOpen(false);
-          setNewRequestOpen(true);
-        }}
       />
     </div>
   );

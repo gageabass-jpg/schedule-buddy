@@ -43,6 +43,9 @@
     --accent-hover: #409cff;
     --ot: #FF453A;
     --ok: #30D158;
+    /* Import-review accents — brighter green on the dark default. */
+    --import-green: #30D158;
+    --import-red: #FF453A;
 
     /* Shape & motion */
     --radius: 14px;              /* legacy default */
@@ -71,6 +74,9 @@
       --text-3: rgba(60,60,67,0.3);
       --text-dim: rgba(60,60,67,0.6);
       --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+      /* Deeper green on white for contrast (matches the proposed design). */
+      --import-green: #16A34A;
+      --import-red: #FF453A;
     }
   }
   * { box-sizing: border-box; }
@@ -1116,6 +1122,7 @@
     background: transparent;
     cursor: pointer;
     transition: filter 0.12s, transform 0.06s ease;
+    position: relative;
   }
   .week-day-cell:active { transform: scale(0.98); }
   .week-day-cell .wd-name {
@@ -1288,6 +1295,114 @@
     width: 22px;
     height: 22px;
     font-size: 10px;
+  }
+
+  /* Life-event pills, right edge of an agenda row */
+  .agenda-events {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-self: center;
+    max-width: 44%;
+  }
+  .agenda-ev-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 3px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: filter 0.12s, transform 0.06s ease;
+  }
+  .agenda-ev-pill:active { transform: scale(0.95); }
+  .agenda-ev-pill .sb-avatar { width: 24px; height: 24px; font-size: 10px; }
+  .agenda-ev-pill .ev-leaf { width: 14px; height: 14px; display: block; }
+  .agenda-ev-pill[data-who="G"]      { background: rgba(10,132,255,0.16);  border-color: rgba(10,132,255,0.42); }
+  .agenda-ev-pill[data-who="K"]      { background: rgba(255,55,95,0.16);   border-color: rgba(255,55,95,0.42); }
+  .agenda-ev-pill[data-who="Daisy"]  { background: rgba(48,209,88,0.16);   border-color: rgba(48,209,88,0.42); }
+  .agenda-ev-pill[data-who="family"] { background: rgba(191,90,242,0.16);  border-color: rgba(191,90,242,0.42); }
+
+  /* ===== Life-event detail bottom sheet ===== */
+  .event-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1250;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .event-sheet-backdrop.show { opacity: 1; pointer-events: auto; }
+  .event-sheet {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 1251;
+    background: var(--panel, var(--bg-elev));
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.35);
+    padding: 0 22px calc(24px + env(safe-area-inset-bottom)) 22px;
+    max-height: 78vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .event-sheet.sheet-in { transform: translateY(0); }
+  .event-sheet .es-grab {
+    position: sticky;
+    top: 0;
+    margin: 0 -22px 8px;
+    padding: 11px 0 8px;
+    background: var(--panel, var(--bg-elev));
+    text-align: center;
+    cursor: grab;
+    touch-action: none;
+  }
+  .event-sheet .es-grab::before {
+    content: "";
+    display: inline-block;
+    width: 40px; height: 5px;
+    border-radius: 3px;
+    background: var(--text-dim);
+    opacity: 0.4;
+  }
+  .event-sheet .es-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .event-sheet .es-title img { width: 20px; height: 20px; flex-shrink: 0; }
+  .event-sheet .es-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-top: 0.5px solid var(--sep);
+    font-size: 15px;
+    color: var(--text);
+  }
+  .event-sheet .es-row .es-ico { width: 20px; text-align: center; flex-shrink: 0; opacity: 0.7; }
+  .event-sheet .es-row .sb-avatar { width: 26px; height: 26px; font-size: 11px; }
+  .event-sheet .es-notes {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--bg-elev-2, var(--scrim, rgba(127,127,127,0.08)));
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-2);
+    white-space: pre-wrap;
   }
 
   /* ========== TODAY RIBBON ========== */
@@ -1513,6 +1628,18 @@
   .shift-pill[data-who="g"]    { background: var(--color-g); color: #fff; }
   .shift-pill[data-who="k"]    { background: var(--color-k); color: #fff; }
   .shift-pill[data-who="both"] { background: var(--color-both); color: #fff; }
+  .shift-pill[data-who="d"]    { background: #30D158; color: #fff; }   /* Daisy — green */
+  /* Pending (photo-import awaiting manager approval) — yellow, overrides who. */
+  .shift-pill[data-pending="1"]      { background: #ff9f0a !important; color: #3a2a00 !important; }
+  .sb-chip[data-pending="1"]         { background: rgba(255,159,10,0.22); color: #b26a00; }
+  .sb-chip[data-pending="1"] .sb-chip-dot { background: #ff9f0a; box-shadow: 0 0 6px rgba(255,159,10,0.6); }
+  .day-block[data-pending="1"]       { background: rgba(255,159,10,0.24) !important; border-left-color: #ff9f0a !important; }
+  .week-rail-block[data-pending="1"] { background: rgba(255,159,10,0.30) !important; border-left-color: #ff9f0a !important; color: var(--text) !important; }
+  /* Pending (caregiver-submitted, unconfirmed) life items. */
+  .ev-chip[data-pending="1"]         { background: rgba(255,159,10,0.14); }
+  .week-rail-event[data-pending="1"] { border-color: #ff9f0a !important; background: rgba(255,159,10,0.14) !important; }
+  .ev-pending-tag                    { color: #ff9f0a; font-weight: 700; }
+  .ev-pending-dot                    { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff9f0a; box-shadow: 0 0 6px rgba(255,159,10,0.6); vertical-align: middle; }
 
   /* Event chip — dashed outline, letter prefix; distinguishes events from
      filled shift pills at a glance. Authored on the desktop manager.
@@ -1617,6 +1744,234 @@
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
+  /* WVU football game-day mark — Flying WV in the cell's bottom-right corner.
+     Transparent PNG (white knocked out); the gold mark floats on the cell with
+     a soft shadow for separation. Sits above the thin confirmed-care bar. */
+  .cal-wvu-icon {
+    position: absolute;
+    right: 4px;
+    bottom: 5px;
+    width: 22px;
+    height: 20px;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 2;
+    filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.45));
+  }
+  /* ========== DAY VIEW (single date + hour rail) ========== */
+  .day-view { margin: 0 0 16px; }
+  .day-view-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .day-view-label {
+    flex: 1;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .day-header-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  .day-header-date {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--bg-elev-2, var(--bg-elev));
+    color: var(--text);
+    border: 0.5px solid var(--sep);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .day-header-date.today {
+    background: #ff9500; color: #fff; border-color: #ff9500;
+  }
+  .day-header-date .mo {
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.06em; opacity: 0.65;
+  }
+  .day-header-date .num {
+    font-size: 18px; font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .day-header-info { flex: 1; min-width: 0; }
+  .day-header-info .weekday {
+    font-size: 16px; font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .day-header-info .meta {
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .day-header-info .wvu-row {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 4px;
+  }
+  .day-header-info .wvu-row img {
+    width: 20px; height: 19px; object-fit: contain; flex-shrink: 0;
+    filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.4));
+  }
+  .day-header-info .wvu-row span {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-2);
+  }
+  .day-timeline {
+    position: relative;
+    background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    overflow-y: auto;
+    max-height: 62vh;
+    height: 756px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .day-hours {
+    position: relative;
+    border-right: 0.5px solid var(--sep);
+  }
+  .day-hours span {
+    position: absolute;
+    right: 6px;
+    font-size: 10px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .day-track {
+    position: relative;
+    background: rgba(0,0,0,0.02);
+  }
+  @media (prefers-color-scheme: dark) {
+    .day-track { background: rgba(255,255,255,0.02); }
+  }
+  .day-hourline {
+    position: absolute;
+    left: 0; right: 0;
+    border-top: 0.5px solid var(--sep);
+    pointer-events: none;
+  }
+  .day-nowline {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: #ff9500;
+    z-index: 4;
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(255,149,0,0.5);
+  }
+  .day-block {
+    position: absolute;
+    left: 8px; right: 8px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    overflow: hidden;
+    z-index: 2;
+    border-left: 3px solid transparent;
+  }
+  .day-block[data-who="G"]   { background: rgba(10,132,255,0.22);  border-left-color: var(--color-g); }
+  .day-block[data-who="K"]   { background: rgba(255,55,95,0.22);   border-left-color: var(--color-k); }
+  .day-block[data-who="D"]   { background: rgba(255,149,0,0.22);   border-left-color: #ff9500; }
+  .day-block[data-who="G+K"] { background: rgba(191,90,242,0.22);  border-left-color: var(--color-both); }
+  .day-block .title {
+    font-size: 12px; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .day-block .subtitle {
+    font-size: 10.5px;
+    color: var(--text-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .day-block.tail {
+    opacity: 0.85;
+  }
+  .day-block.tail .title::after {
+    content: " · overnight";
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  .day-event {
+    position: absolute;
+    left: 8px; right: 8px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: transparent;
+    border: 1px dashed rgba(48,209,88,0.7);
+    color: var(--text);
+    z-index: 3;
+    display: flex; align-items: center; gap: 6px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .day-event .ev-title {
+    font-size: 12px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .day-coverage {
+    position: absolute;
+    right: 8px;
+    width: calc(50% - 10px);
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: linear-gradient(180deg, rgba(47,190,90,0.9), rgba(21,156,67,0.9));
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    z-index: 2;
+    box-shadow: 0 0 6px rgba(21,156,67,0.4);
+    overflow: hidden;
+  }
+  /* Week view current-time indicator */
+  .week-nowline {
+    position: absolute;
+    height: 2px;
+    background: #ff9500;
+    z-index: 4;
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(255,149,0,0.5);
+  }
+
+  /* Week view — WV in the bottom-right of the day-strip cell. */
+  .week-wvu-icon {
+    position: absolute;
+    right: 4px;
+    bottom: 3px;
+    width: 18px;
+    height: 17px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.45));
+  }
+  /* Agenda view — WV inline after the row title. */
+  .agenda-wvu-icon {
+    width: 20px;
+    height: 19px;
+    object-fit: contain;
+    vertical-align: -5px;
+    margin-left: 7px;
+    filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.4));
+  }
+  /* Today ribbon — WV game chip. */
+  .wvu-chip { display: inline-flex; align-items: center; gap: 5px; }
+  .wvu-chip-logo { width: 16px; height: 15px; object-fit: contain; }
+
   /* Ask Claude — floating action button, bottom-right of the Schedule
      tab, sitting just above the bottom tab bar. Square shape with the
      Claude PNG inside, matching the Mac toolbar's Claude button. */
@@ -1656,6 +2011,227 @@
   }
   /* Hide while the Ask Claude modal itself is open. */
   body.ask-claude-open .ask-claude-fab { display: none; }
+
+  /* "+" Import-schedule FAB — same footprint as the Claude square, stacked
+     directly above it, wrapped in an animated "shining" gradient ring. */
+  .parse-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
+    z-index: 50;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    border: 0;
+    cursor: pointer;
+    display: none;          /* shown only on the Schedule tab — see below */
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%);
+    color: #fff;
+    font-size: 30px;
+    font-weight: 300;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 6px 18px rgba(10,132,255,0.4);
+  }
+  .parse-fab .parse-plus { transform: translateY(-1px); }
+  .parse-fab:active { transform: scale(0.96); }
+  @media (max-width: 768px) {
+    body[data-mobile-tab="schedule"] .parse-fab { display: inline-flex; }
+  }
+  body.parse-open .parse-fab,
+  body.ask-claude-open .parse-fab { display: none; }
+
+  /* ===== Import-from-photo modal (mirrors the Ask Claude modal theme) ===== */
+  .parse-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1100;
+    display: none;
+  }
+  .parse-modal {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 1101;
+    display: none;
+    flex-direction: column;
+    background: var(--panel, var(--bg-elev));
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+    max-height: 90vh;
+    padding: 0 20px calc(20px + env(safe-area-inset-bottom)) 20px;
+  }
+  body.parse-open .parse-backdrop,
+  body.parse-open .parse-modal { display: flex; }
+  .parse-head {
+    position: sticky; top: 0;
+    background: var(--panel, var(--bg-elev));
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 18px 0 12px;
+    border-bottom: 0.5px solid var(--sep);
+    z-index: 2;
+  }
+  .parse-head-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    background: color-mix(in srgb, var(--color-g) 15%, transparent);
+    color: var(--color-g);
+  }
+  .parse-head-main { flex: 1; min-width: 0; }
+  .parse-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+  .parse-sub { font-size: 13px; line-height: 1.4; color: var(--text-2); margin-top: 3px; text-wrap: pretty; }
+  .parse-close {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 0; background: var(--scrim, rgba(127,127,127,0.12));
+    color: var(--text-2); font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;
+  }
+  .parse-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 0; flex: 1; }
+  .parse-seg-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
+  }
+  /* Person picker — segmented control with avatars (selected = raised white). */
+  .parse-seg {
+    display: flex; gap: 0; background: var(--scrim, rgba(127,127,127,0.12));
+    border-radius: 12px; padding: 3px; margin-bottom: 18px;
+  }
+  .parse-seg button {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 4px; border: 0; border-radius: 10px; background: transparent;
+    color: var(--text-2); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;
+  }
+  .parse-seg button.active {
+    background: var(--bg-elev); color: var(--text); font-weight: 600;
+    box-shadow: var(--shadow-card, 0 1px 4px rgba(0,0,0,0.10));
+  }
+  .parse-seg button .sb-avatar { width: 20px; height: 20px; font-size: 10px; opacity: 0.55; }
+  .parse-seg button.active .sb-avatar { opacity: 1; }
+  /* Empty state — filled card with a camera badge. */
+  .parse-pick {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 36px 24px; border: 1px solid var(--sep); border-radius: 16px;
+    background: var(--scrim, rgba(127,127,127,0.06));
+    cursor: pointer; text-align: center;
+  }
+  .parse-pick .pp-cam {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--bg-elev); color: var(--color-g);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+  }
+  .parse-pick .pp-main { font-size: 16px; font-weight: 600; color: var(--text); }
+  .parse-pick .pp-sub  { font-size: 13px; color: var(--text-3); }
+  .parse-thumb { width: 100%; border-radius: 14px; margin-bottom: 14px; max-height: 220px; object-fit: contain; background: var(--scrim, rgba(127,127,127,0.08)); }
+  .parse-status { text-align: center; color: var(--text-2); font-size: 14px; padding: 22px 0; }
+  .parse-preview-head {
+    font-size: 16px; font-weight: 700; color: var(--text);
+    margin: 2px 0 12px;
+  }
+  /* Redesigned review rows — card with a keep/skip color bar, big date block,
+     the parsed time range, and round keep/skip controls. Theme-aware. */
+  .parse-prow {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    padding: 13px 13px 13px 22px; background: var(--bg-elev);
+    border: 0.5px solid var(--sep); border-radius: 18px; margin-bottom: 10px;
+    box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.06));
+    transition: opacity 0.15s;
+  }
+  .parse-prow[data-skip="1"] { opacity: 0.55; }
+  .parse-prow .pr-bar {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    border-radius: 18px 0 0 18px; background: var(--import-green, #16A34A);
+  }
+  .parse-prow[data-skip="1"] .pr-bar { background: var(--import-red, #FF453A); }
+  .parse-prow .pr-date { width: 46px; flex-shrink: 0; text-align: left; }
+  .parse-prow .pr-mo  { color: var(--import-red, #FF453A); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; }
+  .parse-prow .pr-day { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1.05; }
+  .parse-prow .pr-wd  { color: var(--text-3); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; margin-top: 2px; }
+  .parse-prow .pr-time { position: relative; flex: 1; min-width: 0; font-size: 17px; font-weight: 700; color: var(--text); white-space: nowrap; display: flex; align-items: center; }
+  .parse-prow .pr-arrow { color: var(--text-3); font-weight: 600; margin: 0 3px; }
+  .parse-prow .pr-plus  { color: var(--text-3); font-size: 12px; font-weight: 700; margin-left: 4px; }
+  /* Tap-to-change-type: a subtle caret hints it's editable; an invisible native
+     <select> overlays the time so tapping opens the iOS picker wheel. */
+  .parse-prow .pr-caret { color: var(--text-3); font-size: 13px; font-weight: 700; margin-left: 6px; }
+  .parse-prow .pr-type {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; border: 0; margin: 0; padding: 0; background: transparent;
+    -webkit-appearance: none; appearance: none; cursor: pointer; font-family: inherit;
+  }
+  .parse-prow .pr-btns { display: flex; gap: 8px; flex-shrink: 0; }
+  .parse-prow .pr-keep, .parse-prow .pr-skip {
+    width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .parse-prow .pr-keep { background: var(--import-green, #16A34A); color: #fff; }
+  .parse-prow .pr-skip { background: color-mix(in srgb, var(--import-red, #FF453A) 16%, transparent); color: var(--import-red, #FF453A); }
+  .parse-prow[data-skip="1"] .pr-keep { background: var(--scrim, rgba(127,127,127,0.14)); color: var(--text-3); }
+  .parse-prow[data-skip="1"] .pr-skip { background: var(--import-red, #FF453A); color: #fff; }
+  .parse-actions {
+    position: sticky; bottom: 0;
+    background: var(--panel, var(--bg-elev));
+    display: flex; gap: 10px; padding: 12px 0 4px;
+    border-top: 0.5px solid var(--sep);
+  }
+  .parse-actions button {
+    flex: 1; padding: 15px; border-radius: 99px; border: 0;
+    font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .parse-actions .pa-cancel { background: var(--scrim, rgba(127,127,127,0.14)); color: var(--text); }
+  .parse-actions .pa-confirm { flex: 1.5; background: var(--import-green, #16A34A); color: #fff; }
+  .parse-actions .pa-confirm:disabled { opacity: 0.4; }
+
+  /* ===== Manager: pending import approvals ===== */
+  .mgr-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px;
+    border-radius: 9px; background: #ff9f0a; color: #3a2a00;
+    font-size: 11px; font-weight: 800; vertical-align: middle;
+  }
+  .mgr-card {
+    background: var(--bg-elev); border: 0.5px solid var(--sep);
+    border-radius: 16px; padding: 14px; margin-bottom: 12px;
+    box-shadow: var(--shadow-card);
+  }
+  .mgr-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mgr-card-head .sb-avatar { width: 30px; height: 30px; font-size: 12px; flex-shrink: 0; }
+  .mgr-card-title { flex: 1; min-width: 0; }
+  .mgr-card-title .t1 { font-size: 15px; font-weight: 700; color: var(--text); }
+  .mgr-card-title .t2 { font-size: 12px; color: var(--text-2); }
+  .mgr-pending-badge {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #b26a00; background: rgba(255,159,10,0.2);
+    padding: 3px 8px; border-radius: 8px; flex-shrink: 0;
+  }
+  .mgr-photo {
+    width: 100%; max-height: 190px; object-fit: cover;
+    border-radius: 12px; margin-bottom: 10px; cursor: zoom-in;
+    background: var(--scrim, rgba(127,127,127,0.08));
+  }
+  .mgr-days {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+  }
+  .mgr-day {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    background: var(--scrim, rgba(127,127,127,0.12));
+    padding: 4px 9px; border-radius: 8px;
+  }
+  .mgr-actions { display: flex; gap: 10px; }
+  .mgr-actions button {
+    flex: 1; padding: 11px; border-radius: 11px; border: 0;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .mgr-reject { background: var(--scrim, rgba(127,127,127,0.14)); color: var(--color-k, #ff375f); }
+  .mgr-approve { background: #30d158; color: #fff; }
+  /* Full-screen photo zoom */
+  .mgr-photo-zoom {
+    position: fixed; inset: 0; z-index: 1300;
+    background: rgba(0,0,0,0.9); display: none;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .mgr-photo-zoom.show { display: flex; }
+  .mgr-photo-zoom img { max-width: 100%; max-height: 100%; border-radius: 8px; }
 
   /* ===== Ask Claude modal (iOS) ===== */
   .ask-modal-backdrop {
@@ -2205,6 +2781,15 @@
   .dds-tile.crit .dds-badge { background: var(--ot); }
 
   .dds-extra { padding: 0 16px 16px; }
+  /* WVU game-day row inside the day sheet. */
+  .dds-wvu { display: flex; align-items: center; gap: 12px; padding: 4px 0 2px; }
+  .dds-wvu-logo {
+    width: 40px; height: 38px; object-fit: contain; flex: 0 0 auto;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  }
+  .dds-wvu-main { min-width: 0; }
+  .dds-wvu-title { font-size: 15px; font-weight: 700; color: var(--text); }
+  .dds-wvu-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
   .dds-ot-btn {
     width: 100%; background: color-mix(in srgb, #FF9F0A 15%, var(--panel));
     border: 1px solid color-mix(in srgb, #FF9F0A 35%, transparent);
@@ -3107,6 +3692,7 @@
     font-family: "Space Grotesk", "Styrene A", "Inter", -apple-system, sans-serif;
     letter-spacing: -0.02em;
     color: var(--text-2);
+    white-space: nowrap;   /* never wrap the wordmark onto two lines */
   }
   .brand-tag {
     font-size: 12px;
@@ -3772,8 +4358,10 @@
     /* Lightning bolt visible but non-interactive on mobile — tap the day instead */
     .cal-ot-icon { pointer-events: none; }
 
-    /* Compact header */
-    .brand-name { font-size: 22px; }
+    /* Compact header — scale the wordmark to the viewport so "Schedule Buddy"
+       stays on ONE line from the smallest phones up, never stacking. */
+    .brand-name { font-size: clamp(15px, 5.6vw, 22px); }
+    .brand { min-width: 0; flex-shrink: 1; }
     .subtitle { display: none; }
     .header-row { gap: 6px; align-items: center; }
     .settings-btn { font-size: 15px; padding: 5px; }
@@ -3808,6 +4396,7 @@
     .cal-hdr { font-size: 10px; padding: 4px 2px 6px; letter-spacing: 0.06em; }
     .shift-pill { font-size: 9px; padding: 1.5px 4px; border-radius: 5px; gap: 2px; }
     .cal-ot-icon { font-size: 11px; top: 3px; right: 3px; }
+    .cal-wvu-icon { width: 17px; height: 16px; right: 3px; bottom: 3px; }
     .cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--color-g); }
 
     /* Tooltip close button rules live at the .cal-tooltip.pinned selector */
@@ -5211,6 +5800,7 @@
   <div class="layout-tabs" id="layoutTabs" role="tablist" aria-label="Calendar layout">
     <button class="layout-tab active" data-layout="month" role="tab" aria-selected="true">Month</button>
     <button class="layout-tab" data-layout="week" role="tab" aria-selected="false">Week</button>
+    <button class="layout-tab" data-layout="day" role="tab" aria-selected="false">Day</button>
     <button class="layout-tab" data-layout="agenda" role="tab" aria-selected="false">Agenda</button>
   </div>
 
@@ -5244,6 +5834,24 @@
         <span data-h="24">12a</span>
       </div>
       <div class="week-rail-cols" id="weekRailCols"></div>
+    </div>
+  </div>
+
+  <!-- Day timeline view — single date with hour rail (6a–12a) -->
+  <div class="day-view" id="dayView" style="display:none;">
+    <div class="day-view-nav" id="dayViewNav">
+      <button class="month-nav-btn" id="dayPrev" aria-label="Previous day">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="day-view-label" id="dayViewLabel">Today</div>
+      <button class="month-nav-btn" id="dayNext" aria-label="Next day">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="day-header-card" id="dayHeaderCard"></div>
+    <div class="day-timeline">
+      <div class="day-hours" id="dayHours"></div>
+      <div class="day-track" id="dayTrack"></div>
     </div>
   </div>
 
@@ -5397,8 +6005,12 @@
 
       <button class="pf-primary" id="requestEventBtn" type="button">
         <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
-        Request Event
+        Add to Calendar
       </button>
+
+      <!-- Manager: pending photo-import approvals (Kaylene / Daisy) -->
+      <div class="pf-group-label" id="managerGroupLabel" style="display:none;">Manager <span class="mgr-count" id="managerCount"></span></div>
+      <div id="managerRequests"></div>
 
       <div class="pf-group-label">Family</div>
       <div class="pf-card">
@@ -5523,9 +6135,51 @@
 </nav>
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
-<button class="ask-claude-fab mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude">
+<button class="ask-claude-fab" id="askClaudeBtn" type="button" aria-label="Ask Claude">
   <img src="/assets/claude-ai.png" alt="" draggable="false" />
 </button>
+
+<!-- "+" Import schedule from photo (shining ring), stacked above the Claude FAB -->
+<button class="parse-fab" id="parseFab" type="button" aria-label="Import schedule from photo">
+  <span class="parse-plus">+</span>
+</button>
+<input type="file" id="parseFileInput" accept="image/*" style="display:none;">
+
+<!-- Import-from-photo modal -->
+<div class="parse-backdrop" id="parseBackdrop"></div>
+<div class="parse-modal" id="parseModal" role="dialog" aria-modal="true" aria-label="Import schedule from photo">
+  <div class="parse-head">
+    <div class="parse-head-icon" aria-hidden="true">✨</div>
+    <div class="parse-head-main">
+      <div class="parse-title">Import from photo</div>
+      <div class="parse-sub">Snap a schedule; Claude reads the days. Nothing is added until you confirm.</div>
+    </div>
+    <button type="button" class="parse-close" id="parseCloseBtn" aria-label="Close">✕</button>
+  </div>
+  <div class="parse-scroll" id="parseScroll">
+    <div class="parse-seg-label">Import for</div>
+    <div class="parse-seg" id="parseSeg">
+      <button type="button" data-person="G" class="active"><span class="sb-avatar small" data-photo="g">G</span>Gage</button>
+      <button type="button" data-person="K"><span class="sb-avatar small k" data-photo="k">K</span>Kaylene</button>
+      <button type="button" data-person="Daisy"><span class="sb-avatar small d" data-photo="d">D</span>Daisy</button>
+    </div>
+    <div id="parseStage"></div>
+  </div>
+  <div class="parse-actions" id="parseActions" style="display:none;">
+    <button type="button" class="pa-cancel" id="parseCancelBtn">Cancel</button>
+    <button type="button" class="pa-confirm" id="parseConfirmBtn" disabled>Add to schedule</button>
+  </div>
+</div>
+
+<!-- Full-screen zoom for a pending-import photo -->
+<div class="mgr-photo-zoom" id="mgrPhotoZoom"><img id="mgrPhotoZoomImg" src="" alt="Imported schedule photo"></div>
+
+<!-- Life-event detail bottom sheet (populated on tap of an agenda pill) -->
+<div class="event-sheet-backdrop" id="eventSheetBackdrop"></div>
+<div class="event-sheet" id="eventSheet" role="dialog" aria-modal="true" aria-label="Event details">
+  <div class="es-grab" id="eventSheetGrab"></div>
+  <div id="eventSheetBody"></div>
+</div>
 
 </div><!-- end appScreen -->
 
@@ -5585,7 +6239,7 @@
 
       <button class="pf-primary" id="cgProfileRequestEvent" type="button">
         <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
-        Request Event
+        Add to Calendar
       </button>
 
       <div class="pf-card tight">
@@ -5670,8 +6324,8 @@
     <div class="cgr-grab"></div>
     <div class="cgr-head">
       <div>
-        <div class="cgr-title" id="cgrTitle">Request Event</div>
-        <div class="cgr-sub">Tell the family about a block, conflict, or anything else.</div>
+        <div class="cgr-title" id="cgrTitle">Add to Calendar</div>
+        <div class="cgr-sub">Add something to the family calendar — everyone gets notified.</div>
       </div>
       <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">
         <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -5679,12 +6333,8 @@
     </div>
 
     <div class="cgr-scroll">
-      <span class="cgr-label">Type</span>
-      <div class="cgr-type-grid">
-        <button type="button" class="cgr-type active" data-cgr-type="schedule-block">Schedule Block</button>
-        <button type="button" class="cgr-type" data-cgr-type="shift-conflict">Shift Conflict</button>
-        <button type="button" class="cgr-type" data-cgr-type="other">Life</button>
-      </div>
+      <span class="cgr-label">What is it?</span>
+      <input type="text" class="cgr-input" id="cgrTitleInput" placeholder="e.g. Elliot's cast comes off!" style="width:100%;box-sizing:border-box;margin-bottom:4px;">
 
       <span class="cgr-label">When</span>
       <div class="cgr-group">
@@ -5693,14 +6343,14 @@
         <div class="cgr-frow last"><span class="cgr-frow-label">Ends</span><input type="time" class="cgr-input" id="cgrEnd"></div>
       </div>
 
-      <span class="cgr-label">Comments</span>
-      <textarea class="cgr-textarea" id="cgrNotes" placeholder="What does the family need to know?"></textarea>
+      <span class="cgr-label">Notes (optional)</span>
+      <textarea class="cgr-textarea" id="cgrNotes" placeholder="Anything else the family should know?"></textarea>
 
       <div class="cgr-err" id="cgrErr" style="display:none;"></div>
     </div>
 
     <div class="cgr-actions">
-      <button type="button" class="cgr-submit" id="cgrSubmitBtn">Send to Family</button>
+      <button type="button" class="cgr-submit" id="cgrSubmitBtn">Add to Calendar</button>
       <button type="button" class="cgr-cancel" id="cgrCancelBtn">Cancel</button>
     </div>
   </div>
@@ -6215,6 +6865,8 @@ function enterApp() {
   initChat();
   wireAllChatComposers();
   wireAskClaudeUI();
+  wireParseUI();
+  wireManagerUI();
   _drainPendingPushIntent();
 }
 
@@ -6454,27 +7106,27 @@ function initCaregiverScreen() {
   wireCaregiverRequestModal();
 }
 
-// ==================== CAREGIVER: REQUEST EVENT MODAL ====================
-let _cgrType = "schedule-block";
+// ==================== CAREGIVER: ADD TO CALENDAR MODAL ====================
+// Formerly the "Request Event" flow (manager approval). Now it posts a life
+// event straight to the family calendar — no approval — and the Cloud Function
+// notifies everyone. See openCaregiverRequestModal / submitCaregiverRequest.
 
 function openCaregiverRequestModal() {
-  _cgrType = "schedule-block";
   // Default date = today
   const now = new Date();
   const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const titleEl = document.getElementById("cgrTitleInput");
   const dateEl = document.getElementById("cgrDate");
   const startEl = document.getElementById("cgrStart");
   const endEl = document.getElementById("cgrEnd");
   const notesEl = document.getElementById("cgrNotes");
   const err = document.getElementById("cgrErr");
+  if (titleEl) titleEl.value = "";
   if (dateEl)  dateEl.value = iso;
   if (startEl) startEl.value = "";
   if (endEl)   endEl.value = "";
   if (notesEl) notesEl.value = "";
   if (err)     { err.style.display = "none"; err.textContent = ""; }
-  document.querySelectorAll("[data-cgr-type]").forEach(b => {
-    b.classList.toggle("active", b.getAttribute("data-cgr-type") === _cgrType);
-  });
   document.body.classList.add("cgr-open");
 }
 
@@ -6504,20 +7156,11 @@ function wireCaregiverRequestModal() {
     submitBtn.__wired = true;
     submitBtn.addEventListener("click", submitCaregiverRequest);
   }
-  document.querySelectorAll("[data-cgr-type]").forEach(btn => {
-    if (btn.__wired) return;
-    btn.__wired = true;
-    btn.addEventListener("click", () => {
-      _cgrType = btn.getAttribute("data-cgr-type") || "schedule-block";
-      document.querySelectorAll("[data-cgr-type]").forEach(b => {
-        b.classList.toggle("active", b === btn);
-      });
-    });
-  });
 }
 
 async function submitCaregiverRequest() {
   if (!householdId || !currentUser) return;
+  const titleEl = document.getElementById("cgrTitleInput");
   const dateEl = document.getElementById("cgrDate");
   const startEl = document.getElementById("cgrStart");
   const endEl = document.getElementById("cgrEnd");
@@ -6528,42 +7171,39 @@ async function submitCaregiverRequest() {
   const showErr = (msg) => { if (err) { err.style.display = "block"; err.textContent = msg; } };
   if (err) { err.style.display = "none"; err.textContent = ""; }
 
+  const title = (titleEl && titleEl.value || "").trim();
+  if (!title) { showErr("Give it a name so the family knows what it is."); return; }
   const date = (dateEl && dateEl.value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr("Pick a date."); return; }
   const startTime = (startEl && startEl.value) || "";
   const endTime = (endEl && endEl.value) || "";
   const notes = (notesEl && notesEl.value || "").trim();
-  if (_cgrType === "other" && !notes) { showErr("Add a comment so the family knows what you mean."); return; }
 
   if (submit) submit.disabled = true;
   try {
     // Read-modify-write so we don't clobber concurrent state edits.
+    // Posts a life event straight to the calendar — no approval. The Cloud
+    // Function's schedule-additions trigger notifies the whole household.
     const ref = db.collection("households").doc(householdId)
       .collection("state").doc("main");
     const snap = await ref.get();
     const data = snap.exists ? (snap.data() || {}) : {};
-    const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
-    const id = `cr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    const entry = {
-      id,
-      type: _cgrType,
+    const events = Array.isArray(data.events) ? data.events.slice() : [];
+    const evt = {
+      id: `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
       date,
-      status: "new",
-      createdAt: Date.now(),
-      createdBy: currentUser.uid,
-      // Attach the requestor from their profile — household member name first,
-      // so the family sees "Kaylene"/"Daisy", not a raw Apple/Google name.
-      createdByName: _resolveMyName(),
+      title,
+      who: "family",
     };
-    if (startTime) entry.startTime = startTime;
-    if (endTime)   entry.endTime = endTime;
-    if (notes)     entry.notes = notes;
-    list.push(entry);
-    await ref.set({ ...data, caregiverRequests: list });
+    if (startTime) evt.startTime = startTime;
+    if (endTime)   evt.endTime = endTime;
+    if (notes)     evt.notes = notes;
+    events.push(evt);
+    await ref.set({ ...data, events });
     closeCaregiverRequestModal();
   } catch (e) {
-    console.error("submitCaregiverRequest failed:", e);
-    showErr("Couldn't send. Check your connection and try again.");
+    console.error("add-to-calendar failed:", e);
+    showErr("Couldn't add it. Check your connection and try again.");
   } finally {
     if (submit) submit.disabled = false;
   }
@@ -7373,6 +8013,487 @@ async function sendAskClaude(text) {
   }
 }
 
+// ═══════════════ Import schedule from photo (Claude vision) ═══════════════
+let _parsePerson = "G";
+let _parseShifts = [];   // [{date,start,end,crossesMidnight,label,shiftTypeId}]
+let _parseNewTypes = []; // temp shift types auto-created for unmatched hours
+let _parsePhotoDataUrl = null;
+let _parseBusy = false;
+
+function _parseShiftOptions(selectedId) {
+  const opts = [];
+  for (const s of (state.shiftTypes || [])) {
+    const sel = s.id === selectedId ? " selected" : "";
+    opts.push(`<option value="${s.id}"${sel}>${escapeHTML(s.name)}</option>`);
+  }
+  // Auto-created types (from unmatched hours) show with a "＋ New:" marker.
+  for (const s of _parseNewTypes) {
+    const sel = s.id === selectedId ? " selected" : "";
+    opts.push(`<option value="${s.id}"${sel}>＋ New: ${escapeHTML(s.name)}</option>`);
+  }
+  return opts.join("");
+}
+
+// The shift type currently mapped to a parsed row (real or auto-created), so the
+// row can display that type's hours after an override.
+function _parseRowType(s) {
+  if (!s || !s.shiftTypeId) return null;
+  return (state.shiftTypes || []).find(t => t.id === s.shiftTypeId)
+      || _parseNewTypes.find(t => t.id === s.shiftTypeId)
+      || null;
+}
+
+// Build a temp shift type from a parsed shift's hours.
+function _makeTempType(s) {
+  const name = (s.label && s.label.trim()) || `${compactTime(s.start)}–${compactTime(s.end)}`;
+  return {
+    id: "sttmp_" + Math.random().toString(36).slice(2, 9),
+    name, start: s.start, end: s.end,
+    crossesMidnight: !!s.crossesMidnight, _new: true,
+  };
+}
+
+// Find (or create) a temp type matching these hours, so identical unmatched
+// rows share one auto-created type.
+function _tempTypeForHours(s) {
+  const sig = `${s.start}|${s.end}|${s.crossesMidnight ? 1 : 0}`;
+  let t = _parseNewTypes.find(x => `${x.start}|${x.end}|${x.crossesMidnight ? 1 : 0}` === sig);
+  if (!t) { t = _makeTempType(s); _parseNewTypes.push(t); }
+  return t.id;
+}
+
+// Find a shift type whose hours match the parsed times (fallback when the
+// function didn't already map one).
+function _bestShiftMatch(start, end) {
+  for (const s of (state.shiftTypes || [])) {
+    if (s.start === start && s.end === end) return s.id;
+  }
+  return "";
+}
+
+// Downscale + re-encode to keep the upload small and reliable.
+function _downscaleImage(file, maxDim, quality) {
+  const q = typeof quality === "number" ? quality : 0.82;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read the file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't load the image."));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", q);
+        resolve({ dataUrl, base64: dataUrl.split(",")[1], mediaType: "image/jpeg" });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function openParseModal() {
+  if (userRole === "supporting") return;
+  _parsePerson = "G";
+  _parseShifts = [];
+  _parseNewTypes = [];
+  _parsePhotoDataUrl = null;
+  document.querySelectorAll("#parseSeg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.person === "G"));
+  document.getElementById("parseActions").style.display = "none";
+  document.getElementById("parseConfirmBtn").disabled = true;
+  _renderParseStage("pick");
+  document.body.classList.add("parse-open");
+}
+
+function closeParseModal() {
+  document.body.classList.remove("parse-open");
+}
+
+function _renderParseStage(phase, payload) {
+  const stage = document.getElementById("parseStage");
+  const actions = document.getElementById("parseActions");
+  if (phase === "pick") {
+    stage.innerHTML = `
+      <div class="parse-pick" id="parsePick">
+        <div class="pp-cam">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <rect x="2" y="7" width="22" height="16" rx="4" fill="currentColor"></rect>
+            <rect x="8" y="3" width="10" height="6" rx="2" fill="currentColor"></rect>
+            <circle cx="13" cy="15" r="5" fill="var(--bg-elev)"></circle>
+            <circle cx="13" cy="15" r="2.6" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <div class="pp-main">Take or choose a photo</div>
+        <div class="pp-sub">Paper schedule, whiteboard, or screenshot</div>
+      </div>`;
+    stage.querySelector("#parsePick").addEventListener("click", () =>
+      document.getElementById("parseFileInput").click());
+    actions.style.display = "none";
+  } else if (phase === "loading") {
+    stage.innerHTML = `
+      ${payload && payload.dataUrl ? `<img class="parse-thumb" src="${payload.dataUrl}" alt="">` : ""}
+      <div class="parse-status">Reading the schedule… this can take a few seconds.</div>`;
+    actions.style.display = "none";
+  } else if (phase === "preview") {
+    if (_parseShifts.length === 0) {
+      stage.innerHTML = `
+        ${payload && payload.dataUrl ? `<img class="parse-thumb" src="${payload.dataUrl}" alt="">` : ""}
+        <div class="parse-status">No scheduled days were found in that photo. Try a clearer shot.</div>
+        <div class="parse-pick" id="parseRetry"><div class="pp-icon">🔄</div><div class="pp-main">Pick another photo</div></div>`;
+      stage.querySelector("#parseRetry").addEventListener("click", () =>
+        document.getElementById("parseFileInput").click());
+      actions.style.display = "none";
+      return;
+    }
+    const whoName = _eventWhoMeta(_parsePerson).name;
+    const MO = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+    const WD = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+    const rows = _parseShifts.map((s, i) => {
+      const d = parseISODate(s.date);
+      const dow = d ? WD[d.getDay()] : "";
+      const mo = d ? MO[d.getMonth()] : "";
+      const dnum = d ? d.getDate() : s.date;
+      // Show the mapped type's hours (so an override is reflected), falling back
+      // to the parsed times.
+      const t = _parseRowType(s);
+      const start = t ? t.start : s.start;
+      const end = t ? t.end : s.end;
+      const xm = t ? !!t.crossesMidnight : !!s.crossesMidnight;
+      const plus = xm ? `<span class="pr-plus">+1d</span>` : "";
+      return `<div class="parse-prow" data-i="${i}" data-skip="${s.skip ? "1" : "0"}">
+        <div class="pr-bar"></div>
+        <div class="pr-date">
+          <div class="pr-mo">${mo}</div>
+          <div class="pr-day">${dnum}</div>
+          <div class="pr-wd">${dow}</div>
+        </div>
+        <div class="pr-time">
+          <span class="pr-time-text">${escapeHTML(compactTime(start))} <span class="pr-arrow">→</span> ${escapeHTML(compactTime(end))}${plus}</span>
+          <span class="pr-caret" aria-hidden="true">⌄</span>
+          <select class="pr-type" data-i="${i}" aria-label="Change shift type">${_parseShiftOptions(s.shiftTypeId)}</select>
+        </div>
+        <div class="pr-btns">
+          <button type="button" class="pr-keep" data-i="${i}" aria-label="Keep this day">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5 L7 13.5 L15 4.5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" class="pr-skip" data-i="${i}" aria-label="Skip this day">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>`;
+    }).join("");
+    stage.innerHTML = `
+      <div class="parse-preview-head">Found ${_parseShifts.length} day${_parseShifts.length === 1 ? "" : "s"} for ${escapeHTML(whoName)} — review & confirm</div>
+      ${rows}`;
+    const setSkip = (i, skip) => {
+      _parseShifts[i].skip = skip;
+      const row = stage.querySelector(`.parse-prow[data-i="${i}"]`);
+      if (row) row.dataset.skip = skip ? "1" : "0";
+      _refreshParseConfirm();
+    };
+    stage.querySelectorAll(".pr-keep").forEach(btn =>
+      btn.addEventListener("click", e => setSkip(+e.currentTarget.dataset.i, false)));
+    stage.querySelectorAll(".pr-skip").forEach(btn =>
+      btn.addEventListener("click", e => setSkip(+e.currentTarget.dataset.i, true)));
+    // Tap the time to change the mapped shift type — re-render so the displayed
+    // hours track the new type.
+    stage.querySelectorAll(".pr-type").forEach(sel =>
+      sel.addEventListener("change", e => {
+        _parseShifts[+e.target.dataset.i].shiftTypeId = e.target.value || "";
+        _renderParseStage("preview", payload);
+      }));
+    actions.style.display = "flex";
+    _refreshParseConfirm();
+  }
+}
+
+function _refreshParseConfirm() {
+  const btn = document.getElementById("parseConfirmBtn");
+  // Kept = rows that still have a mapped type and haven't been skipped.
+  const kept = _parseShifts.filter(s => s.shiftTypeId && s.date && !s.skip).length;
+  btn.disabled = kept === 0;
+  btn.textContent = kept > 0 ? `Add ${kept} to schedule` : "Add to schedule";
+}
+
+async function _handleParseFile(file) {
+  if (!file || _parseBusy) return;
+  _parseBusy = true;
+  let payload = null;
+  try {
+    payload = await _downscaleImage(file, 1600);
+    // Compact copy for the pending-import record (lives in state/main, which is
+    // rewritten often) — keep it small; only used for the manager's review.
+    try {
+      const thumb = await _downscaleImage(file, 900, 0.55);
+      _parsePhotoDataUrl = thumb.dataUrl;
+    } catch (_) {
+      _parsePhotoDataUrl = payload.dataUrl;
+    }
+    _parseNewTypes = [];
+    _renderParseStage("loading", payload);
+    const fn = firebase.functions().httpsCallable("parseSchedule");
+    const res = await fn({ imageBase64: payload.base64, mediaType: payload.mediaType, person: _parsePerson });
+    const data = (res && res.data) || {};
+    const shifts = Array.isArray(data.shifts) ? data.shifts : [];
+    _parseShifts = shifts.map(s => {
+      let id = (s.matchedShiftTypeId && (state.shiftTypes || []).some(t => t.id === s.matchedShiftTypeId))
+        ? s.matchedShiftTypeId
+        : _bestShiftMatch(s.start, s.end);
+      // No existing type fits → auto-create one from the parsed hours.
+      if (!id && s.start && s.end) id = _tempTypeForHours(s);
+      return {
+        date: s.date, start: s.start, end: s.end,
+        crossesMidnight: !!s.crossesMidnight,
+        label: s.label || "",
+        shiftTypeId: id || "",
+      };
+    });
+    _renderParseStage("preview", payload);
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    document.getElementById("parseStage").innerHTML =
+      `<div class="parse-status">Couldn't read that photo.<br><span style="color:var(--text-3);font-size:12.5px;">${escapeHTML(msg)}</span></div>
+       <div class="parse-pick" id="parseRetry"><div class="pp-icon">🔄</div><div class="pp-main">Try another photo</div></div>`;
+    const retry = document.getElementById("parseRetry");
+    if (retry) retry.addEventListener("click", () => document.getElementById("parseFileInput").click());
+    document.getElementById("parseActions").style.display = "none";
+  } finally {
+    _parseBusy = false;
+  }
+}
+
+async function _confirmParseImport() {
+  const rows = _parseShifts.filter(s => s.shiftTypeId && s.date && !s.skip);
+  if (rows.length === 0) return;
+  const person = _parsePerson;
+  if (!Array.isArray(state.shiftTypes)) state.shiftTypes = [];
+
+  // Materialize any auto-created ("＋ New") types that rows actually use, and
+  // remap those rows to the real shift-type ids. Committed now so pending
+  // entries render immediately.
+  const tempToReal = {};
+  for (const r of rows) {
+    const temp = _parseNewTypes.find(t => t.id === r.shiftTypeId);
+    if (!temp) continue;
+    if (!tempToReal[temp.id]) {
+      const realId = "st_" + Math.random().toString(36).slice(2, 9);
+      state.shiftTypes.push({
+        id: realId, name: temp.name, start: temp.start, end: temp.end,
+        crossesMidnight: !!temp.crossesMidnight,
+      });
+      tempToReal[temp.id] = realId;
+    }
+    r.shiftTypeId = tempToReal[temp.id];
+  }
+
+  const whoName = _eventWhoMeta(person).name;
+
+  if (person === "G") {
+    // Gage's own imports go in directly — he's the reviewer.
+    if (!Array.isArray(state.overrides)) state.overrides = [];
+    for (const s of rows) {
+      state.overrides = state.overrides.filter(o => o.date !== s.date);
+      state.overrides.push({ date: s.date, action: "work", shiftTypeId: s.shiftTypeId, label: s.label || "" });
+    }
+    saveState();
+    renderCalendar();
+    if (typeof refreshPreview === "function") refreshPreview();
+    if (typeof renderAnalysis === "function") renderAnalysis();
+    if (typeof renderOverrides === "function") renderOverrides();
+    closeParseModal();
+    return;
+  }
+
+  // Kaylene / Daisy: land as PENDING for manager review, tagged with importId.
+  const importId = "imp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  if (person === "K") {
+    if (!state.partner) state.partner = { name: "Kaylene", shifts: [] };
+    if (!Array.isArray(state.partner.shifts)) state.partner.shifts = [];
+    for (const s of rows) {
+      state.partner.shifts.push({ date: s.date, shiftTypeId: s.shiftTypeId, label: s.label || "", pending: true, importId });
+    }
+  } else { // Daisy
+    if (!state.dependents) state.dependents = {};
+    if (!state.dependents.daisy) state.dependents.daisy = { name: "Daisy", shifts: [] };
+    if (!Array.isArray(state.dependents.daisy.shifts)) state.dependents.daisy.shifts = [];
+    for (const s of rows) {
+      state.dependents.daisy.shifts.push({ date: s.date, shiftTypeId: s.shiftTypeId, label: s.label || "", pending: true, importId });
+    }
+  }
+
+  // Record the request (photo + days) for the Manager section under Profile.
+  if (!Array.isArray(state.imports)) state.imports = [];
+  state.imports.push({
+    id: importId,
+    person,
+    personName: whoName,
+    photo: _parsePhotoDataUrl || null,
+    createdAt: Date.now(),
+    createdByName: state.selfName || "Gage",
+    status: "pending",
+    days: rows.map(r => ({ date: r.date, shiftTypeId: r.shiftTypeId, label: r.label || "" })),
+    // Shift types auto-created for this import — cleaned up on reject if unused.
+    newTypeIds: Object.values(tempToReal),
+  });
+
+  saveState();
+  renderCalendar();
+  if (typeof renderAnalysis === "function") renderAnalysis();
+  if (typeof renderManagerRequests === "function") renderManagerRequests();
+  closeParseModal();
+}
+
+function wireParseUI() {
+  const fab = document.getElementById("parseFab");
+  if (fab && !fab.__wired) { fab.__wired = true; fab.addEventListener("click", openParseModal); }
+  const close = document.getElementById("parseCloseBtn");
+  if (close && !close.__wired) { close.__wired = true; close.addEventListener("click", closeParseModal); }
+  const cancel = document.getElementById("parseCancelBtn");
+  if (cancel && !cancel.__wired) { cancel.__wired = true; cancel.addEventListener("click", closeParseModal); }
+  const backdrop = document.getElementById("parseBackdrop");
+  if (backdrop && !backdrop.__wired) { backdrop.__wired = true; backdrop.addEventListener("click", closeParseModal); }
+  const confirm = document.getElementById("parseConfirmBtn");
+  if (confirm && !confirm.__wired) { confirm.__wired = true; confirm.addEventListener("click", _confirmParseImport); }
+  const fileInput = document.getElementById("parseFileInput");
+  if (fileInput && !fileInput.__wired) {
+    fileInput.__wired = true;
+    fileInput.addEventListener("change", e => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";   // allow re-picking the same file
+      if (f) _handleParseFile(f);
+    });
+  }
+  document.querySelectorAll("#parseSeg button").forEach(b => {
+    if (b.__wired) return;
+    b.__wired = true;
+    b.addEventListener("click", () => {
+      _parsePerson = b.dataset.person;
+      document.querySelectorAll("#parseSeg button").forEach(x =>
+        x.classList.toggle("active", x === b));
+      // Re-render preview header (person name) if we already have results.
+      if (_parseShifts.length) _renderParseStage("preview");
+    });
+  });
+}
+
+// ═══════════════ Manager: pending import approvals ═══════════════
+const _MGR_MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function _relTime(ms) {
+  if (!ms) return "just now";
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24); return `${d}d ago`;
+}
+
+function renderManagerRequests() {
+  const wrap = document.getElementById("managerRequests");
+  const label = document.getElementById("managerGroupLabel");
+  const count = document.getElementById("managerCount");
+  if (!wrap) return;
+  const pending = (Array.isArray(state.imports) ? state.imports : []).filter(im => im && im.status === "pending");
+  if (pending.length === 0) {
+    wrap.innerHTML = "";
+    if (label) label.style.display = "none";
+    return;
+  }
+  if (label) label.style.display = "";
+  if (count) count.textContent = pending.length;
+  wrap.innerHTML = pending.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(im => {
+    const m = _eventWhoMeta(im.person);
+    const photoAttr = m.photo ? ` data-photo="${m.photo}"` : "";
+    const days = (im.days || []).slice().sort((a, b) => a.date.localeCompare(b.date)).map(dy => {
+      const d = parseISODate(dy.date);
+      const lbl = d ? `${_MGR_MO[d.getMonth()]} ${d.getDate()}` : dy.date;
+      const st = findShift(dy.shiftTypeId);
+      return `<span class="mgr-day">${lbl}${st ? " · " + escapeHTML(st.name) : ""}</span>`;
+    }).join("");
+    return `<div class="mgr-card" data-imp="${im.id}">
+      <div class="mgr-card-head">
+        <span class="sb-avatar ${m.cls}"${photoAttr}>${m.initial}</span>
+        <div class="mgr-card-title">
+          <div class="t1">${escapeHTML(im.personName || m.name)}'s schedule</div>
+          <div class="t2">${(im.days || []).length} day${(im.days || []).length === 1 ? "" : "s"} · imported ${_relTime(im.createdAt)}</div>
+        </div>
+        <span class="mgr-pending-badge">Pending</span>
+      </div>
+      ${im.photo ? `<img class="mgr-photo" src="${im.photo}" data-zoom="${im.id}" alt="Imported schedule photo">` : ""}
+      <div class="mgr-days">${days}</div>
+      <div class="mgr-actions">
+        <button class="mgr-reject" type="button" data-reject="${im.id}">Reject</button>
+        <button class="mgr-approve" type="button" data-approve="${im.id}">Approve</button>
+      </div>
+    </div>`;
+  }).join("");
+  wrap.querySelectorAll("[data-approve]").forEach(b => b.addEventListener("click", () => approveImport(b.dataset.approve)));
+  wrap.querySelectorAll("[data-reject]").forEach(b => b.addEventListener("click", () => rejectImport(b.dataset.reject)));
+  wrap.querySelectorAll("[data-zoom]").forEach(img => img.addEventListener("click", () => {
+    const z = document.getElementById("mgrPhotoZoom");
+    document.getElementById("mgrPhotoZoomImg").src = img.src;
+    z.classList.add("show");
+  }));
+}
+
+function approveImport(id) {
+  const imp = (state.imports || []).find(im => im.id === id);
+  if (!imp) return;
+  const clear = arr => { for (const s of (arr || [])) if (s.importId === id) { delete s.pending; delete s.importId; } };
+  clear(state.partner && state.partner.shifts);
+  clear(state.dependents && state.dependents.daisy && state.dependents.daisy.shifts);
+  state.imports = (state.imports || []).filter(im => im.id !== id);
+  saveState();
+  renderCalendar();
+  if (typeof renderAnalysis === "function") renderAnalysis();
+  if (typeof renderPartnerShifts === "function") renderPartnerShifts();
+  renderManagerRequests();
+}
+
+function _shiftTypeReferenced(id) {
+  const inArr = arr => (arr || []).some(x => x && x.shiftTypeId === id);
+  if ((state.template || []).includes(id)) return true;
+  if (inArr(state.overrides) || inArr(state.ot) || inArr(state.otOpportunities)) return true;
+  if (state.partner && inArr(state.partner.shifts)) return true;
+  if (state.dependents && state.dependents.daisy && inArr(state.dependents.daisy.shifts)) return true;
+  const wt = state.weeklyTemplates || {};
+  for (const key of ["G", "K", "daisy"]) {
+    const t = wt[key];
+    if (t && Array.isArray(t.days) && t.days.some(d => d === id || (d && d.shiftTypeId === id))) return true;
+  }
+  return false;
+}
+
+function rejectImport(id) {
+  const imp = (state.imports || []).find(im => im.id === id);
+  const drop = arr => (arr || []).filter(s => s.importId !== id);
+  if (state.partner) state.partner.shifts = drop(state.partner.shifts);
+  if (state.dependents && state.dependents.daisy) state.dependents.daisy.shifts = drop(state.dependents.daisy.shifts);
+  state.imports = (state.imports || []).filter(im => im.id !== id);
+  // Remove auto-created shift types this import introduced, if nothing else uses them.
+  if (imp && Array.isArray(imp.newTypeIds) && imp.newTypeIds.length) {
+    state.shiftTypes = (state.shiftTypes || []).filter(t =>
+      !imp.newTypeIds.includes(t.id) || _shiftTypeReferenced(t.id));
+  }
+  saveState();
+  renderCalendar();
+  if (typeof renderAnalysis === "function") renderAnalysis();
+  if (typeof renderPartnerShifts === "function") renderPartnerShifts();
+  if (typeof renderShiftTypes === "function") renderShiftTypes();
+  renderManagerRequests();
+}
+
+function wireManagerUI() {
+  const z = document.getElementById("mgrPhotoZoom");
+  if (z && !z.__wired) { z.__wired = true; z.addEventListener("click", () => z.classList.remove("show")); }
+}
+
 function wireAskClaudeUI() {
   const open = document.getElementById("askClaudeBtn");
   const close = document.getElementById("askCloseBtn");
@@ -7627,7 +8748,13 @@ function renderManagerInboxSection(caregiverRequests) {
   const section = document.getElementById("mcInboxSection");
   const list = document.getElementById("mcInboxList");
   if (!section || !list) return;
-  // Show only non-dismissed for the iOS surface; full audit still on Mac.
+  // The caregiver-request approval/inbox concept was removed — submissions now
+  // post straight to the calendar and the family is notified. Keep the section
+  // hidden. (Retained as a no-op so the render pipeline + any old data are safe.)
+  section.hidden = true;
+  list.innerHTML = "";
+  return;
+  // eslint-disable-next-line no-unreachable
   const visible = (caregiverRequests || []).filter(r => r && r.status !== "dismissed");
   if (visible.length === 0) { section.hidden = true; list.innerHTML = ""; return; }
   section.hidden = false;
@@ -7706,7 +8833,7 @@ function mcInboxRowHTML(r) {
   const type =
     r.type === "schedule-block" ? "Schedule block" :
     r.type === "shift-conflict" ? "Shift conflict" :
-                                   "Other";
+                                   "Life";
   let dayLabel = r.date || "";
   try {
     const [y, m, d] = (r.date || "").split("-").map(Number);
@@ -7729,11 +8856,16 @@ function mcInboxRowHTML(r) {
   const convertBtn = (status === "new" && r.type === "shift-conflict" && r.date)
     ? `<button type="button" class="mc-clear-btn" style="border-color:#30D158;color:#30D158;" data-mc-inbox-convert="${escapeHtml(r.id || "")}">Convert to coverage</button>`
     : "";
+  // Life requests auto-post a pending calendar event, so their actions read as
+  // Confirm / Reject (they flip that event); other types just get acknowledged.
+  const isLife = r.type === "other";
+  const ackLabel = isLife ? "Confirm" : "Acknowledge";
+  const dismissLabel = isLife ? "Reject" : "Dismiss";
   const actions = status === "new"
     ? `<div class="mc-actions" style="gap:6px;flex-wrap:wrap;">
          ${convertBtn}
-         <button type="button" class="mc-clear-btn" data-mc-inbox-ack="${escapeHtml(r.id || "")}">Acknowledge</button>
-         <button type="button" class="mc-clear-btn" data-mc-inbox-dismiss="${escapeHtml(r.id || "")}">Dismiss</button>
+         <button type="button" class="mc-clear-btn"${isLife ? ' style="border-color:#30D158;color:#30D158;"' : ""} data-mc-inbox-ack="${escapeHtml(r.id || "")}">${ackLabel}</button>
+         <button type="button" class="mc-clear-btn" data-mc-inbox-dismiss="${escapeHtml(r.id || "")}">${dismissLabel}</button>
        </div>`
     : "";
 
@@ -7769,7 +8901,26 @@ async function handleManagerInboxAction(id, nextStatus) {
       acknowledgedAt: Date.now(),
       acknowledgedBy: currentUser.uid,
     };
-    await ref.set({ ...data, caregiverRequests: list });
+    const nextData = { ...data, caregiverRequests: list };
+    // A "Life" request auto-posted a pending calendar event linked by
+    // sourceRequestId. Confirm (acknowledge) clears the pending flag; reject
+    // (dismiss) removes the event — same state write, so the calendar stays in sync.
+    if (Array.isArray(data.events)) {
+      if (nextStatus === "acknowledged") {
+        nextData.events = data.events.map(e => {
+          if (e && e.sourceRequestId === id) {
+            const clean = { ...e };
+            delete clean.pending;
+            delete clean.sourceRequestId;
+            return clean;
+          }
+          return e;
+        });
+      } else if (nextStatus === "dismissed") {
+        nextData.events = data.events.filter(e => !(e && e.sourceRequestId === id));
+      }
+    }
+    await ref.set(nextData);
   } catch (e) {
     console.error("inbox action failed:", e);
     alert("Couldn't update that request. Check your connection.");
@@ -8498,6 +9649,7 @@ function mergeStateFromFirestore(data) {
       calLayout:     typeof data.ui.calLayout     === "string" ? data.ui.calLayout     : undefined,
       viewMonth:     typeof data.ui.viewMonth     === "string" ? data.ui.viewMonth     : undefined,
       viewWeekStart: typeof data.ui.viewWeekStart === "string" ? data.ui.viewWeekStart : undefined,
+      viewDayDate:   typeof data.ui.viewDayDate   === "string" ? data.ui.viewDayDate   : undefined,
     } : undefined,
     // Daisy + any future kids' schedules (set on desktop via photo import).
     dependents: data.dependents && typeof data.dependents === "object" ? {
@@ -9227,13 +10379,14 @@ function generateEvents() {
   return events;
 }
 
-function makeEvent(date, shift, label, kind) {
+function makeEvent(date, shift, label, kind, pending) {
   const startDate = toISODate(date);
   const endDate = toISODate(shift.crossesMidnight ? addDays(date, 1) : date);
   return {
     startDate, startTime: shift.start,
     endDate,   endTime: shift.end,
     label, kind,
+    pending: !!pending,
   };
 }
 
@@ -9264,7 +10417,37 @@ function partnerEvents() {
     if (!d || d < from || d > to) continue;
     const shift = findShift(row.shiftTypeId);
     if (!shift) continue;
-    out.push(makeEvent(d, shift, row.label || shift.name, "partner"));
+    out.push(makeEvent(d, shift, row.label || shift.name, "partner", row.pending));
+  }
+  return out;
+}
+
+// ---------- Daisy (caregiver) event generation ----------
+// Daisy's own cells on the calendar: her recurring school template (inside its
+// window) + one-off school days. Display only — she's not a parent, so these
+// never enter the household coverage/rest analysis (that uses gage + partner).
+function daisyEvents() {
+  const win = generationWindow();
+  if (!win) return [];
+  const from = win.from, to = win.to;
+  const out = [];
+  const dTmpl = state.weeklyTemplates && state.weeklyTemplates.daisy;
+  if (dTmpl) {
+    for (const d of eachDay(from, to)) {
+      const dISO = toISODate(d);
+      if (dTmpl.startDate && dISO < dTmpl.startDate) continue;
+      if (dTmpl.endDate && dISO > dTmpl.endDate) continue;
+      const shift = templateSlotShift(dTmpl.days[d.getDay()]);
+      if (shift) out.push(makeEvent(d, shift, shift.name, "daisy"));
+    }
+  }
+  const rows = (state.dependents && state.dependents.daisy && state.dependents.daisy.shifts) || [];
+  for (const row of rows) {
+    if (!row.date || !row.shiftTypeId) continue;   // timed school days only
+    const d = parseISODate(row.date);
+    if (!d || d < from || d > to) continue;
+    const shift = findShift(row.shiftTypeId);
+    if (shift) out.push(makeEvent(d, shift, row.label || shift.name, "daisy", row.pending));
   }
   return out;
 }
@@ -10032,19 +11215,24 @@ function eventCSSColor(who) {
 }
 /** Outlined chip used in Agenda rows + Today ribbon (room for the full title). */
 function eventChipHTML(ev) {
-  const color = eventCSSColor(ev.who);
+  const pending = !!ev.pending;
+  const color = pending ? "#ff9f0a" : eventCSSColor(ev.who);
   const timePart = ev.startTime ? `${compactTime(ev.startTime)} ` : "";
+  const pendTxt = pending ? ' <span class="ev-pending-tag">(pending)</span>' : "";
   // Leaf in place of the person initial — same swap as the day sheet.
-  return `<span class="ev-chip" style="border-color:${color};">
+  return `<span class="ev-chip"${pending ? ' data-pending="1"' : ""} style="border-color:${color};">
     <img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11">
-    <span class="ev-chip-text">${timePart}${escapeHTML(ev.title || "")}</span>
+    <span class="ev-chip-text">${timePart}${escapeHTML(ev.title || "")}${pendTxt}</span>
   </span>`;
 }
 /** Life-item marker for narrow Month cells: just the leaf, no time and no
  *  chip. One leaf per day regardless of how many life items — on a phone
  *  cell it's a presence indicator. Tap-day tooltip / agenda / today ribbon
  *  still show each event's full title and time. */
-function eventCellLeafHTML() {
+function eventCellLeafHTML(pending) {
+  // A pending (caregiver-submitted, unconfirmed) life item shows an amber dot
+  // instead of the green leaf so it reads as "awaiting review" on the month grid.
+  if (pending) return `<span class="ev-pending-dot" title="Pending life item"></span>`;
   return `<img class="ev-leaf" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11">`;
 }
 
@@ -10095,11 +11283,13 @@ function escapeAttr(s) {
 }
 /** Compact list row used inside the tap-day tooltip. */
 function eventTooltipRowHTML(ev) {
-  const color = eventCSSColor(ev.who);
+  const pending = !!ev.pending;
+  const color = pending ? "#ff9f0a" : eventCSSColor(ev.who);
   const time = ev.startTime ? `${compactTime(ev.startTime)}${ev.endTime ? `–${compactTime(ev.endTime)}` : ""}` : "All day";
+  const pendTxt = pending ? ' <span class="ev-pending-tag">(pending)</span>' : "";
   // Life items lead with the leaf rather than the person's initial.
   return `<div class="tt-row">
-    <span class="tt-label" style="color:${color};"><img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11"> ${escapeHTML(ev.title || "")}</span>
+    <span class="tt-label" style="color:${color};"><img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="11" height="11"> ${escapeHTML(ev.title || "")}${pendTxt}</span>
     <span class="tt-val">${time}</span>
   </div>`;
 }
@@ -10121,17 +11311,56 @@ function pillClass(hours) {
 function makePillHTML(prefix, e) {
   const h = shiftHours(e);
   const cls = pillClass(h);
-  const who = prefix === "G+K" ? "both" : prefix === "K" ? "k" : "g";
-  return `<span class="shift-pill ${cls}" data-who="${who}">${prefix} ${compactTime(e.startTime)}</span>`;
+  const who = prefix === "G+K" ? "both" : prefix === "K" ? "k" : prefix === "D" ? "d" : "g";
+  const label = prefix === "D" ? "D" : prefix;
+  const pend = e.pending ? ' data-pending="1"' : "";
+  return `<span class="shift-pill ${cls}" data-who="${who}"${pend}>${label} ${compactTime(e.startTime)}</span>`;
 }
 
 function getOTOpportunities(dateISO) {
   return (state.otOpportunities || []).filter(op => op.date === dateISO && op.shiftTypeId);
 }
 
-function computeDayCellData(dateISO, gageEvts, kayEvts, view) {
+// ---------- WVU football schedule (static feed, baked from wvusports.com RSS) ----------
+// Loaded once from the same-origin JSON file, keyed by ISO date. Any day with a
+// game gets the Flying WV in the cell's bottom-right corner. Refresh by editing
+// public/wvu-football.json and redeploying — see loadWvuSchedule().
+let _wvuGames = {};
+function loadWvuSchedule() {
+  fetch("wvu-football.json", { cache: "no-cache" })
+    .then(r => (r.ok ? r.json() : null))
+    .then(data => {
+      if (!data || !Array.isArray(data.games)) return;
+      const next = {};
+      for (const g of data.games) if (g && g.date) next[g.date] = g;
+      _wvuGames = next;
+      // The first calendar render may have run before this resolved; repaint it.
+      if (typeof renderCalendar === "function") renderCalendar();
+    })
+    .catch(() => { /* offline / missing file — cells simply render without the mark */ });
+}
+function wvuGameOn(dateISO) {
+  return _wvuGames[dateISO] || null;
+}
+// Human-readable game label, e.g. "WVU vs Kansas · 12:00 PM" / "WVU at Utah".
+function wvuGameTitle(g) {
+  const vs = g.neutral || g.home ? "vs" : "at";
+  const kick = g.kickoff && g.kickoff !== "TBD" ? ` · ${g.kickoff}` : "";
+  return `WVU ${vs} ${g.opponent}${kick}`;
+}
+// Small Flying WV mark for a game day, with a caller-supplied class so each
+// calendar layout can position it (corner in month, day-cell in week, etc.).
+function wvuMarkHTML(dateISO, cls) {
+  const g = wvuGameOn(dateISO);
+  if (!g) return "";
+  return `<img class="${cls}" src="assets/wvu.png" alt="" aria-hidden="true" title="${escapeAttr(wvuGameTitle(g))}">`;
+}
+function wvuCellIconHTML(dateISO) { return wvuMarkHTML(dateISO, "cal-wvu-icon"); }
+
+function computeDayCellData(dateISO, gageEvts, kayEvts, daisyEvts, view) {
   const gOnDay = eventsOnDate(gageEvts, dateISO);
   const kOnDay = eventsOnDate(kayEvts, dateISO);
+  const dOnDay = eventsOnDate(daisyEvts || [], dateISO);
   const gWorks = gOnDay.length > 0;
   const kWorks = kOnDay.length > 0;
   const da = _dayAnalysis[dateISO] || {};
@@ -10159,6 +11388,9 @@ function computeDayCellData(dateISO, gageEvts, kayEvts, view) {
     for (const e of kOnDay) labels.push({ html: makePillHTML("K", e) });
   }
 
+  // Daisy's own cells — always separate pills, never merged with a parent.
+  for (const e of dOnDay) labels.push({ html: makePillHTML("D", e) });
+
   const otOps = getOTOpportunities(dateISO);
   const hasOT = otOps.length > 0;
 
@@ -10169,7 +11401,7 @@ function computeDayCellData(dateISO, gageEvts, kayEvts, view) {
     else if (kWorks) bg = "var(--cal-partner)";
     else bg = "var(--cal-off)";
   }
-  return { labels, bg, gWorks, kWorks, gOnDay, kOnDay, hasOT };
+  return { labels, bg, gWorks, kWorks, gOnDay, kOnDay, dOnDay, hasOT };
 }
 
 let _dayAnalysis = {};
@@ -10286,7 +11518,7 @@ function _personLabels() {
   };
 }
 
-function renderTodayRibbon(gageEvts, kayEvts) {
+function renderTodayRibbon(gageEvts, kayEvts, daisyEvts) {
   const ribbon = document.getElementById("todayRibbon");
   if (!ribbon) return;
   const todayISO = toISODate(new Date());
@@ -10298,7 +11530,7 @@ function renderTodayRibbon(gageEvts, kayEvts) {
     ribbon.style.display = "none";
     return;
   }
-  const cell = computeDayCellData(todayISO, gageEvts, kayEvts, "schedule");
+  const cell = computeDayCellData(todayISO, gageEvts, kayEvts, daisyEvts, "schedule");
   const { gWorks, kWorks, gOnDay, kOnDay } = cell;
   const kind = gWorks && kWorks ? "both" : gWorks ? "g" : kWorks ? "k" : "off";
   const labels = _personLabels();
@@ -10357,12 +11589,17 @@ function renderTodayRibbon(gageEvts, kayEvts) {
     }
     for (const e of kOnDay) {
       if (shared.includes(e.startTime + "-" + e.endTime)) continue;
-      chipsHTML += `<span class="sb-chip" data-who="K"><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}</span>`;
+      chipsHTML += `<span class="sb-chip" data-who="K"${e.pending?' data-pending="1"':''}><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}${e.pending?" (pending)":""}</span>`;
     }
   }
   // Today's events join the chip strip after shifts
   for (const ev of getEventsForDate(todayISO)) {
     chipsHTML += eventChipHTML(ev);
+  }
+  // WVU game day gets its own chip in the ribbon.
+  const wvuToday = wvuGameOn(todayISO);
+  if (wvuToday) {
+    chipsHTML += `<span class="sb-chip wvu-chip"><img class="wvu-chip-logo" src="assets/wvu.png" alt="" aria-hidden="true">${escapeHTML(wvuGameTitle(wvuToday))}</span>`;
   }
   chipsEl.innerHTML = chipsHTML;
 
@@ -10401,6 +11638,10 @@ function _ensureCalUIState() {
     const sun = addDays(today, -dow);
     state.ui.viewWeekStart = toISODate(sun);
   }
+  if (!state.ui.viewDayDate) {
+    // Default visible day: today
+    state.ui.viewDayDate = toISODate(new Date());
+  }
   return state.ui;
 }
 
@@ -10423,19 +11664,21 @@ function renderCalendar() {
   const view = state.calView || "schedule";
   const gageEvts = generateEvents();
   const kayEvts = partnerEvents();
+  const daisyEvts = daisyEvents();
   // Roll the analysis window forward to cover the month being viewed.
   const _vm = parseISODate(ui.viewMonth) || new Date();
   const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 1, 0));
   buildDayAnalysisCache(_viewMonthEnd);
 
   // Compute today's ribbon + the always-visible big-title regardless of layout
-  renderTodayRibbon(gageEvts, kayEvts);
+  renderTodayRibbon(gageEvts, kayEvts, daisyEvts);
   updateMonthTitle();
   syncLayoutTabsUI();
 
-  if (ui.calLayout === "week")        renderWeekView(gageEvts, kayEvts, view);
-  else if (ui.calLayout === "agenda") renderAgendaView(gageEvts, kayEvts, view);
-  else                                renderMonthView(gageEvts, kayEvts, view);
+  if (ui.calLayout === "week")        renderWeekView(gageEvts, kayEvts, daisyEvts, view);
+  else if (ui.calLayout === "day")    renderDayView(gageEvts, kayEvts, daisyEvts, view);
+  else if (ui.calLayout === "agenda") renderAgendaView(gageEvts, kayEvts, daisyEvts, view);
+  else                                renderMonthView(gageEvts, kayEvts, daisyEvts, view);
 
   scheduleWidgetPush();
 }
@@ -10596,7 +11839,7 @@ document.addEventListener("visibilitychange", () => {
 // visibilitychange.
 clearAppBadge();
 
-function renderMonthView(gageEvts, kayEvts, view) {
+function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
   const ui = _ensureCalUIState();
   const monthDate = parseISODate(ui.viewMonth) || new Date();
   const monthIdx = monthDate.getMonth();
@@ -10614,6 +11857,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
   document.querySelector('.cal-wrap[data-layout="month"]').style.display = "block";
   document.getElementById("monthNav").style.display = "flex";
   document.getElementById("weekView").style.display = "none";
+  document.getElementById("dayView").style.display = "none";
   document.getElementById("agendaView").style.display = "none";
 
   // Update month nav label
@@ -10626,7 +11870,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
     const otherMonth = day.getMonth() !== monthIdx;
     const outside = (from && day < from) || (day > effTo);
     const isToday = dISO === todayISO;
-    const cell = computeDayCellData(dISO, gageEvts, kayEvts, view);
+    const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     const da = _dayAnalysis[dISO] || {};
 
     // Compute "kind" for data-attr (drives today ring + cell tint)
@@ -10661,9 +11905,10 @@ function renderMonthView(gageEvts, kayEvts, view) {
 
     const pillsHTML = cell.labels.map(l => l.html).join("");
     const dayEvents = getEventsForDate(dISO);
-    const eventsHTML = dayEvents.length ? eventCellLeafHTML() : "";
+    const eventsHTML = dayEvents.length ? eventCellLeafHTML(dayEvents.some(e => e && e.pending)) : "";
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
     const paydayIcons = paydayIconsForCell(dISO);
+    const wvuIcon = wvuCellIconHTML(dISO);
     const careClass = hasConfirmedCoverage(dISO) ? " has-confirmed-care" : "";
     const blockInfo = scheduleBlockFor(dISO);
     const blockClass = blockInfo ? " has-block" : "";
@@ -10674,6 +11919,7 @@ function renderMonthView(gageEvts, kayEvts, view) {
       <div class="cal-date${isToday ? " today" : ""}">${day.getDate()}</div>
       ${otIcon}${paydayIcons}
       <div class="cal-shifts">${pillsHTML}${eventsHTML}</div>
+      ${wvuIcon}
     </div>`;
   }
   document.getElementById("calGrid").innerHTML = html;
@@ -10682,11 +11928,12 @@ function renderMonthView(gageEvts, kayEvts, view) {
   _wireCellHandlers();
 }
 
-function renderWeekView(gageEvts, kayEvts, view) {
+function renderWeekView(gageEvts, kayEvts, daisyEvts, view) {
   const ui = _ensureCalUIState();
   document.querySelector('.cal-wrap[data-layout="month"]').style.display = "none";
   document.getElementById("monthNav").style.display = "none";
   document.getElementById("weekView").style.display = "block";
+  document.getElementById("dayView").style.display = "none";
   document.getElementById("agendaView").style.display = "none";
 
   // 7 days starting from viewWeekStart (Sunday)
@@ -10699,7 +11946,7 @@ function renderWeekView(gageEvts, kayEvts, view) {
   const stripEl = document.getElementById("weekDayStrip");
   stripEl.innerHTML = days.map(d => {
     const dISO = toISODate(d);
-    const cell = computeDayCellData(dISO, gageEvts, kayEvts, view);
+    const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     let kind = "off";
     if (cell.gWorks && cell.kWorks) kind = "both";
     else if (cell.gWorks) kind = "g";
@@ -10711,6 +11958,7 @@ function renderWeekView(gageEvts, kayEvts, view) {
     return `<div class="week-day-cell${isToday ? " today" : ""}" data-date="${dISO}" data-kind="${kind}" style="background:${isToday ? "" : tintBg};">
       <div class="wd-name">${dowNames[d.getDay()]}</div>
       <div class="wd-num">${d.getDate()}</div>
+      ${wvuMarkHTML(dISO, "week-wvu-icon")}
     </div>`;
   }).join("");
 
@@ -10729,7 +11977,7 @@ function renderWeekView(gageEvts, kayEvts, view) {
   }
   colsEl.innerHTML = days.map(d => {
     const dISO = toISODate(d);
-    const cell = computeDayCellData(dISO, gageEvts, kayEvts, view);
+    const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     const blocks = [];
     // Synthesize G+K shared, G-only, K-only blocks
     const gTimes = new Set(cell.gOnDay.map(e => e.startTime + "-" + e.endTime));
@@ -10748,7 +11996,8 @@ function renderWeekView(gageEvts, kayEvts, view) {
       const top = Math.max(0, Math.min(100, ((sh - RAIL_TOP_HOUR) / railHours) * 100));
       const bottom = Math.max(0, Math.min(100, ((eh - RAIL_TOP_HOUR) / railHours) * 100));
       const heightPct = Math.max(6, bottom - top);
-      return `<div class="week-rail-block" data-who="${b.who}" style="top:${top}%;height:${heightPct}%;">
+      const pend = b.e.pending ? ' data-pending="1"' : "";
+      return `<div class="week-rail-block" data-who="${b.who}"${pend} style="top:${top}%;height:${heightPct}%;">
         ${b.who} · ${compactTime(b.e.startTime)}
       </div>`;
     }).join("");
@@ -10761,22 +12010,261 @@ function renderWeekView(gageEvts, kayEvts, view) {
       const top = Math.max(0, Math.min(100, ((sh - RAIL_TOP_HOUR) / railHours) * 100));
       const bottom = Math.max(0, Math.min(100, ((eh - RAIL_TOP_HOUR) / railHours) * 100));
       const heightPct = Math.max(6, bottom - top);
-      const color = eventCSSColor(ev.who);
-      return `<div class="week-rail-event" style="top:${top}%;height:${heightPct}%;color:${color};" title="${escapeHTML(ev.title || "")}">
+      const pending = !!ev.pending;
+      const color = pending ? "#ff9f0a" : eventCSSColor(ev.who);
+      const pendTxt = pending ? " (pending)" : "";
+      return `<div class="week-rail-event"${pending ? ' data-pending="1"' : ""} style="top:${top}%;height:${heightPct}%;color:${color};" title="${escapeHTML(ev.title || "")}${pendTxt}">
         <img class="ev-leaf ev-leaf-inline" src="assets/green-leaf.png" alt="" aria-hidden="true" width="10" height="10">
-        <span class="ev-title">${escapeHTML(ev.title || "")}</span>
+        <span class="ev-title">${escapeHTML(ev.title || "")}${pendTxt}</span>
       </div>`;
     }).join("");
 
     return `<div class="week-rail-col">${blocksHTML}${eventBlocksHTML}</div>`;
   }).join("");
+
+  // Overnight tail: any shift on prev-day that crosses midnight, its early-morning
+  // tail should show on this day. We paint it as a thin block at the very top of
+  // each day column with dashed border.
+  const prevDays = [-1,0,1,2,3,4,5].map(i => addDays(start, i));
+  const cols = colsEl.querySelectorAll(".week-rail-col");
+  prevDays.slice(0,7).forEach((_, colIdx) => {
+    const prevD = addDays(start, colIdx - 1);
+    const prevISO = toISODate(prevD);
+    const prevCell = computeDayCellData(prevISO, gageEvts, kayEvts, daisyEvts, view);
+    const allPrev = [
+      ...prevCell.gOnDay.map(e => ({ who: "G", e })),
+      ...prevCell.kOnDay.map(e => ({ who: "K", e })),
+    ];
+    for (const b of allPrev) {
+      const startAbs = parseHM(b.e.startTime);
+      const endAbs = parseHM(b.e.endTime);
+      const crosses = b.e.endDate && b.e.endDate !== b.e.startDate;
+      if (!crosses && endAbs > startAbs) continue; // not overnight
+      const tailEndHour = endAbs / 60; // 0-24 within this day
+      if (tailEndHour <= RAIL_TOP_HOUR) continue;
+      const top = 0;
+      const bottom = Math.max(0, Math.min(100, ((tailEndHour - RAIL_TOP_HOUR) / railHours) * 100));
+      const heightPct = Math.max(4, bottom - top);
+      const html = `<div class="week-rail-block" data-who="${b.who}" style="top:0%;height:${heightPct}%;opacity:0.7;border-style:dashed;border-left-width:2px;">${b.who} · until ${compactTime(b.e.endTime)}</div>`;
+      cols[colIdx]?.insertAdjacentHTML("afterbegin", html);
+    }
+  });
+
+  // Current-time indicator if today is in the visible week
+  const todayISO2 = toISODate(new Date());
+  const todayIdx = days.findIndex(d => toISODate(d) === todayISO2);
+  if (todayIdx >= 0) {
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+    if (nowH >= RAIL_TOP_HOUR && nowH <= RAIL_BOTTOM_HOUR) {
+      const topPct = ((nowH - RAIL_TOP_HOUR) / railHours) * 100;
+      const col = cols[todayIdx];
+      if (col) {
+        const colRect = col.getBoundingClientRect();
+        const railRect = colsEl.getBoundingClientRect();
+        const leftPx = colRect.left - railRect.left;
+        const widthPx = colRect.width;
+        // Prepend to colsEl so it can span exactly this column
+        let existing = colsEl.querySelector(".week-nowline");
+        if (existing) existing.remove();
+        const line = document.createElement("div");
+        line.className = "week-nowline";
+        line.style.top = `${topPct}%`;
+        line.style.left = `${leftPx}px`;
+        line.style.width = `${widthPx}px`;
+        colsEl.appendChild(line);
+      }
+    }
+  }
 }
 
-function renderAgendaView(gageEvts, kayEvts, view) {
+// ─────────────────── Day view (single date + hour rail) ───────────────────
+function renderDayView(gageEvts, kayEvts, daisyEvts, view) {
   const ui = _ensureCalUIState();
   document.querySelector('.cal-wrap[data-layout="month"]').style.display = "none";
   document.getElementById("monthNav").style.display = "none";
   document.getElementById("weekView").style.display = "none";
+  document.getElementById("agendaView").style.display = "none";
+  document.getElementById("dayView").style.display = "block";
+
+  const selectedISO = ui.viewDayDate || toISODate(new Date());
+  const selDate = parseISODate(selectedISO) || new Date();
+  const todayISO = toISODate(new Date());
+  const isToday = selectedISO === todayISO;
+
+  // Nav label
+  const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  document.getElementById("dayViewLabel").textContent =
+    isToday
+      ? `Today · ${dayNames[selDate.getDay()]}`
+      : `${dayNames[selDate.getDay()]}, ${monthNames[selDate.getMonth()]} ${selDate.getDate()}`;
+
+  // Compute the day cell (reuse existing helper)
+  const cell = computeDayCellData(selectedISO, gageEvts, kayEvts, daisyEvts, view);
+  const dOnDay = cell.dOnDay || [];
+  const shiftCount = cell.gOnDay.length + cell.kOnDay.length + dOnDay.length;
+
+  // Header card
+  const wvuHTML = (typeof wvuGameOn === "function") ? (() => {
+    const g = wvuGameOn(selectedISO);
+    if (!g) return "";
+    const lbl = (typeof wvuGameTitle === "function") ? wvuGameTitle(g) : "WVU Football";
+    return `<div class="wvu-row"><img src="assets/wvu.png" alt="" aria-hidden="true"><span>${escapeHTML(lbl)}${g.tv ? " · " + escapeHTML(g.tv) : ""}</span></div>`;
+  })() : "";
+  document.getElementById("dayHeaderCard").innerHTML = `
+    <div class="day-header-date${isToday ? " today" : ""}">
+      <div class="mo">${monthNames[selDate.getMonth()].toUpperCase()}</div>
+      <div class="num">${selDate.getDate()}</div>
+    </div>
+    <div class="day-header-info">
+      <div class="weekday">${dayNames[selDate.getDay()]}</div>
+      <div class="meta">${shiftCount === 0 ? "Both off — free day." : `${shiftCount} shift${shiftCount === 1 ? "" : "s"}`}</div>
+      ${wvuHTML}
+    </div>
+  `;
+
+  // Hour rail: 6a–12a (18 hours) to match Week window
+  const RAIL_TOP_HOUR = 6, RAIL_BOTTOM_HOUR = 24;
+  const railHours = RAIL_BOTTOM_HOUR - RAIL_TOP_HOUR;
+  const PX_PER_HOUR = 42;
+  const totalHeight = railHours * PX_PER_HOUR;
+
+  // Set timeline height dynamically
+  document.querySelector(".day-timeline").style.height = `${totalHeight}px`;
+
+  // Hour labels
+  const hoursEl = document.getElementById("dayHours");
+  hoursEl.innerHTML = "";
+  for (let h = RAIL_TOP_HOUR; h <= RAIL_BOTTOM_HOUR; h++) {
+    const dispH = h >= 24 ? h - 24 : h;
+    const ampm = dispH < 12 ? "a" : "p";
+    const h12 = dispH === 0 ? 12 : dispH > 12 ? dispH - 12 : dispH;
+    const top = (h - RAIL_TOP_HOUR) * PX_PER_HOUR;
+    hoursEl.innerHTML += `<span style="top:${top - 5}px;">${h12}${ampm}</span>`;
+  }
+
+  const track = document.getElementById("dayTrack");
+  let trackHTML = "";
+
+  // Hour gridlines
+  for (let i = 0; i < railHours; i++) {
+    trackHTML += `<div class="day-hourline" style="top:${i * PX_PER_HOUR}px;"></div>`;
+  }
+
+  // Overnight carry-over: PREV DAY shifts that ended after midnight into this day
+  const prevISO = toISODate(addDays(selDate, -1));
+  const prevCell = computeDayCellData(prevISO, gageEvts, kayEvts, daisyEvts, view);
+  const prevAll = [
+    ...prevCell.gOnDay.map(e => ({ who: "G", e })),
+    ...prevCell.kOnDay.map(e => ({ who: "K", e })),
+  ];
+  for (const b of prevAll) {
+    const crosses = b.e.endDate && b.e.endDate !== b.e.startDate;
+    if (!crosses) continue;
+    const endHour = parseHM(b.e.endTime) / 60;
+    if (endHour <= RAIL_TOP_HOUR) continue;
+    const top = 0;
+    const height = ((Math.min(endHour, RAIL_BOTTOM_HOUR) - RAIL_TOP_HOUR) / railHours) * totalHeight;
+    trackHTML += `<div class="day-block tail" data-who="${b.who}" style="top:${top}px;height:${Math.max(height, 22)}px;">
+      <div class="title">${b.who} · until ${compactTime(b.e.endTime)}</div>
+    </div>`;
+  }
+
+  // Shifts on THIS day
+  const gTimes = new Set(cell.gOnDay.map(e => e.startTime + "-" + e.endTime));
+  const kTimes = new Set(cell.kOnDay.map(e => e.startTime + "-" + e.endTime));
+  const shared = [...gTimes].filter(t => kTimes.has(t));
+  const shifts = [];
+  for (const sh of shared) {
+    const e = cell.gOnDay.find(x => x.startTime + "-" + x.endTime === sh);
+    if (e) shifts.push({ who: "G+K", e });
+  }
+  for (const e of cell.gOnDay) if (!shared.includes(e.startTime + "-" + e.endTime)) shifts.push({ who: "G", e });
+  for (const e of cell.kOnDay) if (!shared.includes(e.startTime + "-" + e.endTime)) shifts.push({ who: "K", e });
+  for (const e of dOnDay) shifts.push({ who: "D", e });
+
+  for (const s of shifts) {
+    const startH = parseHM(s.e.startTime) / 60;
+    let endH = parseHM(s.e.endTime) / 60;
+    const crosses = s.e.endDate && s.e.endDate !== s.e.startDate;
+    if (crosses || endH <= startH) endH += 24;
+    // Clip to rail window
+    const winTop = Math.max(startH, RAIL_TOP_HOUR);
+    const winBot = Math.min(endH, RAIL_BOTTOM_HOUR);
+    if (winBot <= winTop) continue;
+    const top = (winTop - RAIL_TOP_HOUR) * PX_PER_HOUR;
+    const height = (winBot - winTop) * PX_PER_HOUR;
+    const label = s.e.label || "";
+    const pend = s.e.pending ? ' data-pending="1"' : "";
+    trackHTML += `<div class="day-block" data-who="${s.who}"${pend} style="top:${top}px;height:${Math.max(height, 28)}px;">
+      <div class="title">${s.who} · ${escapeHTML(label)}${s.e.pending ? " (pending)" : ""}</div>
+      <div class="subtitle">${compactTime(s.e.startTime)} → ${compactTime(s.e.endTime)}${crosses ? ", next day" : ""}</div>
+    </div>`;
+  }
+
+  // Coverage stripes (confirmed / pending)
+  const covReqs = (state && Array.isArray(state.coverageRequests)) ? state.coverageRequests : [];
+  for (const r of covReqs) {
+    if (r.date !== selectedISO) continue;
+    if (r.status !== "pending" && r.status !== "confirmed") continue;
+    const sH = parseHM(r.startTime) / 60;
+    let eH = parseHM(r.endTime) / 60;
+    if (r.endsNextDay || eH <= sH) eH += 24;
+    const winTop = Math.max(sH, RAIL_TOP_HOUR);
+    const winBot = Math.min(eH, RAIL_BOTTOM_HOUR);
+    if (winBot <= winTop) continue;
+    const top = (winTop - RAIL_TOP_HOUR) * PX_PER_HOUR;
+    const height = (winBot - winTop) * PX_PER_HOUR;
+    trackHTML += `<div class="day-coverage" style="top:${top}px;height:${Math.max(height, 22)}px;">Coverage</div>`;
+  }
+
+  // Events (outlined blocks)
+  const evList = (typeof getEventsForDate === "function") ? getEventsForDate(selectedISO) : [];
+  for (const ev of evList) {
+    if (!ev.startTime) continue;
+    const sH = parseHM(ev.startTime) / 60;
+    const eH = ev.endTime ? parseHM(ev.endTime) / 60 : sH + 1;
+    const winTop = Math.max(sH, RAIL_TOP_HOUR);
+    const winBot = Math.min(Math.max(eH, sH + 0.25), RAIL_BOTTOM_HOUR);
+    if (winBot <= winTop) continue;
+    const top = (winTop - RAIL_TOP_HOUR) * PX_PER_HOUR;
+    const height = (winBot - winTop) * PX_PER_HOUR;
+    const color = (typeof eventCSSColor === "function") ? eventCSSColor(ev.who) : "var(--text)";
+    trackHTML += `<div class="day-event" style="top:${top}px;height:${Math.max(height, 24)}px;color:${color};border-color:${color};" data-eid="${escapeHTML(ev.id || "")}" title="${escapeHTML(ev.title || "")}">
+      <span class="ev-title">${escapeHTML(ev.title || "")}</span>
+    </div>`;
+  }
+
+  // Current-time indicator if today
+  if (isToday) {
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+    if (nowH >= RAIL_TOP_HOUR && nowH <= RAIL_BOTTOM_HOUR) {
+      const top = (nowH - RAIL_TOP_HOUR) * PX_PER_HOUR;
+      trackHTML += `<div class="day-nowline" style="top:${top}px;"></div>`;
+    }
+  }
+
+  track.innerHTML = trackHTML;
+
+  // Auto-scroll near current hour or first shift on today
+  if (isToday) {
+    setTimeout(() => {
+      const nowH = new Date().getHours();
+      const y = Math.max(0, (nowH - RAIL_TOP_HOUR - 1) * PX_PER_HOUR);
+      const tl = document.querySelector(".day-timeline");
+      if (tl && tl.scrollTop === 0) tl.scrollTop = y;
+    }, 50);
+  }
+}
+
+function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
+  const ui = _ensureCalUIState();
+  document.querySelector('.cal-wrap[data-layout="month"]').style.display = "none";
+  document.getElementById("monthNav").style.display = "none";
+  document.getElementById("weekView").style.display = "none";
+  document.getElementById("dayView").style.display = "none";
   const agEl = document.getElementById("agendaView");
   agEl.style.display = "flex";
 
@@ -10792,7 +12280,7 @@ function renderAgendaView(gageEvts, kayEvts, view) {
 
   agEl.innerHTML = days.map(d => {
     const dISO = toISODate(d);
-    const cell = computeDayCellData(dISO, gageEvts, kayEvts, view);
+    const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     const isToday = dISO === todayISO;
     let kind = "off";
     if (cell.gWorks && cell.kWorks) kind = "both";
@@ -10829,12 +12317,14 @@ function renderAgendaView(gageEvts, kayEvts, view) {
         if (shared.includes(e.startTime + "-" + e.endTime)) continue;
         chipsHTML += `<span class="agenda-pair">
           <span class="sb-avatar k" data-photo="k">K</span>
-          <span class="sb-chip" data-who="K"><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}</span>
+          <span class="sb-chip" data-who="K"${e.pending?' data-pending="1"':''}><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}${e.pending?" (pending)":""}</span>
         </span>`;
       }
     }
 
-    const eventsHTML = getEventsForDate(dISO).map(eventChipHTML).join("");
+    // Life events now render as themed pills on the RIGHT of the row (avatar +
+    // leaf). Tapping a pill opens a bottom sheet with the event's details.
+    const evPillsHTML = getEventsForDate(dISO).map(agendaEventPillHTML).join("");
 
     return `<div class="agenda-row${isToday ? " today" : ""}" data-kind="${kind}" data-date="${dISO}">
       <div class="agenda-date">
@@ -10844,11 +12334,112 @@ function renderAgendaView(gageEvts, kayEvts, view) {
       </div>
       <div class="agenda-rail"></div>
       <div class="agenda-body">
-        <div class="agenda-title">${title}</div>
-        ${(chipsHTML || eventsHTML) ? `<div class="agenda-chips">${chipsHTML}${eventsHTML}</div>` : ""}
+        <div class="agenda-title">${title}${wvuMarkHTML(dISO, "agenda-wvu-icon")}</div>
+        ${chipsHTML ? `<div class="agenda-chips">${chipsHTML}</div>` : ""}
       </div>
+      ${evPillsHTML ? `<div class="agenda-events">${evPillsHTML}</div>` : ""}
     </div>`;
   }).join("");
+}
+
+// Who → avatar + display-name metadata for life-event pills / detail sheet.
+function _eventWhoMeta(who) {
+  switch (who) {
+    case "G": return { cls: "",     photo: "g", initial: "G", name: (state.selfName || "Gage") };
+    case "K": return { cls: "k",    photo: "k", initial: "K", name: (state.partner && state.partner.name) || "Kaylene" };
+    case "Daisy": return { cls: "d", photo: "", initial: "D", name: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy" };
+    default:  return { cls: "both", photo: "",  initial: "F", name: "Family" };
+  }
+}
+// Compact life-event pill for the right edge of an agenda row.
+function agendaEventPillHTML(ev) {
+  const m = _eventWhoMeta(ev.who);
+  const photoAttr = m.photo ? ` data-photo="${m.photo}"` : "";
+  return `<button class="agenda-ev-pill" type="button" data-eid="${escapeHTML(ev.id || "")}" data-who="${escapeHTML(ev.who || "family")}" aria-label="${escapeHTML(ev.title || "Event")}">
+    <span class="sb-avatar ${m.cls}"${photoAttr}>${m.initial}</span>
+    <img class="ev-leaf" src="assets/green-leaf.png" alt="" aria-hidden="true" width="14" height="14">
+  </button>`;
+}
+
+// ───────────────── Life-event detail bottom sheet ─────────────────
+const _ES_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const _ES_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function _eventSheetBodyHTML(ev) {
+  const m = _eventWhoMeta(ev.who);
+  const d = parseISODate(ev.date) || new Date();
+  const dateStr = `${_ES_DAYS[d.getDay()]}, ${_ES_MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const timeStr = ev.startTime
+    ? (ev.endTime ? `${compactTime(ev.startTime)} – ${compactTime(ev.endTime)}` : compactTime(ev.startTime))
+    : "All day";
+  const photoAttr = m.photo ? ` data-photo="${m.photo}"` : "";
+  const pendingRow = ev.pending
+    ? `<div class="es-row" style="color:#ff9f0a;font-weight:600;"><span class="ev-pending-dot"></span><span>Pending — awaiting the family's confirmation</span></div>`
+    : "";
+  return `
+    <div class="es-title"><img src="assets/green-leaf.png" alt="" aria-hidden="true">${escapeHTML(ev.title || "Event")}${ev.pending ? ' <span class="ev-pending-tag">(pending)</span>' : ""}</div>
+    <div class="es-row"><span class="es-ico">&#128197;</span><span>${dateStr}</span></div>
+    <div class="es-row"><span class="es-ico">&#128336;</span><span>${timeStr}</span></div>
+    <div class="es-row"><span class="sb-avatar ${m.cls}"${photoAttr}>${m.initial}</span><span>${escapeHTML(m.name)}</span></div>
+    ${pendingRow}
+    ${ev.notes ? `<div class="es-notes">${escapeHTML(ev.notes)}</div>` : ""}
+  `;
+}
+
+function openEventSheet(eventId) {
+  const ev = (Array.isArray(state.events) ? state.events : []).find(e => e && e.id === eventId);
+  if (!ev) return;
+  const sheet = document.getElementById("eventSheet");
+  const body = document.getElementById("eventSheetBody");
+  const backdrop = document.getElementById("eventSheetBackdrop");
+  if (!sheet || !body || !backdrop) return;
+  body.innerHTML = _eventSheetBodyHTML(ev);
+  // Relocate to <body> so position:fixed is viewport-relative (no trapped fixed).
+  if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
+  if (backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
+  sheet.style.transform = "";
+  backdrop.classList.add("show");
+  requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add("sheet-in")));
+  _wireEventSheetDrag(sheet);
+}
+
+function closeEventSheet() {
+  const sheet = document.getElementById("eventSheet");
+  const backdrop = document.getElementById("eventSheetBackdrop");
+  if (!sheet || !backdrop) return;
+  sheet.classList.remove("sheet-in");
+  sheet.style.transition = "";
+  sheet.style.transform = "";
+  backdrop.classList.remove("show");
+}
+
+function _wireEventSheetDrag(sheet) {
+  if (sheet.__dragWired) return;
+  sheet.__dragWired = true;
+  let startY = 0, dy = 0, dragging = false, fromTop = false;
+  sheet.addEventListener("touchstart", (e) => {
+    fromTop = sheet.scrollTop <= 0;
+    startY = e.touches[0].clientY;
+    dy = 0; dragging = true;
+    sheet.style.transition = "none";
+  }, { passive: true });
+  sheet.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta > 0 && fromTop) {
+      dy = delta;
+      sheet.style.transform = `translateY(${delta}px)`;
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+  sheet.addEventListener("touchend", () => {
+    if (!dragging) return;
+    dragging = false;
+    sheet.style.transition = "";
+    if (dy > 90) closeEventSheet();
+    else { sheet.style.transform = ""; sheet.classList.add("sheet-in"); }
+    dy = 0;
+  }, { passive: true });
 }
 
 function _wireCellHandlers() {
@@ -10939,6 +12530,24 @@ function shiftViewMonth(deltaMonths) {
   renderCalendar();
 }
 
+function shiftViewDay(deltaDays) {
+  const ui = _ensureCalUIState();
+  const cur = parseISODate(ui.viewDayDate) || new Date();
+  const next = addDays(cur, deltaDays);
+  ui.viewDayDate = toISODate(next);
+  saveState();
+  renderCalendar();
+}
+
+function shiftViewWeek(deltaWeeks) {
+  const ui = _ensureCalUIState();
+  const cur = parseISODate(ui.viewWeekStart) || new Date();
+  const next = addDays(cur, deltaWeeks * 7);
+  ui.viewWeekStart = toISODate(next);
+  saveState();
+  renderCalendar();
+}
+
 // ---------- Calendar tooltip ----------
 let _tooltipPinned = false;
 let _tooltipSwitching = false;
@@ -11009,6 +12618,8 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
 
   const gageEvts = eventsOnDate(generateEvents(), dateISO);
   const kayEvts = eventsOnDate(partnerEvents(), dateISO);
+  const daisyEvts = eventsOnDate(daisyEvents(), dateISO);
+  const daisyName = (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy";
 
   const eyebrow = d.toLocaleDateString(undefined, { weekday: "long" });
   const title = d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
@@ -11029,6 +12640,23 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
     ? `<div class="dds-extra"><div class="tt-divider"></div>${dayEvents.map(eventTooltipRowHTML).join("")}</div>`
     : "";
 
+  const wvuGame = wvuGameOn(dateISO);
+  const wvuBlock = wvuGame ? `
+    <div class="dds-extra">
+      <div class="tt-divider"></div>
+      <div class="dds-wvu">
+        <img class="dds-wvu-logo" src="assets/wvu.png" alt="WVU">
+        <div class="dds-wvu-main">
+          <div class="dds-wvu-title">WVU ${wvuGame.neutral || wvuGame.home ? "vs" : "at"} ${escapeHTML(wvuGame.opponent)}</div>
+          <div class="dds-wvu-sub">${escapeHTML(
+            [wvuGame.neutral ? "Neutral site" : (wvuGame.home ? "Home" : "Away"),
+             wvuGame.kickoff && wvuGame.kickoff !== "TBD" ? wvuGame.kickoff : "Time TBD",
+             wvuGame.tv || ""].filter(Boolean).join("  ·  ")
+          )}</div>
+        </div>
+      </div>
+    </div>` : "";
+
   const tip = _getTip();
   tip.classList.add("has-dds");
   tip.innerHTML = `
@@ -11041,6 +12669,7 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
       <div class="dds-people">
         ${_ddsPersonRow(self, "var(--color-g)", gageEvts)}
         ${_ddsPersonRow(partner, "var(--color-k)", kayEvts)}
+        ${daisyEvts.length ? _ddsPersonRow(daisyName, "#30D158", daisyEvts) : ""}
       </div>
       <div class="dds-metrics">
         ${_ddsRestTile(`Rest · ${escapeHTML(self)}`, da.restG != null ? da.restG : null)}
@@ -11057,6 +12686,7 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
           <div class="dds-tile-value ${coupleH > 0 ? "" : "muted"}">${coupleStr}<span class="u">h</span></div>
         </div>
       </div>
+      ${wvuBlock}
       ${eventsBlock}
     </div>
   `;
@@ -11600,6 +13230,7 @@ function renderAll() {
   renderMonthComparison();
   renderOTApprovals();
   renderManagerChildcare((state && state.coverageRequests) || []);
+  renderManagerRequests();
 }
 
 function syncGlobalFields() {
@@ -11807,6 +13438,19 @@ const _mp = document.getElementById("monthPrev");
 const _mn = document.getElementById("monthNext");
 if (_mp) _mp.addEventListener("click", () => shiftViewMonth(-1));
 if (_mn) _mn.addEventListener("click", () => shiftViewMonth(+1));
+// Day navigation
+const _dp = document.getElementById("dayPrev");
+const _dn = document.getElementById("dayNext");
+const _dl = document.getElementById("dayViewLabel");
+if (_dp) _dp.addEventListener("click", () => shiftViewDay(-1));
+if (_dn) _dn.addEventListener("click", () => shiftViewDay(+1));
+// Tap the day label to jump back to today
+if (_dl) _dl.addEventListener("click", () => {
+  const ui = _ensureCalUIState();
+  ui.viewDayDate = toISODate(new Date());
+  saveState();
+  renderCalendar();
+});
 
 // Bottom tab bar (mobile)
 function setMobileTab(tab) {
@@ -11922,6 +13566,10 @@ document.getElementById("tzNote").textContent = `Timezone: ${LOCAL_TZ}`;
 
 // Initial render with localStorage data (Firestore will overwrite when ready)
 renderAll();
+
+// Pull the WVU football schedule (static same-origin file) and repaint the
+// calendar once it lands, so game days pick up the Flying WV corner mark.
+loadWvuSchedule();
 </script>
 
 <script>
@@ -11994,6 +13642,73 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
 (() => {
   const backdrop = document.getElementById("calSheetBackdrop");
   if (backdrop) backdrop.addEventListener("click", () => hideCalTooltip());
+})();
+
+// Life-event pills (agenda) → open the detail sheet. Delegated so it survives
+// agenda re-renders. Backdrop tap / grabber tap dismiss it.
+(() => {
+  document.addEventListener("click", (e) => {
+    const pill = e.target.closest(".agenda-ev-pill");
+    if (!pill) return;
+    e.stopPropagation();
+    e.preventDefault();
+    openEventSheet(pill.dataset.eid);
+  });
+  const bd = document.getElementById("eventSheetBackdrop");
+  if (bd) bd.addEventListener("click", closeEventSheet);
+  const grab = document.getElementById("eventSheetGrab");
+  if (grab) grab.addEventListener("click", closeEventSheet);
+})();
+
+// ───── Swipe left/right to move between periods on Month / Week / Day ─────
+// (Agenda is a scroll list and is intentionally excluded.)
+(function initCalendarSwipeNav() {
+  const MIN_DX = 55;   // horizontal travel to count as a period swipe
+  const MAX_DY = 45;   // vertical slop — above this it's a scroll, not a swipe
+  const MAX_MS = 700;
+  let sx = 0, sy = 0, st = 0, armed = false;
+
+  function anyOverlayOpen() {
+    if (document.body.classList.contains("ask-claude-open")) return true;
+    if (document.querySelector(".settings-drawer.open, .partner-drawer.open, .family-drawer.open")) return true;
+    const csb = document.getElementById("calSheetBackdrop");
+    if (csb && csb.classList.contains("show")) return true;
+    const esb = document.getElementById("eventSheetBackdrop");
+    if (esb && esb.classList.contains("show")) return true;
+    return false;
+  }
+
+  function inSwipeZone(target) {
+    return !!(target.closest && target.closest('.cal-wrap[data-layout="month"], #weekView, #dayView'));
+  }
+
+  document.addEventListener("touchstart", (e) => {
+    armed = false;
+    if (e.touches.length !== 1) return;
+    const layout = (state.ui && state.ui.calLayout) || "month";
+    if (layout === "agenda") return;
+    if (anyOverlayOpen()) return;
+    if (!inSwipeZone(e.target)) return;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; st = Date.now();
+    armed = true;
+  }, { passive: true });
+
+  document.addEventListener("touchend", (e) => {
+    if (!armed) return;
+    armed = false;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    if (Date.now() - st > MAX_MS) return;
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < MIN_DX) return;
+    if (Math.abs(dy) > MAX_DY) return;
+    const layout = (state.ui && state.ui.calLayout) || "month";
+    const dir = dx < 0 ? +1 : -1;   // swipe left → next, swipe right → prev
+    if (layout === "week")      shiftViewWeek(dir);
+    else if (layout === "day")  shiftViewDay(dir);
+    else                        shiftViewMonth(dir);
+  }, { passive: true });
 })();
 
 // Capture-phase: catch the close X and "view OT" button before the click can

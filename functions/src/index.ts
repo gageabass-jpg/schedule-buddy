@@ -1,4 +1,5 @@
 export { askClaude } from "./askClaude";
+export { parseSchedule } from "./parseSchedule";
 export { getWallState } from "./wallState";
 export { cleanSchedule } from "./cleanSchedule";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
@@ -233,6 +234,43 @@ export const onCoverageRequestsChange = onDocumentUpdated(
     const beforeDoc = event.data?.before.data() ?? {};
     const afterDoc  = event.data?.after.data()  ?? {};
 
+    // --- Broadcast: anything ADDED to the schedule notifies the whole
+    // household (no approval, no role routing). Identity-keyed by date/id so
+    // the ~300ms whole-doc rewrites and in-place edits don't fire — only
+    // genuinely new items do. Coverage requests are handled separately below
+    // (with richer detail) so they're excluded here to avoid a double push.
+    const scheduleKeys = (d: Record<string, unknown>): Set<string> => {
+      const keys = new Set<string>();
+      const arr = (v: unknown): Record<string, unknown>[] =>
+        Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+      for (const e of arr(d.events))    if (e?.id)   keys.add(`ev:${e.id}`);
+      for (const o of arr(d.overrides)) if (o?.date) keys.add(`ov:${o.date}`);
+      const partner = d.partner as { shifts?: unknown } | undefined;
+      for (const s of arr(partner?.shifts)) if (s?.date) keys.add(`pk:${s.date}`);
+      const daisy = (d.dependents as { daisy?: { shifts?: unknown } } | undefined)?.daisy;
+      for (const s of arr(daisy?.shifts)) if (s?.date) keys.add(`dz:${s.date}`);
+      for (const op of arr(d.otOpportunities)) if (op?.date) keys.add(`ot:${op.date}:${op.shiftTypeId ?? ""}`);
+      return keys;
+    };
+    const beforeKeys = scheduleKeys(beforeDoc);
+    const afterKeys  = scheduleKeys(afterDoc);
+    const added: string[] = [];
+    for (const k of afterKeys) if (!beforeKeys.has(k)) added.push(k);
+    if (added.length > 0) {
+      const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
+      logger.info("Schedule additions → broadcast", { householdId, added: added.length, tokens: tokens.length });
+      if (tokens.length > 0) {
+        const body = added.length === 1
+          ? "A new item was added to the schedule."
+          : `${added.length} new items were added to the schedule.`;
+        await sendToTokens(tokens, { title: "Schedule updated", body }, {
+          kind: "schedule_added",
+          householdId,
+          count: String(added.length),
+        }, householdId);
+      }
+    }
+
     // --- Caregiver inbox (caregiverRequests): deliberately does NOT push.
     //
     // These used to notify managers whenever Daisy raised something. They now
@@ -303,9 +341,9 @@ export const onCoverageRequestsChange = onDocumentUpdated(
       statusChangeSummary: statusChanges.map((c) => `${c.req.id}:${c.from}->${c.to}`),
     });
 
-    // 1. New pending requests → caregivers
+    // 1. New pending requests → everyone (adds notify the whole household)
     if (newPending.length > 0) {
-      const tokens = await tokensForRoles(householdId, ["supporting"]);
+      const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
       logger.info("Caregiver tokens resolved", { householdId, tokens: tokens.length });
       if (tokens.length > 0) {
         const single = newPending[0];
@@ -399,7 +437,7 @@ export const onCoverageRequestsCreate = onDocumentCreated(
     const list = (event.data?.data()?.coverageRequests ?? []) as CoverageRequest[];
     const pending = list.filter((r) => r && r.status === "pending");
     if (pending.length === 0) return;
-    const tokens = await tokensForRoles(householdId, ["supporting"]);
+    const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
     if (tokens.length === 0) return;
     const single = pending[0];
     const body = pending.length === 1

@@ -6,8 +6,11 @@ import {
   bulkAcknowledgeCaregiverRequests,
   caregiverRequestStatusLabel,
   caregiverRequestTypeLabel,
+  confirmLifeRequest,
   deleteCaregiverRequest,
   dismissCaregiverRequest,
+  hasPendingLifeEvent,
+  rejectLifeRequest,
 } from "../lib/writeCaregiverRequest";
 
 interface Props {
@@ -22,6 +25,8 @@ interface Props {
   focusId?: string | null;
   /** Open the single-day New Coverage Request modal pre-filled from this row. */
   onConvertToCoverage?: (req: CaregiverRequest) => void;
+  /** Open the Life-event modal pre-filled from this row (adds it to the calendar). */
+  onAddToCalendar?: (req: CaregiverRequest) => void;
 }
 
 type Filter = "new" | "all";
@@ -47,7 +52,7 @@ function friendlyTimestamp(ms: number): string {
 }
 
 export function InboxPanel({
-  open, onClose, palette, t, dark, householdId, state, focusId, onConvertToCoverage,
+  open, onClose, palette, t, dark, householdId, state, focusId, onConvertToCoverage, onAddToCalendar,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -282,7 +287,12 @@ export function InboxPanel({
               {filter === "new" ? "Nothing new. You're all caught up." : "No caregiver requests yet."}
             </div>
           ) : (
-            filtered.map((r) => (
+            filtered.map((r) => {
+              // A "Life" request auto-posts a pending calendar event. While that
+              // event is unconfirmed, the row offers Confirm / Reject (which flip
+              // the event) instead of the generic acknowledge/dismiss.
+              const pendingLife = r.type === "other" && hasPendingLifeEvent(state, r.id);
+              return (
               <div
                 key={r.id}
                 ref={(el) => { rowRefs.current[r.id] = el; }}
@@ -382,7 +392,85 @@ export function InboxPanel({
                       Convert to coverage
                     </button>
                   )}
-                  {r.status === "new" && (
+                  {pendingLife && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={busyId === r.id}
+                        onClick={async () => {
+                          if (!householdId) return;
+                          setBusyId(r.id);
+                          try { await confirmLifeRequest(householdId, r.id); }
+                          catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't confirm."); }
+                          finally { setBusyId(null); }
+                        }}
+                        title="Confirm this life item — it stays on the calendar."
+                        style={{
+                          padding: "5px 12px",
+                          border: 0,
+                          borderRadius: 6,
+                          background: "#30D158",
+                          color: "#fff",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: busyId === r.id ? "wait" : "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === r.id}
+                        onClick={async () => {
+                          if (!householdId) return;
+                          setBusyId(r.id);
+                          try { await rejectLifeRequest(householdId, r.id); }
+                          catch (e) { window.alert(e instanceof Error ? e.message : "Couldn't reject."); }
+                          finally { setBusyId(null); }
+                        }}
+                        title="Reject — removes this pending item from the calendar."
+                        style={{
+                          padding: "5px 10px",
+                          border: `0.5px solid rgba(255,69,58,0.6)`,
+                          borderRadius: 6,
+                          background: "transparent",
+                          color: "#FF453A",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: busyId === r.id ? "wait" : "pointer",
+                          fontFamily: "inherit",
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  {r.type === "other" && !pendingLife && onAddToCalendar && (
+                    <button
+                      type="button"
+                      disabled={busyId === r.id}
+                      onClick={() => onAddToCalendar(r)}
+                      title="Add this to the calendar as a life item (opens pre-filled so you can adjust)."
+                      style={{
+                        padding: "5px 10px",
+                        border: `0.5px solid ${palette.G}`,
+                        borderRadius: 6,
+                        background: "transparent",
+                        color: palette.G,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      Add to calendar
+                    </button>
+                  )}
+                  {r.status === "new" && !pendingLife && (
                     <>
                       <button
                         type="button"
@@ -462,7 +550,8 @@ export function InboxPanel({
                   >✕</button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

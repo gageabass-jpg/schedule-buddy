@@ -13,6 +13,11 @@ interface Props {
   state: HouseholdState | null;
   defaultDate: string;
   editing?: Event | null;
+  /** Seed a NEW event's fields (e.g. from an inbox request). Ignored when
+   *  `editing` is set. Does not make the modal an edit — it still creates. */
+  prefill?: Partial<Event> | null;
+  /** Fired after a successful save (create or update). */
+  onSaved?: () => void;
 }
 
 const PEOPLE: Array<{ value: EventWho; label: string }> = [
@@ -23,35 +28,38 @@ const PEOPLE: Array<{ value: EventWho; label: string }> = [
 ];
 
 export function EventModal({
-  open, onClose, palette, t, dark, householdId, state, defaultDate, editing,
+  open, onClose, palette, t, dark, householdId, state, defaultDate, editing, prefill, onSaved,
 }: Props) {
   const isEdit = !!editing;
-  const [dates, setDates] = useState<string[]>([editing?.date ?? defaultDate]);
-  const [startTime, setStartTime] = useState(editing?.startTime ?? "");
-  const [endTime, setEndTime] = useState(editing?.endTime ?? "");
+  // For a new event, `prefill` seeds the fields; `editing` always wins if present.
+  const seed = editing ?? prefill ?? null;
+  const [dates, setDates] = useState<string[]>([seed?.date ?? defaultDate]);
+  const [startTime, setStartTime] = useState(seed?.startTime ?? "");
+  const [endTime, setEndTime] = useState(seed?.endTime ?? "");
   // All-day: when checked, the event has no start/end time. Defaults
-  // to true when editing an event that was already saved time-less.
-  const [allDay, setAllDay] = useState(!editing?.startTime);
-  const [title, setTitle] = useState(editing?.title ?? "");
-  const [who, setWho] = useState<EventWho>(editing?.who ?? "G");
-  const [notes, setNotes] = useState(editing?.notes ?? "");
+  // to true when the seed has no start time.
+  const [allDay, setAllDay] = useState(!seed?.startTime);
+  const [title, setTitle] = useState(seed?.title ?? "");
+  const [who, setWho] = useState<EventWho>(seed?.who ?? "G");
+  const [notes, setNotes] = useState(seed?.notes ?? "");
   const [recurring, setRecurring] = useState(false);
   const [untilWeekly, setUntilWeekly] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Reset whenever the modal reopens for a different target.
-  const key = `${open}-${editing?.id ?? ""}-${defaultDate}`;
+  // Reset whenever the modal reopens for a different target. Include the
+  // prefill identity so opening for a new inbox item re-seeds the fields.
+  const key = `${open}-${editing?.id ?? ""}-${defaultDate}-${prefill?.date ?? ""}-${prefill?.title ?? ""}`;
   const [lastKey, setLastKey] = useState(key);
   if (key !== lastKey) {
     setLastKey(key);
-    setDates([editing?.date ?? defaultDate]);
-    setStartTime(editing?.startTime ?? "");
-    setEndTime(editing?.endTime ?? "");
-    setAllDay(!editing?.startTime);
-    setTitle(editing?.title ?? "");
-    setWho(editing?.who ?? "G");
-    setNotes(editing?.notes ?? "");
+    setDates([seed?.date ?? defaultDate]);
+    setStartTime(seed?.startTime ?? "");
+    setEndTime(seed?.endTime ?? "");
+    setAllDay(!seed?.startTime);
+    setTitle(seed?.title ?? "");
+    setWho(seed?.who ?? "G");
+    setNotes(seed?.notes ?? "");
     setRecurring(false);
     setUntilWeekly("");
     setErr(null);
@@ -93,6 +101,7 @@ export function EventModal({
       } else {
         await addEvents(householdId, baseInput, dates, recurring ? untilWeekly : undefined);
       }
+      onSaved?.();
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the event.");

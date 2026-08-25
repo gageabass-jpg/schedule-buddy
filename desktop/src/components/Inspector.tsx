@@ -7,6 +7,7 @@ import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import { daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
+import type { WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
   selected: string;
@@ -35,6 +36,7 @@ interface Props {
   coverageNeedsCount?: number;
   onDismissReminder?: (which: "update" | "caregiver") => void;
   onSendCaregiverRequests?: () => void;
+  wvuGames: Map<string, WvuGame>;
 }
 
 const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
@@ -56,10 +58,11 @@ export function Inspector({
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
-  onDismissReminder, onSendCaregiverRequests,
+  onDismissReminder, onSendCaregiverRequests, wvuGames,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
+  const wvuGame = wvuGames.get(selected);
   const kind = dayKindFromShifts(shifts);
   const colors = dayColors(kind, palette, dark);
   const accent = colors.accent;
@@ -266,6 +269,9 @@ export function Inspector({
             <div style={{ fontSize: 12, color: t.text3, padding: 8 }}>Free day. Plan something together.</div>
           )}
         </div>
+
+        {/* Game Day — drops down from the work-status card on WVU game days. */}
+        {wvuGame && <GameDayDropdown game={wvuGame} t={t} dark={dark} />}
       </div>
 
       {/* Schedule block — only renders when the selected day is covered
@@ -553,7 +559,7 @@ export function Inspector({
             </div>
           )}
           {events.map((ev) => {
-            const color = lifeColor(ev.who);
+            const color = ev.pending ? "#FF9F0A" : lifeColor(ev.who);
             const timeLabel = ev.startTime
               ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
               : "All day";
@@ -605,9 +611,13 @@ export function Inspector({
                   />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>{ev.title}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                    {ev.title}
+                    {ev.pending && <span style={{ color: "#FF9F0A", fontWeight: 700 }}>  (pending)</span>}
+                  </div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>
                     {timeLabel} · {personName}{ev.seriesId ? " · series" : ""}
+                    {ev.pending ? " · awaiting confirm" : ""}
                   </div>
                 </div>
               </button>
@@ -659,6 +669,97 @@ export function Inspector({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────── Game Day dropdown ───────────────────
+
+// WVU brand colors — gold accent for the game-day panel.
+const WVU_GOLD = "#EAAA00";
+
+/** Collapsible game-details panel that drops down from the work-status card
+ *  on WVU game days. Header shows the matchup at a glance; expanding reveals
+ *  home/away, kickoff, TV, and venue. */
+function GameDayDropdown({ game, t, dark }: { game: WvuGame; t: ThemeTokens; dark: boolean }) {
+  const [open, setOpen] = useState(true);
+  const matchup = `WVU ${game.neutral || game.home ? "vs" : "at"} ${game.opponent}`;
+  const homeAway = game.neutral ? "Neutral site" : game.home ? "Home" : "Away";
+  const kickoff = game.kickoff && game.kickoff !== "TBD" ? game.kickoff : "Time TBD";
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        borderRadius: 10,
+        overflow: "hidden",
+        background: rgba(WVU_GOLD, dark ? 0.13 : 0.1),
+        border: `0.5px solid ${rgba(WVU_GOLD, 0.5)}`,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "9px 11px",
+          background: "transparent",
+          border: 0,
+          cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "inherit",
+          color: t.text,
+        }}
+      >
+        <img
+          src="assets/wvu.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{ width: 24, height: 22, objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.35))" }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: rgba(WVU_GOLD, dark ? 0.95 : 0.85) }}>
+            Game Day
+          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {matchup}
+          </div>
+        </div>
+        <span
+          style={{
+            color: t.text3,
+            fontSize: 11,
+            transform: open ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 0.18s ease",
+            flexShrink: 0,
+          }}
+        >
+          ›
+        </span>
+      </button>
+      {open && (
+        <div style={{ padding: "2px 11px 11px", display: "flex", flexDirection: "column", gap: 0 }}>
+          <div style={{ height: 0.5, background: rgba(WVU_GOLD, 0.35), margin: "0 0 8px" }} />
+          <GameDetailRow label="Where" value={homeAway} t={t} />
+          <GameDetailRow label="Kickoff" value={kickoff} t={t} />
+          {game.tv && <GameDetailRow label="TV" value={game.tv} t={t} />}
+          {game.location && <GameDetailRow label="Venue" value={game.location} t={t} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GameDetailRow({ label, value, t }: { label: string; value: string; t: ThemeTokens }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "3px 0" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, width: 58, flexShrink: 0 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 12.5, color: t.text, fontWeight: 500, minWidth: 0 }}>{value}</div>
     </div>
   );
 }

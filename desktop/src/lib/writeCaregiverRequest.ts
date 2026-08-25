@@ -4,6 +4,7 @@ import type {
   CaregiverRequest,
   CaregiverRequestStatus,
   CaregiverRequestType,
+  Event,
   HouseholdState,
 } from "../state";
 
@@ -101,14 +102,64 @@ export async function deleteCaregiverRequest(
 ): Promise<void> {
   const current = await readState(householdId);
   const list = (current.caregiverRequests ?? []).filter((r) => r.id !== id);
-  await writeState(householdId, { ...current, caregiverRequests: list });
+  // Also drop any still-pending event this request auto-posted (a confirmed
+  // event has already lost its sourceRequestId, so it survives).
+  const events = (current.events ?? []).filter((e) => !(e.pending && e.sourceRequestId === id));
+  await writeState(householdId, { ...current, caregiverRequests: list, events });
+}
+
+/** True if a "Life" request still has an unconfirmed event on the calendar. */
+export function hasPendingLifeEvent(state: HouseholdState | null, requestId: string): boolean {
+  return (state?.events ?? []).some((e) => e.pending && e.sourceRequestId === requestId);
+}
+
+/** Confirm a caregiver "Life" request: clear the pending flag on its
+ *  auto-posted event (so it becomes a normal calendar item) and mark the
+ *  request acknowledged — one atomic state write. */
+export async function confirmLifeRequest(householdId: string, id: string): Promise<void> {
+  const current = await readState(householdId);
+  const requests = [...(current.caregiverRequests ?? [])];
+  const idx = requests.findIndex((r) => r.id === id);
+  if (idx < 0) throw new CaregiverRequestError("That request no longer exists.");
+  requests[idx] = {
+    ...requests[idx],
+    status: "acknowledged",
+    acknowledgedAt: Date.now(),
+    ...(auth.currentUser?.uid ? { acknowledgedBy: auth.currentUser.uid } : {}),
+  };
+  const events = (current.events ?? []).map((e) => {
+    if (e.sourceRequestId !== id) return e;
+    const { pending: _p, sourceRequestId: _s, ...rest } = e;
+    void _p; void _s;
+    return rest as Event;
+  });
+  await writeState(householdId, { ...current, caregiverRequests: requests, events });
+}
+
+/** Reject a caregiver "Life" request: delete its auto-posted event and mark
+ *  the request dismissed — one atomic state write. */
+export async function rejectLifeRequest(householdId: string, id: string): Promise<void> {
+  const current = await readState(householdId);
+  const requests = [...(current.caregiverRequests ?? [])];
+  const idx = requests.findIndex((r) => r.id === id);
+  if (idx < 0) throw new CaregiverRequestError("That request no longer exists.");
+  requests[idx] = {
+    ...requests[idx],
+    status: "dismissed",
+    acknowledgedAt: Date.now(),
+    ...(auth.currentUser?.uid ? { acknowledgedBy: auth.currentUser.uid } : {}),
+  };
+  const events = (current.events ?? []).filter((e) => e.sourceRequestId !== id);
+  await writeState(householdId, { ...current, caregiverRequests: requests, events });
 }
 
 export function caregiverRequestTypeLabel(t: CaregiverRequestType): string {
   switch (t) {
     case "schedule-block": return "Schedule block";
     case "shift-conflict": return "Shift conflict";
-    case "other":          return "Other";
+    // The caregiver-facing app labels this type "Life" (a life event to add to
+    // the calendar); keep the manager side consistent.
+    case "other":          return "Life";
   }
 }
 

@@ -4,6 +4,7 @@ import type { Event as SbEvent, HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { eventInitial } from "./EventAvatar";
 import { parentDaySegments } from "../lib/computeOverlap";
+import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
 const COVERAGE_COLOR = "#159c43";
 
@@ -23,6 +24,7 @@ interface Props {
   onSelectDate: (key: string) => void;
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
+  wvuGames: Map<string, WvuGame>;
 }
 
 const HOUR_START = 6;        // 6am
@@ -76,7 +78,7 @@ function endLabel(typ: { start: string; end: string }): string {
 
 export function WeekView({
   palette, t, dark, shifts, state, selected, today, onSelectDate,
-  eventsByDate, onEditEvent,
+  eventsByDate, onEditEvent, wvuGames,
 }: Props) {
   const [sy, sm, sd] = selected.split("-").map(Number);
   const sel = new Date(sy, sm - 1, sd);
@@ -136,6 +138,22 @@ export function WeekView({
               >
                 {date.getDate()}
               </span>
+              {wvuGames.has(key) && (
+                <img
+                  src="assets/wvu.png"
+                  alt=""
+                  aria-hidden="true"
+                  title={wvuGameLabel(wvuGames.get(key)!)}
+                  draggable={false}
+                  style={{
+                    width: 22,
+                    height: 20,
+                    objectFit: "contain",
+                    marginTop: 1,
+                    filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.4))",
+                  }}
+                />
+              )}
             </button>
           );
         })}
@@ -327,7 +345,7 @@ export function WeekView({
                 {(eventsByDate[key] ?? []).map((ev) => {
                   const block = blockForEvent(ev);
                   if (!block) return null;
-                  const color = eventColor(ev.who, palette);
+                  const color = ev.pending ? "#FF9F0A" : eventColor(ev.who, palette);
                   const top = (block.startMin / 60) * PX_PER_HOUR;
                   const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
                   return (

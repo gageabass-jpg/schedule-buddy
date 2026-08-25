@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, type MenuItemConstructorOptions } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
+import * as os from "node:os";
 import * as fs from "node:fs/promises";
 import * as fsSync from "node:fs";
 import * as http from "node:http";
@@ -8,6 +9,52 @@ import type { AddressInfo } from "node:net";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === "development";
+
+// ───────────────── Main-process crash guard ─────────────────
+// macOS periodically purges the per-user temp dir ($TMPDIR, under
+// /var/folders/…). Chromium/preferences occasionally atomic-writes a throwaway
+// cache file there; if the purge races that write, Node throws a transient
+// ENOENT/EPERM/EACCES. No app data lives in temp (the schedule is in Firebase),
+// but Electron's default handler pops a fatal "A JavaScript error occurred in
+// the main process" dialog. We swallow ONLY those transient temp-dir fs errors
+// and log them; every other error is still surfaced in a dialog as before.
+
+function isTransientTempError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as NodeJS.ErrnoException;
+  if (!["ENOENT", "EPERM", "EACCES", "ENOTDIR"].includes(e.code ?? "")) return false;
+  const p = String(e.path ?? "");
+  if (!p) return false;
+  // Only inside the OS temp dir(s). "/var/folders/" also matches the
+  // "/private/var/folders/" symlink-resolved form.
+  return p.startsWith(os.tmpdir()) || p.includes("/var/folders/");
+}
+
+function surfaceFatal(err: unknown): void {
+  const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  try {
+    dialog.showErrorBox("Schedule Buddy Manager — unexpected error", msg);
+  } catch {
+    // dialog can be unavailable very early in startup — the console log stands.
+  }
+}
+
+process.on("uncaughtException", (err) => {
+  if (isTransientTempError(err)) {
+    console.warn("[main] ignored transient temp-dir error:", (err as Error)?.message ?? err);
+    return;
+  }
+  console.error("[main] uncaughtException:", err);
+  surfaceFatal(err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  if (isTransientTempError(reason)) {
+    console.warn("[main] ignored transient temp-dir rejection:", (reason as Error)?.message ?? reason);
+    return;
+  }
+  console.error("[main] unhandledRejection:", reason);
+});
 
 // ───────────────── Production renderer host ─────────────────
 // Packaged Electron apps load the renderer from file://, but Firebase Auth's

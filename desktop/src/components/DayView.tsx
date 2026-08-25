@@ -5,6 +5,7 @@ import { compactTime } from "../state";
 import { parentDaySegments } from "../lib/computeOverlap";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
+import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
 const COVERAGE_COLOR = "#159c43";
 
@@ -40,6 +41,7 @@ interface Props {
   partnerName: string;
   events: SbEvent[];
   onEditEvent: (ev: SbEvent) => void;
+  wvuGames: Map<string, WvuGame>;
 }
 
 const HOUR_START = 0;
@@ -86,12 +88,13 @@ function blockForShift(shift: Shift, state: HouseholdState | null, offsetMin = 0
 
 export function DayView({
   palette, t, dark, shifts, state, selected, today, selfName, partnerName,
-  events, onEditEvent,
+  events, onEditEvent, wvuGames,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   const isToday = selected === today;
   const list = shifts[selected] ?? [];
+  const wvuGame = wvuGames.get(selected);
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const whoName = (who: string) => who === "G" ? selfName : who === "K" ? partnerName : daisyName;
   const totalHeight = (HOUR_END - HOUR_START) * PX_PER_HOUR;
@@ -140,6 +143,21 @@ export function DayView({
           <div style={{ fontSize: 12, color: t.text2 }}>
             {list.length === 0 ? "Both off — free day." : `${list.length} shift${list.length === 1 ? "" : "s"}`}
           </div>
+          {wvuGame && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <img
+                src="assets/wvu.png"
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                style={{ width: 20, height: 19, objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.4))" }}
+              />
+              <span style={{ fontSize: 12, fontWeight: 600, color: t.text2 }}>
+                {wvuGameLabel(wvuGame)}
+                {wvuGame.tv ? ` · ${wvuGame.tv}` : ""}
+              </span>
+            </div>
+          )}
         </div>
         {list.length > 0 && (
           <div style={{ display: "flex", gap: 6 }}>
@@ -311,7 +329,7 @@ export function DayView({
               }
               const top = (startAbs / 60) * PX_PER_HOUR;
               const height = ((endAbs - startAbs) / 60) * PX_PER_HOUR;
-              const color = eventColor(ev.who, palette);
+              const color = ev.pending ? "#FF9F0A" : eventColor(ev.who, palette);
               return (
                 <div
                   key={ev.id}

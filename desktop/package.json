@@ -6,7 +6,9 @@
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
+    "sync:wvu": "node --input-type=commonjs -e \"const fs=require('fs');fs.copyFileSync('../public/wvu-football.json','public/wvu-football.json');fs.copyFileSync('../public/assets/wvu.png','public/assets/wvu.png');console.log('synced WVU schedule + logo from ../public')\"",
     "dev": "concurrently -k -s first -n vite,electron \"vite\" \"wait-on tcp:5173 && tsc -p tsconfig.electron.json && cross-env NODE_ENV=development electron .\"",
+    "prebuild:web": "npm run sync:wvu",
     "build:web": "tsc -p tsconfig.json && vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:web && npm run build:electron",
