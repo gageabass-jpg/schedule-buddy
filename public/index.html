@@ -967,9 +967,9 @@
   /* Calendar-specific color tokens — Apple-style soft tints
      (person + intensity scheme: Gage = indigo, Kaylene = coral, both = purple, off = clear) */
   :root {
-    --cal-self:    rgba(10,132,255,0.13);  /* Gage works → soft indigo */
-    --cal-partner: rgba(255,55,95,0.13);   /* Kaylene works → soft coral */
-    --cal-both:    rgba(191,90,242,0.16);  /* Both → soft purple */
+    --cal-self:    rgba(48,209,88,0.14);   /* Gage works → soft green */
+    --cal-partner: rgba(191,90,242,0.15);  /* Kaylene works → soft purple */
+    --cal-both:    rgba(94,92,230,0.15);   /* Both → soft indigo */
     --cal-off:     transparent;            /* No tint for off days */
     --cal-fatigue-ok: rgba(48, 209, 88, 0.35);
     --cal-fatigue-mid: rgba(255, 159, 10, 0.4);
@@ -1145,9 +1145,9 @@
   }
   .week-day-cell.today .wd-name,
   .week-day-cell.today .wd-num { color: #fff; }
-  .week-day-cell.today[data-kind="g"]    { background: var(--color-g); }
-  .week-day-cell.today[data-kind="k"]    { background: var(--color-k); }
-  .week-day-cell.today[data-kind="both"] { background: var(--color-both); }
+  .week-day-cell.today[data-kind="g"]    { background: #30D158; }
+  .week-day-cell.today[data-kind="k"]    { background: #BF5AF2; }
+  .week-day-cell.today[data-kind="both"] { background: #5E5CE6; }
   .week-day-cell.today[data-kind="off"]  { background: var(--text-2); }
   .week-rail {
     position: relative;
@@ -1206,9 +1206,9 @@
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   }
-  .week-rail-block[data-who="G"]   { background: rgba(10,132,255,0.30);  color: var(--text); border-left-color: var(--color-g); }
-  .week-rail-block[data-who="K"]   { background: rgba(255,55,95,0.30);   color: var(--text); border-left-color: var(--color-k); }
-  .week-rail-block[data-who="G+K"] { background: rgba(191,90,242,0.30);  color: var(--text); border-left-color: var(--color-both); }
+  .week-rail-block[data-who="G"]   { background: rgba(48,209,88,0.30);   color: var(--text); border-left-color: #30D158; }
+  .week-rail-block[data-who="K"]   { background: rgba(191,90,242,0.30);  color: var(--text); border-left-color: #BF5AF2; }
+  .week-rail-block[data-who="G+K"] { background: rgba(94,92,230,0.30);   color: var(--text); border-left-color: #5E5CE6; }
   @media (prefers-color-scheme: dark) {
     .week-rail-block { color: #fff; }
   }
@@ -1231,9 +1231,9 @@
     box-shadow: var(--shadow-card);
   }
   .agenda-row.today                      { border-color: var(--color-g); }
-  .agenda-row.today[data-kind="g"]       { border-color: var(--color-g); }
-  .agenda-row.today[data-kind="k"]       { border-color: var(--color-k); }
-  .agenda-row.today[data-kind="both"]    { border-color: var(--color-both); }
+  .agenda-row.today[data-kind="g"]       { border-color: #30D158; }
+  .agenda-row.today[data-kind="k"]       { border-color: #BF5AF2; }
+  .agenda-row.today[data-kind="both"]    { border-color: #5E5CE6; }
   .agenda-date {
     width: 50px;
     text-align: center;
@@ -1258,11 +1258,11 @@
     letter-spacing: 0.04em;
   }
   .agenda-row.today .ad-dow,
-  .agenda-row.today .ad-num { color: var(--color-g); }
+  .agenda-row.today .ad-num { color: #30D158; }
   .agenda-row.today[data-kind="k"]    .ad-dow,
-  .agenda-row.today[data-kind="k"]    .ad-num { color: var(--color-k); }
+  .agenda-row.today[data-kind="k"]    .ad-num { color: #BF5AF2; }
   .agenda-row.today[data-kind="both"] .ad-dow,
-  .agenda-row.today[data-kind="both"] .ad-num { color: var(--color-both); }
+  .agenda-row.today[data-kind="both"] .ad-num { color: #5E5CE6; }
   .agenda-rail {
     width: 3px;
     align-self: stretch;
@@ -1270,9 +1270,9 @@
     background: var(--text-3);
     flex-shrink: 0;
   }
-  .agenda-row[data-kind="g"]    .agenda-rail { background: var(--color-g); }
-  .agenda-row[data-kind="k"]    .agenda-rail { background: var(--color-k); }
-  .agenda-row[data-kind="both"] .agenda-rail { background: var(--color-both); }
+  .agenda-row[data-kind="g"]    .agenda-rail { background: #30D158; }
+  .agenda-row[data-kind="k"]    .agenda-rail { background: #BF5AF2; }
+  .agenda-row[data-kind="both"] .agenda-rail { background: #5E5CE6; }
   .agenda-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .agenda-title {
     font-size: 14px;
@@ -1323,10 +1323,10 @@
   .agenda-ev-pill:active { transform: scale(0.95); }
   .agenda-ev-pill .sb-avatar { width: 24px; height: 24px; font-size: 10px; }
   .agenda-ev-pill .ev-leaf { width: 14px; height: 14px; display: block; }
-  .agenda-ev-pill[data-who="G"]      { background: rgba(10,132,255,0.16);  border-color: rgba(10,132,255,0.42); }
-  .agenda-ev-pill[data-who="K"]      { background: rgba(255,55,95,0.16);   border-color: rgba(255,55,95,0.42); }
-  .agenda-ev-pill[data-who="Daisy"]  { background: rgba(48,209,88,0.16);   border-color: rgba(48,209,88,0.42); }
-  .agenda-ev-pill[data-who="family"] { background: rgba(191,90,242,0.16);  border-color: rgba(191,90,242,0.42); }
+  .agenda-ev-pill[data-who="G"]      { background: rgba(48,209,88,0.16);   border-color: rgba(48,209,88,0.42); }
+  .agenda-ev-pill[data-who="K"]      { background: rgba(191,90,242,0.16);  border-color: rgba(191,90,242,0.42); }
+  .agenda-ev-pill[data-who="Daisy"]  { background: rgba(10,132,255,0.16);  border-color: rgba(10,132,255,0.42); }
+  .agenda-ev-pill[data-who="family"] { background: rgba(94,92,230,0.16);   border-color: rgba(94,92,230,0.42); }
 
   /* ===== Life-event detail bottom sheet ===== */
   .event-sheet-backdrop {
@@ -1427,14 +1427,14 @@
     filter: blur(24px);
     pointer-events: none;
   }
-  .today-ribbon[data-kind="g"]    { border-color: rgba(10,132,255,0.4); background: linear-gradient(135deg, rgba(10,132,255,0.28), rgba(10,132,255,0.12)); }
-  .today-ribbon[data-kind="g"]::before    { background: rgba(10,132,255,0.18); }
-  .today-ribbon[data-kind="k"]    { border-color: rgba(255,55,95,0.4);   background: linear-gradient(135deg, rgba(255,55,95,0.28),  rgba(255,55,95,0.12)); }
-  .today-ribbon[data-kind="k"]::before    { background: rgba(255,55,95,0.18); }
-  .today-ribbon[data-kind="both"] { border-color: rgba(191,90,242,0.4);  background: linear-gradient(135deg, rgba(191,90,242,0.28), rgba(191,90,242,0.12)); }
-  .today-ribbon[data-kind="both"]::before { background: rgba(191,90,242,0.18); }
-  .today-ribbon[data-kind="off"]  { border-color: rgba(52,199,89,0.35);  background: linear-gradient(135deg, rgba(52,199,89,0.20),  rgba(52,199,89,0.08)); }
-  .today-ribbon[data-kind="off"]::before  { background: rgba(52,199,89,0.18); }
+  .today-ribbon[data-kind="g"]    { border-color: rgba(48,209,88,0.4);  background: linear-gradient(135deg, rgba(48,209,88,0.26),  rgba(48,209,88,0.10)); }
+  .today-ribbon[data-kind="g"]::before    { background: rgba(48,209,88,0.18); }
+  .today-ribbon[data-kind="k"]    { border-color: rgba(191,90,242,0.4); background: linear-gradient(135deg, rgba(191,90,242,0.26), rgba(191,90,242,0.10)); }
+  .today-ribbon[data-kind="k"]::before    { background: rgba(191,90,242,0.18); }
+  .today-ribbon[data-kind="both"] { border-color: rgba(94,92,230,0.4);  background: linear-gradient(135deg, rgba(94,92,230,0.26),  rgba(94,92,230,0.10)); }
+  .today-ribbon[data-kind="both"]::before { background: rgba(94,92,230,0.18); }
+  .today-ribbon[data-kind="off"]  { border-color: rgba(142,142,147,0.35); background: linear-gradient(135deg, rgba(142,142,147,0.20), rgba(142,142,147,0.08)); }
+  .today-ribbon[data-kind="off"]::before  { background: rgba(142,142,147,0.18); }
   .today-ribbon-inner { position: relative; }
   .today-ribbon-eyebrow {
     display: flex;
@@ -1524,20 +1524,20 @@
     font-size: 13px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    box-shadow: inset 0 0 0 0.5px rgba(10,132,255,0.4);
+    box-shadow: inset 0 0 0 0.5px rgba(48,209,88,0.4);
     white-space: nowrap;
   }
-  .sb-chip[data-who="K"]   { background: rgba(255,55,95,0.22);  box-shadow: inset 0 0 0 0.5px rgba(255,55,95,0.4); }
-  .sb-chip[data-who="G+K"] { background: rgba(191,90,242,0.22); box-shadow: inset 0 0 0 0.5px rgba(191,90,242,0.4); }
+  .sb-chip[data-who="K"]   { background: rgba(191,90,242,0.22); box-shadow: inset 0 0 0 0.5px rgba(191,90,242,0.4); }
+  .sb-chip[data-who="G+K"] { background: rgba(94,92,230,0.22);  box-shadow: inset 0 0 0 0.5px rgba(94,92,230,0.4); }
   .sb-chip-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--color-g);
-    box-shadow: 0 0 6px rgba(10,132,255,0.6);
+    background: #30D158;
+    box-shadow: 0 0 6px rgba(48,209,88,0.6);
   }
-  .sb-chip[data-who="K"]   .sb-chip-dot { background: var(--color-k);   box-shadow: 0 0 6px rgba(255,55,95,0.6); }
-  .sb-chip[data-who="G+K"] .sb-chip-dot { background: var(--color-both); box-shadow: 0 0 6px rgba(191,90,242,0.6); }
+  .sb-chip[data-who="K"]   .sb-chip-dot { background: #BF5AF2; box-shadow: 0 0 6px rgba(191,90,242,0.6); }
+  .sb-chip[data-who="G+K"] .sb-chip-dot { background: #5E5CE6; box-shadow: 0 0 6px rgba(94,92,230,0.6); }
 
   /* Calendar grid (Month layout) — roomy Apple-style cells */
   .cal-wrap { position: relative; margin-bottom: 16px; }
@@ -1592,9 +1592,9 @@
   }
   /* Today ring tracks the day's "kind" (who works) — matches the design */
   .cal-cell.today                       { box-shadow: inset 0 0 0 1.5px var(--color-g); }
-  .cal-cell.today[data-kind="g"]        { box-shadow: inset 0 0 0 1.5px var(--color-g); }
-  .cal-cell.today[data-kind="k"]        { box-shadow: inset 0 0 0 1.5px var(--color-k); }
-  .cal-cell.today[data-kind="both"]     { box-shadow: inset 0 0 0 1.5px var(--color-both); }
+  .cal-cell.today[data-kind="g"]        { box-shadow: inset 0 0 0 1.5px #30D158; }
+  .cal-cell.today[data-kind="k"]        { box-shadow: inset 0 0 0 1.5px #BF5AF2; }
+  .cal-cell.today[data-kind="both"]     { box-shadow: inset 0 0 0 1.5px #5E5CE6; }
   .cal-cell.today[data-kind="off"]      { box-shadow: inset 0 0 0 1.5px var(--text-3); }
   .cal-shifts {
     display: flex;
@@ -1625,10 +1625,12 @@
   .shift-pill.long   { background: var(--pill-long); }
   .shift-pill.extra  { background: var(--pill-extra); }
   /* Person-based color overrides — primary visual scheme */
-  .shift-pill[data-who="g"]    { background: var(--color-g); color: #fff; }
-  .shift-pill[data-who="k"]    { background: var(--color-k); color: #fff; }
-  .shift-pill[data-who="both"] { background: var(--color-both); color: #fff; }
-  .shift-pill[data-who="d"]    { background: #30D158; color: #fff; }   /* Daisy — green */
+  /* Calendar person colors: Gage green, Kaylene purple, Daisy blue.
+     "Both" (a shared G+K shift) uses indigo so it stays distinct from Kaylene. */
+  .shift-pill[data-who="g"]    { background: #30D158; color: #fff; }   /* Gage — green */
+  .shift-pill[data-who="k"]    { background: #BF5AF2; color: #fff; }   /* Kaylene — purple */
+  .shift-pill[data-who="both"] { background: #5E5CE6; color: #fff; }   /* Both — indigo */
+  .shift-pill[data-who="d"]    { background: #0A84FF; color: #fff; }   /* Daisy — blue */
   /* Pending (photo-import awaiting manager approval) — yellow, overrides who. */
   .shift-pill[data-pending="1"]      { background: #ff9f0a !important; color: #3a2a00 !important; }
   .sb-chip[data-pending="1"]         { background: rgba(255,159,10,0.22); color: #b26a00; }
@@ -1741,6 +1743,7 @@
     right: 5px;
     font-size: 12px;
     cursor: help;
+    z-index: 2;
     filter: drop-shadow(0 0 3px rgba(255,159,10,0.5));
   }
 
@@ -1886,10 +1889,10 @@
     z-index: 2;
     border-left: 3px solid transparent;
   }
-  .day-block[data-who="G"]   { background: rgba(10,132,255,0.22);  border-left-color: var(--color-g); }
-  .day-block[data-who="K"]   { background: rgba(255,55,95,0.22);   border-left-color: var(--color-k); }
-  .day-block[data-who="D"]   { background: rgba(255,149,0,0.22);   border-left-color: #ff9500; }
-  .day-block[data-who="G+K"] { background: rgba(191,90,242,0.22);  border-left-color: var(--color-both); }
+  .day-block[data-who="G"]   { background: rgba(48,209,88,0.22);   border-left-color: #30D158; }
+  .day-block[data-who="K"]   { background: rgba(191,90,242,0.22);  border-left-color: #BF5AF2; }
+  .day-block[data-who="D"]   { background: rgba(10,132,255,0.22);  border-left-color: #0A84FF; }
+  .day-block[data-who="G+K"] { background: rgba(94,92,230,0.22);   border-left-color: #5E5CE6; }
   .day-block .title {
     font-size: 12px; font-weight: 700;
     letter-spacing: -0.01em;
@@ -2042,6 +2045,100 @@
   }
   body.parse-open .parse-fab,
   body.ask-claude-open .parse-fab { display: none; }
+  /* Keep the FAB visible while its own speed-dial menu is open, and rotate the
+     "+" into an "×". */
+  body.add-menu-open .parse-fab { display: inline-flex !important; }
+  body.add-menu-open .parse-fab .parse-plus { transform: rotate(45deg); }
+  .parse-fab .parse-plus { transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+
+  /* ===== "+" speed-dial menu ===== */
+  .add-menu-backdrop {
+    position: fixed; inset: 0; z-index: 45;
+    background: rgba(0,0,0,0.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  body.add-menu-open .add-menu-backdrop { opacity: 1; pointer-events: auto; }
+  .add-menu {
+    position: fixed; right: 16px; z-index: 51;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 224px);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 14px;
+    opacity: 0; pointer-events: none;
+    transform: translateY(20px) scale(0.6); transform-origin: 100% 100%;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease;
+  }
+  body.add-menu-open .add-menu { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+  .add-menu-item {
+    display: flex; align-items: center; gap: 12px; border: 0; background: transparent;
+    cursor: pointer; font-family: inherit; padding: 0;
+  }
+  .add-menu-item .ami-label {
+    background: var(--bg-elev2, #2c2c2e); color: var(--text);
+    font-size: 15px; font-weight: 700; padding: 8px 14px; border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .add-menu-item .ami-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    background: var(--bg-elev2, #2c2c2e); color: var(--color-g);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .add-menu-item:active .ami-icon { transform: scale(0.92); }
+
+  /* ===== Add-a-shift bottom sheet ===== */
+  .as-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1100; display: none; }
+  .as-sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1101; display: none;
+    flex-direction: column; background: var(--panel, var(--bg-elev));
+    border-radius: 22px 22px 0 0; box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+    max-height: 92vh; padding: 10px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
+  }
+  body.add-shift-open .as-backdrop, body.add-shift-open .as-sheet { display: flex; }
+  .as-grab { align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--text-3); margin-bottom: 6px; }
+  .as-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 14px; }
+  .as-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+  .as-close {
+    width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0;
+    background: var(--scrim, rgba(127,127,127,0.12)); color: var(--text-2);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .as-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; }
+  .as-seclabel { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin: 8px 0 0; }
+  .as-seg {
+    display: flex; gap: 0; background: var(--scrim, rgba(127,127,127,0.12));
+    border-radius: 12px; padding: 3px; margin-bottom: 6px;
+  }
+  .as-seg button {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 9px 4px; border: 0; border-radius: 10px; background: transparent;
+    color: var(--text-2); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;
+  }
+  .as-seg button.active { background: var(--bg-elev); color: var(--text); font-weight: 600; box-shadow: var(--shadow-card, 0 1px 4px rgba(0,0,0,0.10)); }
+  .as-seg button .sb-avatar { width: 20px; height: 20px; font-size: 10px; opacity: 0.55; }
+  .as-seg button.active .sb-avatar { opacity: 1; }
+  .as-group { display: flex; flex-direction: column; background: var(--scrim, rgba(127,127,127,0.06)); border: 1px solid var(--sep); border-radius: 14px; overflow: hidden; }
+  .as-row { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; cursor: pointer; }
+  .as-row-key { font-size: 15px; color: var(--text); }
+  .as-row-val { font-size: 15px; font-weight: 500; color: var(--color-g); white-space: nowrap; }
+  .as-row-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; margin: 0; padding: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; font-family: inherit; }
+  .as-row-sep { height: 1px; background: var(--sep); margin: 0 16px; }
+  .as-err { font-size: 12.5px; color: var(--color-k, #ff453a); padding: 2px 2px 0; }
+  .as-primary {
+    height: 50px; border-radius: 14px; border: 0; margin-top: 6px;
+    background: var(--text); color: var(--panel, var(--bg-elev));
+    font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .as-primary:disabled { opacity: 0.4; }
+  .as-or { display: flex; align-items: center; gap: 12px; margin: 2px 0; }
+  .as-or::before, .as-or::after { content: ""; flex: 1; height: 1px; background: var(--sep); }
+  .as-or span { font-size: 12px; color: var(--text-3); }
+  .as-secondary {
+    height: 46px; border-radius: 14px; border: 0;
+    background: color-mix(in srgb, var(--color-g) 12%, transparent); color: var(--text);
+    font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+  }
+  .as-secondary svg { color: var(--color-g); }
 
   /* ===== Import-from-photo modal (mirrors the Ask Claude modal theme) ===== */
   .parse-backdrop {
@@ -2484,29 +2581,32 @@
   /* Payday chips — small "$" badges in the top-right of a calendar cell. */
   .cal-pay-row {
     position: absolute;
-    top: 3px;
-    right: 4px;
+    top: 5px;
+    right: 6px;
     display: inline-flex;
-    gap: 2px;
+    gap: 3px;
     pointer-events: none;
+    z-index: 2;
   }
   .cal-pay-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 4px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
     border-radius: 999px;
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 800;
     color: #fff;
     line-height: 1;
-    box-shadow: 0 0 0 1.5px var(--bg);
+    /* Soft lift instead of a hard page-bg ring, which read as a heavy dark
+       border on the colored cell tints. */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.35);
     pointer-events: auto;
   }
-  .cal-pay-chip.g { background: var(--color-g); }
-  .cal-pay-chip.k { background: var(--color-k); }
+  .cal-pay-chip.g { background: #30D158; }
+  .cal-pay-chip.k { background: #BF5AF2; }
 
   /* Confirmed-childcare bar — green strip along the bottom edge of any
      calendar cell whose coverage request has been accepted. */
@@ -2543,8 +2643,13 @@
     pointer-events: none;
     z-index: 0;
   }
-  /* Bump the contents above the ::before overlay. */
-  .cal-cell.has-block > * { position: relative; z-index: 1; }
+  /* Lift the in-flow content above the ::before stripe overlay. NOTE: this must
+     NOT target every child — the corner icons (payday, OT, WVU) are absolutely
+     positioned, and forcing position:relative on them dropped them into normal
+     flow (floating mid-cell on blocked days). They stay absolute and sit above
+     the stripes via their own z-index below. */
+  .cal-cell.has-block > .cal-date,
+  .cal-cell.has-block > .cal-shifts { position: relative; z-index: 1; }
 
   /* Tooltip */
   .cal-tooltip {
@@ -5150,6 +5255,7 @@
     width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
     background: rgba(118,118,128,0.24); border: 0; color: var(--text-2);
     display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; line-height: 1; padding: 0;
     cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
   }
   .cgr-scroll {
@@ -6003,10 +6109,7 @@
         <div class="pf-email" id="profileEmail"></div>
       </div>
 
-      <button class="pf-primary" id="requestEventBtn" type="button">
-        <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
-        Add to Calendar
-      </button>
+      <!-- (Admin "Request Event" moved to the Schedule tab's "+" speed-dial.) -->
 
       <!-- Manager: pending photo-import approvals (Kaylene / Daisy) -->
       <div class="pf-group-label" id="managerGroupLabel" style="display:none;">Manager <span class="mgr-count" id="managerCount"></span></div>
@@ -6140,10 +6243,66 @@
 </button>
 
 <!-- "+" Import schedule from photo (shining ring), stacked above the Claude FAB -->
-<button class="parse-fab" id="parseFab" type="button" aria-label="Import schedule from photo">
+<button class="parse-fab" id="parseFab" type="button" aria-label="Add to schedule">
   <span class="parse-plus">+</span>
 </button>
 <input type="file" id="parseFileInput" accept="image/*" style="display:none;">
+
+<!-- "+" speed-dial: add a shift or a life event -->
+<div class="add-menu-backdrop" id="addMenuBackdrop"></div>
+<div class="add-menu" id="addMenu">
+  <button type="button" class="add-menu-item" id="addMenuShift">
+    <span class="ami-label">Add Shifts</span>
+    <span class="ami-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></svg>
+    </span>
+  </button>
+  <button type="button" class="add-menu-item" id="addMenuEvent">
+    <span class="ami-label">Add Event</span>
+    <span class="ami-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+    </span>
+  </button>
+</div>
+
+<!-- Add-a-shift bottom sheet -->
+<div class="as-backdrop" id="asBackdrop"></div>
+<div class="as-sheet" id="addShiftSheet" role="dialog" aria-modal="true" aria-label="Add a shift">
+  <div class="as-grab"></div>
+  <div class="as-head">
+    <div class="as-title">Add a shift</div>
+    <button type="button" class="as-close" id="asCloseBtn" aria-label="Close">✕</button>
+  </div>
+  <div class="as-scroll">
+    <div class="as-seclabel">Who</div>
+    <div class="as-seg" id="asSeg">
+      <button type="button" data-person="G" class="active"><span class="sb-avatar small" data-photo="g">G</span>Gage</button>
+      <button type="button" data-person="K"><span class="sb-avatar small k" data-photo="k">K</span>Kaylene</button>
+      <button type="button" data-person="Daisy"><span class="sb-avatar small d" data-photo="d">D</span>Daisy</button>
+    </div>
+    <div class="as-seclabel">When</div>
+    <div class="as-group">
+      <div class="as-row" id="asDateRow">
+        <span class="as-row-key">Date</span>
+        <span class="as-row-val" id="asDateLabel">—</span>
+        <input type="date" id="asDate" class="as-row-input" aria-label="Date">
+      </div>
+      <div class="as-row-sep"></div>
+      <div class="as-row" id="asShiftRow">
+        <span class="as-row-key">Shift</span>
+        <span class="as-row-val" id="asShiftLabel">Pick a shift</span>
+        <select id="asShiftSelect" class="as-row-input" aria-label="Shift type"></select>
+      </div>
+    </div>
+    <div class="as-err" id="asErr" style="display:none;"></div>
+    <button type="button" class="as-primary" id="asAddBtn">Add shift</button>
+    <div class="as-or"><span>or</span></div>
+    <button type="button" class="as-secondary" id="asImportBtn">
+      <svg width="19" height="19" viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="2" y="7" width="22" height="16" rx="4" fill="currentColor"></rect><rect x="8" y="3" width="10" height="6" rx="2" fill="currentColor"></rect><circle cx="13" cy="15" r="5" fill="var(--bg-elev)"></circle><circle cx="13" cy="15" r="2.6" fill="currentColor"></circle></svg>
+      Import schedule from photo
+    </button>
+  </div>
+</div>
 
 <!-- Import-from-photo modal -->
 <div class="parse-backdrop" id="parseBackdrop"></div>
@@ -6239,7 +6398,7 @@
 
       <button class="pf-primary" id="cgProfileRequestEvent" type="button">
         <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden="true"><rect x="6.5" y="0" width="2" height="15" rx="1" fill="#fff"/><rect x="0" y="6.5" width="15" height="2" rx="1" fill="#fff"/></svg>
-        Add to Calendar
+        Request Event
       </button>
 
       <div class="pf-card tight">
@@ -6324,27 +6483,36 @@
     <div class="cgr-grab"></div>
     <div class="cgr-head">
       <div>
-        <div class="cgr-title" id="cgrTitle">Add to Calendar</div>
-        <div class="cgr-sub">Add something to the family calendar — everyone gets notified.</div>
+        <div class="cgr-title" id="cgrTitle">Add Event</div>
+        <div class="cgr-sub">Tell the family about a block, conflict, or anything else.</div>
       </div>
-      <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">
-        <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
+      <button type="button" class="cgr-close" id="cgrCloseBtn" aria-label="Close">✕</button>
     </div>
 
     <div class="cgr-scroll">
-      <span class="cgr-label">What is it?</span>
-      <input type="text" class="cgr-input" id="cgrTitleInput" placeholder="e.g. Elliot's cast comes off!" style="width:100%;box-sizing:border-box;margin-bottom:4px;">
+      <span class="cgr-label">Type</span>
+      <div class="cgr-type-grid" id="cgrTypeSeg">
+        <button type="button" class="cgr-type active" data-cgr-type="other">Life Event</button>
+        <button type="button" class="cgr-type" data-cgr-type="block">Schedule Block</button>
+      </div>
+
+      <span class="cgr-label">For</span>
+      <div class="cgr-type-grid" id="cgrWhoSeg">
+        <button type="button" class="cgr-type" data-cgr-who="G">Gage</button>
+        <button type="button" class="cgr-type" data-cgr-who="K">Kaylene</button>
+        <button type="button" class="cgr-type" data-cgr-who="Daisy">Daisy</button>
+        <button type="button" class="cgr-type active" data-cgr-who="family">Family</button>
+      </div>
 
       <span class="cgr-label">When</span>
       <div class="cgr-group">
         <div class="cgr-frow"><span class="cgr-frow-label">Date</span><input type="date" class="cgr-input" id="cgrDate"></div>
-        <div class="cgr-frow"><span class="cgr-frow-label">Starts</span><input type="time" class="cgr-input" id="cgrStart"></div>
-        <div class="cgr-frow last"><span class="cgr-frow-label">Ends</span><input type="time" class="cgr-input" id="cgrEnd"></div>
+        <div class="cgr-frow"><span class="cgr-frow-label">Starts</span><input type="time" class="cgr-input" id="cgrStart" placeholder="Optional"></div>
+        <div class="cgr-frow last"><span class="cgr-frow-label">Ends</span><input type="time" class="cgr-input" id="cgrEnd" placeholder="Optional"></div>
       </div>
 
-      <span class="cgr-label">Notes (optional)</span>
-      <textarea class="cgr-textarea" id="cgrNotes" placeholder="Anything else the family should know?"></textarea>
+      <span class="cgr-label">Comments</span>
+      <textarea class="cgr-textarea" id="cgrNotes" placeholder="What does the family need to know?"></textarea>
 
       <div class="cgr-err" id="cgrErr" style="display:none;"></div>
     </div>
@@ -7106,27 +7274,40 @@ function initCaregiverScreen() {
   wireCaregiverRequestModal();
 }
 
-// ==================== CAREGIVER: ADD TO CALENDAR MODAL ====================
-// Formerly the "Request Event" flow (manager approval). Now it posts a life
-// event straight to the family calendar — no approval — and the Cloud Function
-// notifies everyone. See openCaregiverRequestModal / submitCaregiverRequest.
+// ==================== REQUEST EVENT MODAL ====================
+// Opened from the "+" speed-dial (Add Event) and the caregiver Profile. Posts
+// straight to the calendar — no approval — and the Cloud Function notifies
+// everyone. Type "other" = a life event (state.events, per person); "block" =
+// a schedule block (state.scheduleBlocks, the red-striped day).
+
+let _cgrType = "other";   // "other" = Life Event, "block" = Schedule Block
+let _cgrWho = "family";   // "G" | "K" | "Daisy" | "family"
+
+function _syncCgrSegs() {
+  document.querySelectorAll("#cgrTypeSeg [data-cgr-type]").forEach(b =>
+    b.classList.toggle("active", b.dataset.cgrType === _cgrType));
+  document.querySelectorAll("#cgrWhoSeg [data-cgr-who]").forEach(b =>
+    b.classList.toggle("active", b.dataset.cgrWho === _cgrWho));
+}
 
 function openCaregiverRequestModal() {
+  wireCaregiverRequestModal();   // idempotent — guarantees close/submit are wired
+  _cgrType = "other";
+  _cgrWho = "family";
   // Default date = today
   const now = new Date();
   const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const titleEl = document.getElementById("cgrTitleInput");
   const dateEl = document.getElementById("cgrDate");
   const startEl = document.getElementById("cgrStart");
   const endEl = document.getElementById("cgrEnd");
   const notesEl = document.getElementById("cgrNotes");
   const err = document.getElementById("cgrErr");
-  if (titleEl) titleEl.value = "";
   if (dateEl)  dateEl.value = iso;
   if (startEl) startEl.value = "";
   if (endEl)   endEl.value = "";
   if (notesEl) notesEl.value = "";
   if (err)     { err.style.display = "none"; err.textContent = ""; }
+  _syncCgrSegs();
   document.body.classList.add("cgr-open");
 }
 
@@ -7156,11 +7337,22 @@ function wireCaregiverRequestModal() {
     submitBtn.__wired = true;
     submitBtn.addEventListener("click", submitCaregiverRequest);
   }
+  const typeSeg = document.getElementById("cgrTypeSeg");
+  if (typeSeg && !typeSeg.__wired) {
+    typeSeg.__wired = true;
+    typeSeg.querySelectorAll("[data-cgr-type]").forEach(b =>
+      b.addEventListener("click", () => { _cgrType = b.dataset.cgrType; _syncCgrSegs(); }));
+  }
+  const whoSeg = document.getElementById("cgrWhoSeg");
+  if (whoSeg && !whoSeg.__wired) {
+    whoSeg.__wired = true;
+    whoSeg.querySelectorAll("[data-cgr-who]").forEach(b =>
+      b.addEventListener("click", () => { _cgrWho = b.dataset.cgrWho; _syncCgrSegs(); }));
+  }
 }
 
 async function submitCaregiverRequest() {
   if (!householdId || !currentUser) return;
-  const titleEl = document.getElementById("cgrTitleInput");
   const dateEl = document.getElementById("cgrDate");
   const startEl = document.getElementById("cgrStart");
   const endEl = document.getElementById("cgrEnd");
@@ -7171,38 +7363,54 @@ async function submitCaregiverRequest() {
   const showErr = (msg) => { if (err) { err.style.display = "block"; err.textContent = msg; } };
   if (err) { err.style.display = "none"; err.textContent = ""; }
 
-  const title = (titleEl && titleEl.value || "").trim();
-  if (!title) { showErr("Give it a name so the family knows what it is."); return; }
   const date = (dateEl && dateEl.value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr("Pick a date."); return; }
   const startTime = (startEl && startEl.value) || "";
   const endTime = (endEl && endEl.value) || "";
-  const notes = (notesEl && notesEl.value || "").trim();
+  const comments = (notesEl && notesEl.value || "").trim();
+  if (_cgrType === "other" && !comments) {
+    showErr("Add a comment so the family knows what the event is."); return;
+  }
+
+  const whoName = _cgrWho === "G" ? (state.selfName || "Gage")
+    : _cgrWho === "K" ? ((state.partner && state.partner.name) || "Kaylene")
+    : _cgrWho === "Daisy" ? ((state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy")
+    : "Family";
 
   if (submit) submit.disabled = true;
   try {
-    // Read-modify-write so we don't clobber concurrent state edits.
-    // Posts a life event straight to the calendar — no approval. The Cloud
-    // Function's schedule-additions trigger notifies the whole household.
+    // Read-modify-write so we don't clobber concurrent state edits. Posts
+    // straight to the calendar — no approval. The Cloud Function's
+    // schedule-additions trigger notifies the household on new events.
     const ref = db.collection("households").doc(householdId)
       .collection("state").doc("main");
     const snap = await ref.get();
     const data = snap.exists ? (snap.data() || {}) : {};
-    const events = Array.isArray(data.events) ? data.events.slice() : [];
-    const evt = {
-      id: `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-      date,
-      title,
-      who: "family",
-    };
-    if (startTime) evt.startTime = startTime;
-    if (endTime)   evt.endTime = endTime;
-    if (notes)     evt.notes = notes;
-    events.push(evt);
-    await ref.set({ ...data, events });
+
+    if (_cgrType === "block") {
+      // Schedule Block → a red-striped day (household-wide). Person is folded
+      // into the label since blocks aren't per-person in the model.
+      const blocks = Array.isArray(data.scheduleBlocks) ? data.scheduleBlocks.slice() : [];
+      const label = (_cgrWho !== "family" ? `${whoName}: ` : "") + (comments || "Schedule block");
+      blocks.push({ startDate: date, endDate: date, label });
+      await ref.set({ ...data, scheduleBlocks: blocks });
+    } else {
+      // Life Event → state.events, attributed to the chosen person.
+      const events = Array.isArray(data.events) ? data.events.slice() : [];
+      const evt = {
+        id: `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        date,
+        title: comments,
+        who: _cgrWho,
+      };
+      if (startTime) evt.startTime = startTime;
+      if (endTime)   evt.endTime = endTime;
+      events.push(evt);
+      await ref.set({ ...data, events });
+    }
     closeCaregiverRequestModal();
   } catch (e) {
-    console.error("add-to-calendar failed:", e);
+    console.error("request-event submit failed:", e);
     showErr("Couldn't add it. Check your connection and try again.");
   } finally {
     if (submit) submit.disabled = false;
@@ -8350,9 +8558,119 @@ async function _confirmParseImport() {
   closeParseModal();
 }
 
+// ==================== "+" speed-dial + Add-a-shift sheet ====================
+function openAddMenu()  { document.body.classList.add("add-menu-open"); }
+function closeAddMenu() { document.body.classList.remove("add-menu-open"); }
+function toggleAddMenu() {
+  if (userRole === "supporting") return;   // caregivers don't manage the schedule
+  document.body.classList.toggle("add-menu-open");
+}
+
+let _addShiftPerson = "G";
+let _addShiftDate = "";
+let _addShiftTypeId = "";
+
+function _fmtDateLabel(iso) {
+  const d = parseISODate(iso);
+  return d ? d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—";
+}
+function _fmt12(hhmm) {
+  const [h, m] = String(hhmm || "").split(":").map(Number);
+  if (isNaN(h)) return hhmm || "";
+  const ap = h < 12 ? "AM" : "PM";
+  return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${ap}`;
+}
+function _addShiftTypeLabel(id) {
+  const t = (state.shiftTypes || []).find(x => x.id === id);
+  return t ? `${_fmt12(t.start)} – ${_fmt12(t.end)}` : "Pick a shift";
+}
+function _renderAddShiftSelect() {
+  const sel = document.getElementById("asShiftSelect");
+  if (!sel) return;
+  sel.innerHTML = (state.shiftTypes || [])
+    .map(t => `<option value="${t.id}"${t.id === _addShiftTypeId ? " selected" : ""}>${escapeHTML(t.name)}</option>`)
+    .join("");
+}
+function _syncAddShiftUI() {
+  document.querySelectorAll("#asSeg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.person === _addShiftPerson));
+  const dl = document.getElementById("asDateLabel"); if (dl) dl.textContent = _fmtDateLabel(_addShiftDate);
+  const di = document.getElementById("asDate"); if (di) di.value = _addShiftDate;
+  const sl = document.getElementById("asShiftLabel"); if (sl) sl.textContent = _addShiftTypeLabel(_addShiftTypeId);
+  const btn = document.getElementById("asAddBtn"); if (btn) btn.disabled = !(_addShiftDate && _addShiftTypeId);
+}
+function openAddShiftSheet() {
+  if (userRole === "supporting") return;
+  _addShiftPerson = "G";
+  const now = new Date();
+  _addShiftDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const types = state.shiftTypes || [];
+  _addShiftTypeId = types.length ? types[0].id : "";
+  const err = document.getElementById("asErr"); if (err) { err.style.display = "none"; err.textContent = ""; }
+  _renderAddShiftSelect();
+  _syncAddShiftUI();
+  document.body.classList.add("add-shift-open");
+}
+function closeAddShiftSheet() { document.body.classList.remove("add-shift-open"); }
+
+// Adds ONE shift straight to the schedule (admin add — direct, not pending).
+// The Cloud Function's schedule-additions trigger notifies the household.
+function _confirmAddShift() {
+  const err = document.getElementById("asErr");
+  const showErr = (m) => { if (err) { err.style.display = "block"; err.textContent = m; } };
+  if (err) err.style.display = "none";
+  if (!_addShiftDate) { showErr("Pick a date."); return; }
+  if (!_addShiftTypeId) { showErr("Add a shift type in Settings first."); return; }
+  const type = (state.shiftTypes || []).find(t => t.id === _addShiftTypeId);
+  const label = type ? type.name : "";
+  const person = _addShiftPerson;
+  if (person === "G") {
+    if (!Array.isArray(state.overrides)) state.overrides = [];
+    state.overrides = state.overrides.filter(o => o.date !== _addShiftDate);
+    state.overrides.push({ date: _addShiftDate, action: "work", shiftTypeId: _addShiftTypeId, label });
+  } else if (person === "K") {
+    if (!state.partner) state.partner = { name: "Kaylene", shifts: [] };
+    if (!Array.isArray(state.partner.shifts)) state.partner.shifts = [];
+    state.partner.shifts.push({ date: _addShiftDate, shiftTypeId: _addShiftTypeId, label });
+  } else {
+    if (!state.dependents) state.dependents = {};
+    if (!state.dependents.daisy) state.dependents.daisy = { name: "Daisy", shifts: [] };
+    if (!Array.isArray(state.dependents.daisy.shifts)) state.dependents.daisy.shifts = [];
+    state.dependents.daisy.shifts.push({ date: _addShiftDate, shiftTypeId: _addShiftTypeId, label });
+  }
+  saveState();
+  renderCalendar();
+  if (typeof renderAnalysis === "function") renderAnalysis();
+  if (typeof renderOverrides === "function") renderOverrides();
+  closeAddShiftSheet();
+}
+
+function wireAddMenu() {
+  const wire = (id, fn) => { const el = document.getElementById(id); if (el && !el.__wired) { el.__wired = true; el.addEventListener("click", fn); } };
+  wire("addMenuShift", () => { closeAddMenu(); openAddShiftSheet(); });
+  wire("addMenuEvent", () => { closeAddMenu(); openCaregiverRequestModal(); });
+  wire("addMenuBackdrop", closeAddMenu);
+  // Add-a-shift sheet
+  const seg = document.getElementById("asSeg");
+  if (seg && !seg.__wired) {
+    seg.__wired = true;
+    seg.querySelectorAll("button[data-person]").forEach(b =>
+      b.addEventListener("click", () => { _addShiftPerson = b.dataset.person; _syncAddShiftUI(); }));
+  }
+  const dateEl = document.getElementById("asDate");
+  if (dateEl && !dateEl.__wired) { dateEl.__wired = true; dateEl.addEventListener("change", e => { _addShiftDate = e.target.value; _syncAddShiftUI(); }); }
+  const shiftSel = document.getElementById("asShiftSelect");
+  if (shiftSel && !shiftSel.__wired) { shiftSel.__wired = true; shiftSel.addEventListener("change", e => { _addShiftTypeId = e.target.value; _syncAddShiftUI(); }); }
+  wire("asAddBtn", _confirmAddShift);
+  wire("asCloseBtn", closeAddShiftSheet);
+  wire("asBackdrop", closeAddShiftSheet);
+  wire("asImportBtn", () => { closeAddShiftSheet(); openParseModal(); });
+}
+
 function wireParseUI() {
   const fab = document.getElementById("parseFab");
-  if (fab && !fab.__wired) { fab.__wired = true; fab.addEventListener("click", openParseModal); }
+  if (fab && !fab.__wired) { fab.__wired = true; fab.addEventListener("click", toggleAddMenu); }
+  wireAddMenu();
   const close = document.getElementById("parseCloseBtn");
   if (close && !close.__wired) { close.__wired = true; close.addEventListener("click", closeParseModal); }
   const cancel = document.getElementById("parseCancelBtn");
@@ -9219,16 +9537,7 @@ if (profileDeleteBtn) profileDeleteBtn.addEventListener("click", doDeleteAccount
 // Other modal that Daisy uses on the caregiver Profile tab. Submissions
 // land in the same state.caregiverRequests array and surface in the
 // manager's Inbox tray for whoever is logged in elsewhere in the household.
-const reqEventBtn = document.getElementById("requestEventBtn");
-if (reqEventBtn) {
-  reqEventBtn.addEventListener("click", () => {
-    // Make sure the modal's open/close + type pills are wired the first
-    // time a contributing member uses this — initCaregiverScreen wires
-    // them for caregivers, but contributing members never run that path.
-    wireCaregiverRequestModal();
-    openCaregiverRequestModal();
-  });
-}
+// (Admin "Request Event" button removed — it's on the Schedule "+" speed-dial.)
 
 // ---- Account sub-screen (Profile → Account Settings) ----
 // Shared by the manager profile pane and the caregiver pane. Toggles the
@@ -11205,11 +11514,12 @@ function eventInitial(who) {
   return "F";
 }
 function eventCSSColor(who) {
+  // Person colors: Gage green, Kaylene purple, Daisy blue, family indigo.
   switch (who) {
-    case "G":     return "var(--color-g)";
-    case "K":     return "var(--color-k)";
-    case "Daisy": return "var(--color-off)";    // systemGreen
-    case "family":return "var(--color-both)";
+    case "G":     return "#30D158";
+    case "K":     return "#BF5AF2";
+    case "Daisy": return "#0A84FF";
+    case "family":return "#5E5CE6";
     default:      return "var(--text-2)";
   }
 }
@@ -11653,9 +11963,10 @@ function monthGridDays(monthDate) {
   const startWeekday = firstOfMonth.getDay();
   const start = addDays(firstOfMonth, -startWeekday);
   const days = [];
+  // Always 6 rows (42 days) so the grid is the SAME height every month — a
+  // 5-week month keeps a trailing dimmed row rather than jumping shorter, which
+  // kept the swipe-between-months transition from resizing.
   for (let i = 0; i < 42; i++) days.push(addDays(start, i));
-  // Trim trailing all-other-month rows (some months only need 5 rows)
-  while (days.length > 35 && days[days.length - 7].getMonth() !== m) days.length -= 7;
   return days;
 }
 
