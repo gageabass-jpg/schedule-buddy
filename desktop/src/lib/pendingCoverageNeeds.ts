@@ -15,6 +15,7 @@
 
 import { buildShiftMap, type HouseholdState } from "../state";
 import { computeOverlapCandidates, type OverlapCandidate } from "./computeOverlap";
+import { blockForDate } from "./writeScheduleBlock";
 
 /** Six weeks — comfortably past one 4-week schedule, so the next block's
  *  gaps surface while you're still finishing the current one. */
@@ -62,7 +63,13 @@ export function pendingCoverageNeeds(
   );
 
   return computeOverlapCandidates(buildShiftMap(st, from, to), st)
-    .filter((c) => c.date >= today && c.date <= to && !linedUp.has(c.date));
+    .filter((c) =>
+      c.date >= today &&
+      c.date <= to &&
+      !linedUp.has(c.date) &&
+      // Don't ask the caregiver to cover a day that's blocked off (vacation /
+      // travel / caregiver unavailable) — no coverage request is generated.
+      !blockForDate(state.scheduleBlocks, c.date));
 }
 
 /** Stable signature of the current need-set, used to decide whether a

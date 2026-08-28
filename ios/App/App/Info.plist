@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Schedule Buddy uses the camera so you can snap a photo of a paper or on-screen schedule and import the days.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Schedule Buddy lets you pick a schedule photo from your library to import shifts.</string>
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
