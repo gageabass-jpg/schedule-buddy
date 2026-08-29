@@ -10139,10 +10139,11 @@ function mergeStateFromFirestore(data) {
       ? data.caregiverBlackouts : d.caregiverBlackouts,
     // UI prefs (calendar layout / visible month) — local-ish but allowed to round-trip
     ui: data.ui && typeof data.ui === "object" ? {
-      calLayout:     typeof data.ui.calLayout     === "string" ? data.ui.calLayout     : undefined,
-      viewMonth:     typeof data.ui.viewMonth     === "string" ? data.ui.viewMonth     : undefined,
-      viewWeekStart: typeof data.ui.viewWeekStart === "string" ? data.ui.viewWeekStart : undefined,
-      viewDayDate:   typeof data.ui.viewDayDate   === "string" ? data.ui.viewDayDate   : undefined,
+      calLayout:       typeof data.ui.calLayout       === "string" ? data.ui.calLayout       : undefined,
+      viewMonth:       typeof data.ui.viewMonth       === "string" ? data.ui.viewMonth       : undefined,
+      viewWeekStart:   typeof data.ui.viewWeekStart   === "string" ? data.ui.viewWeekStart   : undefined,
+      viewDayDate:     typeof data.ui.viewDayDate     === "string" ? data.ui.viewDayDate     : undefined,
+      monthCompPeriod: typeof data.ui.monthCompPeriod === "string" ? data.ui.monthCompPeriod : undefined,
     } : undefined,
     // Daisy + any future kids' schedules (set on desktop via photo import).
     dependents: data.dependents && typeof data.dependents === "object" ? {
