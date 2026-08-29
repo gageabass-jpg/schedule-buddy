@@ -1,5 +1,6 @@
 export { askClaude } from "./askClaude";
 export { parseSchedule } from "./parseSchedule";
+export { syncHealthCalendar } from "./healthCalendar";
 export { getWallState } from "./wallState";
 export { cleanSchedule } from "./cleanSchedule";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";

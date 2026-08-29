@@ -105,6 +105,9 @@ export interface Event {
   pending?: boolean;
   /** Links a pending event back to the caregiver request that auto-posted it. */
   sourceRequestId?: string;
+  /** Set on events imported from a published health-calendar feed (the VEVENT
+   *  UID). Renders in the "Appointments" section rather than "Life". */
+  healthId?: string;
 }
 
 export function generateEventId(): string {

@@ -2886,6 +2886,15 @@
   .dds-tile.crit .dds-badge { background: var(--ot); }
 
   .dds-extra { padding: 0 16px 16px; }
+  /* Health-calendar appointment rows on the day card. */
+  .dds-appt-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; }
+  .dds-appt { display: flex; gap: 12px; align-items: stretch; margin-bottom: 12px; }
+  .dds-appt:last-child { margin-bottom: 0; }
+  .dds-appt-bar { width: 4px; border-radius: 4px; background: #34C759; flex-shrink: 0; }
+  .dds-appt-main { min-width: 0; }
+  .dds-appt-time { font-size: 14px; font-weight: 700; color: var(--import-green, #16A34A); }
+  .dds-appt-title { font-size: 17px; font-weight: 700; color: var(--text); margin-top: 2px; text-wrap: pretty; }
+  .dds-appt-sub { font-size: 14px; color: var(--text-2); margin-top: 1px; }
   /* WVU game-day row inside the day sheet. */
   .dds-wvu { display: flex; align-items: center; gap: 12px; padding: 4px 0 2px; }
   .dds-wvu-logo {
@@ -7036,6 +7045,28 @@ function enterApp() {
   wireParseUI();
   wireManagerUI();
   _drainPendingPushIntent();
+  maybeSyncHealthCalendar();
+}
+
+// Pull the published "Health" calendar feed into the shared calendar on app
+// open. Admin (Gage) only — it's his feed, and the import is shared to Kaylene
+// via Firestore. Server-side (Cloud Function) so there's no CORS/native
+// dependency; once per session, best-effort.
+let _healthSynced = false;
+async function maybeSyncHealthCalendar() {
+  if (_healthSynced || !isAdmin() || !householdId) return;
+  _healthSynced = true;
+  try {
+    const fn = firebase.functions().httpsCallable("syncHealthCalendar");
+    const res = await fn({ householdId, tz: LOCAL_TZ });
+    const d = (res && res.data) || {};
+    if ((d.added || 0) + (d.updated || 0) > 0) {
+      console.log(`Health calendar synced: +${d.added || 0} / ~${d.updated || 0}`);
+    }
+  } catch (e) {
+    // Not configured / offline / feed down — silent; appointments just won't sync.
+    console.warn("health calendar sync skipped:", (e && e.message) || e);
+  }
 }
 
 // ==================== PUSH NOTIFICATIONS (iOS) ====================
@@ -11495,6 +11526,31 @@ function eventsOnDate(events, dateISO) {
 function shiftLabel(e) {
   return `${e.startTime.replace(/:00$/,"")}-${e.endTime.replace(/:00$/,"")}`;
 }
+// Appointment (health-calendar) day-card row: green bar, green time range,
+// bold title, optional provider/location subtitle. Matches the design mockup.
+function _hm12(hhmm) {
+  const [H, M] = String(hhmm || "").split(":").map(Number);
+  return { h: (H % 12) || 12, mm: String(M || 0).padStart(2, "0"), ap: H < 12 ? "a" : "p" };
+}
+function _apptTimeRange(ev) {
+  if (!ev.startTime) return "All day";
+  const s = _hm12(ev.startTime);
+  if (!ev.endTime) return `${s.h}:${s.mm}${s.ap}`;
+  const e = _hm12(ev.endTime);
+  const sPart = s.ap === e.ap ? `${s.h}:${s.mm}` : `${s.h}:${s.mm}${s.ap}`;
+  return `${sPart}–${e.h}:${e.mm}${e.ap}`;
+}
+function _apptRowHTML(ev) {
+  const sub = (ev.notes || "").trim();
+  return `<div class="dds-appt">
+    <div class="dds-appt-bar"></div>
+    <div class="dds-appt-main">
+      <div class="dds-appt-time">${escapeHTML(_apptTimeRange(ev))}</div>
+      <div class="dds-appt-title">${escapeHTML(ev.title || "Appointment")}</div>
+      ${sub ? `<div class="dds-appt-sub">${escapeHTML(sub)}</div>` : ""}
+    </div>
+  </div>`;
+}
 function compactTime(t) {
   const [h,m] = t.split(":").map(Number);
   const suffix = h >= 12 ? "p" : "a";
@@ -12947,8 +13003,15 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
   const coupleH = parseFloat(coupleStr) || 0;
 
   const dayEvents = getEventsForDate(dateISO);
-  const eventsBlock = dayEvents.length
-    ? `<div class="dds-extra"><div class="tt-divider"></div>${dayEvents.map(eventTooltipRowHTML).join("")}</div>`
+  // Health-calendar appointments (tagged healthId) get their own styled section;
+  // everything else stays a plain life-item row.
+  const appts = dayEvents.filter(e => e && e.healthId);
+  const lifeItems = dayEvents.filter(e => !(e && e.healthId));
+  const eventsBlock = lifeItems.length
+    ? `<div class="dds-extra"><div class="tt-divider"></div>${lifeItems.map(eventTooltipRowHTML).join("")}</div>`
+    : "";
+  const apptBlock = appts.length
+    ? `<div class="dds-extra"><div class="tt-divider"></div><div class="dds-appt-label">Appointments</div>${appts.map(_apptRowHTML).join("")}</div>`
     : "";
 
   const wvuGame = wvuGameOn(dateISO);
@@ -12997,6 +13060,7 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
           <div class="dds-tile-value ${coupleH > 0 ? "" : "muted"}">${coupleStr}<span class="u">h</span></div>
         </div>
       </div>
+      ${apptBlock}
       ${wvuBlock}
       ${eventsBlock}
     </div>

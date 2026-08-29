@@ -530,6 +530,34 @@ export function Inspector({
         </div>
       </div>
 
+      {/* Health-calendar appointments for the selected day (styled distinctly). */}
+      {events.some((e) => e.healthId) && (
+        <div>
+          <div style={{ ...subhead(t), marginBottom: 8 }}>Appointments</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {events.filter((e) => e.healthId).map((ev) => (
+              <button
+                key={ev.id}
+                type="button"
+                onClick={() => onEditEvent(ev)}
+                style={{
+                  display: "flex", gap: 12, alignItems: "stretch", width: "100%",
+                  background: "transparent", border: 0, padding: 0, cursor: "pointer",
+                  textAlign: "left", fontFamily: "inherit",
+                }}
+              >
+                <div style={{ width: 4, borderRadius: 4, background: "#34C759", flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: dark ? "#30D158" : "#1e9e4a" }}>{apptTimeRange(ev)}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginTop: 2, letterSpacing: "-0.01em" }}>{ev.title}</div>
+                  {ev.notes && <div style={{ fontSize: 12.5, color: t.text2, marginTop: 1 }}>{ev.notes}</div>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Events for the selected day */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -553,12 +581,12 @@ export function Inspector({
           </button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {events.length === 0 && (
+          {events.filter((e) => !e.healthId).length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
               No Life items yet.
             </div>
           )}
-          {events.map((ev) => {
+          {events.filter((e) => !e.healthId).map((ev) => {
             const color = ev.pending ? "#FF9F0A" : lifeColor(ev.who);
             const timeLabel = ev.startTime
               ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
@@ -881,6 +909,20 @@ function schoolSpanLabel(rs: MinuteRange[]): string {
   const s = Math.min(...rs.map((r) => r.startMin));
   const e = Math.max(...rs.map((r) => r.endMin));
   return `${f(s)}–${f(e)}`;
+}
+
+// Appointment time range, e.g. "4:00–5:00p" / "11:00a–1:00p".
+function hm12(hhmm?: string): { h: number; mm: string; ap: string } {
+  const [H, M] = (hhmm || "").split(":").map(Number);
+  return { h: (H % 12) || 12, mm: String(M || 0).padStart(2, "0"), ap: (H || 0) < 12 ? "a" : "p" };
+}
+function apptTimeRange(ev: SbEvent): string {
+  if (!ev.startTime) return "All day";
+  const s = hm12(ev.startTime);
+  if (!ev.endTime) return `${s.h}:${s.mm}${s.ap}`;
+  const e = hm12(ev.endTime);
+  const sPart = s.ap === e.ap ? `${s.h}:${s.mm}` : `${s.h}:${s.mm}${s.ap}`;
+  return `${sPart}–${e.h}:${e.mm}${e.ap}`;
 }
 
 function subhead(t: ThemeTokens): React.CSSProperties {
