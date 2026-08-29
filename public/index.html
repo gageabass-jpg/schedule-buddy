@@ -9730,6 +9730,48 @@ function showOTTooltip(cellEl, dateISO, pinned) {
 }
 
 // ---------- Month comparison ----------
+// Monthly Changes card: the M/Q/Y toggle picks the rolling window length.
+const MCHG_MODES = {
+  M: { weeks: 4,  title: "Monthly Changes",   word: "month" },
+  Q: { weeks: 13, title: "Quarterly Changes", word: "quarter" },
+  Y: { weeks: 52, title: "Yearly Changes",    word: "year" },
+};
+let _mchgMode = "M";
+
+// Run computeAnalysis() over an explicit range without disturbing the
+// app-wide selection (computeAnalysis reads state.range directly).
+function analyzeRange(fromD, toD) {
+  const savedFrom = state.range.from, savedTo = state.range.to;
+  state.range.from = toISODate(fromD);
+  state.range.to = toISODate(toD);
+  const r = computeAnalysis();
+  state.range.from = savedFrom;
+  state.range.to = savedTo;
+  if (!r.totals) r.totals = { totalGap: 0, totalSoloG: 0, totalSoloP: 0, totalCouple: 0, totalGageWork: 0 };
+  return r;
+}
+
+// Compare a whole-week rolling window (current) against the equal-length
+// window immediately before it (the baseline). Snapping to Sunday-aligned
+// weeks keeps every week full, so the weekly averages aren't skewed by
+// partial weeks at the edges. Anchors to the end of the selected range.
+function computeWindowComparison(weeks, anchorD) {
+  const anchorWeekStart = weekStart(anchorD);
+  const curFrom = addDays(anchorWeekStart, -(weeks - 1) * 7);
+  const curTo   = addDays(anchorWeekStart, 6);
+  const prevTo   = addDays(curFrom, -1);
+  const prevFrom = addDays(curFrom, -weeks * 7);
+
+  const current  = analyzeRange(curFrom, curTo);
+  const previous = analyzeRange(prevFrom, prevTo);
+
+  const curWeeks  = current.weekly.length  || 1;
+  const prevWeeks = previous.weekly.length || 1;
+  const prevHasData = previous.totals.totalGageWork > 0 || previous.totals.totalCouple > 0;
+
+  return { current, previous, curWeeks, prevWeeks, prevHasData, curFrom, curTo, prevFrom, prevTo, weeks };
+}
+
 function computeMonthComparison() {
   const from = parseISODate(state.range.from);
   const to = parseISODate(state.range.to);
@@ -9759,14 +9801,12 @@ function computeMonthComparison() {
 
 function renderMonthComparison() {
   const el = document.getElementById("monthCompContent");
-  const comp = computeMonthComparison();
-  if (!comp) {
-    el.innerHTML = `<div style="color:var(--text-dim)">Set a date range to see comparisons.</div>`;
-    return;
-  }
+  const mode = MCHG_MODES[_mchgMode] || MCHG_MODES.M;
+  const anchor = parseISODate(state.range.to) || new Date();
+  const comp = computeWindowComparison(mode.weeks, anchor);
   if (!comp.prevHasData) {
     const pf = toISODate(comp.prevFrom), pt = toISODate(comp.prevTo);
-    el.innerHTML = `<div style="color:var(--text-dim)">No data for the previous period (${pf} to ${pt}).<br>Add partner shifts and schedule data for that period to enable comparison.</div>`;
+    el.innerHTML = `<div style="color:var(--text-dim)">No data for the previous ${mode.word} (${pf} to ${pt}).<br>Add partner shifts and schedule data for that period to enable comparison.</div>`;
     return;
   }
 
@@ -9794,10 +9834,10 @@ function renderMonthComparison() {
   };
   const subLabel = `weekly, vs ${fmtDay(comp.prevFrom)} – ${fmtDay(comp.prevTo)} average`;
 
-  // Draw a 4-point sparkline of the current period's weekly values with a
-  // dashed baseline at the previous-period weekly average.
+  // Draw a sparkline of the current window's weekly values with a dashed
+  // baseline at the previous-window weekly average.
   const spark = (series, baseline, color) => {
-    const pts = series.slice(-4);
+    const pts = series;
     const vals = pts.concat([baseline]);
     let lo = Math.min(...vals), hi = Math.max(...vals);
     if (!(hi > lo)) { lo -= 1; hi += 1; }               // avoid a zero range
@@ -9833,12 +9873,12 @@ function renderMonthComparison() {
     const name = top.m.label.replace(/ \/ wk$/, "");
     banner = `<div class="mchg-banner ${good ? "good" : "bad"}">
       <div class="mchg-banner-icon">${good ? "✓" : "⚠︎"}</div>
-      <div class="mchg-banner-text"><b>${escapeHTML(name)}</b> is ${dirWord} the most this <span class="mchg-period-word">month</span> — <span class="hl">${sign}${Math.abs(top.diff).toFixed(1)}h/wk</span>.</div>
+      <div class="mchg-banner-text"><b>${escapeHTML(name)}</b> is ${dirWord} the most this ${mode.word} — <span class="hl">${sign}${Math.abs(top.diff).toFixed(1)}h/wk</span>.</div>
     </div>`;
   } else {
     banner = `<div class="mchg-banner good">
       <div class="mchg-banner-icon">✓</div>
-      <div class="mchg-banner-text">Steady <span class="mchg-period-word">month</span> — every metric is within 0.1h/wk of its baseline.</div>
+      <div class="mchg-banner-text">Steady ${mode.word} — every metric is within 0.1h/wk of its baseline.</div>
     </div>`;
   }
 
@@ -9866,33 +9906,31 @@ function renderMonthComparison() {
     </div>`;
   }).join("");
 
+  const segHTML = ["M", "Q", "Y"].map((k) =>
+    `<div class="seg${k === _mchgMode ? " on" : ""}" data-mode="${k}">${k}</div>`
+  ).join("");
+
   el.innerHTML = `
     <div class="mchg-card">
       <div class="mchg-head">
         <div>
-          <div class="mchg-title" id="mchgTitle">Monthly Changes</div>
+          <div class="mchg-title">${mode.title}</div>
           <div class="mchg-sub">${escapeHTML(subLabel)}</div>
         </div>
-        <div class="mchg-seg" id="mchgSeg">
-          <div class="seg on" data-title="Monthly Changes"   data-word="month">M</div>
-          <div class="seg"    data-title="Quarterly Changes" data-word="quarter">Q</div>
-          <div class="seg"    data-title="Yearly Changes"    data-word="year">Y</div>
-        </div>
+        <div class="mchg-seg" id="mchgSeg">${segHTML}</div>
       </div>
       ${banner}
       ${rowsHTML}
-      <div class="mchg-legend"><span>— last 4 weeks</span><span>┄ baseline avg</span></div>
+      <div class="mchg-legend"><span>— last ${mode.weeks} weeks</span><span>┄ baseline avg</span></div>
     </div>`;
 
   const seg = el.querySelector("#mchgSeg");
   if (seg) {
     seg.querySelectorAll(".seg").forEach((s) => {
       s.addEventListener("click", () => {
-        seg.querySelectorAll(".seg").forEach((x) => x.classList.remove("on"));
-        s.classList.add("on");
-        const t = el.querySelector("#mchgTitle");
-        if (t) t.textContent = s.dataset.title;
-        el.querySelectorAll(".mchg-period-word").forEach((w) => { w.textContent = s.dataset.word; });
+        if (_mchgMode === s.dataset.mode) return;
+        _mchgMode = s.dataset.mode;
+        renderMonthComparison();   // recompute the comparison window
       });
     });
   }
