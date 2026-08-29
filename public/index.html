@@ -930,6 +930,159 @@
     color: var(--text-2);
   }
 
+  /* ===== Monthly Changes card (sparklines) ===== */
+  .mchg-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-card);
+  }
+  .mchg-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 2px 10px;
+  }
+  .mchg-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--text);
+    line-height: 1.05;
+  }
+  .mchg-sub {
+    margin-top: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .mchg-seg {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--scrim);
+  }
+  .mchg-seg .seg {
+    padding: 4px 11px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-2);
+  }
+  .mchg-seg .seg.on {
+    background: var(--bg-elev);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.06);
+  }
+  .mchg-banner {
+    margin: 0 0 6px;
+    padding: 11px 13px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mchg-banner.bad {
+    background: linear-gradient(135deg, rgba(255,69,58,0.10), rgba(255,159,10,0.08));
+    border: 0.5px solid rgba(255,69,58,0.16);
+  }
+  .mchg-banner.good {
+    background: linear-gradient(135deg, rgba(48,209,88,0.12), rgba(10,132,255,0.08));
+    border: 0.5px solid rgba(48,209,88,0.18);
+  }
+  .mchg-banner-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .mchg-banner.bad .mchg-banner-icon  { background: rgba(255,69,58,0.15); }
+  .mchg-banner.good .mchg-banner-icon { background: rgba(48,209,88,0.18); }
+  .mchg-banner-text {
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--text-2);
+  }
+  .mchg-banner-text b { color: var(--text); font-weight: 600; }
+  .mchg-banner.bad  .mchg-banner-text .hl { color: var(--ot); font-weight: 700; }
+  .mchg-banner.good .mchg-banner-text .hl { color: var(--ok); font-weight: 700; }
+  .mchg-row {
+    padding: 9px 2px;
+    display: grid;
+    grid-template-columns: 1fr 118px;
+    gap: 4px 14px;
+    align-items: center;
+  }
+  .mchg-row + .mchg-row { border-top: 0.5px solid var(--sep); }
+  .mchg-row-name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: var(--text);
+  }
+  .mchg-row-vals {
+    margin-top: 3px;
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .mchg-cur {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .mchg-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .mchg-delta .tri { font-size: 8px; line-height: 1; }
+  .mchg-delta.bad  { color: var(--ot); background: rgba(255,69,58,0.13); }
+  .mchg-delta.good { color: var(--ok); background: rgba(48,209,88,0.15); }
+  .mchg-delta.flat { color: var(--text-2); background: var(--scrim); }
+  .mchg-was {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+  .mchg-spark { display: block; }
+  .mchg-spark .baseline { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 3; }
+  .mchg-legend {
+    padding: 8px 2px 0;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-3);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .mchg-empty {
+    margin-top: 8px;
+    padding: 14px 2px 4px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--text-2);
+  }
+
   /* Month comparison table — same iOS row treatment */
   .comp-table {
     width: 100%;
@@ -13323,6 +13476,48 @@ function showOTTooltip(cellEl, dateISO, pinned) {
 }
 
 // ---------- Month comparison ----------
+// Monthly Changes card: the M/Q/Y toggle picks the rolling window length.
+const MCHG_MODES = {
+  M: { weeks: 4,  title: "Monthly Changes",   word: "month" },
+  Q: { weeks: 13, title: "Quarterly Changes", word: "quarter" },
+  Y: { weeks: 52, title: "Yearly Changes",    word: "year" },
+};
+let _mchgMode = "M";
+
+// Run computeAnalysis() over an explicit range without disturbing the
+// app-wide selection (computeAnalysis reads state.range directly).
+function analyzeRange(fromD, toD) {
+  const savedFrom = state.range.from, savedTo = state.range.to;
+  state.range.from = toISODate(fromD);
+  state.range.to = toISODate(toD);
+  const r = computeAnalysis();
+  state.range.from = savedFrom;
+  state.range.to = savedTo;
+  if (!r.totals) r.totals = { totalGap: 0, totalSoloG: 0, totalSoloP: 0, totalCouple: 0, totalGageWork: 0 };
+  return r;
+}
+
+// Compare a whole-week rolling window (current) against the equal-length
+// window immediately before it (the baseline). Snapping to Sunday-aligned
+// weeks keeps every week full, so the weekly averages aren't skewed by
+// partial weeks at the edges. Anchors to the end of the selected range.
+function computeWindowComparison(weeks, anchorD) {
+  const anchorWeekStart = weekStart(anchorD);
+  const curFrom = addDays(anchorWeekStart, -(weeks - 1) * 7);
+  const curTo   = addDays(anchorWeekStart, 6);
+  const prevTo   = addDays(curFrom, -1);
+  const prevFrom = addDays(curFrom, -weeks * 7);
+
+  const current  = analyzeRange(curFrom, curTo);
+  const previous = analyzeRange(prevFrom, prevTo);
+
+  const curWeeks  = current.weekly.length  || 1;
+  const prevWeeks = previous.weekly.length || 1;
+  const prevHasData = previous.totals.totalGageWork > 0 || previous.totals.totalCouple > 0;
+
+  return { current, previous, curWeeks, prevWeeks, prevHasData, curFrom, curTo, prevFrom, prevTo, weeks };
+}
+
 function computeMonthComparison() {
   const from = parseISODate(state.range.from);
   const to = parseISODate(state.range.to);
@@ -13407,116 +13602,168 @@ function computePeriodComparison(period) {
 function renderMonthComparison() {
   const el = document.getElementById("monthCompContent");
   if (!el) return;
-  const period = (state.ui && state.ui.monthCompPeriod) || "month";
-  const meta = _periodMeta(period);
-  const comp = computePeriodComparison(period);
 
-  const dropdown = `
-    <div class="mc-period">
-      <span>${meta.label}</span><span class="mc-caret">⌄</span>
-      <select id="mcPeriodSelect" class="mc-period-select" aria-label="Comparison period">
-        <option value="month">Month</option>
-        <option value="quarter">Quarter</option>
-        <option value="year">Year</option>
-      </select>
-    </div>`;
-  const wireDropdown = () => {
-    const sel = document.getElementById("mcPeriodSelect");
-    if (!sel) return;
-    sel.value = period;
-    sel.onchange = (e) => {
-      if (!state.ui) state.ui = {};
-      state.ui.monthCompPeriod = e.target.value;
-      saveState();
-      renderMonthComparison();
-    };
-  };
+  // Persisted period selection — shares state.ui.monthCompPeriod (month/
+  // quarter/year) with the rest of the app so the choice survives reloads.
+  const PERIOD_TO_MODE = { month: "M", quarter: "Q", year: "Y" };
+  const MODE_TO_PERIOD = { M: "month", Q: "quarter", Y: "year" };
+  const savedPeriod = state.ui && state.ui.monthCompPeriod;
+  const modeKey = PERIOD_TO_MODE[savedPeriod] || (MCHG_MODES[savedPeriod] ? savedPeriod : "M");
+  const mode = MCHG_MODES[modeKey] || MCHG_MODES.M;
+  _mchgMode = modeKey; // keep module state in sync with the persisted choice
 
-  if (!comp || !comp.baseline) {
-    el.innerHTML = `
-      <div class="mc-head">
-        <div><div class="mc-title">${meta.title}</div>
-        <div class="mc-sub">${comp ? `${_fmtShortDate(comp.curStart)} – ${_fmtShortDate(comp.curEnd)}` : ""}</div></div>
-        ${dropdown}
-      </div>
-      <div class="mc-empty">Not enough history yet for a ${meta.label.toLowerCase()} comparison — there's no data before ${comp ? _fmtShortDate(comp.curStart) : "the current window"} to average against. This fills in as more schedule history builds up.</div>`;
-    wireDropdown();
-    return;
-  }
+  const anchor = parseISODate(state.range.to) || new Date();
+  const comp = computeWindowComparison(mode.weeks, anchor);
 
   const selfName = state.selfName || "Gage";
   const partnerName = state.partner.name || "Kaylene";
-  const cw = comp.current.weekly.length || 1;
-  const bw = comp.baseline.weekly.length || 1;
-  const c = comp.current.totals, b = comp.baseline.totals;
 
+  const fmtDay = (d) => {
+    try { return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }); }
+    catch (e) { return toISODate(d); }
+  };
+
+  // Shared M/Q/Y segmented control + wiring (persists the choice on change).
+  const segHTML = ["M", "Q", "Y"].map((k) =>
+    `<div class="seg${k === modeKey ? " on" : ""}" data-mode="${k}">${k}</div>`
+  ).join("");
+  const wireSeg = () => {
+    const seg = el.querySelector("#mchgSeg");
+    if (!seg) return;
+    seg.querySelectorAll(".seg").forEach((s) => {
+      s.addEventListener("click", () => {
+        if (_mchgMode === s.dataset.mode) return;
+        _mchgMode = s.dataset.mode;
+        if (!state.ui) state.ui = {};
+        state.ui.monthCompPeriod = MODE_TO_PERIOD[s.dataset.mode] || "month";
+        saveState();
+        renderMonthComparison();   // recompute the comparison window
+      });
+    });
+  };
+
+  // Graceful empty state — keep the card chrome + toggle so a shorter window
+  // is still reachable when a longer one has no prior history to compare.
+  if (!comp.prevHasData) {
+    el.innerHTML = `
+      <div class="mchg-card">
+        <div class="mchg-head">
+          <div>
+            <div class="mchg-title">${mode.title}</div>
+            <div class="mchg-sub">weekly comparison</div>
+          </div>
+          <div class="mchg-seg" id="mchgSeg">${segHTML}</div>
+        </div>
+        <div class="mchg-empty">Not enough history yet for a ${mode.word} comparison — there's no data before ${fmtDay(comp.curFrom)} to average against. This fills in as more schedule history builds up.</div>
+      </div>`;
+    wireSeg();
+    return;
+  }
+
+  const c = comp.current.totals;
+  const p = comp.previous.totals;
+  const cw = comp.curWeeks;
+  const pw = comp.prevWeeks;
+  const weekly = comp.current.weekly || [];
+
+  // Each metric carries its per-week current series so we can draw a sparkline
+  // against a dashed baseline (the previous-window weekly average).
   const metrics = [
-    { label: `${selfName}'s hours`, cur: c.totalGageWork/cw/60, prev: b.totalGageWork/bw/60, moreIsBad: true,  bar: "var(--color-g)" },
-    { label: "Couple time",         cur: c.totalCouple/cw/60,   prev: b.totalCouple/bw/60,   moreIsBad: false, bar: "var(--color-both)" },
-    { label: `${selfName} solo`,    cur: c.totalSoloG/cw/60,    prev: b.totalSoloG/bw/60,    moreIsBad: true,  bar: "var(--color-g)" },
-    { label: `${partnerName} solo`, cur: c.totalSoloP/cw/60,    prev: b.totalSoloP/bw/60,    moreIsBad: true,  bar: "var(--color-k)" },
-    { label: "Childcare gaps",      cur: c.totalGap/cw/60,      prev: b.totalGap/bw/60,      moreIsBad: true,  bar: "#FF9F0A" },
+    { label: `${selfName}'s hours / wk`, cur: c.totalGageWork / cw / 60, prev: p.totalGageWork / pw / 60, moreIsBad: true,  color: "var(--color-g)",    series: weekly.map(w => (w.gageWorkMin    || 0) / 60) },
+    { label: "Couple time / wk",         cur: c.totalCouple   / cw / 60, prev: p.totalCouple   / pw / 60, moreIsBad: false, color: "var(--color-both)", series: weekly.map(w => (w.coupleMin      || 0) / 60) },
+    { label: `${selfName} solo / wk`,    cur: c.totalSoloG    / cw / 60, prev: p.totalSoloG    / pw / 60, moreIsBad: true,  color: "var(--color-g)",    series: weekly.map(w => (w.soloG          || 0) / 60) },
+    { label: `${partnerName} solo / wk`, cur: c.totalSoloP    / cw / 60, prev: p.totalSoloP    / pw / 60, moreIsBad: true,  color: "var(--color-k)",    series: weekly.map(w => (w.soloP          || 0) / 60) },
+    { label: "Childcare gaps / wk",      cur: c.totalGap      / cw / 60, prev: p.totalGap      / pw / 60, moreIsBad: true,  color: "var(--ot)",         series: weekly.map(w => (w.gapMin         || 0) / 60) },
   ];
 
-  // Insight: the biggest UNfavorable change; if everything moved favorably, the
-  // biggest favorable one instead.
-  let worst = null, best = null;
-  metrics.forEach(m => {
-    const delta = m.cur - m.prev;
-    if (Math.abs(delta) < 0.1) return;
-    const good = m.moreIsBad ? delta < 0 : delta > 0;
-    const cand = { m, delta, good, mag: Math.abs(delta) };
-    if (good) { if (!best  || cand.mag > best.mag)  best  = cand; }
-    else      { if (!worst || cand.mag > worst.mag) worst = cand; }
-  });
-  const pick = worst || best;
-  let insight = "";
-  if (pick) {
-    const dir = pick.delta > 0 ? "up" : "down";
-    const sign = pick.delta > 0 ? "+" : "−";
-    insight = `<div class="mc-insight ${pick.good ? "good" : "bad"}">
-      <div class="mc-insight-icon">${pick.good ? "✓" : "⚠︎"}</div>
-      <div class="mc-insight-text"><b>${escapeHTML(pick.m.label)}</b> is ${dir} the most this ${meta.label.toLowerCase()} — <span class="${pick.good ? "good-v" : "bad-v"}">${sign}${pick.mag.toFixed(1)}h/wk</span>.</div>
+  const subLabel = `weekly, vs ${fmtDay(comp.prevFrom)} – ${fmtDay(comp.prevTo)} average`;
+
+  // Draw a sparkline of the current window's weekly values with a dashed
+  // baseline at the previous-window weekly average.
+  const spark = (series, baseline, color) => {
+    const pts = series;
+    const vals = pts.concat([baseline]);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (!(hi > lo)) { lo -= 1; hi += 1; }               // avoid a zero range
+    const TOP = 7, BOT = 27;
+    const y = (v) => BOT - ((v - lo) / (hi - lo)) * (BOT - TOP);
+    const n = pts.length;
+    const x = (i) => (n <= 1 ? 60 : 6 + (108 * i) / (n - 1));
+    const by = y(baseline).toFixed(1);
+    const poly = pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const last = n ? pts[n - 1] : baseline;
+    const line = n >= 2
+      ? `<polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>`
+      : "";
+    return `<svg class="mchg-spark" width="118" height="34" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">`
+      + `<line class="baseline" x1="0" y1="${by}" x2="120" y2="${by}"></line>`
+      + line
+      + `<circle cx="${x(n - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="2.6" fill="${color}"></circle>`
+      + `</svg>`;
+  };
+
+  // Biggest mover (by absolute weekly change) powers the callout banner.
+  let top = null;
+  for (const m of metrics) {
+    const diff = m.cur - m.prev;
+    if (Math.abs(diff) < 0.05) continue;
+    if (!top || Math.abs(diff) > Math.abs(top.diff)) top = { m, diff };
+  }
+  let banner;
+  if (top) {
+    const good = top.m.moreIsBad ? top.diff < 0 : top.diff > 0;
+    const dirWord = top.diff > 0 ? "up" : "down";
+    const sign = top.diff > 0 ? "+" : "−";
+    const name = top.m.label.replace(/ \/ wk$/, "");
+    banner = `<div class="mchg-banner ${good ? "good" : "bad"}">
+      <div class="mchg-banner-icon">${good ? "✓" : "⚠︎"}</div>
+      <div class="mchg-banner-text"><b>${escapeHTML(name)}</b> is ${dirWord} the most this ${mode.word} — <span class="hl">${sign}${Math.abs(top.diff).toFixed(1)}h/wk</span>.</div>
+    </div>`;
+  } else {
+    banner = `<div class="mchg-banner good">
+      <div class="mchg-banner-icon">✓</div>
+      <div class="mchg-banner-text">Steady ${mode.word} — every metric is within 0.1h/wk of its baseline.</div>
     </div>`;
   }
 
-  let rows = "";
-  metrics.forEach(m => {
-    const delta = m.cur - m.prev;
-    const max = Math.max(m.cur, m.prev, 0.1) * 1.18;
-    const fillPct = Math.max(4, (m.cur / max) * 100).toFixed(1);
-    const prevPct = Math.min(98, (m.prev / max) * 100).toFixed(1);
-    let chip;
-    if (Math.abs(delta) < 0.1) {
-      chip = `<span class="mc-delta flat">—</span>`;
+  const rowsHTML = metrics.map((m) => {
+    const diff = m.cur - m.prev;
+    let delta;
+    if (Math.abs(diff) < 0.05) {
+      delta = `<span class="mchg-delta flat">—</span>`;
     } else {
-      const good = m.moreIsBad ? delta < 0 : delta > 0;
-      chip = `<span class="mc-delta ${good ? "good" : "bad"}"><span class="mc-arrow">${delta > 0 ? "▲" : "▼"}</span>${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}h</span>`;
+      const good = m.moreIsBad ? diff < 0 : diff > 0;
+      const tri = diff > 0 ? "▲" : "▼";
+      const sign = diff > 0 ? "+" : "−";
+      delta = `<span class="mchg-delta ${good ? "good" : "bad"}"><span class="tri">${tri}</span>${sign}${Math.abs(diff).toFixed(1)}h</span>`;
     }
-    rows += `<div class="mc-row">
-      <div class="mc-row-head">
-        <div class="mc-label">${escapeHTML(m.label)} / wk</div>
-        <div class="mc-vals"><div class="mc-value">${m.cur.toFixed(1)}h</div>${chip}</div>
+    return `<div class="mchg-row">
+      <div>
+        <div class="mchg-row-name">${escapeHTML(m.label)}</div>
+        <div class="mchg-row-vals">
+          <span class="mchg-cur">${m.cur.toFixed(1)}h</span>
+          ${delta}
+          <span class="mchg-was">was ${m.prev.toFixed(1)}h</span>
+        </div>
       </div>
-      <div class="mc-bar">
-        <div class="mc-bar-fill" style="width:${fillPct}%;background:${m.bar};"></div>
-        <div class="mc-bar-prev" style="left:${prevPct}%;"></div>
-      </div>
-      <div class="mc-was">was ${Math.max(0, m.prev).toFixed(1)}h</div>
+      ${spark(m.series, m.prev, m.color)}
     </div>`;
-  });
+  }).join("");
 
   el.innerHTML = `
-    <div class="mc-head">
-      <div>
-        <div class="mc-title">${meta.title}</div>
-        <div class="mc-sub">vs ${_fmtShortDate(comp.baseStart)} – ${_fmtShortDate(comp.baseEnd)} average</div>
+    <div class="mchg-card">
+      <div class="mchg-head">
+        <div>
+          <div class="mchg-title">${mode.title}</div>
+          <div class="mchg-sub">${escapeHTML(subLabel)}</div>
+        </div>
+        <div class="mchg-seg" id="mchgSeg">${segHTML}</div>
       </div>
-      ${dropdown}
-    </div>
-    ${insight}
-    <div>${rows}</div>`;
-  wireDropdown();
+      ${banner}
+      ${rowsHTML}
+      <div class="mchg-legend"><span>— last ${mode.weeks} weeks</span><span>┄ baseline avg</span></div>
+    </div>`;
+  wireSeg();
 }
 
 // ---------- Preview ----------
