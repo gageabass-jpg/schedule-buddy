@@ -1,0 +1,65 @@
+# Deploys the web app (public/) to Firebase Hosting.
+#
+#   • Pull requests  → a temporary preview channel; the preview URL is
+#                       posted back as a comment on the PR.
+#   • Push to main   → the live site (project schedule-buddy-dd2cf).
+#
+# Both paths first run the cross-client contract check (npm test →
+# scripts/contract-check.mjs), which is also Hosting's predeploy hook.
+#
+# REQUIRED SECRET (add in GitHub → Settings → Secrets and variables →
+# Actions):
+#   FIREBASE_SERVICE_ACCOUNT
+#     The full JSON key for a service account with the "Firebase Hosting
+#     Admin" role on schedule-buddy-dd2cf. Running `firebase init
+#     hosting:github` locally will create this service account and store
+#     the secret for you automatically. Until this secret exists, the
+#     contract-check step still runs, but the deploy step will fail.
+name: Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  # PRs get an isolated preview deploy so changes can be reviewed live.
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Contract check
+        run: npm test
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SCHEDULE_BUDDY_DD2CF || secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: schedule-buddy-dd2cf
+
+  # Merges to main publish to the live Hosting channel.
+  deploy-live:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Contract check
+        run: npm test
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: schedule-buddy-dd2cf
+          channelId: live
