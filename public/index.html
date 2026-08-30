@@ -1612,11 +1612,15 @@
     transition: transform 0.15s ease;
   }
   .ask-claude-fab:active { transform: scale(0.92); }
-  .ask-claude-fab svg {
+  .ask-claude-fab img {
+    width: 34px;
+    height: 34px;
     display: block;
+    object-fit: contain;
     pointer-events: none;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
   @media (max-width: 768px) {
     /* Whole Schedule tab (Month / Week / Agenda) — not chat / childcare /
@@ -1682,6 +1686,10 @@
     background: linear-gradient(145deg, #D97757, #BC5230);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
+  }
+  .ask-head-icon img {
+    width: 26px; height: 26px; display: block; object-fit: contain;
+    -webkit-user-drag: none;
   }
   .ask-title-wrap { flex: 1; min-width: 0; line-height: 1.2; }
   .ask-title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
@@ -1766,6 +1774,10 @@
     background: linear-gradient(145deg, #D97757, #BC5230);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; margin-top: 2px;
+  }
+  .ask-msg-claude .ask-av img {
+    width: 15px; height: 15px; display: block; object-fit: contain;
+    -webkit-user-drag: none;
   }
   .ask-msg-claude .ask-claude-text {
     font-size: 14.5px; line-height: 1.45; color: var(--text);
@@ -4829,7 +4841,7 @@
     <div class="ask-grabber"><span></span></div>
     <div class="ask-head">
       <div class="ask-head-icon" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24"><g stroke="#FFF" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg>
+        <img src="/assets/claude-ai.png" alt="" draggable="false" />
       </div>
       <div class="ask-title-wrap">
         <div class="ask-title">Ask Claude</div>
@@ -4970,7 +4982,7 @@
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
 <button class="ask-claude-fab mobile-only" id="askClaudeBtn" type="button" aria-label="Ask Claude">
-  <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#FFF" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg>
+  <img src="/assets/claude-ai.png" alt="" draggable="false" />
 </button>
 
 </div><!-- end appScreen -->
@@ -6486,10 +6498,7 @@ function refreshAskSendDisabled() {
 
 // Claude sunburst mark, shown as the small avatar beside assistant replies.
 const _ASK_CLAUDE_MARK =
-  '<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">' +
-  '<g stroke="#FFF" stroke-width="2.6" stroke-linecap="round">' +
-  '<line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/>' +
-  '<line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg>';
+  '<img src="/assets/claude-ai.png" alt="" draggable="false" />';
 
 function _askAppendBubble(role, text) {
   const scroll = document.getElementById("askScroll");
