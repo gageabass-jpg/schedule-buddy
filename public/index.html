@@ -2098,6 +2098,17 @@
      keyframe plays on the display:none→flex switch, so no JS timing is needed. */
   @keyframes sbSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   @keyframes sbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sbSheetDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
+  @keyframes sbFadeOut { from { opacity: 1; } to { opacity: 0; } }
+  /* Closing: the open class stays on <body> (sheet keeps its display) while a
+     slide-down + fade play; closeSheetAnimated() drops both classes when done.
+     !important so this beats the open slide-up rule while both classes are set. */
+  body.add-shift-closing .as-sheet    { animation: sbSheetDown 0.32s cubic-bezier(0.32,0.72,0,1) forwards !important; }
+  body.add-shift-closing .as-backdrop { animation: sbFadeOut 0.30s ease forwards !important; }
+  body.cgr-closing .cgr-sheet         { animation: sbSheetDown 0.32s cubic-bezier(0.32,0.72,0,1) forwards !important; }
+  body.cgr-closing .cgr-backdrop      { animation: sbFadeOut 0.30s ease forwards !important; }
+  body.ask-claude-closing .ask-modal          { animation: sbSheetDown 0.34s cubic-bezier(0.32,0.72,0,1) forwards !important; }
+  body.ask-claude-closing .ask-modal-backdrop { animation: sbFadeOut 0.30s ease forwards !important; }
   @media (prefers-reduced-motion: reduce) {
     body.add-shift-open .as-sheet, body.add-shift-open .as-backdrop { animation: none; }
   }
@@ -7417,11 +7428,12 @@ function openCaregiverRequestModal() {
   if (notesEl) notesEl.value = "";
   if (err)     { err.style.display = "none"; err.textContent = ""; }
   _syncCgrSegs();
+  document.body.classList.remove("cgr-closing");
   document.body.classList.add("cgr-open");
 }
 
 function closeCaregiverRequestModal() {
-  document.body.classList.remove("cgr-open");
+  closeSheetAnimated("cgr-open", "cgr-closing", 360);
 }
 
 function wireCaregiverRequestModal() {
@@ -8306,12 +8318,13 @@ function openAskClaude() {
   renderAskWeekStrip();
   if (input) input.value = "";
   refreshAskSendDisabled();
+  document.body.classList.remove("ask-claude-closing");
   document.body.classList.add("ask-claude-open");
   setTimeout(() => input && input.focus(), 80);
 }
 
 function closeAskClaude() {
-  document.body.classList.remove("ask-claude-open");
+  closeSheetAnimated("ask-claude-open", "ask-claude-closing", 380);
 }
 
 function refreshAskSendDisabled() {
@@ -8767,9 +8780,28 @@ function openAddShiftSheet() {
   const err = document.getElementById("asErr"); if (err) { err.style.display = "none"; err.textContent = ""; }
   _renderAddShiftSelect();
   _syncAddShiftUI();
+  document.body.classList.remove("add-shift-closing");
   document.body.classList.add("add-shift-open");
 }
-function closeAddShiftSheet() { document.body.classList.remove("add-shift-open"); }
+// Play a slide-down close on a bottom sheet: keep the open class (so the sheet
+// stays displayed) while the `<x>-closing` class runs the slide-down, then drop
+// both. Honors prefers-reduced-motion. The timeout bails if the sheet was
+// reopened meanwhile (open handlers clear the closing class), so a quick
+// close→reopen doesn't yank the freshly reopened sheet shut.
+function closeSheetAnimated(openClass, closingClass, ms) {
+  const body = document.body;
+  if (!body.classList.contains(openClass)) return;
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) { body.classList.remove(openClass); return; }
+  body.classList.add(closingClass);
+  window.setTimeout(() => {
+    if (!body.classList.contains(closingClass)) return; // reopened — abort
+    body.classList.remove(openClass);
+    body.classList.remove(closingClass);
+  }, ms);
+}
+
+function closeAddShiftSheet() { closeSheetAnimated("add-shift-open", "add-shift-closing", 360); }
 
 // Adds ONE shift straight to the schedule (admin add — direct, not pending).
 // The Cloud Function's schedule-additions trigger notifies the household.
