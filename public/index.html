@@ -2092,7 +2092,15 @@
     border-radius: 22px 22px 0 0; box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
     max-height: 92vh; padding: 10px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
   }
-  body.add-shift-open .as-backdrop, body.add-shift-open .as-sheet { display: flex; }
+  body.add-shift-open .as-backdrop { display: flex; animation: sbFadeIn 0.28s ease; }
+  body.add-shift-open .as-sheet { display: flex; animation: sbSheetUp 0.42s cubic-bezier(0.32,0.72,0,1); }
+  /* Shared pop-up sheet animations (Add Shift / Add Event / Ask Claude). The
+     keyframe plays on the display:none→flex switch, so no JS timing is needed. */
+  @keyframes sbSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes sbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    body.add-shift-open .as-sheet, body.add-shift-open .as-backdrop { animation: none; }
+  }
   .as-grab { align-self: center; width: 36px; height: 5px; border-radius: 3px; background: var(--text-3); margin-bottom: 6px; }
   .as-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 14px; }
   .as-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
@@ -2349,9 +2357,12 @@
     overflow: hidden;
     box-sizing: border-box;
   }
-  body.ask-claude-open .ask-modal-backdrop,
-  body.ask-claude-open .ask-modal { display: flex; }
+  body.ask-claude-open .ask-modal-backdrop { display: flex; animation: sbFadeIn 0.3s ease; }
+  body.ask-claude-open .ask-modal { display: flex; animation: sbSheetUp 0.46s cubic-bezier(0.32,0.72,0,1); }
   body.ask-claude-open .bottom-tabs { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    body.ask-claude-open .ask-modal, body.ask-claude-open .ask-modal-backdrop { animation: none; }
+  }
   .ask-grab {
     flex-shrink: 0; width: 36px; height: 5px; border-radius: 3px;
     background: var(--sep); margin: 8px auto 2px;
@@ -5280,8 +5291,12 @@
     flex-direction: column; justify-content: flex-end;
     box-sizing: border-box;
   }
-  body.cgr-open .cgr-backdrop { display: block; }
+  body.cgr-open .cgr-backdrop { display: block; animation: sbFadeIn 0.28s ease; }
   body.cgr-open .cgr-modal    { display: flex; }
+  body.cgr-open .cgr-sheet    { animation: sbSheetUp 0.42s cubic-bezier(0.32,0.72,0,1); }
+  @media (prefers-reduced-motion: reduce) {
+    body.cgr-open .cgr-sheet, body.cgr-open .cgr-backdrop { animation: none; }
+  }
   .cgr-sheet {
     display: flex; flex-direction: column; max-height: 92vh;
     background: var(--panel); border-radius: 24px 24px 0 0;
