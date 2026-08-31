@@ -8320,7 +8320,10 @@ function openAskClaude() {
   refreshAskSendDisabled();
   document.body.classList.remove("ask-claude-closing");
   document.body.classList.add("ask-claude-open");
-  setTimeout(() => input && input.focus(), 80);
+  // Don't auto-focus the input: on the iOS webview that pops the keyboard up
+  // WHILE the sheet is still sliding up, and the two animations fight (the lag).
+  // Let the sheet settle showing the week strip + suggestions; the keyboard
+  // comes up smoothly when the user taps the box.
 }
 
 function closeAskClaude() {
