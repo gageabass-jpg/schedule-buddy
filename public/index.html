@@ -2441,6 +2441,12 @@
     background: linear-gradient(145deg, #D97757, #BC5230);
     display: flex; align-items: center; justify-content: center;
   }
+  .ask-avatar img { width: 21px; height: 21px; }
+  .ask-msg-avatar img { width: 14px; height: 14px; }
+  .ask-avatar img, .ask-msg-avatar img {
+    object-fit: contain; display: block; pointer-events: none;
+    user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
+  }
   .ask-msg-text { font-size: 14.5px; line-height: 1.45; color: var(--text); padding-top: 2px; white-space: pre-wrap; word-break: break-word; }
   .ask-busy { align-self: flex-start; font-size: 13px; color: var(--text-dim); padding: 4px 0 2px 33px; }
   .ask-composer {
@@ -6118,7 +6124,7 @@
   <div class="ask-modal" id="askModal" role="dialog" aria-modal="true" aria-label="Ask Claude">
     <div class="ask-grab"></div>
     <div class="ask-head">
-      <div class="ask-avatar"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg></div>
+      <div class="ask-avatar"><img src="/assets/claude-ai.png" alt="" draggable="false" /></div>
       <div class="ask-title-wrap">
         <div class="ask-title">Ask Claude</div>
         <div class="ask-sub">Schedule changes in plain English</div>
@@ -8232,8 +8238,8 @@ function wireAllChatComposers() {
 let _askHistory = [];
 let _askBusy = false;
 
-// The Claude "sunburst" mark, reused on assistant message avatars.
-const CLAUDE_MARK_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg>';
+// The Claude logo, reused on assistant message avatars (same asset as the FAB).
+const CLAUDE_MARK_SVG = '<img src="/assets/claude-ai.png" alt="" draggable="false" />';
 
 // Fills the sheet's "This week" strip: each day of the current week (Sun–Sat)
 // with dots for who works (Gage green / Kaylene purple / Daisy blue) and today
