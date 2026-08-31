@@ -11,7 +11,7 @@
        the calendar-dashboard branding. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
     /* ─────────────────── design tokens (warm amber) ─────────────────── */
@@ -779,99 +779,202 @@
 </head>
 <body class="tod-morning">
   <!-- DASHBOARD SCENE -->
+  <style>
+    /* ============ New warm "editorial" dashboard (day + night via vars) ============ */
+    .scene-dashboard {
+      --wd-page: #e9e5dd; --wd-bg: #f4efe4; --wd-ink: #2a2620; --wd-ink2: #5d564a;
+      --wd-muted: #8d8371; --wd-card: #fffdf6; --wd-cardline: #e3dbc6; --wd-line: #ddd5c2;
+      --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4;
+      --wd-k: #c05f33; --wd-k-chipink: #fff8ec; --wd-gold: #c9a84c;
+      --wd-row: #f7f2e5; --wd-dark: #2a2620; --wd-dark-ink: #f4efe4;
+      --wd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+      --wd-mono: "IBM Plex Mono", ui-monospace, monospace;
+      --wd-clockfont: "IBM Plex Mono", ui-monospace, monospace; --wd-clockweight: 600;
+      --wd-logo-bg: #2a2620; --wd-logo-ink: #e8c46b;
+    }
+    body.wall-night .scene-dashboard {
+      --wd-page: #05070d; --wd-bg: #0e1420; --wd-ink: #e8ecf5; --wd-ink2: #aeb8cf;
+      --wd-muted: #6b7793; --wd-card: #131c2e; --wd-cardline: #232d42; --wd-line: #232d42;
+      --wd-g: #78b06a; --wd-g-bg: #17251c; --wd-g-chipink: #0e1420;
+      --wd-k: #e08a5a; --wd-k-chipink: #0e1420; --wd-gold: #c9a84c;
+      --wd-row: #101827; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
+      --wd-clockfont: "Space Mono", ui-monospace, monospace; --wd-clockweight: 700;
+      --wd-logo-bg: #1c2740; --wd-logo-ink: #5fd4c0;
+    }
+    .scene-dashboard { background: var(--wd-page); }
+    .wd-root {
+      position: absolute; inset: 0; box-sizing: border-box;
+      padding: clamp(18px, 2.6vh, 40px) clamp(26px, 3.4vw, 50px);
+      background: var(--wd-bg); color: var(--wd-ink);
+      font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
+      display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 18px);
+      overflow: hidden;
+    }
+    .wd-head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .wd-brand { display: flex; gap: 14px; align-items: center; }
+    .wd-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-brand-title { font-family: var(--wd-serif); font-size: 34px; line-height: 1; }
+    .wd-brand-sub { font-family: var(--wd-mono); font-size: 12px; letter-spacing: 3px; color: var(--wd-muted); margin-top: 6px; }
+    .wd-clockwrap { display: flex; flex-direction: column; align-items: flex-end; }
+    .wd-clock { display: flex; align-items: center; gap: 5px; }
+    .wd-tile { width: 48px; height: 64px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 42px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; }
+    .wd-colon { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 2px; }
+    .wd-ampm { font-family: var(--wd-clockfont); font-size: 25px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 6px; margin-left: 4px; }
+    .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
+    .wd-tile.flip { animation: wdFlip .4s ease; }
+    @keyframes wdFlip { 0% { transform: rotateX(-90deg); opacity: .3; } 100% { transform: rotateX(0); opacity: 1; } }
+    .wd-greeting { font-family: var(--wd-serif); font-weight: 400; font-size: clamp(50px, 7vh, 82px); line-height: 1; margin: clamp(2px,1vh,14px) 0 0; letter-spacing: -1px; }
+    .wd-period { color: #c05f33; }
+    .wd-heroline { font-size: 19px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .wd-heroline strong { font-weight: 700; }
+    .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
+    .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 11px 22px; display: flex; align-items: center; gap: 16px; }
+    .wd-avatar { width: 52px; height: 52px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 24px; flex-shrink: 0; overflow: hidden; }
+    .wd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .wd-person-mid { flex: 1; min-width: 0; }
+    .wd-person-top { display: flex; align-items: center; gap: 10px; }
+    .wd-person-name { font-weight: 700; font-size: 19px; }
+    .wd-status { font-family: var(--wd-mono); font-size: 10px; font-weight: 600; letter-spacing: 1.5px; padding: 3px 9px; border-radius: 999px; }
+    .wd-person-sub { color: var(--wd-muted); font-size: 14px; margin-top: 4px; }
+    .wd-person-time { font-family: var(--wd-mono); font-weight: 600; font-size: 19px; white-space: nowrap; }
+    .wd-grid { flex: 1; display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 16px; min-height: 0; }
+    .wd-col { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .wd-card { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 16px 18px; }
+    .wd-label { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 3px; color: var(--wd-muted); }
+    .wd-week { display: flex; flex-direction: column; min-height: 0; }
+    .wd-weeklist { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; flex: 1; justify-content: space-between; }
+    .wd-day { display: flex; align-items: center; gap: 14px; background: var(--wd-row); border-radius: 10px; padding: 7px 14px; }
+    .wd-day.today { background: var(--wd-g-bg); border: 1.5px solid var(--wd-g); }
+    .wd-day.game { border: 1.5px solid var(--wd-gold); }
+    .wd-day-num { font-family: var(--wd-serif); font-size: 24px; width: 34px; text-align: center; color: var(--wd-ink2); }
+    .wd-day.today .wd-day-num { color: var(--wd-ink); }
+    .wd-day-dow { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1px; color: var(--wd-muted); width: 58px; display: inline-flex; align-items: center; gap: 5px; }
+    .wd-day.today .wd-day-dow { color: var(--wd-g); font-weight: 600; }
+    .wd-day-dow img { width: 18px; height: 18px; object-fit: contain; }
+    .wd-day-pills { flex: 1; display: flex; gap: 6px; justify-content: flex-end; }
+    .wd-chip { font-family: var(--wd-mono); font-size: 11px; padding: 3px 10px; border-radius: 5px; white-space: nowrap; }
+    .wd-chip.g { background: var(--wd-g); color: var(--wd-g-chipink); }
+    .wd-chip.k { background: var(--wd-k); color: var(--wd-k-chipink); }
+    .wd-weather, .wd-board { flex: 1; }
+    .wd-wx-top { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .wd-wx-temp { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
+    .wd-wx-desc { color: var(--wd-muted); font-size: 13px; margin-top: 6px; }
+    .wd-wx-icon { font-size: 34px; color: #e0a23c; }
+    .wd-wx-meta { display: flex; gap: 0; margin-top: 16px; border-top: 1px solid var(--wd-line); padding-top: 12px; }
+    .wd-wx-meta > div { flex: 1; }
+    .wd-wx-k { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1.5px; color: var(--wd-muted); }
+    .wd-wx-v { font-size: 14px; font-weight: 600; margin-top: 3px; }
+    .wd-board-body { margin-top: 14px; }
+    .wd-board-msg { font-family: var(--wd-serif); font-size: 24px; line-height: 1.15; }
+    .wd-board-by { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: var(--wd-muted); font-size: 13px; }
+    .wd-board-av { width: 22px; height: 22px; border-radius: 50%; background: var(--wd-k); color: #fff8ec; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; overflow: hidden; }
+    .wd-board-av img { width: 100%; height: 100%; object-fit: cover; }
+    .wd-board-empty { color: var(--wd-muted); font-size: 15px; margin-top: 14px; }
+    .wd-countdown { background: var(--wd-dark); color: var(--wd-dark-ink); flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+    .wd-cd-head { display: flex; justify-content: space-between; align-items: center; }
+    .wd-cd-label { font-family: var(--wd-serif); font-size: 24px; line-height: 1.1; }
+    .wd-cd-dots { display: flex; gap: 5px; }
+    .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: #57503f; }
+    .wd-cd-dot.on { background: var(--wd-gold); }
+    .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
+    .wd-cd-num { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
+    .wd-cd-num small { font-size: 22px; color: var(--wd-muted); }
+    .wd-cd-sub { font-size: 15px; color: var(--wd-gold); margin-top: 10px; }
+    .wd-cd-slide.anim { animation: wdSlideIn .5s ease; }
+    @keyframes wdSlideIn { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    .wd-news { flex: 1.4 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
+    .wd-news-img { height: clamp(88px, 12.5vh, 150px); background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
+    .wd-news-body { padding: 12px 18px 14px; display: flex; flex-direction: column; flex: 1; }
+    .wd-news-title { font-family: var(--wd-serif); font-size: 20px; line-height: 1.25; }
+    .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 11px; letter-spacing: 1px; color: var(--wd-muted); }
+    .wd-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 18px; border-top: 1px solid var(--wd-line); font-size: 14px; color: var(--wd-muted); gap: 20px; }
+    .wd-events { display: flex; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
+    .wd-events span { white-space: nowrap; }
+    .wd-events strong { color: var(--wd-ink); }
+    .wd-wvu { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .wd-wvu img { width: 26px; height: 26px; object-fit: contain; }
+    .wd-wvu strong { color: var(--wd-ink); }
+    .wd-stamp { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
+  </style>
   <div class="scene scene-dashboard" id="sceneDashboard">
-    <div class="root">
-      <!-- top bar -->
-      <div class="topbar">
-        <div class="brand-block">
-          <div class="brand-title styrene">Schedule Buddy</div>
-          <div class="brand-subtitle styrene">Dynamic Dashboard</div>
+    <div class="wd-root">
+      <div class="wd-head">
+        <div class="wd-brand">
+          <div class="wd-logo" id="wdLogo">☀</div>
+          <div>
+            <div class="wd-brand-title">Schedule Buddy</div>
+            <div class="wd-brand-sub">DYNAMIC DASHBOARD</div>
+          </div>
         </div>
-        <div style="text-align:right">
-          <div class="clock" id="clock">—:—</div>
-          <div class="date" id="date">—</div>
+        <div class="wd-clockwrap">
+          <div class="wd-clock" id="wdClock">
+            <span class="wd-tile">–</span><span class="wd-tile">–</span>
+            <span class="wd-colon">:</span>
+            <span class="wd-tile">–</span><span class="wd-tile">–</span>
+            <span class="wd-ampm" id="wdAmpm">AM</span>
+          </div>
+          <div class="wd-date" id="wdDate">—</div>
         </div>
       </div>
 
-      <!-- HERO greeting + line -->
-      <div class="hero">
-        <div class="greeting" id="greeting">Good Morning.</div>
-        <div class="hero-line" id="heroLine">Loading…</div>
+      <div>
+        <h1 class="wd-greeting" id="wdGreeting">Good Morning<span class="wd-period">.</span></h1>
+        <div class="wd-heroline" id="wdHeroLine" style="margin-top:10px">—</div>
       </div>
 
-      <!-- today shifts (two side-by-side cards) -->
-      <div class="today-shifts" id="todayShifts"></div>
+      <div class="wd-people" id="wdPeople"></div>
 
-      <!-- coverage callout (only shows when actionable) -->
-      <div class="coverage" id="coverage">
-        <span class="dot"></span><span id="coverageText"></span>
-      </div>
-
-      <!-- bottom: week / weather / fatigue cards -->
-      <div class="cards">
-        <div class="card week">
-          <div class="label">Next 7 days</div>
-          <div class="week-grid" id="weekGrid"></div>
+      <div class="wd-grid">
+        <div class="wd-card wd-week">
+          <div class="wd-label">NEXT 7 DAYS</div>
+          <div class="wd-weeklist" id="wdWeek"></div>
         </div>
-
-        <div class="cards-cluster">
-          <div class="card weather">
-            <div class="label">Weather · Charleston</div>
-            <div class="weather-body">
-              <div class="weather-current">
-                <div class="temp" id="wxTemp">—<small>°</small></div>
-                <div class="desc" id="wxDesc">—</div>
+        <div class="wd-col">
+          <div class="wd-card wd-weather">
+            <div class="wd-label">WEATHER · CHARLESTON</div>
+            <div class="wd-wx-top">
+              <div>
+                <div class="wd-wx-temp" id="wdWxTemp">—°</div>
+                <div class="wd-wx-desc" id="wdWxDesc">—</div>
               </div>
-              <div class="weather-meta">
-                <div class="icon" id="wxIcon">·</div>
-                <div class="hilo" id="wxHilo">— / —</div>
-                <div class="tomo" id="wxTomo">—</div>
-              </div>
+              <div class="wd-wx-icon" id="wdWxIcon">☀</div>
+            </div>
+            <div class="wd-wx-meta">
+              <div><div class="wd-wx-k">HI / LO</div><div class="wd-wx-v" id="wdWxHilo">—</div></div>
+              <div><div class="wd-wx-k">WIND</div><div class="wd-wx-v" id="wdWxWind">—</div></div>
+              <div><div class="wd-wx-k">HUMIDITY</div><div class="wd-wx-v" id="wdWxHum">—</div></div>
+              <div><div class="wd-wx-k">SUNRISE</div><div class="wd-wx-v" id="wdWxSun">—</div></div>
             </div>
           </div>
-
-          <div class="card quote" id="quoteCard">
-            <div class="label" id="quoteLabel">Parks &amp; Rec · daily</div>
-            <div class="quote-body" id="quoteBody">
-              <div class="quote-text" id="quoteText">—</div>
-              <div class="quote-attr" id="quoteAttr"></div>
-            </div>
-            <div class="np-body" id="npBody" style="display:none">
-              <img class="np-art" id="npArt" alt="" />
-              <div class="np-meta">
-                <div class="np-title" id="npTitle"></div>
-                <div class="np-artist" id="npArtist"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card board" id="boardCard">
-            <div class="board-head">
-              <div class="label">Message board</div>
-              <div id="boardAvatar"></div>
-            </div>
-            <div class="board-body" id="boardBody">
-              <div class="board-empty">No messages right now.</div>
-            </div>
-          </div>
-
-          <div class="card fatigue">
-          <div class="label">Fatigue index</div>
-          <div class="fatigue-status" id="fatigueStatus">—</div>
-          <div class="fatigue-grid" id="fatigueGrid"></div>
-          <div class="fatigue-legend">
-            <span>Rested</span>
-            <div class="bar"></div>
-            <span>Deficit</span>
+          <div class="wd-card wd-board">
+            <div class="wd-label">MESSAGE BOARD</div>
+            <div class="wd-board-body" id="wdBoard"><div class="wd-board-empty">No messages right now.</div></div>
           </div>
         </div>
+        <div class="wd-col">
+          <div class="wd-card wd-countdown">
+            <div class="wd-cd-head">
+              <div class="wd-cd-label" id="wdCdLabel">Next Payday</div>
+              <div class="wd-cd-dots" id="wdCdDots"></div>
+            </div>
+            <div class="wd-cd-body" id="wdCdBody"></div>
+          </div>
+          <div class="wd-card wd-news" id="wdNewsCard">
+            <div class="wd-news-img" id="wdNewsImg"></div>
+            <div class="wd-news-body">
+              <div class="wd-news-title" id="wdNewsTitle">—</div>
+              <div class="wd-news-meta" id="wdNewsMeta">—</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- events strip -->
-      <div class="bottom">
-        <div class="events" id="eventsStrip"></div>
-        <div class="stamp" id="stamp">—</div>
+      <div class="wd-foot">
+        <div class="wd-events" id="wdEvents"></div>
+        <div class="wd-wvu" id="wdWvu" style="display:none"></div>
+        <div class="wd-stamp" id="wdStamp">—</div>
       </div>
     </div>
   </div>
@@ -917,6 +1020,11 @@
     const apiBase = params.get("api") ||
       "https://us-central1-schedule-buddy-dd2cf.cloudfunctions.net";
     const isDemo  = params.get("demo") === "1";
+    const _MONS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const _DOWS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const _DOWU = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+    const _DAYL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
     const refreshMs    = 30_000;
     const weatherMs    = 15 * 60 * 1000;
     const photoSceneEveryMs    = 5 * 60 * 1000;     // photos: every 5 min
@@ -1869,6 +1977,13 @@
           createdAt: Date.now() - 42 * 60000,
           expiresAt: Date.now() + 12 * 3600 * 1000,
         },
+        nextPayday: { date: addDays(today, 4) },
+        news: {
+          title: "Kirkpatrick officially enters state Supreme Court, begins hearing cases Wednesday",
+          image: "https://picsum.photos/seed/wvnews/800/400",
+          source: "WV MetroNews",
+          time: "4:12 pm",
+        },
       };
     }
 
@@ -2062,6 +2177,212 @@
     }
     pollPiCommand();
     setInterval(pollPiCommand, 3_000);
+
+    /* ============================================================
+       NEW warm "editorial" dashboard population. These top-level
+       function declarations OVERRIDE the earlier render/refreshWeather/
+       renderWeather/tickClock (hoisting = last declaration wins), so
+       every call site drives the new DOM. The old bodies are dead.
+       ============================================================ */
+    function wdEsc(s){ return escapeHtml(String(s == null ? "" : s)); }
+    function wdCompact(hhmm){
+      const [h, m] = (hhmm || "").split(":").map(Number);
+      if (isNaN(h)) return "";
+      const ap = h >= 12 ? "p" : "a"; let h12 = h % 12; if (h12 === 0) h12 = 12;
+      return m ? `${h12}:${String(m).padStart(2,"0")}${ap}` : `${h12}${ap}`;
+    }
+
+    function renderWeather(w) {
+      const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
+      set("wdWxTemp", (w.tempNow != null ? w.tempNow : "—") + "°");
+      set("wdWxDesc", (w.feels != null ? `Feels like ${w.feels}° · ` : "") + (WX_DESC[w.code] ?? "—"));
+      set("wdWxIcon", WX_ICON(w.code, w.isDay));
+      set("wdWxHilo", `${w.todayHi ?? "—"}° / ${w.todayLo ?? "—"}°`);
+      set("wdWxWind", w.wind != null ? `${w.wind} mph ${w.windDir || ""}`.trim() : "—");
+      set("wdWxHum", w.hum != null ? `${w.hum}%` : "—");
+      set("wdWxSun", w.sunrise || "—");
+    }
+    async function refreshWeather() {
+      try {
+        if (isDemo) {
+          renderWeather({ tempNow: 58, code: 2, isDay: 1, feels: 55, todayHi: 64, todayLo: 41, wind: 6, windDir: "NW", hum: 48, sunrise: "6:47a" });
+          return;
+        }
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}` +
+          `&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,wind_direction_10m` +
+          `&daily=temperature_2m_max,temperature_2m_min,sunrise` +
+          `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`;
+        const j = await (await fetch(url)).json();
+        const dirs = ["N","NE","E","SE","S","SW","W","NW"]; const wdir = j.current?.wind_direction_10m;
+        let srStr = "—"; const sr = j.daily?.sunrise?.[0];
+        if (sr) { const t = new Date(sr); let h = t.getHours(); const ap = h >= 12 ? "p" : "a"; h = h % 12 || 12; srStr = `${h}:${String(t.getMinutes()).padStart(2,"0")}${ap}`; }
+        renderWeather({
+          tempNow: Math.round(j.current?.temperature_2m), code: j.current?.weather_code, isDay: j.current?.is_day,
+          feels: Math.round(j.current?.apparent_temperature), hum: Math.round(j.current?.relative_humidity_2m),
+          wind: Math.round(j.current?.wind_speed_10m), windDir: wdir != null ? dirs[Math.round(wdir / 45) % 8] : "",
+          todayHi: Math.round(j.daily?.temperature_2m_max?.[0]), todayLo: Math.round(j.daily?.temperature_2m_min?.[0]), sunrise: srStr,
+        });
+      } catch (err) { const d = $("wdWxDesc"); if (d) d.textContent = "Weather unavailable"; }
+    }
+
+    // Flip clock + date + day/night mode + the photo/calendar scene clocks.
+    function tickClock() {
+      const d = new Date();
+      const c = fmtClock(d), dt = fmtDate(d);
+      ["photoClock","calClock"].forEach(id => { const e = $(id); if (e) e.textContent = c; });
+      ["photoDate","calDate"].forEach(id => { const e = $(id); if (e) e.textContent = dt; });
+      const h = d.getHours();
+      const digits = [String(h % 12 || 12).padStart(2,"0"), String(d.getMinutes()).padStart(2,"0")].join("").split("");
+      const clk = $("wdClock");
+      if (clk) clk.querySelectorAll(".wd-tile").forEach((t, i) => {
+        if (t.textContent !== digits[i]) { t.textContent = digits[i]; t.classList.remove("flip"); void t.offsetWidth; t.classList.add("flip"); }
+      });
+      const ap = $("wdAmpm"); if (ap) ap.textContent = h >= 12 ? "PM" : "AM";
+      const ds = $("wdDate"); if (ds) ds.textContent = dt;
+      const isNight = h < 6 || h >= 20;
+      document.body.classList.toggle("wall-night", isNight);
+      document.body.classList.toggle("dim", h >= 22 || h < 6);
+      const logo = $("wdLogo"); if (logo) logo.textContent = isNight ? "🌙" : "☀";
+    }
+
+    // Countdown card — rotate the derived slides every 6s.
+    function wdRenderSlide() {
+      if (!_wdSlides.length) return;
+      _wdSlideIdx = _wdSlideIdx % _wdSlides.length;
+      const s = _wdSlides[_wdSlideIdx];
+      const lab = $("wdCdLabel"); if (lab) lab.textContent = s.label;
+      const body = $("wdCdBody");
+      if (body) body.innerHTML = `<div class="wd-cd-slide anim"><div class="wd-cd-num">${wdEsc(s.num)} <small>${wdEsc(s.unit || "")}</small></div><div class="wd-cd-sub">${wdEsc(s.sub)}</div></div>`;
+      const dots = $("wdCdDots"); if (dots) dots.innerHTML = _wdSlides.map((_, i) => `<span class="wd-cd-dot${i === _wdSlideIdx ? " on" : ""}"></span>`).join("");
+    }
+    function wdStartRotation() {
+      if (_wdSlideTimer) clearInterval(_wdSlideTimer);
+      _wdSlideIdx = 0; wdRenderSlide();
+      if (_wdSlides.length > 1) _wdSlideTimer = setInterval(() => { _wdSlideIdx = (_wdSlideIdx + 1) % _wdSlides.length; wdRenderSlide(); }, 6000);
+    }
+
+    function render(p) {
+      lastPayload = p;
+      const now = new Date();
+      const stypeById = new Map(p.shiftTypes.map(s => [s.id, s]));
+      const [tY, tM, tD] = p.today.split("-").map(Number);
+      const todayMid = new Date(tY, tM - 1, tD);
+      const se = (st, y, m, dd) => {
+        const [sh, sm] = st.start.split(":").map(Number); const [eh, em] = st.end.split(":").map(Number);
+        const a = new Date(y, m - 1, dd, sh, sm), b = new Date(y, m - 1, dd, eh, em);
+        if (st.crossesMidnight) b.setDate(b.getDate() + 1);
+        return { st: a, en: b };
+      };
+      const myToday = (who) => (p.shifts[p.today] || []).filter(s => s.who === who)
+        .map(s => { const t = stypeById.get(s.shiftTypeId); if (!t) return null; const { st, en } = se(t, tY, tM, tD); return { s, t, st, en }; }).filter(Boolean);
+      const nm = { G: p.household.selfName, K: p.household.partnerName };
+      const col = (who) => who === "G" ? "var(--wd-g)" : "var(--wd-k)";
+
+      // Greeting
+      const gEl = $("wdGreeting");
+      if (gEl) gEl.innerHTML = `${wdEsc(greetingForTime(now).replace(/\.\s*$/, ""))}<span class="wd-period">.</span>`;
+
+      // Hero line
+      const phrase = (who) => {
+        const list = myToday(who); const cur = list.find(x => now >= x.st && now < x.en) || list.find(x => now < x.st) || list[0];
+        if (cur) return `<span><strong style="color:${col(who)}">${wdEsc(nm[who])}</strong> is working ${wdCompact(cur.t.start)}–${wdCompact(cur.t.end)}.</span>`;
+        return `<span><strong style="color:${col(who)}">${wdEsc(nm[who])}</strong>’s off.</span>`;
+      };
+      let hero = phrase("G") + phrase("K");
+      const pd = (p.occasions || []).find(o => o.type === "payday" && o.date === p.today);
+      if (pd) hero += `<span class="wd-pill">${wdEsc((pd.label || "Payday")).toUpperCase()}</span>`;
+      hero += `<span>Take care out there.</span>`;
+      const hl = $("wdHeroLine"); if (hl) hl.innerHTML = hero;
+
+      // Person cards
+      const people = $("wdPeople");
+      if (people) people.innerHTML = ["G","K"].map(who => {
+        const list = myToday(who); const cur = list.find(x => now >= x.st && now < x.en); const up = list.find(x => now < x.st); const rec = findRecoveryFor(who, p);
+        const c = col(who); const mil = (t) => (t || "").replace(":", "");
+        const av = AVATARS[who] ? `<img src="${wdEsc(AVATARS[who])}" alt="">` : wdEsc(nm[who][0]);
+        let label, lc, sub, time;
+        if (cur)          { label = "ON SHIFT";    lc = c; sub = wdEsc(cur.s.label); time = `${cur.t.start}–${cur.t.end}`; }
+        else if (rec && up){ label = "ON SHIFT";   lc = c; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))} · back on at ${wdEsc(mil(up.t.start))}`; time = `${up.t.start}–${up.t.end}`; }
+        else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = "— · —"; }
+        else if (up)      { label = "LATER TODAY"; lc = c; sub = wdEsc(up.s.label); time = `${up.t.start}–${up.t.end}`; }
+        else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = "— · —"; }
+        const bg = lc === c ? (who === "G" ? "var(--wd-g-bg)" : "rgba(192,95,51,0.13)") : "rgba(141,131,113,0.14)";
+        return `<div class="wd-person">
+          <div class="wd-avatar" style="background:${c}">${av}</div>
+          <div class="wd-person-mid">
+            <div class="wd-person-top"><span class="wd-person-name">${wdEsc(nm[who])}</span><span class="wd-status" style="color:${lc};background:${bg}">${label}</span></div>
+            <div class="wd-person-sub">${sub}</div>
+          </div>
+          <div class="wd-person-time" style="color:${time.indexOf("—") >= 0 ? "var(--wd-muted)" : c}">${wdEsc(time)}</div>
+        </div>`;
+      }).join("");
+
+      // Next 7 days
+      const wk = $("wdWeek");
+      if (wk) {
+        let rows = "";
+        for (let i = 0; i < 7; i++) {
+          const iso = addDays(p.today, i); const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+          const pills = (p.shifts[iso] || []).map(s => {
+            const t = stypeById.get(s.shiftTypeId); const cls = s.who === "G" ? "g" : "k";
+            return `<span class="wd-chip ${cls}">${wdEsc(`${s.who === "G" ? nm.G : nm.K} ${t ? wdCompact(t.start) : ""}`.trim())}</span>`;
+          }).join("");
+          rows += `<div class="wd-day${i === 0 ? " today" : ""}"><span class="wd-day-num">${dd}</span><span class="wd-day-dow">${i === 0 ? "TODAY" : _DOWU[dobj.getDay()]}</span><span class="wd-day-pills">${pills}</span></div>`;
+        }
+        wk.innerHTML = rows;
+      }
+
+      // Message board
+      const bd = $("wdBoard");
+      if (bd) {
+        if (p.message && p.message.text) {
+          const sn = p.message.senderName || "";
+          bd.innerHTML = `<div class="wd-board-msg">${wdEsc(p.message.text)}</div><div class="wd-board-by"><span class="wd-board-av">${wdEsc(sn[0] || "·")}</span>${wdEsc(sn)} · ${wdEsc(relTime(p.message.createdAt))}</div>`;
+        } else { bd.innerHTML = `<div class="wd-board-empty">No messages right now.</div>`; }
+      }
+
+      // News card
+      const newsCard = $("wdNewsCard");
+      if (newsCard) {
+        if (p.news && p.news.title) {
+          newsCard.style.display = "";
+          const img = $("wdNewsImg"); if (img) img.style.backgroundImage = p.news.image ? `url("${p.news.image}")` : "";
+          $("wdNewsTitle").textContent = p.news.title;
+          $("wdNewsMeta").textContent = `${p.news.source || "News"}${p.news.time ? " · " + p.news.time : ""}`;
+        } else { newsCard.style.display = "none"; }
+      }
+
+      // Countdown slides — next payday + next day off together
+      _wdSlides = [];
+      if (p.nextPayday && p.nextPayday.date) {
+        const [yy, mm, dd] = p.nextPayday.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+        const days = Math.round((dobj - todayMid) / 86400000);
+        _wdSlides.push({ label: "Next Payday", num: days <= 0 ? "Today" : days, unit: days <= 0 ? "" : (days === 1 ? "day" : "days"), sub: `${_DAYL[dobj.getDay()]} · ${_MONS[dobj.getMonth()]} ${dd}` });
+      }
+      for (let i = 1; i <= 7; i++) {
+        const iso = addDays(p.today, i);
+        if (!(p.shifts[iso] || []).length) {
+          const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+          _wdSlides.push({ label: "Next Day Off Together", num: i, unit: i === 1 ? "day" : "days", sub: `${_DAYL[dobj.getDay()]} · ${_MONS[dobj.getMonth()]} ${dd} · both off` });
+          break;
+        }
+      }
+      if (!_wdSlides.length) _wdSlides.push({ label: "All caught up", num: "—", unit: "", sub: "Nothing on the horizon" });
+      wdStartRotation();
+
+      // Events ticker
+      const ev = $("wdEvents");
+      if (ev) {
+        const dot = { G: "var(--wd-g)", K: "var(--wd-k)", Daisy: "var(--wd-gold)", family: "var(--wd-gold)" };
+        ev.innerHTML = (p.events || []).filter(e => e.date >= p.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).map(e => {
+          const [yy, mm, dd] = e.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+          return `<span><span style="color:${dot[e.who] || "var(--wd-muted)"}">●</span> <strong>${wdEsc(e.title)}</strong> ${_DOWS[dobj.getDay()]}${e.startTime ? " · " + wdCompact(e.startTime) : ""}</span>`;
+        }).join("");
+      }
+
+      const stamp = $("wdStamp"); if (stamp) stamp.textContent = `UPDATED ${fmtClock(new Date())}`;
+      tickClock();
+    }
   </script>
 </body>
 </html>

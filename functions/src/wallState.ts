@@ -87,6 +87,45 @@ interface WallPayload {
     createdAt: number;          // ms epoch
     expiresAt: number | null;   // ms epoch; null = stays until replaced
   } | null;
+  // Next self (Gage) payday, for the wall's countdown card. Null when no
+  // payday rule is configured.
+  nextPayday: { date: string } | null;
+  // Latest WV MetroNews headline for the wall's news card. Null on fetch
+  // failure — the card hides itself.
+  news: { title: string; image: string; source: string; time: string } | null;
+}
+
+// ───────────────── WV MetroNews headline (cached ~5 min) ─────────────────
+let NEWS_CACHE: { at: number; val: WallPayload["news"] } | null = null;
+async function fetchTopNews(): Promise<WallPayload["news"]> {
+  if (NEWS_CACHE && Date.now() - NEWS_CACHE.at < 5 * 60_000) return NEWS_CACHE.val;
+  let val: WallPayload["news"] = null;
+  try {
+    const resp = await fetch("https://wvmetronews.com/feed/", { redirect: "follow" });
+    if (resp.ok) {
+      const xml = await resp.text();
+      const item = xml.split(/<item[ >]/i)[1] || "";
+      const pick = (re: RegExp) => { const m = re.exec(item); return m ? m[1] : ""; };
+      const decode = (s: string) => s
+        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+        .replace(/&#8217;|&#039;|&#39;|&apos;/g, "’").replace(/&#8216;/g, "‘")
+        .replace(/&#8220;/g, "“").replace(/&#8221;/g, "”")
+        .replace(/&#8211;/g, "–").replace(/&#8212;/g, "—")
+        .replace(/&quot;/g, "\"").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/<[^>]+>/g, "").trim();
+      const title = decode(pick(/<title>([\s\S]*?)<\/title>/i));
+      let image = "";
+      const mm = /<media:(?:content|thumbnail)[^>]*url="([^"]+)"/i.exec(item) || /<enclosure[^>]*url="([^"]+)"/i.exec(item);
+      if (mm) image = mm[1]!;
+      else { const ce = /<content:encoded>([\s\S]*?)<\/content:encoded>/i.exec(item); if (ce) { const im = /<img[^>]*src="([^"]+)"/i.exec(ce[1]!); if (im) image = im[1]!; } }
+      let time = "";
+      const pd = pick(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+      if (pd) { const dt = new Date(pd.trim()); if (!isNaN(dt.getTime())) time = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(dt).toLowerCase(); }
+      if (title) val = { title: title.slice(0, 140), image, source: "WV MetroNews", time };
+    }
+  } catch (e) { logger.warn("news fetch failed", { error: String(e) }); }
+  NEWS_CACHE = { at: Date.now(), val };
+  return val;
 }
 
 // ───────────────── Helpers ──────────────────────────────────────────────
@@ -419,6 +458,18 @@ export const getWallState = onRequest(
     if (typeof state.selfName === "string") selfName = state.selfName;
     if (typeof partner?.name === "string") partnerName = partner.name;
 
+    // Next self (Gage) payday for the countdown card.
+    let nextPayday: WallPayload["nextPayday"] = null;
+    const pdRule: { anchor?: string; freq?: "weekly" | "biweekly" } | null =
+      ((state.paydays as Record<string, { anchor?: string; freq?: "weekly" | "biweekly" }> | undefined)?.G) ?? null;
+    if (pdRule && typeof pdRule.anchor === "string") {
+      for (let i = 0; i <= 45; i++) {
+        const d = addDays(today, i);
+        if (isPaydayOn(pdRule.anchor, pdRule.freq, d)) { nextPayday = { date: d }; break; }
+      }
+    }
+    const news = await fetchTopNews();
+
     const payload: WallPayload = {
       generatedAt: Date.now(),
       household: { name: hhData.name ?? "Home", selfName, partnerName },
@@ -430,6 +481,8 @@ export const getWallState = onRequest(
       photos,
       occasions,
       message,
+      nextPayday,
+      news,
     };
 
     CACHE.set(token, { payload, expiresAt: Date.now() + CACHE_TTL_MS });
