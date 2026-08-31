@@ -2338,112 +2338,134 @@
     display: none;
   }
   .ask-modal {
-    position: fixed; inset: 0;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    top: max(env(safe-area-inset-top, 0px), 52px);
     z-index: 1101;
     display: none;
     flex-direction: column;
     background: var(--bg);
-    padding: max(env(safe-area-inset-top, 0px), 18px) 0 0;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -12px 44px rgba(0,0,0,0.32);
+    overflow: hidden;
     box-sizing: border-box;
   }
   body.ask-claude-open .ask-modal-backdrop,
   body.ask-claude-open .ask-modal { display: flex; }
   body.ask-claude-open .bottom-tabs { display: none; }
+  .ask-grab {
+    flex-shrink: 0; width: 36px; height: 5px; border-radius: 3px;
+    background: var(--sep); margin: 8px auto 2px;
+  }
   .ask-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 6px 16px 12px;
-    border-bottom: 0.5px solid var(--sep);
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 16px 12px;
   }
-  .ask-title-wrap { line-height: 1.2; }
-  .ask-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-  .ask-sub   { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
+  .ask-avatar {
+    flex-shrink: 0; width: 38px; height: 38px; border-radius: 13px;
+    background: linear-gradient(145deg, #D97757, #BC5230);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ask-title-wrap { flex: 1; min-width: 0; line-height: 1.15; }
+  .ask-title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  .ask-sub   { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
   .ask-close {
-    background: transparent; border: 0; color: var(--text-dim);
-    font-size: 20px; padding: 4px 8px; cursor: pointer;
-    font-family: var(--font);
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--bg-elev); border: 0; color: var(--text-dim);
+    font-size: 14px; cursor: pointer; font-family: var(--font);
+    display: flex; align-items: center; justify-content: center;
   }
+  /* "This week" strip */
+  .ask-weekstrip {
+    flex-shrink: 0; margin: 0 16px 6px; padding: 12px 12px 13px;
+    background: var(--bg-elev); border: 0.5px solid var(--sep);
+    border-radius: 16px;
+  }
+  .ask-weekstrip-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .ask-weekstrip-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--text-2);
+  }
+  .ask-weekstrip-range { font-size: 11.5px; color: var(--text-dim); }
+  .ask-week-row { display: flex; }
+  .ask-week-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .ask-week-dow { font-size: 10px; font-weight: 700; color: var(--text-dim); }
+  .ask-week-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--text);
+  }
+  .ask-week-day.today .ask-week-num { background: #C96442; color: #fff; }
+  .ask-week-dots { display: flex; gap: 3px; height: 6px; }
+  .ask-week-dot { width: 6px; height: 6px; border-radius: 50%; }
   .ask-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 14px 14px 6px;
-    display: flex; flex-direction: column; gap: 8px;
+    padding: 6px 16px 6px;
+    display: flex; flex-direction: column; gap: 9px;
     -webkit-overflow-scrolling: touch;
   }
-  .ask-suggestions {
-    display: flex; flex-direction: column; gap: 6px;
-    max-width: 360px; margin: auto;
-    width: 100%;
+  .ask-suggestions { display: flex; flex-direction: column; gap: 9px; }
+  .ask-sug-label {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
+    color: var(--text-dim); padding: 4px 2px 0;
   }
-  .ask-suggestion {
-    text-align: left;
-    padding: 10px 12px;
-    border: 0.5px solid var(--sep);
-    border-radius: 12px;
-    background: var(--bg-elev);
-    color: var(--text);
-    font-size: 13.5px;
-    font-family: var(--font);
-    line-height: 1.4;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
+  .ask-sug-card {
+    display: flex; align-items: center; gap: 12px; text-align: left;
+    background: var(--bg-elev); border: 0.5px solid var(--sep); border-radius: 16px;
+    padding: 12px 14px; cursor: pointer; font-family: var(--font); width: 100%;
+    color: var(--text); -webkit-tap-highlight-color: transparent;
   }
-  .ask-suggestion-hint {
-    text-align: center; font-size: 13px; color: var(--text-dim);
-    margin-bottom: 12px;
+  .ask-sug-glyph {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800;
   }
+  .ask-sug-body { flex: 1; min-width: 0; }
+  .ask-sug-t { display: block; font-size: 14.5px; font-weight: 700; line-height: 1.25; color: var(--text); }
+  .ask-sug-sub { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .ask-sug-chev { flex-shrink: 0; color: var(--text-dim); opacity: 0.6; }
   .ask-bubble {
-    max-width: 84%;
-    padding: 9px 13px;
-    border-radius: 16px;
-    font-size: 14.5px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
+    max-width: 84%; padding: 10px 14px; font-size: 14.5px; line-height: 1.4;
+    white-space: pre-wrap; word-break: break-word;
   }
   .ask-bubble.mine {
-    align-self: flex-end;
-    border-top-right-radius: 4px;
-    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
-    color: #fff;
+    align-self: flex-end; border-radius: 18px 18px 6px 18px;
+    background: linear-gradient(145deg, #D97757, #BC5230); color: #fff;
   }
-  .ask-bubble.theirs {
-    align-self: flex-start;
-    border-top-left-radius: 4px;
-    background: var(--bg-elev);
-    color: var(--text);
-    border: 0.5px solid var(--sep);
+  .ask-msg-claude { display: flex; gap: 9px; max-width: 92%; align-self: flex-start; }
+  .ask-msg-avatar {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px; margin-top: 1px;
+    background: linear-gradient(145deg, #D97757, #BC5230);
+    display: flex; align-items: center; justify-content: center;
   }
-  .ask-busy {
-    align-self: flex-start;
-    font-size: 13px; color: var(--text-dim);
-    padding: 6px 12px;
-  }
+  .ask-msg-text { font-size: 14.5px; line-height: 1.45; color: var(--text); padding-top: 2px; white-space: pre-wrap; word-break: break-word; }
+  .ask-busy { align-self: flex-start; font-size: 13px; color: var(--text-dim); padding: 4px 0 2px 33px; }
   .ask-composer {
-    display: flex; gap: 8px; align-items: flex-end;
-    padding: 8px 12px max(env(safe-area-inset-bottom, 0px), 10px);
-    border-top: 0.5px solid var(--sep);
+    flex-shrink: 0; display: flex; gap: 10px; align-items: flex-end;
+    padding: 8px 14px max(env(safe-area-inset-bottom, 0px), 12px);
     background: var(--bg);
   }
   .ask-input {
-    flex: 1; min-height: 36px; max-height: 130px;
-    padding: 9px 13px;
-    border-radius: 18px;
+    flex: 1; min-height: 44px; max-height: 130px;
+    padding: 12px 16px;
+    border-radius: 22px;
     border: 0.5px solid var(--sep);
     background: var(--bg-elev);
     color: var(--text);
-    font-family: var(--font); font-size: 14.5px;
+    font-family: var(--font); font-size: 15px;
     line-height: 1.35; resize: none; outline: none;
   }
   .ask-send {
-    height: 36px; padding: 0 16px;
-    border-radius: 18px;
-    border: 0;
-    background: linear-gradient(135deg, #5E5CE6, #34C7BE);
-    color: #fff; font-size: 13.5px; font-weight: 700;
-    cursor: pointer; font-family: var(--font);
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: 0;
+    background: linear-gradient(145deg, #D97757, #BC5230);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
     -webkit-tap-highlight-color: transparent;
   }
-  .ask-send:disabled { opacity: 0.5; }
+  .ask-send:disabled { opacity: 0.45; }
 
 
   /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
@@ -3059,16 +3081,24 @@
   }
   .mc-title { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); line-height: 1.05; }
   .mc-sub { margin-top: 6px; font-size: 12.5px; font-weight: 500; color: var(--text-dim); letter-spacing: 0.1px; }
-  .mc-period {
-    position: relative; flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
-    height: 30px; padding: 0 11px; border-radius: 15px;
-    background: var(--scrim); color: var(--text); font-size: 12.5px; font-weight: 600;
+  .mc-seg {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px;
+    padding: 2px; border-radius: 9px; background: var(--bg-elev);
+    border: 0.5px solid var(--sep);
   }
-  .mc-caret { font-size: 11px; line-height: 1; opacity: 0.55; transform: translateY(-2px); }
-  .mc-period-select {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    opacity: 0; border: 0; margin: 0; padding: 0; cursor: pointer;
-    -webkit-appearance: none; appearance: none; font-size: 16px;
+  .mc-seg-btn {
+    border: 0; cursor: pointer; padding: 4px 11px; border-radius: 7px;
+    font-size: 12px; font-weight: 700; font-family: var(--font);
+    color: var(--text-dim); background: transparent;
+    -webkit-appearance: none; appearance: none;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .mc-seg-btn.on {
+    color: var(--text); background: var(--bg-elev2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  }
+  @media (prefers-color-scheme: light) {
+    .mc-seg-btn.on { background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.10); }
   }
   .mc-insight {
     margin: 0 0 10px; padding: 12px 14px; border-radius: 16px;
@@ -3093,31 +3123,33 @@
   .mc-insight-text .bad-v  { color: #D8352A; font-weight: 700; }
   .mc-insight-text .good-v { color: #1E9E52; font-weight: 700; }
 
-  .mc-row { padding: 13px 4px; }
-  .mc-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .mc-label { font-size: 14.5px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
-  .mc-vals { display: flex; align-items: baseline; gap: 8px; }
-  .mc-value { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); font-variant-numeric: tabular-nums; }
-  .mc-delta {
-    display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px; border-radius: 8px;
-    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  .mc-row {
+    display: grid; grid-template-columns: 1fr 116px; gap: 3px 14px;
+    align-items: center; padding: 11px 2px;
+    border-top: 0.5px solid var(--sep);
   }
-  .mc-delta .mc-arrow { font-size: 9px; line-height: 1; }
+  .mc-row:first-of-type { border-top: none; }
+  .mc-row-main { min-width: 0; }
+  .mc-label { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
+  .mc-vals { margin-top: 3px; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+  .mc-value { font-size: 17px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .mc-delta {
+    display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 7px;
+    font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .mc-delta .mc-arrow { font-size: 8px; line-height: 1; }
   .mc-delta.good { color: #1E9E52; background: rgba(48,209,88,0.15); }
   .mc-delta.bad  { color: #D8352A; background: rgba(255,69,58,0.13); }
   .mc-delta.flat { color: var(--text-dim); background: var(--scrim); }
-  .mc-bar { margin-top: 10px; position: relative; height: 7px; border-radius: 4px; background: var(--scrim); }
-  .mc-bar-fill {
-    position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px;
-    transform-origin: left; animation: mcBarGrow 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  .mc-was { font-size: 11px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .mc-spark { width: 116px; height: 34px; display: block; }
+  .mc-spark-base { stroke: var(--text-2); opacity: 0.5; }
+  .mc-legend {
+    padding: 9px 2px 0; margin-top: 2px;
+    font-size: 10.5px; font-weight: 500; color: var(--text-dim);
+    display: flex; justify-content: flex-end; gap: 12px;
   }
-  .mc-bar-prev {
-    position: absolute; top: -2.5px; bottom: -2.5px; width: 2px; border-radius: 1px;
-    background: var(--text-2); transform: translateX(-1px);
-  }
-  .mc-was { margin-top: 7px; font-size: 11.5px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .mc-empty { padding: 16px 4px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
-  @keyframes mcBarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   @media (prefers-color-scheme: dark) {
     .mc-delta.good, .mc-insight-text .good-v { color: #30D158; }
     .mc-delta.bad,  .mc-insight-text .bad-v  { color: #FF453A; }
@@ -6084,25 +6116,50 @@
   <!-- ===== Ask Claude modal (manager-only natural-language schedule editor) ===== -->
   <div class="ask-modal-backdrop" id="askBackdrop"></div>
   <div class="ask-modal" id="askModal" role="dialog" aria-modal="true" aria-label="Ask Claude">
+    <div class="ask-grab"></div>
     <div class="ask-head">
+      <div class="ask-avatar"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg></div>
       <div class="ask-title-wrap">
-        <div class="ask-title">✨ Ask Claude</div>
-        <div class="ask-sub">Schedule changes in plain English. Confirms before writing.</div>
+        <div class="ask-title">Ask Claude</div>
+        <div class="ask-sub">Schedule changes in plain English</div>
       </div>
       <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close">✕</button>
     </div>
+    <div class="ask-weekstrip" id="askWeekStrip">
+      <div class="ask-weekstrip-head">
+        <div class="ask-weekstrip-title">This week</div>
+        <div class="ask-weekstrip-range"></div>
+      </div>
+      <div class="ask-week-row"></div>
+    </div>
     <div class="ask-scroll" id="askScroll">
       <div class="ask-suggestions" id="askSuggestions">
-        <div class="ask-suggestion-hint">Try one of these or type your own:</div>
-        <button type="button" class="ask-suggestion" data-ask-prompt="What does my next 2 weeks look like?">What does my next 2 weeks look like?</button>
-        <button type="button" class="ask-suggestion" data-ask-prompt="I picked up an OT shift this Friday night">I picked up an OT shift this Friday night</button>
-        <button type="button" class="ask-suggestion" data-ask-prompt="Move my Monday shift next week to Wednesday">Move my Monday shift next week to Wednesday</button>
-        <button type="button" class="ask-suggestion" data-ask-prompt="Kaylene is off the rest of this week">Kaylene is off the rest of this week</button>
+        <div class="ask-sug-label">Suggested for this week</div>
+        <button type="button" class="ask-sug-card" data-ask-prompt="What does my next 2 weeks look like?">
+          <span class="ask-sug-glyph" style="background:rgba(10,132,255,0.14);color:#0A84FF;">14</span>
+          <span class="ask-sug-body"><span class="ask-sug-t">What does my next 2 weeks look like?</span><span class="ask-sug-sub">Shifts, daycare &amp; couple time at a glance</span></span>
+          <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="ask-sug-card" data-ask-prompt="I picked up an OT shift this Friday night">
+          <span class="ask-sug-glyph" style="background:rgba(48,209,88,0.16);color:#30D158;">＋</span>
+          <span class="ask-sug-body"><span class="ask-sug-t">I picked up an OT shift this Friday night</span><span class="ask-sug-sub">Adds a shift · checks for conflicts</span></span>
+          <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="ask-sug-card" data-ask-prompt="Move my Monday shift next week to Wednesday">
+          <span class="ask-sug-glyph" style="background:rgba(191,90,242,0.16);color:#BF5AF2;">⇄</span>
+          <span class="ask-sug-body"><span class="ask-sug-t">Move my Monday shift next week to Wednesday</span><span class="ask-sug-sub">Swaps a shift to another day</span></span>
+          <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="ask-sug-card" data-ask-prompt="Kaylene is off the rest of this week">
+          <span class="ask-sug-glyph" style="background:rgba(255,69,58,0.15);color:#FF453A;">–</span>
+          <span class="ask-sug-body"><span class="ask-sug-t">Kaylene is off the rest of this week</span><span class="ask-sug-sub">Clears shifts · flags childcare gaps</span></span>
+          <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </div>
     <div class="ask-composer">
       <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell Claude what to change…"></textarea>
-      <button type="button" class="ask-send" id="askSendBtn" disabled>Send</button>
+      <button type="button" class="ask-send" id="askSendBtn" aria-label="Send" disabled><svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 16V2M2.5 7.5L8 2l5.5 5.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
 
@@ -8175,6 +8232,46 @@ function wireAllChatComposers() {
 let _askHistory = [];
 let _askBusy = false;
 
+// The Claude "sunburst" mark, reused on assistant message avatars.
+const CLAUDE_MARK_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><g stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.4" y1="5.4" x2="18.6" y2="18.6"/><line x1="18.6" y1="5.4" x2="5.4" y2="18.6"/></g></svg>';
+
+// Fills the sheet's "This week" strip: each day of the current week (Sun–Sat)
+// with dots for who works (Gage green / Kaylene purple / Daisy blue) and today
+// highlighted. Reads the same event sources as the calendar.
+function renderAskWeekStrip() {
+  const host = document.getElementById("askWeekStrip");
+  if (!host) return;
+  const gEvts = generateEvents(), kEvts = partnerEvents(), dEvts = daisyEvents();
+  const today = new Date();
+  const start = addDays(today, -today.getDay());   // Sunday
+  const DOW = ["S", "M", "T", "W", "T", "F", "S"];
+  const G = "#30D158", K = "#BF5AF2", D = "#0A84FF";
+  const todayIso = toISODate(today);
+  let cells = "";
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(start, i);
+    const iso = toISODate(d);
+    const dots = [];
+    if (eventsOnDate(gEvts, iso).length) dots.push(G);
+    if (eventsOnDate(kEvts, iso).length) dots.push(K);
+    if (eventsOnDate(dEvts, iso).length) dots.push(D);
+    cells += `<div class="ask-week-day${iso === todayIso ? " today" : ""}">
+      <div class="ask-week-dow">${DOW[i]}</div>
+      <div class="ask-week-num">${d.getDate()}</div>
+      <div class="ask-week-dots">${dots.map(c => `<span class="ask-week-dot" style="background:${c}"></span>`).join("")}</div>
+    </div>`;
+  }
+  const M = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const end = addDays(start, 6);
+  const range = start.getMonth() === end.getMonth()
+    ? `${M[start.getMonth()]} ${start.getDate()} – ${end.getDate()}`
+    : `${M[start.getMonth()]} ${start.getDate()} – ${M[end.getMonth()]} ${end.getDate()}`;
+  const rangeEl = host.querySelector(".ask-weekstrip-range");
+  const rowEl = host.querySelector(".ask-week-row");
+  if (rangeEl) rangeEl.textContent = range;
+  if (rowEl) rowEl.innerHTML = cells;
+}
+
 function openAskClaude() {
   if (userRole === "supporting") return; // caregivers can't edit
   _askHistory = [];
@@ -8185,6 +8282,7 @@ function openAskClaude() {
     scroll.innerHTML = "";
     scroll.appendChild(sugg);
   }
+  renderAskWeekStrip();
   if (input) input.value = "";
   refreshAskSendDisabled();
   document.body.classList.add("ask-claude-open");
@@ -8207,10 +8305,18 @@ function _askAppendBubble(role, text) {
   const sugg = document.getElementById("askSuggestions");
   if (!scroll) return;
   if (sugg && sugg.parentNode === scroll) sugg.remove();
-  const el = document.createElement("div");
-  el.className = "ask-bubble " + (role === "user" ? "mine" : "theirs");
-  el.textContent = text;
-  scroll.appendChild(el);
+  if (role === "user") {
+    const el = document.createElement("div");
+    el.className = "ask-bubble mine";
+    el.textContent = text;
+    scroll.appendChild(el);
+  } else {
+    const wrap = document.createElement("div");
+    wrap.className = "ask-msg-claude";
+    wrap.innerHTML = `<div class="ask-msg-avatar">${CLAUDE_MARK_SVG}</div><div class="ask-msg-text"></div>`;
+    wrap.querySelector(".ask-msg-text").textContent = text;
+    scroll.appendChild(wrap);
+  }
   requestAnimationFrame(() => { scroll.scrollTop = scroll.scrollHeight; });
 }
 
@@ -8880,7 +8986,7 @@ function wireAskClaudeUI() {
       sendAskClaude(v);
     });
   }
-  document.querySelectorAll(".ask-suggestion[data-ask-prompt]").forEach((btn) => {
+  document.querySelectorAll("#askSuggestions [data-ask-prompt]").forEach((btn) => {
     if (btn.__wired) return;
     btn.__wired = true;
     btn.addEventListener("click", () => sendAskClaude(btn.getAttribute("data-ask-prompt") || ""));
@@ -13411,25 +13517,21 @@ function renderMonthComparison() {
   const meta = _periodMeta(period);
   const comp = computePeriodComparison(period);
 
-  const dropdown = `
-    <div class="mc-period">
-      <span>${meta.label}</span><span class="mc-caret">⌄</span>
-      <select id="mcPeriodSelect" class="mc-period-select" aria-label="Comparison period">
-        <option value="month">Month</option>
-        <option value="quarter">Quarter</option>
-        <option value="year">Year</option>
-      </select>
+  const periods = [["month", "M"], ["quarter", "Q"], ["year", "Y"]];
+  const segments = `
+    <div class="mc-seg" role="tablist" aria-label="Comparison period">
+      ${periods.map(([p, lab]) => `<button type="button" class="mc-seg-btn${p === period ? " on" : ""}" data-p="${p}" role="tab" aria-selected="${p === period}">${lab}</button>`).join("")}
     </div>`;
-  const wireDropdown = () => {
-    const sel = document.getElementById("mcPeriodSelect");
-    if (!sel) return;
-    sel.value = period;
-    sel.onchange = (e) => {
-      if (!state.ui) state.ui = {};
-      state.ui.monthCompPeriod = e.target.value;
-      saveState();
-      renderMonthComparison();
-    };
+  const wireSegments = () => {
+    document.querySelectorAll("#monthCompContent .mc-seg-btn").forEach(btn => {
+      btn.onclick = () => {
+        if (!state.ui) state.ui = {};
+        if (state.ui.monthCompPeriod === btn.dataset.p) return;
+        state.ui.monthCompPeriod = btn.dataset.p;
+        saveState();
+        renderMonthComparison();
+      };
+    });
   };
 
   if (!comp || !comp.baseline) {
@@ -13437,10 +13539,10 @@ function renderMonthComparison() {
       <div class="mc-head">
         <div><div class="mc-title">${meta.title}</div>
         <div class="mc-sub">${comp ? `${_fmtShortDate(comp.curStart)} – ${_fmtShortDate(comp.curEnd)}` : ""}</div></div>
-        ${dropdown}
+        ${segments}
       </div>
       <div class="mc-empty">Not enough history yet for a ${meta.label.toLowerCase()} comparison — there's no data before ${comp ? _fmtShortDate(comp.curStart) : "the current window"} to average against. This fills in as more schedule history builds up.</div>`;
-    wireDropdown();
+    wireSegments();
     return;
   }
 
@@ -13451,11 +13553,11 @@ function renderMonthComparison() {
   const c = comp.current.totals, b = comp.baseline.totals;
 
   const metrics = [
-    { label: `${selfName}'s hours`, cur: c.totalGageWork/cw/60, prev: b.totalGageWork/bw/60, moreIsBad: true,  bar: "var(--color-g)" },
-    { label: "Couple time",         cur: c.totalCouple/cw/60,   prev: b.totalCouple/bw/60,   moreIsBad: false, bar: "var(--color-both)" },
-    { label: `${selfName} solo`,    cur: c.totalSoloG/cw/60,    prev: b.totalSoloG/bw/60,    moreIsBad: true,  bar: "var(--color-g)" },
-    { label: `${partnerName} solo`, cur: c.totalSoloP/cw/60,    prev: b.totalSoloP/bw/60,    moreIsBad: true,  bar: "var(--color-k)" },
-    { label: "Childcare gaps",      cur: c.totalGap/cw/60,      prev: b.totalGap/bw/60,      moreIsBad: true,  bar: "#FF9F0A" },
+    { label: `${selfName}'s hours`, field: "gageWorkMin",    cur: c.totalGageWork/cw/60, prev: b.totalGageWork/bw/60, moreIsBad: true,  bar: "var(--color-g)" },
+    { label: "Couple time",         field: "coupleMin",      cur: c.totalCouple/cw/60,   prev: b.totalCouple/bw/60,   moreIsBad: false, bar: "var(--color-both)" },
+    { label: `${selfName} solo`,    field: "soloG",          cur: c.totalSoloG/cw/60,    prev: b.totalSoloG/bw/60,    moreIsBad: true,  bar: "var(--color-g)" },
+    { label: `${partnerName} solo`, field: "soloP",          cur: c.totalSoloP/cw/60,    prev: b.totalSoloP/bw/60,    moreIsBad: true,  bar: "var(--color-k)" },
+    { label: "Childcare gaps",      field: "gapMin",         cur: c.totalGap/cw/60,      prev: b.totalGap/bw/60,      moreIsBad: true,  bar: "#FF9F0A" },
   ];
 
   // Insight: the biggest UNfavorable change; if everything moved favorably, the
@@ -13480,12 +13582,10 @@ function renderMonthComparison() {
     </div>`;
   }
 
+  const weeks = comp.current.weekly || [];
   let rows = "";
   metrics.forEach(m => {
     const delta = m.cur - m.prev;
-    const max = Math.max(m.cur, m.prev, 0.1) * 1.18;
-    const fillPct = Math.max(4, (m.cur / max) * 100).toFixed(1);
-    const prevPct = Math.min(98, (m.prev / max) * 100).toFixed(1);
     let chip;
     if (Math.abs(delta) < 0.1) {
       chip = `<span class="mc-delta flat">—</span>`;
@@ -13493,30 +13593,54 @@ function renderMonthComparison() {
       const good = m.moreIsBad ? delta < 0 : delta > 0;
       chip = `<span class="mc-delta ${good ? "good" : "bad"}"><span class="mc-arrow">${delta > 0 ? "▲" : "▼"}</span>${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)}h</span>`;
     }
+    const series = weeks.map(w => Math.max(0, (w[m.field] || 0) / 60));
     rows += `<div class="mc-row">
-      <div class="mc-row-head">
+      <div class="mc-row-main">
         <div class="mc-label">${escapeHTML(m.label)} / wk</div>
-        <div class="mc-vals"><div class="mc-value">${m.cur.toFixed(1)}h</div>${chip}</div>
+        <div class="mc-vals"><span class="mc-value">${m.cur.toFixed(1)}h</span>${chip}<span class="mc-was">was ${Math.max(0, m.prev).toFixed(1)}h</span></div>
       </div>
-      <div class="mc-bar">
-        <div class="mc-bar-fill" style="width:${fillPct}%;background:${m.bar};"></div>
-        <div class="mc-bar-prev" style="left:${prevPct}%;"></div>
-      </div>
-      <div class="mc-was">was ${Math.max(0, m.prev).toFixed(1)}h</div>
+      ${_mcSparkline(series, m.prev, m.bar)}
     </div>`;
   });
 
+  const legendWeeks = weeks.length ? `last ${weeks.length} week${weeks.length === 1 ? "" : "s"}` : `last ${meta.weeks} weeks`;
   el.innerHTML = `
     <div class="mc-head">
       <div>
         <div class="mc-title">${meta.title}</div>
-        <div class="mc-sub">vs ${_fmtShortDate(comp.baseStart)} – ${_fmtShortDate(comp.baseEnd)} average</div>
+        <div class="mc-sub">weekly, vs ${_fmtShortDate(comp.baseStart)} – ${_fmtShortDate(comp.baseEnd)} average</div>
       </div>
-      ${dropdown}
+      ${segments}
     </div>
     ${insight}
-    <div>${rows}</div>`;
-  wireDropdown();
+    <div>${rows}</div>
+    <div class="mc-legend"><span>— ${legendWeeks}</span><span>┄ baseline avg</span></div>`;
+  wireSegments();
+}
+
+// Inline sparkline for the changes card: a weekly hours series as a polyline,
+// with a dashed horizontal line at the baseline average. Higher values sit
+// higher; short/flat series degrade to a level line so the card never breaks.
+function _mcSparkline(series, baseline, color) {
+  const W = 120, H = 34, padX = 6, top = 7, bot = 27;
+  const pts = (series && series.length) ? series.slice() : [0];
+  const vals = pts.concat([baseline || 0]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi - lo < 0.001) hi = lo + 1;                     // flat data → avoid /0
+  const span = hi - lo;
+  const y = (v) => bot - ((v - lo) / span) * (bot - top);
+  const n = pts.length;
+  const x = (i) => n <= 1 ? W / 2 : padX + (i / (n - 1)) * (W - padX * 2);
+  const by = y(baseline || 0).toFixed(1);
+  const lastX = x(n - 1).toFixed(1), lastY = y(pts[n - 1]).toFixed(1);
+  const poly = n <= 1
+    ? `<line x1="${padX}" y1="${lastY}" x2="${W - padX}" y2="${lastY}" stroke="${color}" stroke-width="2" stroke-linecap="round"></line>`
+    : `<polyline points="${pts.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
+  return `<svg class="mc-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <line class="mc-spark-base" x1="0" y1="${by}" x2="${W}" y2="${by}" stroke-width="1" stroke-dasharray="3 3"></line>
+      ${poly}
+      <circle cx="${lastX}" cy="${lastY}" r="2.6" fill="${color}"></circle>
+    </svg>`;
 }
 
 // ---------- Preview ----------
