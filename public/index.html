@@ -2494,6 +2494,10 @@
     -webkit-tap-highlight-color: transparent;
   }
   .ask-send:disabled { opacity: 0.45; }
+  /* While the keyboard is up the composer is lifted above it by a transform
+     (see _askKeyboardEngage). The transition makes that lift glide with the
+     keyboard's own animation instead of snapping. */
+  .ask-composer.ask-kb-live { transition: transform 0.25s ease-out, padding-bottom 0.25s ease-out; will-change: transform; }
 
 
   /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
@@ -8305,70 +8309,56 @@ function renderAskWeekStrip() {
   if (rowEl) rowEl.innerHTML = cells;
 }
 
-// ===== TEMP keyboard diagnostic v2 (remove after tuning) =====
-// Live readout + two buttons to test whether setResizeMode('none') actually
-// stops the webview resize, and to capture the Keyboard plugin's own reported
-// keyboard height (the reliable signal, unlike visualViewport under native
-// resize). Restores native mode on close.
-let _askKbDebugCleanup = null;
-function _askKbDebugStart() {
-  if (_askKbDebugCleanup) _askKbDebugCleanup();
-  const vv = window.visualViewport;
+function _capKeyboardPlugin() {
   const C = window.Capacitor;
-  let K = null;
-  if (C) { K = (C.Plugins && C.Plugins.Keyboard) || (typeof C.registerPlugin === "function" ? (function(){ try { return C.registerPlugin("Keyboard"); } catch(_) { return null; } })() : null); }
-  const panel = document.createElement("div");
-  panel.id = "askKbDebug";
-  panel.style.cssText = "position:fixed;top:58px;left:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.9);color:#39ff14;font:11px/1.35 ui-monospace,Menlo,monospace;padding:8px 10px;border-radius:10px;border:1px solid #1a7a1a;pointer-events:none;";
-  const txt = document.createElement("div"); txt.style.whiteSpace = "pre"; panel.appendChild(txt);
-  const row = document.createElement("div"); row.style.cssText = "margin-top:7px;display:flex;gap:8px;pointer-events:auto;";
-  const mkBtn = (label) => { const b = document.createElement("button"); b.textContent = label; b.style.cssText = "font:12px ui-monospace,monospace;padding:6px 10px;background:#123;color:#9cf;border:1px solid #48f;border-radius:7px;"; return b; };
-  const bNone = mkBtn("resize=none"); const bNative = mkBtn("resize=native");
-  row.appendChild(bNone); row.appendChild(bNative); panel.appendChild(row);
-  document.body.appendChild(panel);
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;bottom:0;left:0;width:0;height:env(safe-area-inset-bottom,0px);";
-  document.body.appendChild(probe);
-  const stats = { vvEvents: 0, kbEvtH: "-", kbEvtCount: 0, modeMsg: "(default)" };
-  const render = () => {
-    const innerH = window.innerHeight;
-    const vvH = vv ? Math.round(vv.height) : -1;
-    const kb = vv ? Math.max(0, Math.round(innerH - vv.height - vv.offsetTop)) : -1;
-    const safeB = Math.round(parseFloat(getComputedStyle(probe).height) || 0);
-    const sheet = document.getElementById("askModal");
-    const comp = sheet && sheet.querySelector(".ask-composer");
-    const sheetBot = sheet ? Math.round(sheet.getBoundingClientRect().bottom) : -1;
-    const compTop = comp ? Math.round(comp.getBoundingClientRect().top) : -1;
-    txt.textContent =
-      "KB DEBUG v2 — tap a button, then the box\n" +
-      "innerH=" + innerH + "  vvH=" + vvH + "  safeB=" + safeB + "\n" +
-      "kb(calc)=" + kb + "  kbEvtH=" + stats.kbEvtH + " (x" + stats.kbEvtCount + ")\n" +
-      "sheetBot=" + sheetBot + "  compTop=" + compTop + "\n" +
-      "vvEvents=" + stats.vvEvents + "  mode=" + stats.modeMsg;
+  if (!C) return null;
+  if (C.Plugins && C.Plugins.Keyboard) return C.Plugins.Keyboard;
+  if (typeof C.registerPlugin === "function") { try { return C.registerPlugin("Keyboard"); } catch (_) { return null; } }
+  return null;
+}
+
+// Keep the Ask Claude composer above the keyboard WITHOUT the native webview
+// resize reflowing the whole sheet. On-device testing settled the approach:
+// with resize mode 'none' the webview does NOT resize (window.innerHeight stays
+// put, so the week strip + suggestions never move), but visualViewport also
+// stops tracking the keyboard — so we lift the composer using the Keyboard
+// plugin's own keyboardWillShow height (e.g. 318), not visualViewport. Restore
+// 'native' on close so the chat pane (which relies on it) is unaffected. Off
+// Capacitor this no-ops, leaving default behavior untouched.
+let _askKbCleanup = null;
+function _askKeyboardEngage() {
+  if (_askKbCleanup) return;
+  const K = _capKeyboardPlugin();
+  const sheet = document.getElementById("askModal");
+  const composer = sheet && sheet.querySelector(".ask-composer");
+  const scroll = document.getElementById("askScroll");
+  if (!K || !K.addListener || !K.setResizeMode || !composer) return;
+  try { K.setResizeMode({ mode: "none" }); } catch (_) { return; }
+  const lift = (kbH) => {
+    const h = Math.max(0, Math.round(kbH || 0));
+    composer.classList.add("ask-kb-live");
+    composer.style.transform = h ? `translateY(-${h}px)` : "";
+    composer.style.paddingBottom = h ? "10px" : "";
+    if (scroll) {
+      const ch = h ? Math.round(composer.getBoundingClientRect().height) : 0;
+      scroll.style.paddingBottom = h ? (h + ch + 8) + "px" : "";
+    }
   };
-  const onVV = () => { stats.vvEvents++; render(); };
-  if (vv) { vv.addEventListener("resize", onVV); vv.addEventListener("scroll", onVV); }
-  bNone.onclick   = () => { stats.modeMsg = "none…";   if (K && K.setResizeMode) K.setResizeMode({ mode: "none" }).then(() => { stats.modeMsg = "none OK"; render(); }).catch(() => { stats.modeMsg = "none ERR"; render(); }); else stats.modeMsg = "no plugin"; render(); };
-  bNative.onclick = () => { stats.modeMsg = "native…"; if (K && K.setResizeMode) K.setResizeMode({ mode: "native" }).then(() => { stats.modeMsg = "native OK"; render(); }).catch(() => { stats.modeMsg = "native ERR"; render(); }); render(); };
   let hShow = null, hHide = null;
-  if (K && K.addListener) {
-    try { hShow = K.addListener("keyboardWillShow", (info) => { stats.kbEvtH = info && info.keyboardHeight; stats.kbEvtCount++; render(); }); } catch (_) {}
-    try { hHide = K.addListener("keyboardWillHide", () => { stats.kbEvtH = 0; stats.kbEvtCount++; render(); }); } catch (_) {}
-  }
-  const timer = setInterval(render, 120);
-  render();
-  _askKbDebugCleanup = () => {
-    clearInterval(timer);
-    if (vv) { vv.removeEventListener("resize", onVV); vv.removeEventListener("scroll", onVV); }
+  try { hShow = K.addListener("keyboardWillShow", (info) => lift(info && info.keyboardHeight)); } catch (_) {}
+  try { hHide = K.addListener("keyboardWillHide", () => lift(0)); } catch (_) {}
+  _askKbCleanup = () => {
     const off = (h) => { try { if (h && h.remove) h.remove(); else if (h && h.then) h.then((x) => x && x.remove && x.remove()); } catch (_) {} };
     off(hShow); off(hHide);
-    try { if (K && K.setResizeMode) K.setResizeMode({ mode: "native" }); } catch (_) {}  // leave the app in native mode
-    probe.remove(); panel.remove();
-    _askKbDebugCleanup = null;
+    composer.classList.remove("ask-kb-live");   // clear transform without a trailing glide
+    composer.style.transform = "";
+    composer.style.paddingBottom = "";
+    if (scroll) scroll.style.paddingBottom = "";
+    try { K.setResizeMode({ mode: "native" }); } catch (_) {}
+    _askKbCleanup = null;
   };
 }
-function _askKbDebugStop() { if (_askKbDebugCleanup) _askKbDebugCleanup(); }
-// ===== /TEMP keyboard diagnostic v2 =====
+function _askKeyboardRelease() { if (_askKbCleanup) _askKbCleanup(); }
 
 function openAskClaude() {
   if (userRole === "supporting") return; // caregivers can't edit
@@ -8385,7 +8375,7 @@ function openAskClaude() {
   refreshAskSendDisabled();
   document.body.classList.remove("ask-claude-closing");
   document.body.classList.add("ask-claude-open");
-  _askKbDebugStart(); // TEMP: keyboard diagnostic readout
+  _askKeyboardEngage();
   // Don't auto-focus the input: on the iOS webview that pops the keyboard up
   // WHILE the sheet is still sliding up, and the two animations fight (the lag).
   // Let the sheet settle showing the week strip + suggestions; the keyboard
@@ -8393,7 +8383,7 @@ function openAskClaude() {
 }
 
 function closeAskClaude() {
-  _askKbDebugStop(); // TEMP: keyboard diagnostic readout
+  _askKeyboardRelease();
   closeSheetAnimated("ask-claude-open", "ask-claude-closing", 380);
 }
 
