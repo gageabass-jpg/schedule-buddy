@@ -2494,11 +2494,6 @@
     -webkit-tap-highlight-color: transparent;
   }
   .ask-send:disabled { opacity: 0.45; }
-  /* While the keyboard is up, the composer is lifted above it via a transform
-     (see _askKeyboardEngage) so the rest of the sheet doesn't reflow. The
-     transition (added only while engaged) makes that lift glide with the
-     keyboard instead of jumping. */
-  .ask-composer.ask-kb-live { transition: transform 0.24s cubic-bezier(0.32,0.72,0,1); will-change: transform; }
 
 
   /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
@@ -8310,49 +8305,6 @@ function renderAskWeekStrip() {
   if (rowEl) rowEl.innerHTML = cells;
 }
 
-function _capKeyboardPlugin() {
-  const C = window.Capacitor;
-  if (!C) return null;
-  if (C.Plugins && C.Plugins.Keyboard) return C.Plugins.Keyboard;
-  if (typeof C.registerPlugin === "function") { try { return C.registerPlugin("Keyboard"); } catch (_) { return null; } }
-  return null;
-}
-
-// Glue the Ask Claude composer just above the keyboard WITHOUT the native
-// webview resize reflowing (and jittering) the whole sheet. While the sheet is
-// open we put the keyboard in overlay mode (no webview resize) and lift only the
-// composer, driven by visualViewport — so the week strip + suggestions stay put.
-// Degrades safely: if the resize mode can't be changed, the keyboard height
-// computes to ~0 and native behavior is left untouched.
-let _askKbCleanup = null;
-function _askKeyboardEngage() {
-  const vv = window.visualViewport;
-  const composer = document.querySelector("#askModal .ask-composer");
-  const scroll = document.getElementById("askScroll");
-  if (!vv || !composer || _askKbCleanup) return;
-  const Keyboard = _capKeyboardPlugin();
-  if (Keyboard && Keyboard.setResizeMode) { try { Keyboard.setResizeMode({ mode: "none" }); } catch (_) {} }
-  composer.classList.add("ask-kb-live");
-  const apply = () => {
-    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    composer.style.transform = kb ? `translateY(-${kb}px)` : "";
-    if (scroll) scroll.style.paddingBottom = kb ? (kb + 8) + "px" : "";
-  };
-  vv.addEventListener("resize", apply);
-  vv.addEventListener("scroll", apply);
-  apply();
-  _askKbCleanup = () => {
-    vv.removeEventListener("resize", apply);
-    vv.removeEventListener("scroll", apply);
-    composer.classList.remove("ask-kb-live");   // clear transform without a trailing glide
-    composer.style.transform = "";
-    if (scroll) scroll.style.paddingBottom = "";
-    if (Keyboard && Keyboard.setResizeMode) { try { Keyboard.setResizeMode({ mode: "native" }); } catch (_) {} }
-    _askKbCleanup = null;
-  };
-}
-function _askKeyboardRelease() { if (_askKbCleanup) _askKbCleanup(); }
-
 function openAskClaude() {
   if (userRole === "supporting") return; // caregivers can't edit
   _askHistory = [];
@@ -8368,7 +8320,6 @@ function openAskClaude() {
   refreshAskSendDisabled();
   document.body.classList.remove("ask-claude-closing");
   document.body.classList.add("ask-claude-open");
-  _askKeyboardEngage();
   // Don't auto-focus the input: on the iOS webview that pops the keyboard up
   // WHILE the sheet is still sliding up, and the two animations fight (the lag).
   // Let the sheet settle showing the week strip + suggestions; the keyboard
@@ -8376,7 +8327,6 @@ function openAskClaude() {
 }
 
 function closeAskClaude() {
-  _askKeyboardRelease();
   closeSheetAnimated("ask-claude-open", "ask-claude-closing", 380);
 }
 
