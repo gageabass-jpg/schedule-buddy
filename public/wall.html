@@ -801,13 +801,17 @@
       --wd-clockfont: "Space Mono", ui-monospace, monospace; --wd-clockweight: 700;
       --wd-logo-bg: #1c2740; --wd-logo-ink: #5fd4c0;
     }
-    .scene-dashboard { background: var(--wd-page); }
+    .scene-dashboard { background: var(--wd-page); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    /* Fixed 1920x1080 design canvas, scaled uniformly by JS (--wd-scale) to
+       fill whatever resolution the wall runs at — so every element keeps the
+       design's proportions instead of shrinking on a bigger screen. */
     .wd-root {
-      position: absolute; inset: 0; box-sizing: border-box;
-      padding: clamp(18px, 2.6vh, 40px) clamp(26px, 3.4vw, 50px);
+      width: 1380px; height: 776px; flex-shrink: 0; box-sizing: border-box;
+      padding: 28px 44px;
+      transform: scale(var(--wd-scale, 1)); transform-origin: center center;
       background: var(--wd-bg); color: var(--wd-ink);
       font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
-      display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 18px);
+      display: flex; flex-direction: column; gap: 12px;
       overflow: hidden;
     }
     .wd-head { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -824,13 +828,13 @@
     .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
     .wd-tile.flip { animation: wdFlip .4s ease; }
     @keyframes wdFlip { 0% { transform: rotateX(-90deg); opacity: .3; } 100% { transform: rotateX(0); opacity: 1; } }
-    .wd-greeting { font-family: var(--wd-serif); font-weight: 400; font-size: clamp(50px, 7vh, 82px); line-height: 1; margin: clamp(2px,1vh,14px) 0 0; letter-spacing: -1px; }
+    .wd-greeting { font-family: var(--wd-serif); font-weight: 400; font-size: 82px; line-height: 1; margin: 8px 0 0; letter-spacing: -1px; }
     .wd-period { color: #c05f33; }
     .wd-heroline { font-size: 19px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .wd-heroline strong { font-weight: 700; }
     .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
     .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 11px 22px; display: flex; align-items: center; gap: 16px; }
+    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
     .wd-avatar { width: 52px; height: 52px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 24px; flex-shrink: 0; overflow: hidden; }
     .wd-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .wd-person-mid { flex: 1; min-width: 0; }
@@ -885,11 +889,11 @@
     .wd-cd-slide.anim { animation: wdSlideIn .5s ease; }
     @keyframes wdSlideIn { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
     .wd-news { flex: 1.4 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
-    .wd-news-img { height: clamp(88px, 12.5vh, 150px); background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
+    .wd-news-img { height: 132px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
     .wd-news-body { padding: 12px 18px 14px; display: flex; flex-direction: column; flex: 1; }
     .wd-news-title { font-family: var(--wd-serif); font-size: 20px; line-height: 1.25; }
     .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 11px; letter-spacing: 1px; color: var(--wd-muted); }
-    .wd-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 18px; border-top: 1px solid var(--wd-line); font-size: 14px; color: var(--wd-muted); gap: 20px; }
+    .wd-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 13px; border-top: 1px solid var(--wd-line); font-size: 14px; color: var(--wd-muted); gap: 20px; }
     .wd-events { display: flex; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
     .wd-events span { white-space: nowrap; }
     .wd-events strong { color: var(--wd-ink); }
@@ -1025,6 +1029,15 @@
     const _DOWU = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
     const _DAYL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
+    // Scale the fixed 1380x776 dashboard canvas to fill the actual screen.
+    function wdFitScale() {
+      const r = document.querySelector(".wd-root");
+      if (!r) return;
+      r.style.setProperty("--wd-scale", Math.min(window.innerWidth / 1380, window.innerHeight / 776));
+    }
+    window.addEventListener("resize", wdFitScale);
+    window.addEventListener("load", wdFitScale);
+    wdFitScale();
     const refreshMs    = 30_000;
     const weatherMs    = 15 * 60 * 1000;
     const photoSceneEveryMs    = 5 * 60 * 1000;     // photos: every 5 min
