@@ -95,7 +95,7 @@ interface WallPayload {
   news: { title: string; image: string; source: string; time: string } | null;
 }
 
-// ───────────────── WV MetroNews headline (cached ~5 min) ─────────────────
+// ───────────────── WV MetroNews headline (refreshed hourly, Firestore-backed) ─────────────────
 let NEWS_CACHE: { at: number; val: WallPayload["news"] } | null = null;
 async function fetchTopNews(): Promise<WallPayload["news"]> {
   if (NEWS_CACHE && Date.now() - NEWS_CACHE.at < 60 * 60_000) return NEWS_CACHE.val;
@@ -138,7 +138,27 @@ async function fetchTopNews(): Promise<WallPayload["news"]> {
       if (title) val = { title: title.slice(0, 140), image, source: "WV MetroNews", time };
     }
   } catch (e) { logger.warn("news fetch failed", { error: String(e) }); }
-  NEWS_CACHE = { at: Date.now(), val };
+  // Persist the good headline to Firestore (and restore from it on failure) so
+  // the card survives cold starts and feed outages — the in-memory cache is
+  // per-instance and is empty on every cold start, and the WV MetroNews feed
+  // is intermittently slow (>12s) and hides the card when the live fetch fails.
+  try {
+    const doc = getFirestore().collection("meta").doc("wallNews");
+    if (val && val.title) {
+      await doc.set({ ...val, at: Date.now() });
+    } else {
+      const snap = await doc.get();
+      const d = snap.exists ? (snap.data() as { title?: string; image?: string; source?: string; time?: string; at?: number }) : null;
+      if (d && d.title && typeof d.at === "number" && Date.now() - d.at < 24 * 3600_000) {
+        val = { title: d.title, image: d.image ?? "", source: d.source ?? "WV MetroNews", time: d.time ?? "" };
+      }
+    }
+  } catch (e) { logger.warn("news persist/restore failed", { error: String(e) }); }
+  // Cache a real headline for the full hour; if we still have nothing, age the
+  // cache so the live feed is retried in ~5 min instead of being stuck for an
+  // hour during an outage.
+  const now = Date.now();
+  NEWS_CACHE = { at: (val && val.title) ? now : now - 55 * 60_000, val };
   return val;
 }
 

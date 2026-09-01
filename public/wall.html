@@ -1128,6 +1128,7 @@
     let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
     let _wvuGameDays = new Set();   // ISO dates (Eastern) with a WVU game, for the week-list icon
     let _lastWx = null;             // cached weather so the sun stat can re-apply on day/night flip
+    let _lastNews = null;           // last good news headline so a transient null doesn't blank the cell
     // Scale the fixed 2560x1440 dashboard canvas to fill the actual screen.
     function wdFitScale() {
       const r = document.querySelector(".wd-root");
@@ -2518,15 +2519,24 @@
         } else { bd.innerHTML = `<div class="wd-board-empty">No messages right now.</div>`; }
       }
 
-      // News card
+      // News card — keep the last good headline so a transient null (slow/down
+      // feed) never blanks the cell; only fall back to a muted placeholder if
+      // we've genuinely never had news this session.
       const newsCard = $("wdNewsCard");
       if (newsCard) {
-        if (p.news && p.news.title) {
-          newsCard.style.display = "";
-          const img = $("wdNewsImg"); if (img) img.style.backgroundImage = p.news.image ? `url("${p.news.image}")` : "";
-          $("wdNewsTitle").textContent = p.news.title;
-          $("wdNewsMeta").textContent = `${p.news.source || "News"}${p.news.time ? " · " + p.news.time : ""}`;
-        } else { newsCard.style.display = "none"; }
+        if (p.news && p.news.title) _lastNews = p.news;
+        const news = _lastNews;
+        newsCard.style.display = "";
+        const img = $("wdNewsImg");
+        if (news && news.title) {
+          if (img) img.style.backgroundImage = news.image ? `url("${news.image}")` : "";
+          $("wdNewsTitle").textContent = news.title;
+          $("wdNewsMeta").textContent = `${news.source || "News"}${news.time ? " · " + news.time : ""}`;
+        } else {
+          if (img) img.style.backgroundImage = "";
+          $("wdNewsTitle").textContent = "Latest headline loading…";
+          $("wdNewsMeta").textContent = "WV MetroNews";
+        }
       }
 
       // Countdown slides — next payday + next day off together
