@@ -606,7 +606,21 @@
     .styrene {
       font-family: "Space Grotesk", "Styrene A", "Styrene B", "Inter", -apple-system, sans-serif;
     }
-    .scene-calendar { background: var(--bg-deep); }
+    /* Two-week outlook recolored to the Morning Press palette: cream page,
+       white cells, warm borders, dark ink, sage/rust shift pills. Scoped
+       overrides of the global (dark) theme vars cascade to every .cal-*
+       element and the reused .brand-block header + clock. */
+    .scene-calendar {
+      --bg-deep: #e9e5dd;
+      --card:    #fffdf6;
+      --border:  #e3dbc6;
+      --text:    #2a2620;
+      --text-3:  #8d8371;
+      --text-4:  #b3a892;
+      --g: #5a7030; --g-soft: #eef2e2;
+      --k: #c05f33; --k-soft: #f3e5d4;
+      background: var(--bg-deep);
+    }
     .cal-root {
       padding: 30px 44px 32px;
       height: 100vh;
@@ -654,10 +668,10 @@
       overflow: hidden;
       transition: opacity 0.4s ease;
     }
-    .cal-day.past    { opacity: 0.40; }
+    .cal-day.past    { opacity: 0.55; }
     .cal-day.today   {
-      background: rgba(127, 168, 106, 0.10);
-      border-color: rgba(127, 168, 106, 0.45);
+      background: var(--g-soft);
+      border-color: var(--g);
     }
     .cal-day .cal-day-head {
       display: flex; align-items: baseline;
