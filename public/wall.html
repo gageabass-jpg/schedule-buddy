@@ -786,10 +786,11 @@
     .scene-dashboard {
       --wd-page: #e9e5dd; --wd-bg: #f4efe4; --wd-ink: #2a2620; --wd-ink2: #5d564a;
       --wd-muted: #8d8371; --wd-card: #fffdf6; --wd-cardline: #e3dbc6; --wd-line: #ddd5c2;
-      --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4;
-      --wd-k: #c05f33; --wd-k-chipink: #fff8ec; --wd-gold: #c9a84c;
+      --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4; --wd-g-pillink: #4b5d28;
+      --wd-k: #c05f33; --wd-k-bg: #f3e5d4; --wd-k-chipink: #fff8ec;
+      --wd-gold: #c9a84c; --wd-period-col: #c05f33;
       --wd-row: #f7f2e5; --wd-dark: #2a2620; --wd-dark-ink: #f4efe4;
-      --wd-body: "Inter", system-ui, sans-serif;
+      --wd-body: "IBM Plex Sans", "Inter", system-ui, sans-serif;
       --wd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
       --wd-mono: "IBM Plex Mono", ui-monospace, monospace;
       --wd-clockfont: "IBM Plex Mono", ui-monospace, monospace; --wd-clockweight: 600;
@@ -797,11 +798,12 @@
       --wd-logo-bg: #2a2620; --wd-logo-ink: #e8c46b;
     }
     body.wall-night .scene-dashboard {
-      --wd-page: #05070d; --wd-bg: #0e1420; --wd-ink: #e8ecf5; --wd-ink2: #aeb8cf;
-      --wd-muted: #6b7793; --wd-card: #131c2e; --wd-cardline: #232d42; --wd-line: #232d42;
-      --wd-g: #78b06a; --wd-g-bg: #17251c; --wd-g-chipink: #0e1420;
-      --wd-k: #e08a5a; --wd-k-chipink: #0e1420; --wd-gold: #c9a84c;
-      --wd-row: #101827; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
+      --wd-page: #05070d; --wd-bg: #0e1420; --wd-ink: #e8ecf5; --wd-ink2: #a7b0c6;
+      --wd-muted: #6b7793; --wd-card: #151d2e; --wd-cardline: #24314c; --wd-line: #24314c;
+      --wd-g: #5fd4c0; --wd-g-bg: #123b34; --wd-g-chipink: #0e1420; --wd-g-pillink: #5fd4c0;
+      --wd-k: #f0a35e; --wd-k-bg: #3a2a18; --wd-k-chipink: #0e1420;
+      --wd-gold: #e8c46b; --wd-period-col: #5fd4c0;
+      --wd-row: #101828; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
       /* Night: the design uses Space Grotesk everywhere (no serif), with
          Space Mono for the clock + all mono labels/pills. */
       --wd-body: "Space Grotesk", system-ui, sans-serif;
@@ -809,110 +811,141 @@
       --wd-mono: "Space Mono", ui-monospace, monospace;
       --wd-clockfont: "Space Mono", ui-monospace, monospace; --wd-clockweight: 700;
       --wd-greetweight: 700; --wd-greetls: -2px;
-      --wd-logo-bg: #1c2740; --wd-logo-ink: #5fd4c0;
+      --wd-logo-bg: #5fd4c0; --wd-logo-ink: #0e1420;
     }
     .scene-dashboard { background: var(--wd-page); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    /* Fixed 1920x1080 design canvas, scaled uniformly by JS (--wd-scale) to
-       fill whatever resolution the wall runs at — so every element keeps the
-       design's proportions instead of shrinking on a bigger screen. */
+    /* Fixed 2560x1440 design canvas (27" monitor), scaled uniformly by JS
+       (--wd-zoom) to fill whatever resolution the wall runs at — so every
+       element keeps the design's proportions instead of shrinking. */
     .wd-root {
-      width: 1380px; height: 776px; flex-shrink: 0; box-sizing: border-box;
-      padding: 28px 44px;
+      width: 2560px; height: 1440px; flex-shrink: 0; box-sizing: border-box;
+      padding: 48px 56px 36px;
       zoom: var(--wd-zoom, 1);
       background: var(--wd-bg); color: var(--wd-ink);
-      font-family: var(--wd-body, "Inter", system-ui, sans-serif); letter-spacing: -0.01em;
-      display: flex; flex-direction: column; gap: 12px;
+      font-family: var(--wd-body, "Inter", system-ui, sans-serif);
+      display: flex; flex-direction: column;
       overflow: hidden;
     }
     .wd-head { display: flex; justify-content: space-between; align-items: flex-start; }
     .wd-brand { display: flex; gap: 14px; align-items: center; }
-    .wd-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 34px; line-height: 1; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
     .wd-brand-title { font-family: var(--wd-serif); font-size: 34px; line-height: 1; }
+    body.wall-night .wd-brand-title { font-size: 30px; font-weight: 700; }
     .wd-brand-sub { font-family: var(--wd-mono); font-size: 12px; letter-spacing: 3px; color: var(--wd-muted); margin-top: 6px; }
     .wd-clockwrap { display: flex; flex-direction: column; align-items: flex-end; }
-    .wd-clock { display: flex; align-items: center; gap: 5px; }
-    .wd-tile { width: 48px; height: 64px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 42px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
-    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; }
+    .wd-clock { display: flex; align-items: center; gap: 5px; perspective: 400px; }
+    .wd-tile { position: relative; width: 48px; height: 64px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 42px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: rgba(0,0,0,.45); }
+    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; font-size: 40px; }
+    body.wall-night .wd-tile::after { background: rgba(0,0,0,.5); }
     .wd-colon { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 2px; }
     .wd-ampm { font-family: var(--wd-clockfont); font-size: 25px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 6px; margin-left: 4px; }
     .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
-    .wd-tile.flip { animation: wdFlip .4s ease; }
-    @keyframes wdFlip { 0% { transform: rotateX(-90deg); opacity: .3; } 100% { transform: rotateX(0); opacity: 1; } }
-    .wd-greeting { font-family: var(--wd-serif); font-weight: var(--wd-greetweight, 400); font-size: 88px; line-height: 1; margin: 14px 0 0; letter-spacing: var(--wd-greetls, -1px); }
-    .wd-period { color: #c05f33; }
-    .wd-heroline { font-size: 19px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .wd-tile.flip { animation: wdFlip .55s ease; }
+    @keyframes wdFlip { 0% { transform: rotateX(-85deg); opacity: .35; } 55% { transform: rotateX(12deg); } 100% { transform: rotateX(0deg); opacity: 1; } }
+    .wd-greeting { font-family: var(--wd-serif); font-weight: var(--wd-greetweight, 400); font-size: 88px; line-height: 1; margin: 36px 0 0; letter-spacing: var(--wd-greetls, -1px); }
+    body.wall-night .wd-greeting { font-size: 84px; }
+    .wd-period { color: var(--wd-period-col); }
+    .wd-heroline { font-size: 26px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
     .wd-heroline strong { font-weight: 700; }
-    .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
-    .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 18px 26px; display: flex; align-items: center; gap: 16px; }
-    .wd-avatar { width: 52px; height: 52px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 24px; flex-shrink: 0; overflow: hidden; }
+    .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g-pillink); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
+    body.wall-night .wd-pill { background: var(--wd-g-bg); }
+    .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 22px 26px; display: flex; align-items: center; gap: 16px; }
+    .wd-avatar { width: 72px; height: 72px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 30px; flex-shrink: 0; overflow: hidden; }
     .wd-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .wd-person-mid { flex: 1; min-width: 0; }
     .wd-person-top { display: flex; align-items: center; gap: 10px; }
-    .wd-person-name { font-weight: 700; font-size: 19px; }
-    .wd-status { font-family: var(--wd-mono); font-size: 10px; font-weight: 600; letter-spacing: 1.5px; padding: 3px 9px; border-radius: 999px; }
-    .wd-person-sub { color: var(--wd-muted); font-size: 14px; margin-top: 4px; }
-    .wd-person-time { font-family: var(--wd-mono); font-weight: 600; font-size: 19px; white-space: nowrap; }
-    .wd-grid { flex: 1; display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 16px; min-height: 0; }
-    .wd-col { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-    .wd-card { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 20px 22px; min-height: 0; overflow: hidden; }
-    .wd-label { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 3px; color: var(--wd-muted); }
+    .wd-person-name { font-weight: 700; font-size: 26px; }
+    .wd-status { font-family: var(--wd-mono); font-size: 14px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
+    .wd-person-sub { color: var(--wd-muted); font-size: 18px; margin-top: 5px; }
+    .wd-person-time { font-family: var(--wd-mono); font-weight: 600; font-size: 26px; white-space: nowrap; }
+    .wd-grid { flex: 1; display: grid; grid-template-columns: 900px 1fr 1fr; gap: 24px; margin-top: 24px; min-height: 0; }
+    .wd-col { display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+    .wd-card { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 22px; min-height: 0; overflow: hidden; }
+    .wd-label { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 3px; color: var(--wd-muted); }
     .wd-week { display: flex; flex-direction: column; min-height: 0; }
-    .wd-weeklist { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; flex: 1; min-height: 0; }
+    .wd-weeklist { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; flex: 1; min-height: 0; }
     .wd-day { display: flex; align-items: center; gap: 14px; background: var(--wd-row); border-radius: 10px; padding: 9px 14px; flex: 1; min-height: 0; overflow: hidden; }
     .wd-day.today { background: var(--wd-g-bg); border: 1.5px solid var(--wd-g); }
+    body.wall-night .wd-day.today { background: #12262c; }
     .wd-day.game { border: 1.5px solid var(--wd-gold); }
-    .wd-day-num { font-family: var(--wd-serif); font-size: 24px; width: 34px; text-align: center; color: var(--wd-ink2); }
+    .wd-day-num { font-family: var(--wd-serif); font-size: 34px; width: 48px; text-align: center; color: var(--wd-ink2); }
+    body.wall-night .wd-day-num { font-size: 30px; font-weight: 700; }
     .wd-day.today .wd-day-num { color: var(--wd-ink); }
-    .wd-day-dow { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1px; color: var(--wd-muted); width: 58px; display: inline-flex; align-items: center; gap: 5px; }
+    .wd-day-dow { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 1px; color: var(--wd-muted); width: 78px; display: inline-flex; align-items: center; gap: 6px; }
     .wd-day.today .wd-day-dow { color: var(--wd-g); font-weight: 600; }
-    .wd-day-dow img { width: 18px; height: 18px; object-fit: contain; }
+    .wd-day-dow img { width: 20px; height: 20px; object-fit: contain; }
     .wd-day-pills { flex: 1; display: flex; gap: 6px; justify-content: flex-end; }
-    .wd-chip { font-family: var(--wd-mono); font-size: 11px; padding: 3px 10px; border-radius: 5px; white-space: nowrap; }
+    .wd-chip { font-family: var(--wd-mono); font-size: 17px; padding: 5px 14px; border-radius: 7px; white-space: nowrap; }
     .wd-chip.g { background: var(--wd-g); color: var(--wd-g-chipink); }
     .wd-chip.k { background: var(--wd-k); color: var(--wd-k-chipink); }
-    .wd-weather, .wd-board { flex: 1; min-height: 0; }
-    .wd-board { display: flex; flex-direction: column; }
-    .wd-board-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .wd-wx-top { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-    .wd-wx-temp { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
-    .wd-wx-desc { color: var(--wd-muted); font-size: 13px; margin-top: 6px; }
-    .wd-wx-icon { font-size: 34px; color: #e0a23c; }
+    .wd-weather, .wd-board { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .wd-wx-top { flex: 1; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+    .wd-wx-temp { font-family: var(--wd-serif); font-size: 110px; line-height: 1; }
+    body.wall-night .wd-wx-temp { font-size: 104px; font-weight: 700; }
+    .wd-wx-desc { color: var(--wd-muted); font-size: 26px; margin-top: 10px; }
+    .wd-wx-icon { font-size: 76px; color: #e0a23c; }
+    body.wall-night .wd-wx-icon { color: var(--wd-gold); }
     .wd-wx-meta { display: flex; gap: 0; margin-top: 16px; border-top: 1px solid var(--wd-line); padding-top: 12px; }
     .wd-wx-meta > div { flex: 1; }
-    .wd-wx-k { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1.5px; color: var(--wd-muted); }
-    .wd-wx-v { font-size: 14px; font-weight: 600; margin-top: 3px; }
-    .wd-board-body { margin-top: 14px; }
-    .wd-board-msg { font-family: var(--wd-serif); font-size: 24px; line-height: 1.18; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-    .wd-board-by { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 12px; color: var(--wd-muted); font-size: 13px; flex-shrink: 0; }
-    .wd-board-av { width: 22px; height: 22px; border-radius: 50%; background: var(--wd-k); color: #fff8ec; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; overflow: hidden; }
+    .wd-wx-k { font-family: var(--wd-mono); font-size: 14px; letter-spacing: 1.5px; color: var(--wd-muted); }
+    .wd-wx-v { font-size: 20px; font-weight: 600; margin-top: 5px; }
+    .wd-board-body { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+    .wd-board-msg { font-family: var(--wd-serif); font-size: 45px; line-height: 1.15; flex: 1; display: flex; align-items: center; }
+    body.wall-night .wd-board-msg { font-size: 38px; font-weight: 600; }
+    .wd-board-by { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 12px; color: var(--wd-muted); font-size: 23px; flex-shrink: 0; }
+    .wd-board-av { width: 38px; height: 38px; border-radius: 50%; background: var(--wd-k); color: var(--wd-k-chipink); display: inline-flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; overflow: hidden; flex-shrink: 0; }
+    body.wall-night .wd-board-av { background: var(--wd-k-bg); border: 1px solid var(--wd-k); color: var(--wd-k); }
     .wd-board-av img { width: 100%; height: 100%; object-fit: cover; }
-    .wd-board-empty { color: var(--wd-muted); font-size: 15px; margin-top: 14px; }
-    .wd-countdown { background: var(--wd-dark); color: var(--wd-dark-ink); flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+    .wd-board-empty { color: var(--wd-muted); font-size: 24px; margin: auto 0; }
+    /* Right-column cards swap by theme: day = countdown + news, night = catthew + fatigue */
+    .wd-night-only { display: none; }
+    body.wall-night .wd-day-only { display: none; }
+    body.wall-night .wd-night-only { display: flex; }
+    .wd-countdown { background: var(--wd-dark); color: var(--wd-dark-ink); flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; padding: 22px 24px; }
     .wd-cd-head { display: flex; justify-content: space-between; align-items: center; }
-    .wd-cd-label { font-family: var(--wd-serif); font-size: 24px; line-height: 1.1; }
+    .wd-cd-label { font-family: var(--wd-serif); font-size: 42px; line-height: 1.1; }
     .wd-cd-dots { display: flex; gap: 5px; }
     .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: #57503f; }
     .wd-cd-dot.on { background: var(--wd-gold); }
     .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
-    .wd-cd-num { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
-    .wd-cd-num small { font-size: 22px; color: var(--wd-muted); }
-    .wd-cd-sub { font-size: 15px; color: var(--wd-gold); margin-top: 10px; }
+    .wd-cd-num { font-family: var(--wd-serif); font-size: 110px; line-height: 1; }
+    .wd-cd-num small { font-size: 38px; color: #8d8371; }
+    .wd-cd-sub { font-size: 28px; color: var(--wd-gold); margin-top: 14px; }
     .wd-cd-slide.anim { animation: wdSlideIn .5s ease; }
-    @keyframes wdSlideIn { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    @keyframes wdSlideIn { 0% { transform: translateX(28px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
     .wd-news { flex: 1.4 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
-    .wd-news-img { height: 132px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
-    .wd-news-body { padding: 12px 18px 14px; display: flex; flex-direction: column; flex: 1; }
-    .wd-news-title { font-family: var(--wd-serif); font-size: 20px; line-height: 1.25; }
-    .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 11px; letter-spacing: 1px; color: var(--wd-muted); }
-    .wd-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 13px; border-top: 1px solid var(--wd-line); font-size: 14px; color: var(--wd-muted); gap: 20px; }
+    .wd-news-img { height: 280px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
+    .wd-news-body { padding: 16px 22px 20px; display: flex; flex-direction: column; flex: 1; }
+    .wd-news-title { font-family: var(--wd-serif); font-size: 40px; line-height: 1.3; }
+    .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 21px; letter-spacing: 1px; color: var(--wd-muted); }
+    /* CATTHEW (night only) */
+    .wd-cat { flex: 1 1 0; min-height: 0; flex-direction: column; background: linear-gradient(160deg,#16283a,#11202f); border: 1px solid #24425c; padding: 22px 24px; }
+    .wd-cat-head { display: flex; justify-content: space-between; align-items: center; }
+    .wd-cat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; margin-top: 12px; }
+    .wd-cat-row-top { display: flex; justify-content: space-between; font-size: 19px; margin-bottom: 8px; }
+    .wd-cat-row-top .lbl { color: var(--wd-ink2); }
+    .wd-cat-row-top .val { font-family: var(--wd-mono); }
+    .wd-cat-bar { height: 9px; background: #24314c; border-radius: 5px; overflow: hidden; }
+    .wd-cat-bar span { display: block; height: 100%; border-radius: 3px; }
+    .wd-cat-foot { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 1px; color: var(--wd-muted); margin-top: 14px; }
+    /* FATIGUE INDEX (night only) */
+    .wd-fatigue { flex: 1 1 0; min-height: 0; flex-direction: column; }
+    .wd-fat-status { font-family: var(--wd-mono); font-size: 30px; font-weight: 700; margin-top: 12px; }
+    .wd-fat-bars { display: flex; gap: 6px; margin-top: 16px; }
+    .wd-fat-bars span { height: 8px; flex: 1; background: #24314c; border-radius: 3px; }
+    .wd-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--wd-line); font-size: 20px; color: var(--wd-muted); gap: 20px; }
     .wd-events { display: flex; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
     .wd-events span { white-space: nowrap; }
     .wd-events strong { color: var(--wd-ink); }
     .wd-wvu { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-    .wd-wvu img { width: 26px; height: 26px; object-fit: contain; }
+    .wd-wvu img { width: 36px; height: 36px; object-fit: contain; }
     .wd-wvu strong { color: var(--wd-ink); }
-    .wd-stamp { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
+    .wd-wvu .rec { font-weight: 400; color: var(--wd-muted); }
+    .wd-wvu .vs { font-family: var(--wd-mono); font-size: 16px; color: var(--wd-muted); }
+    .wd-wvu .when { font-family: var(--wd-mono); font-size: 16px; letter-spacing: 1px; color: var(--wd-muted); }
+    .wd-stamp { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 2px; white-space: nowrap; }
   </style>
   <div class="scene scene-dashboard" id="sceneDashboard">
     <div class="wd-root">
@@ -944,7 +977,7 @@
 
       <div class="wd-grid">
         <div class="wd-card wd-week">
-          <div class="wd-label">NEXT 7 DAYS</div>
+          <div class="wd-label">NEXT 5 DAYS</div>
           <div class="wd-weeklist" id="wdWeek"></div>
         </div>
         <div class="wd-col">
@@ -961,7 +994,7 @@
               <div><div class="wd-wx-k">HI / LO</div><div class="wd-wx-v" id="wdWxHilo">—</div></div>
               <div><div class="wd-wx-k">WIND</div><div class="wd-wx-v" id="wdWxWind">—</div></div>
               <div><div class="wd-wx-k">HUMIDITY</div><div class="wd-wx-v" id="wdWxHum">—</div></div>
-              <div><div class="wd-wx-k">SUNRISE</div><div class="wd-wx-v" id="wdWxSun">—</div></div>
+              <div><div class="wd-wx-k" id="wdWxSunK">SUNRISE</div><div class="wd-wx-v" id="wdWxSun">—</div></div>
             </div>
           </div>
           <div class="wd-card wd-board">
@@ -970,19 +1003,43 @@
           </div>
         </div>
         <div class="wd-col">
-          <div class="wd-card wd-countdown">
+          <!-- DAY: countdown + WV news -->
+          <div class="wd-card wd-countdown wd-day-only">
             <div class="wd-cd-head">
               <div class="wd-cd-label" id="wdCdLabel">Next Payday</div>
               <div class="wd-cd-dots" id="wdCdDots"></div>
             </div>
             <div class="wd-cd-body" id="wdCdBody"></div>
           </div>
-          <div class="wd-card wd-news" id="wdNewsCard">
+          <div class="wd-card wd-news wd-day-only" id="wdNewsCard">
             <div class="wd-news-img" id="wdNewsImg"></div>
             <div class="wd-news-body">
               <div class="wd-news-title" id="wdNewsTitle">—</div>
               <div class="wd-news-meta" id="wdNewsMeta">—</div>
             </div>
+          </div>
+          <!-- NIGHT: Catthew + Fatigue Index -->
+          <div class="wd-card wd-cat wd-night-only">
+            <div class="wd-cat-head">
+              <div class="wd-label">CATTHEW</div>
+              <span style="font-size:26px">🐈</span>
+            </div>
+            <div class="wd-cat-body">
+              <div>
+                <div class="wd-cat-row-top"><span class="lbl">Food</span><span class="val" id="wdCatFoodV">—</span></div>
+                <div class="wd-cat-bar"><span id="wdCatFoodBar" style="width:0"></span></div>
+              </div>
+              <div>
+                <div class="wd-cat-row-top"><span class="lbl">Water</span><span class="val" id="wdCatWaterV">—</span></div>
+                <div class="wd-cat-bar"><span id="wdCatWaterBar" style="width:0"></span></div>
+              </div>
+            </div>
+            <div class="wd-cat-foot" id="wdCatFoot">—</div>
+          </div>
+          <div class="wd-card wd-fatigue wd-night-only">
+            <div class="wd-label">FATIGUE INDEX</div>
+            <div class="wd-fat-status" id="wdFatStatus">—</div>
+            <div class="wd-fat-bars" id="wdFatBars"></div>
           </div>
         </div>
       </div>
@@ -1042,11 +1099,12 @@
     const _DAYL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
     let _wvuGameDays = new Set();   // ISO dates (Eastern) with a WVU game, for the week-list icon
-    // Scale the fixed 1380x776 dashboard canvas to fill the actual screen.
+    let _lastWx = null;             // cached weather so the sun stat can re-apply on day/night flip
+    // Scale the fixed 2560x1440 dashboard canvas to fill the actual screen.
     function wdFitScale() {
       const r = document.querySelector(".wd-root");
       if (!r) return;
-      r.style.setProperty("--wd-zoom", Math.min(window.innerWidth / 1380, window.innerHeight / 776));
+      r.style.setProperty("--wd-zoom", Math.min(window.innerWidth / 2560, window.innerHeight / 1440));
     }
     window.addEventListener("resize", wdFitScale);
     window.addEventListener("load", wdFitScale);
@@ -1068,19 +1126,26 @@
         const wvu = comp.competitors.find(c => c.team.id === "277") || comp.competitors[0];
         const opp = comp.competitors.find(c => c !== wvu) || comp.competitors[1];
         const logo = (c) => (c.team.logos && c.team.logos[0] && c.team.logos[0].href) || c.team.logo || "";
-        const rec = (c) => (c.records && c.records[0] && c.records[0].summary) || "";
-        const recH = (c) => { const r = rec(c); return r ? ` <span style="font-weight:400;color:var(--wd-muted)">(${wdEsc(r)})</span>` : ""; };
+        const rec = (c) => (c.records && c.records[0] && c.records[0].summary) || "0-0";
+        const recH = (c) => ` <span class="rec">(${wdEsc(rec(c))})</span>`;
         const state = comp.status && comp.status.type && comp.status.type.state;
         const d = new Date(ev.date);
         let status;
         if (state === "post") status = `Final ${wvu.score != null ? (wvu.score.value ?? wvu.score) : ""}–${opp.score != null ? (opp.score.value ?? opp.score) : ""}`;
         else if (state === "in") status = (comp.status.type.shortDetail || "Live");
-        else status = `${_DOWU[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
+        else {
+          // e.g. "SAT 9/5 · 12:00 PM · TNT"
+          let tm = d.getHours(); const ap = tm >= 12 ? "PM" : "AM"; tm = tm % 12 || 12;
+          const timeStr = comp.status?.type?.detail?.includes("TBD") ? "TBD" : `${tm}:${String(d.getMinutes()).padStart(2,"0")} ${ap}`;
+          const tv = (comp.broadcasts && comp.broadcasts[0] && (comp.broadcasts[0].names || comp.broadcasts[0].media)?.[0])
+            || (comp.geoBroadcasts && comp.geoBroadcasts[0] && comp.geoBroadcasts[0].media?.shortName) || "";
+          status = `${_DOWU[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()} · ${timeStr}${tv ? " · " + tv : ""}`;
+        }
         host.innerHTML =
           `<img src="${wdEsc(logo(wvu))}" alt="WVU"><strong>WVU${recH(wvu)}</strong>` +
-          `<span style="font-family:var(--wd-mono);font-size:12px;color:var(--wd-muted)">${wvu.homeAway === "home" ? "vs" : "@"}</span>` +
+          `<span class="vs">${wvu.homeAway === "home" ? "vs" : "@"}</span>` +
           `<img src="${wdEsc(logo(opp))}" alt=""><strong>${wdEsc(opp.team.shortDisplayName || opp.team.displayName)}${recH(opp)}</strong>` +
-          `<span style="font-family:var(--wd-mono);font-size:12px;letter-spacing:1px;color:var(--wd-muted)">${wdEsc(status)}</span>`;
+          `<span class="when">${wdEsc(status)}</span>`;
         host.style.display = "flex";
       } catch (e) { host.style.display = "none"; }
     }
@@ -2025,7 +2090,9 @@
         ],
         occasions: [
           { date: today, label: "Payday", type: "payday" },
+          { date: plus(33), label: "Gatlinburg weekend", type: "trip" },
         ],
+        pet: { foodPct: 20, waterPct: 75, note: "FED 6:15 PM · REFILL FOOD TONIGHT" },
         photos: [
           "https://picsum.photos/seed/wall1/1920/1080",
           "https://picsum.photos/seed/wall2/1920/1080",
@@ -2253,7 +2320,15 @@
       return m ? `${h12}:${String(m).padStart(2,"0")}${ap}` : `${h12}${ap}`;
     }
 
+    // Day card shows SUNRISE, night card shows SUNSET — re-applied on theme flip.
+    function applySunStat() {
+      const w = _lastWx; if (!w) return;
+      const night = document.body.classList.contains("wall-night");
+      const k = $("wdWxSunK"); if (k) k.textContent = night ? "SUNSET" : "SUNRISE";
+      const v = $("wdWxSun"); if (v) v.textContent = (night ? w.sunset : w.sunrise) || "—";
+    }
     function renderWeather(w) {
+      _lastWx = w;
       const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
       set("wdWxTemp", (w.tempNow != null ? w.tempNow : "—") + "°");
       set("wdWxDesc", (w.feels != null ? `Feels like ${w.feels}° · ` : "") + (WX_DESC[w.code] ?? "—"));
@@ -2261,27 +2336,27 @@
       set("wdWxHilo", `${w.todayHi ?? "—"}° / ${w.todayLo ?? "—"}°`);
       set("wdWxWind", w.wind != null ? `${w.wind} mph ${w.windDir || ""}`.trim() : "—");
       set("wdWxHum", w.hum != null ? `${w.hum}%` : "—");
-      set("wdWxSun", w.sunrise || "—");
+      applySunStat();
     }
     async function refreshWeather() {
       try {
         if (isDemo) {
-          renderWeather({ tempNow: 58, code: 2, isDay: 1, feels: 55, todayHi: 64, todayLo: 41, wind: 6, windDir: "NW", hum: 48, sunrise: "6:47a" });
+          renderWeather({ tempNow: 58, code: 2, isDay: 1, feels: 55, todayHi: 64, todayLo: 41, wind: 6, windDir: "NW", hum: 48, sunrise: "6:47a", sunset: "7:52p" });
           return;
         }
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}` +
           `&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,wind_direction_10m` +
-          `&daily=temperature_2m_max,temperature_2m_min,sunrise` +
+          `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset` +
           `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`;
         const j = await (await fetch(url)).json();
         const dirs = ["N","NE","E","SE","S","SW","W","NW"]; const wdir = j.current?.wind_direction_10m;
-        let srStr = "—"; const sr = j.daily?.sunrise?.[0];
-        if (sr) { const t = new Date(sr); let h = t.getHours(); const ap = h >= 12 ? "p" : "a"; h = h % 12 || 12; srStr = `${h}:${String(t.getMinutes()).padStart(2,"0")}${ap}`; }
+        const hhmm = (iso) => { if (!iso) return "—"; const t = new Date(iso); let h = t.getHours(); const ap = h >= 12 ? "p" : "a"; h = h % 12 || 12; return `${h}:${String(t.getMinutes()).padStart(2,"0")}${ap}`; };
         renderWeather({
           tempNow: Math.round(j.current?.temperature_2m), code: j.current?.weather_code, isDay: j.current?.is_day,
           feels: Math.round(j.current?.apparent_temperature), hum: Math.round(j.current?.relative_humidity_2m),
           wind: Math.round(j.current?.wind_speed_10m), windDir: wdir != null ? dirs[Math.round(wdir / 45) % 8] : "",
-          todayHi: Math.round(j.daily?.temperature_2m_max?.[0]), todayLo: Math.round(j.daily?.temperature_2m_min?.[0]), sunrise: srStr,
+          todayHi: Math.round(j.daily?.temperature_2m_max?.[0]), todayLo: Math.round(j.daily?.temperature_2m_min?.[0]),
+          sunrise: hhmm(j.daily?.sunrise?.[0]), sunset: hhmm(j.daily?.sunset?.[0]),
         });
       } catch (err) { const d = $("wdWxDesc"); if (d) d.textContent = "Weather unavailable"; }
     }
@@ -2304,6 +2379,8 @@
       document.body.classList.toggle("wall-night", isNight);
       document.body.classList.toggle("dim", h >= 22 || h < 6);
       const logo = $("wdLogo"); if (logo) logo.textContent = isNight ? "🌙" : "☀";
+      const per = document.querySelector("#wdGreeting .wd-period"); if (per) per.textContent = isNight ? "_" : ".";
+      applySunStat();
     }
 
     // Countdown card — rotate the derived slides every 6s.
@@ -2387,11 +2464,11 @@
         </div>`;
       }).join("");
 
-      // Next 7 days
+      // Next 5 days
       const wk = $("wdWeek");
       if (wk) {
         let rows = "";
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 5; i++) {
           const iso = addDays(p.today, i); const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
           const pills = (p.shifts[iso] || []).map(s => {
             const t = stypeById.get(s.shiftTypeId); const cls = s.who === "G" ? "g" : "k";
@@ -2431,7 +2508,7 @@
         const days = Math.round((dobj - todayMid) / 86400000);
         _wdSlides.push({ label: "Next Payday", num: days <= 0 ? "Today" : days, unit: days <= 0 ? "" : (days === 1 ? "day" : "days"), sub: `${_DAYL[dobj.getDay()]} · ${_MONS[dobj.getMonth()]} ${dd}` });
       }
-      for (let i = 1; i <= 7; i++) {
+      for (let i = 1; i <= 14; i++) {
         const iso = addDays(p.today, i);
         if (!(p.shifts[iso] || []).length) {
           const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
@@ -2439,8 +2516,45 @@
           break;
         }
       }
+      // Upcoming trip — from an occasion (type "trip") or a life event whose title reads like a trip.
+      const tripRe = /\b(trip|vacation|getaway|weekend away|holiday)\b/i;
+      const trip = (p.occasions || []).filter(o => o.type === "trip" && o.date >= p.today).sort((a, b) => a.date.localeCompare(b.date))[0]
+        || (p.events || []).filter(e => e.date >= p.today && tripRe.test(e.title || "")).sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (trip) {
+        const [yy, mm, dd] = trip.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+        const days = Math.round((dobj - todayMid) / 86400000);
+        _wdSlides.push({ label: "Upcoming Trip", num: days <= 0 ? "Now" : days, unit: days <= 0 ? "" : (days === 1 ? "day" : "days"), sub: `${wdEsc(trip.label || trip.title)} · ${_MONS[dobj.getMonth()]} ${dd}` });
+      }
       if (!_wdSlides.length) _wdSlides.push({ label: "All caught up", num: "—", unit: "", sub: "Nothing on the horizon" });
       wdStartRotation();
+
+      // CATTHEW (night card) — food/water status. Reads p.pet if present; else placeholder.
+      const pet = p.pet || null;
+      {
+        const foodPct = pet && pet.foodPct != null ? pet.foodPct : 20;
+        const waterPct = pet && pet.waterPct != null ? pet.waterPct : 75;
+        const setBar = (barId, valId, pct) => {
+          const low = pct <= 30; const c = low ? "var(--wd-k)" : "var(--wd-g)";
+          const bar = $(barId); if (bar) { bar.style.width = Math.max(0, Math.min(100, pct)) + "%"; bar.style.background = c; }
+          const v = $(valId); if (v) { v.textContent = `${low ? "LOW" : "OK"} · ${pct}%`; v.style.color = c; }
+        };
+        setBar("wdCatFoodBar", "wdCatFoodV", foodPct);
+        setBar("wdCatWaterBar", "wdCatWaterV", waterPct);
+        const foot = $("wdCatFoot");
+        if (foot) foot.textContent = pet && pet.note ? pet.note : (pet && pet.fedAt ? `FED ${pet.fedAt}` : "FED 6:15 PM · REFILL FOOD TONIGHT");
+      }
+
+      // FATIGUE INDEX (night card) — reuse the app's fatigue scoring.
+      {
+        const score = fatigueForDay(p.today, p.shifts, p.shiftTypes);
+        const rested = score <= 0.15;
+        const st = $("wdFatStatus");
+        if (st) { st.textContent = rested ? "Well rested." : "Get some rest."; st.style.color = rested ? "var(--wd-g)" : "var(--wd-k)"; }
+        const filled = Math.max(1, Math.min(5, Math.round(score * 5)));
+        const bars = $("wdFatBars");
+        if (bars) bars.innerHTML = Array.from({ length: 5 }, (_, i) =>
+          `<span style="${i < filled ? `background:${rested ? "var(--wd-g)" : "var(--wd-k)"}` : ""}"></span>`).join("");
+      }
 
       // Events ticker
       const ev = $("wdEvents");
