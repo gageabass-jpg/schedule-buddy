@@ -99,9 +99,19 @@ interface WallPayload {
 let NEWS_CACHE: { at: number; val: WallPayload["news"] } | null = null;
 async function fetchTopNews(): Promise<WallPayload["news"]> {
   if (NEWS_CACHE && Date.now() - NEWS_CACHE.at < 5 * 60_000) return NEWS_CACHE.val;
-  let val: WallPayload["news"] = null;
+  // Keep the previous headline if this fetch fails, so a blip doesn't blank
+  // the card. Bump the timestamp regardless so a slow feed isn't retried on
+  // every 30s poll.
+  let val: WallPayload["news"] = NEWS_CACHE ? NEWS_CACHE.val : null;
   try {
-    const resp = await fetch("https://wvmetronews.com/feed/", { redirect: "follow" });
+    // Hard 4s cap — the wall polls getWallState every 30s and its fetch has no
+    // timeout, so a hanging RSS request would stall the whole response and show
+    // "Network error — Failed to fetch" on the display.
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 4000);
+    let resp: Response;
+    try { resp = await fetch("https://wvmetronews.com/feed/", { redirect: "follow", signal: ac.signal }); }
+    finally { clearTimeout(to); }
     if (resp.ok) {
       const xml = await resp.text();
       const item = xml.split(/<item[ >]/i)[1] || "";

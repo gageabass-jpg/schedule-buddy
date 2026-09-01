@@ -760,17 +760,19 @@
     .photo-overlay .date  { font-size: 18px; color: var(--text-3); margin-top: 4px; }
 
     /* error overlay */
+    /* Small, unobtrusive top pill — the last good dashboard stays fully
+       visible behind it while the poll retries. */
     .error-pane {
-      position: fixed; inset: 0;
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 12px;
-      color: #FF9B70;
-      font-size: 22px;
-      letter-spacing: -0.02em;
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      display: none; align-items: center; gap: 10px;
+      background: rgba(28,14,8,0.9); color: #FF9B70;
+      font-size: 13px; letter-spacing: 0.02em; padding: 9px 18px; border-radius: 999px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45); z-index: 99999; white-space: nowrap;
     }
+    .error-pane > div:last-child { font-size: 12px; opacity: 0.75; }
     body.error .error-pane { display: flex; }
-    body.error .scene-dashboard { opacity: 0.15; filter: blur(2px); }
+    /* Non-dashboard scenes still get the full-screen error treatment. */
+    body.error .scene-photos, body.error .scene-calendar { opacity: 0.15; filter: blur(2px); }
 
     /* late-night auto-dim */
     body.dim .scene { opacity: 0.55; transition: opacity 1.2s ease; }
@@ -2297,9 +2299,16 @@
 
       // Hero line
       const phrase = (who) => {
-        const list = myToday(who); const cur = list.find(x => now >= x.st && now < x.en) || list.find(x => now < x.st) || list[0];
-        if (cur) return `<span><strong style="color:${col(who)}">${wdEsc(nm[who])}</strong> is working ${wdCompact(cur.t.start)}–${wdCompact(cur.t.end)}.</span>`;
-        return `<span><strong style="color:${col(who)}">${wdEsc(nm[who])}</strong>’s off.</span>`;
+        const list = myToday(who);
+        const cur = list.find(x => now >= x.st && now < x.en);
+        const up = list.find(x => now < x.st);
+        const past = list.slice().reverse().find(x => now >= x.en);
+        const b = `<strong style="color:${col(who)}">${wdEsc(nm[who])}</strong>`;
+        const rng = (x) => `${wdCompact(x.t.start)}–${wdCompact(x.t.end)}`;
+        if (cur)  return `<span>${b} is working ${rng(cur)}.</span>`;
+        if (up)   return `<span>${b} works ${rng(up)}.</span>`;
+        if (past) return `<span>${b} worked ${rng(past)}.</span>`;
+        return `<span>${b}’s off.</span>`;
       };
       let hero = phrase("G") + phrase("K");
       const pd = (p.occasions || []).find(o => o.type === "payday" && o.date === p.today);
@@ -2311,6 +2320,7 @@
       const people = $("wdPeople");
       if (people) people.innerHTML = ["G","K"].map(who => {
         const list = myToday(who); const cur = list.find(x => now >= x.st && now < x.en); const up = list.find(x => now < x.st); const rec = findRecoveryFor(who, p);
+        const past = list.slice().reverse().find(x => now >= x.en);
         const c = col(who); const mil = (t) => (t || "").replace(":", "");
         const av = AVATARS[who] ? `<img src="${wdEsc(AVATARS[who])}" alt="">` : wdEsc(nm[who][0]);
         let label, lc, sub, time;
@@ -2318,6 +2328,7 @@
         else if (rec && up){ label = "ON SHIFT";   lc = c; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))} · back on at ${wdEsc(mil(up.t.start))}`; time = `${up.t.start}–${up.t.end}`; }
         else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = "— · —"; }
         else if (up)      { label = "LATER TODAY"; lc = c; sub = wdEsc(up.s.label); time = `${up.t.start}–${up.t.end}`; }
+        else if (past)    { label = "DONE";        lc = "var(--wd-muted)"; sub = `Worked ${wdCompact(past.t.start)}–${wdCompact(past.t.end)} today`; time = "— · —"; }
         else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = "— · —"; }
         const bg = lc === c ? (who === "G" ? "var(--wd-g-bg)" : "rgba(192,95,51,0.13)") : "rgba(141,131,113,0.14)";
         return `<div class="wd-person">
