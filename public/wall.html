@@ -789,9 +789,11 @@
       --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4;
       --wd-k: #c05f33; --wd-k-chipink: #fff8ec; --wd-gold: #c9a84c;
       --wd-row: #f7f2e5; --wd-dark: #2a2620; --wd-dark-ink: #f4efe4;
+      --wd-body: "Inter", system-ui, sans-serif;
       --wd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
       --wd-mono: "IBM Plex Mono", ui-monospace, monospace;
       --wd-clockfont: "IBM Plex Mono", ui-monospace, monospace; --wd-clockweight: 600;
+      --wd-greetweight: 400; --wd-greetls: -1px;
       --wd-logo-bg: #2a2620; --wd-logo-ink: #e8c46b;
     }
     body.wall-night .scene-dashboard {
@@ -800,7 +802,13 @@
       --wd-g: #78b06a; --wd-g-bg: #17251c; --wd-g-chipink: #0e1420;
       --wd-k: #e08a5a; --wd-k-chipink: #0e1420; --wd-gold: #c9a84c;
       --wd-row: #101827; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
+      /* Night: the design uses Space Grotesk everywhere (no serif), with
+         Space Mono for the clock + all mono labels/pills. */
+      --wd-body: "Space Grotesk", system-ui, sans-serif;
+      --wd-serif: "Space Grotesk", system-ui, sans-serif;
+      --wd-mono: "Space Mono", ui-monospace, monospace;
       --wd-clockfont: "Space Mono", ui-monospace, monospace; --wd-clockweight: 700;
+      --wd-greetweight: 700; --wd-greetls: -2px;
       --wd-logo-bg: #1c2740; --wd-logo-ink: #5fd4c0;
     }
     .scene-dashboard { background: var(--wd-page); display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -812,7 +820,7 @@
       padding: 28px 44px;
       zoom: var(--wd-zoom, 1);
       background: var(--wd-bg); color: var(--wd-ink);
-      font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
+      font-family: var(--wd-body, "Inter", system-ui, sans-serif); letter-spacing: -0.01em;
       display: flex; flex-direction: column; gap: 12px;
       overflow: hidden;
     }
@@ -830,7 +838,7 @@
     .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
     .wd-tile.flip { animation: wdFlip .4s ease; }
     @keyframes wdFlip { 0% { transform: rotateX(-90deg); opacity: .3; } 100% { transform: rotateX(0); opacity: 1; } }
-    .wd-greeting { font-family: var(--wd-serif); font-weight: 400; font-size: 88px; line-height: 1; margin: 14px 0 0; letter-spacing: -1px; }
+    .wd-greeting { font-family: var(--wd-serif); font-weight: var(--wd-greetweight, 400); font-size: 88px; line-height: 1; margin: 14px 0 0; letter-spacing: var(--wd-greetls, -1px); }
     .wd-period { color: #c05f33; }
     .wd-heroline { font-size: 19px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .wd-heroline strong { font-weight: 700; }
