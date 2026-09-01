@@ -104,11 +104,12 @@ async function fetchTopNews(): Promise<WallPayload["news"]> {
   // every 30s poll.
   let val: WallPayload["news"] = NEWS_CACHE ? NEWS_CACHE.val : null;
   try {
-    // Hard 4s cap — the wall polls getWallState every 30s and its fetch has no
-    // timeout, so a hanging RSS request would stall the whole response and show
-    // "Network error — Failed to fetch" on the display.
+    // Hard 12s cap — the WV MetroNews feed reliably takes ~9s, so anything
+    // tighter aborts every time and the news card stays blank. This only runs
+    // when the 5-min cache is stale (one slow poll per window); the wall's own
+    // getWallState fetch has no short timeout, so a ~9s response is fine.
     const ac = new AbortController();
-    const to = setTimeout(() => ac.abort(), 4000);
+    const to = setTimeout(() => ac.abort(), 12000);
     let resp: Response;
     try { resp = await fetch("https://wvmetronews.com/feed/", { redirect: "follow", signal: ac.signal }); }
     finally { clearTimeout(to); }
@@ -128,6 +129,9 @@ async function fetchTopNews(): Promise<WallPayload["news"]> {
       const mm = /<media:(?:content|thumbnail)[^>]*url="([^"]+)"/i.exec(item) || /<enclosure[^>]*url="([^"]+)"/i.exec(item);
       if (mm) image = mm[1]!;
       else { const ce = /<content:encoded>([\s\S]*?)<\/content:encoded>/i.exec(item); if (ce) { const im = /<img[^>]*src="([^"]+)"/i.exec(ce[1]!); if (im) image = im[1]!; } }
+      // WV MetroNews serves resized thumbnails (…-300x169.jpg); drop the size
+      // suffix to get the full-res original for the wall's large news photo.
+      if (image) image = image.replace(/-\d+x\d+(\.[a-zA-Z]+)$/, "$1");
       let time = "";
       const pd = pick(/<pubDate>([\s\S]*?)<\/pubDate>/i);
       if (pd) { const dt = new Date(pd.trim()); if (!isNaN(dt.getTime())) time = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }).format(dt).toLowerCase(); }
