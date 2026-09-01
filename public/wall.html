@@ -1033,6 +1033,7 @@
     const _DOWU = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
     const _DAYL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
+    let _wvuGameDays = new Set();   // ISO dates (Eastern) with a WVU game, for the week-list icon
     // Scale the fixed 1380x776 dashboard canvas to fill the actual screen.
     function wdFitScale() {
       const r = document.querySelector(".wd-root");
@@ -1049,6 +1050,9 @@
       try {
         const j = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/277/schedule", { cache: "no-store" })).json();
         const events = (j.events || []).filter(e => e.competitions && e.competitions[0]);
+        // All WVU game dates (Eastern) → drives the game-day icon in the week list.
+        _wvuGameDays = new Set(events.map(e => { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(e.date)); } catch (_) { return ""; } }).filter(Boolean));
+        if (typeof lastPayload !== "undefined" && lastPayload) render(lastPayload);
         if (!events.length) { host.style.display = "none"; return; }
         const nowMs = Date.now();
         let ev = events.find(e => new Date(e.date).getTime() >= nowMs - 5 * 3600000) || events[events.length - 1];
@@ -2385,7 +2389,9 @@
             const t = stypeById.get(s.shiftTypeId); const cls = s.who === "G" ? "g" : "k";
             return `<span class="wd-chip ${cls}">${wdEsc(`${s.who === "G" ? nm.G : nm.K} ${t ? wdCompact(t.start) : ""}`.trim())}</span>`;
           }).join("");
-          rows += `<div class="wd-day${i === 0 ? " today" : ""}"><span class="wd-day-num">${dd}</span><span class="wd-day-dow">${i === 0 ? "TODAY" : _DOWU[dobj.getDay()]}</span><span class="wd-day-pills">${pills}</span></div>`;
+          const isGame = _wvuGameDays.has(iso);
+          const dowHtml = (i === 0 ? "TODAY" : _DOWU[dobj.getDay()]) + (isGame ? `<img src="assets/wvu.png" alt="WVU">` : "");
+          rows += `<div class="wd-day${i === 0 ? " today" : ""}${isGame ? " game" : ""}"><span class="wd-day-num">${dd}</span><span class="wd-day-dow">${dowHtml}</span><span class="wd-day-pills">${pills}</span></div>`;
         }
         wk.innerHTML = rows;
       }
