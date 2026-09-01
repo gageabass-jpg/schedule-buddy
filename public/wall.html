@@ -2589,7 +2589,10 @@
         const dot = { G: "var(--wd-g)", K: "var(--wd-k)", Daisy: "var(--wd-gold)", family: "var(--wd-gold)" };
         ev.innerHTML = (p.events || []).filter(e => e.date >= p.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).map(e => {
           const [yy, mm, dd] = e.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
-          return `<span><span style="color:${dot[e.who] || "var(--wd-muted)"}">●</span> <strong>${wdEsc(e.title)}</strong> ${_DOWS[dobj.getDay()]}${e.startTime ? " · " + wdCompact(e.startTime) : ""}</span>`;
+          // "● Title | 9/24 | 1pm" — M/D date and a clean am/pm time (minutes only when non-zero).
+          let t = "";
+          if (e.startTime) { const [h, mi] = e.startTime.split(":").map(Number); const ap = h >= 12 ? "pm" : "am"; const h12 = h % 12 || 12; t = mi ? `${h12}:${String(mi).padStart(2, "0")}${ap}` : `${h12}${ap}`; }
+          return `<span><span style="color:${dot[e.who] || "var(--wd-muted)"}">●</span> <strong>${wdEsc(e.title)}</strong> | ${dobj.getMonth() + 1}/${dobj.getDate()}${t ? " | " + t : ""}</span>`;
         }).join("");
       }
 
