@@ -2567,6 +2567,13 @@
         }).join("");
       }
 
+      // Photo slideshow rotation — initialize whenever the payload has photos.
+      // (This wiring was lost in the dashboard redesign, which left the photo
+      // scene never starting.) Photos arrive newest-first from getWallState,
+      // and the slideshow starts at index 0 — so the most recently uploaded
+      // photo is shown first.
+      if (p.photos && p.photos.length > 0) setupPhotos(p.photos);
+
       const stamp = $("wdStamp"); if (stamp) stamp.textContent = `UPDATED ${fmtClock(new Date())}`;
       tickClock();
     }
