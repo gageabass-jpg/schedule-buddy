@@ -98,7 +98,7 @@ interface WallPayload {
 // ───────────────── WV MetroNews headline (cached ~5 min) ─────────────────
 let NEWS_CACHE: { at: number; val: WallPayload["news"] } | null = null;
 async function fetchTopNews(): Promise<WallPayload["news"]> {
-  if (NEWS_CACHE && Date.now() - NEWS_CACHE.at < 5 * 60_000) return NEWS_CACHE.val;
+  if (NEWS_CACHE && Date.now() - NEWS_CACHE.at < 60 * 60_000) return NEWS_CACHE.val;
   // Keep the previous headline if this fetch fails, so a blip doesn't blank
   // the card. Bump the timestamp regardless so a slow feed isn't retried on
   // every 30s poll.
@@ -106,7 +106,7 @@ async function fetchTopNews(): Promise<WallPayload["news"]> {
   try {
     // Hard 12s cap — the WV MetroNews feed reliably takes ~9s, so anything
     // tighter aborts every time and the news card stays blank. This only runs
-    // when the 5-min cache is stale (one slow poll per window); the wall's own
+    // when the hourly cache is stale (one slow poll per hour); the wall's own
     // getWallState fetch has no short timeout, so a ~9s response is fine.
     const ac = new AbortController();
     const to = setTimeout(() => ac.abort(), 12000);
