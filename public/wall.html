@@ -833,14 +833,14 @@
     body.wall-night .wd-brand-title { font-size: 30px; font-weight: 700; }
     .wd-brand-sub { font-family: var(--wd-mono); font-size: 12px; letter-spacing: 3px; color: var(--wd-muted); margin-top: 6px; }
     .wd-clockwrap { display: flex; flex-direction: column; align-items: flex-end; }
-    .wd-clock { display: flex; align-items: center; gap: 5px; perspective: 400px; }
-    .wd-tile { position: relative; width: 48px; height: 64px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 42px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-clock { display: flex; align-items: center; gap: 6px; perspective: 400px; }
+    .wd-tile { position: relative; width: 66px; height: 86px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 11px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 60px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
     .wd-tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: rgba(0,0,0,.45); }
-    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; font-size: 40px; }
+    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; font-size: 56px; }
     body.wall-night .wd-tile::after { background: rgba(0,0,0,.5); }
-    .wd-colon { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 2px; }
-    .wd-ampm { font-family: var(--wd-clockfont); font-size: 25px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 6px; margin-left: 4px; }
-    .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
+    .wd-colon { font-family: var(--wd-clockfont); font-size: 48px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 3px; }
+    .wd-ampm { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 8px; margin-left: 5px; }
+    .wd-date { font-size: 46px; color: var(--wd-muted); margin-top: 10px; }
     .wd-tile.flip { animation: wdFlip .55s ease; }
     @keyframes wdFlip { 0% { transform: rotateX(-85deg); opacity: .35; } 55% { transform: rotateX(12deg); } 100% { transform: rotateX(0deg); opacity: 1; } }
     .wd-greeting { font-family: var(--wd-serif); font-weight: var(--wd-greetweight, 400); font-size: 88px; line-height: 1; margin: 36px 0 0; letter-spacing: var(--wd-greetls, -1px); }
@@ -903,22 +903,23 @@
     .wd-night-only { display: none; }
     body.wall-night .wd-day-only { display: none; }
     body.wall-night .wd-night-only { display: flex; }
-    .wd-countdown { background: var(--wd-dark); color: var(--wd-dark-ink); flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; padding: 22px 24px; }
+    .wd-countdown { background: var(--wd-card); color: var(--wd-ink); border: 1px solid var(--wd-cardline); flex: 0 0 44%; min-height: 0; display: flex; flex-direction: column; padding: 22px 24px; }
     .wd-cd-head { display: flex; justify-content: space-between; align-items: center; }
-    .wd-cd-label { font-family: var(--wd-serif); font-size: 42px; line-height: 1.1; }
+    .wd-cd-label { font-family: var(--wd-serif); font-size: 40px; line-height: 1.1; }
     .wd-cd-dots { display: flex; gap: 5px; }
-    .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: #57503f; }
+    .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--wd-line); }
     .wd-cd-dot.on { background: var(--wd-gold); }
-    .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
-    .wd-cd-num { font-family: var(--wd-serif); font-size: 110px; line-height: 1; }
-    .wd-cd-num small { font-size: 38px; color: #8d8371; }
-    .wd-cd-sub { font-size: 28px; color: var(--wd-gold); margin-top: 14px; }
+    .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 4px 0; }
+    .wd-cd-num { font-family: var(--wd-serif); font-size: 78px; line-height: 1; }
+    .wd-cd-num small { font-size: 30px; color: var(--wd-muted); }
+    .wd-cd-sub { font-size: 24px; color: var(--wd-gold); margin-top: 10px; }
+    body.wall-night .wd-cd-sub { color: var(--wd-gold); }
     .wd-cd-slide.anim { animation: wdSlideIn .5s ease; }
     @keyframes wdSlideIn { 0% { transform: translateX(28px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
-    .wd-news { flex: 1.4 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
-    .wd-news-img { height: 280px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
+    .wd-news { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
+    .wd-news-img { height: 210px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
     .wd-news-body { padding: 16px 22px 20px; display: flex; flex-direction: column; flex: 1; }
-    .wd-news-title { font-family: var(--wd-serif); font-size: 40px; line-height: 1.3; }
+    .wd-news-title { font-family: var(--wd-serif); font-size: 38px; line-height: 1.25; }
     .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 21px; letter-spacing: 1px; color: var(--wd-muted); }
     /* CATTHEW (night only) */
     .wd-cat { flex: 1 1 0; min-height: 0; flex-direction: column; background: linear-gradient(160deg,#16283a,#11202f); border: 1px solid #24425c; padding: 22px 24px; }
@@ -2449,10 +2450,10 @@
         let label, lc, sub, time;
         if (cur)          { label = "ON SHIFT";    lc = c; sub = wdEsc(cur.s.label); time = `${cur.t.start}–${cur.t.end}`; }
         else if (rec && up){ label = "ON SHIFT";   lc = c; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))} · back on at ${wdEsc(mil(up.t.start))}`; time = `${up.t.start}–${up.t.end}`; }
-        else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = "— · —"; }
+        else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = ""; }
         else if (up)      { label = "LATER TODAY"; lc = c; sub = wdEsc(up.s.label); time = `${up.t.start}–${up.t.end}`; }
-        else if (past)    { label = "DONE";        lc = "var(--wd-muted)"; sub = `Worked ${wdCompact(past.t.start)}–${wdCompact(past.t.end)} today`; time = "— · —"; }
-        else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = "— · —"; }
+        else if (past)    { label = "DONE";        lc = "var(--wd-muted)"; sub = `Worked ${wdCompact(past.t.start)}–${wdCompact(past.t.end)} today`; time = ""; }
+        else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = ""; }
         const bg = lc === c ? (who === "G" ? "var(--wd-g-bg)" : "rgba(192,95,51,0.13)") : "rgba(141,131,113,0.14)";
         return `<div class="wd-person">
           <div class="wd-avatar" style="background:${c}">${av}</div>

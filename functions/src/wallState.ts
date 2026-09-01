@@ -354,10 +354,12 @@ export const getWallState = onRequest(
         status: c.status, arriveBy: c.arriveBy,
       }));
 
-    // Events window.
+    // Events window — life events (state.events) for the footer strip. Reach
+    // out a full month so upcoming events populate even when they're weeks off.
+    const eventsWindowEnd = addDays(today, 30);
     const eventsAll = (state.events as Array<WallPayload["events"][number]> | undefined) ?? [];
     const events = eventsAll
-      .filter((e) => e.date >= today && e.date <= windowEnd)
+      .filter((e) => e.date >= today && e.date <= eventsWindowEnd)
       .map((e) => ({
         id: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime,
         title: e.title, who: e.who,
