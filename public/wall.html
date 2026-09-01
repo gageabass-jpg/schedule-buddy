@@ -808,7 +808,7 @@
     .wd-root {
       width: 1380px; height: 776px; flex-shrink: 0; box-sizing: border-box;
       padding: 28px 44px;
-      transform: scale(var(--wd-scale, 1)); transform-origin: center center;
+      zoom: var(--wd-zoom, 1);
       background: var(--wd-bg); color: var(--wd-ink);
       font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
       display: flex; flex-direction: column; gap: 12px;
@@ -1033,7 +1033,7 @@
     function wdFitScale() {
       const r = document.querySelector(".wd-root");
       if (!r) return;
-      r.style.setProperty("--wd-scale", Math.min(window.innerWidth / 1380, window.innerHeight / 776));
+      r.style.setProperty("--wd-zoom", Math.min(window.innerWidth / 1380, window.innerHeight / 776));
     }
     window.addEventListener("resize", wdFitScale);
     window.addEventListener("load", wdFitScale);
