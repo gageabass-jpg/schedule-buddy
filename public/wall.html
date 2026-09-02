@@ -1114,63 +1114,157 @@
     <div style="font-size:14px; color:rgba(255,245,224,0.5); letter-spacing:0.08em">Retrying every 30s</div>
   </div>
 
-  <!-- MUSIC NOTCH — drops down on F9, driven by the controller knob.
-       Shows getNowPlaying + sends play_pause/next/prev/vol via sendPiCommand
-       → the Pi's playerctl watcher → YouTube Music. Functional scaffold;
-       restyle the panel to match the Claude Design notch when it's ready. -->
+  <!-- AUDIO NOOK — drops from top-center on F9; knob-driven YouTube Music.
+       Reads getNowPlaying; sends play_pause/next/prev/shuffle/mute/open_playlist
+       via sendPiCommand → the Pi's playerctl watcher. Demo mock with no token.
+       Ported from the "Audio Nook" Claude Design handoff (high-fidelity). -->
   <style>
-    .notch {
-      position: fixed; top: 0; left: 50%;
-      transform: translate(-50%, -135%);
-      transition: transform .45s cubic-bezier(.22,1,.36,1);
-      z-index: 100000;
-      font-family: "Inter", system-ui, sans-serif;
-    }
-    .notch.open { transform: translate(-50%, 0); }
-    .notch-inner {
-      display: flex; align-items: center; gap: 18px;
-      background: rgba(14,16,22,0.92);
-      backdrop-filter: blur(24px) saturate(1.2);
-      -webkit-backdrop-filter: blur(24px) saturate(1.2);
-      border: 1px solid rgba(255,255,255,0.10); border-top: none;
-      border-radius: 0 0 30px 30px;
-      padding: 18px 30px 22px;
-      box-shadow: 0 22px 55px rgba(0,0,0,0.5);
-      min-width: 640px;
-    }
-    .notch-art {
-      width: 66px; height: 66px; border-radius: 13px; flex-shrink: 0;
-      background: #20242e center/cover no-repeat;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
-    }
-    .notch-meta { flex: 1; min-width: 0; color: #f4f6fb; }
-    .notch-title { font-size: 23px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .notch-artist { font-size: 15px; color: #9aa3b8; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .notch-controls { display: flex; gap: 10px; flex-shrink: 0; }
-    .notch-btn {
-      width: 54px; height: 54px; border-radius: 15px;
-      background: rgba(255,255,255,0.07); border: 2px solid transparent;
-      color: #f4f6fb; font-size: 23px; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: transform .1s ease, background .15s ease, border-color .15s ease;
-    }
-    .notch-btn.focus { border-color: #5fd4c0; background: rgba(95,212,192,0.16); }
-    .notch-btn.pulse { transform: scale(0.86); background: rgba(95,212,192,0.32); }
+    .nook { position: fixed; top: 0; left: 50%; transform: translate(-50%, -145%);
+      transition: transform .3s ease; z-index: 100000;
+      --acc: #5FD4B6; --acc-glow: rgba(95,212,182,.35);
+      font-family: "Inter", system-ui, sans-serif; color: #E8ECF5; }
+    .nook.open { transform: translate(-50%, 0); }
+    .nook-notch { position: relative; z-index: 5; display: flex; align-items: center; gap: 22px;
+      height: 116px; padding: 0 34px 0 18px; border-radius: 0 0 38px 38px;
+      background: #131928; border: 1px solid rgba(255,255,255,.09); border-top: none;
+      box-shadow: 0 14px 40px rgba(0,0,0,.5); min-width: 760px; max-width: 900px;
+      overflow: hidden; box-sizing: border-box; cursor: pointer; transition: border-color .25s ease; }
+    .nook-notch:hover { border-color: rgba(255,255,255,.18); }
+    .nook.open .nook-notch { background: transparent; border-color: transparent; box-shadow: none; }
+    .nook-prog { position: absolute; left: 38px; right: 38px; bottom: 0; height: 4px;
+      background: rgba(255,255,255,.08); border-radius: 2px 2px 0 0; overflow: hidden; }
+    .nook-prog > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
+    .nook-artwrap { position: relative; width: 80px; height: 80px; flex: none; }
+    .nook-art { width: 80px; height: 80px; border-radius: 14px; overflow: hidden;
+      background: repeating-linear-gradient(135deg,#1B2235 0 7px,#161C2C 7px 14px) center/cover;
+      border: 1px solid rgba(255,255,255,.1); box-shadow: 0 8px 20px rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center; text-align: center; }
+    .nook-art-ph { font-family: "Fira Code", monospace; font-size: 9px; letter-spacing: .12em; color: #5B6478; line-height: 1.5; }
+    .nook-art.has .nook-art-ph, .nook-np-art.has .nook-np-art-ph { display: none; }
+    .nook-avatar { position: absolute; right: -8px; bottom: -8px; width: 32px; height: 32px;
+      border-radius: 50%; overflow: hidden; border: 3px solid #131928; }
+    .nook-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .nook-eq { display: flex; align-items: flex-end; gap: 5px; height: 38px; width: 38px; flex: none; }
+    .nook-eq > i { width: 5px; height: 38px; border-radius: 2px; background: var(--acc); transform-origin: bottom; transform: scaleY(.25); }
+    .nook.playing .nook-eq > i:nth-child(1){ animation: eq .80s ease-in-out 0s infinite; }
+    .nook.playing .nook-eq > i:nth-child(2){ animation: eq .97s ease-in-out .1s infinite; }
+    .nook.playing .nook-eq > i:nth-child(3){ animation: eq 1.14s ease-in-out .2s infinite; }
+    .nook.playing .nook-eq > i:nth-child(4){ animation: eq 1.31s ease-in-out .3s infinite; }
+    @keyframes eq { 0%,100%{ transform: scaleY(.35);} 50%{ transform: scaleY(1);} }
+    .nook-text { flex: 1; min-width: 0; line-height: 1.2; }
+    .nook-title { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 28px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-sub { font-size: 19px; color: #8A93A8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-sub b { color: var(--acc); font-weight: 400; }
+    .nook-tp { display: flex; align-items: center; gap: 6px; flex: none; }
+    .nook-tp button, .nook-tp-lg button { border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .nook-tp .sm { width: 58px; height: 58px; border-radius: 50%; color: #B8C0D4; }
+    .nook-tp .sm:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .nook-tp .pl, .nook-tp-lg .pl { border-radius: 50%; background: var(--acc); color: #0C101A; }
+    .nook-tp .pl { width: 68px; height: 68px; }
+    .nook-tp .pl:hover, .nook-tp-lg .pl:hover { filter: brightness(1.1); }
+    .nook-panel { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 900px; background: #131928; border: 1px solid var(--acc); border-top: none;
+      border-radius: 0 0 38px 38px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+      padding: 142px 30px 30px; box-sizing: border-box; display: none; flex-direction: column; gap: 20px; z-index: -1; }
+    .nook.open .nook-panel { display: flex; }
+    .nook-profiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px;
+      background: rgba(255,255,255,.04); border-radius: 16px; }
+    .nook-prof { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px;
+      cursor: pointer; background: transparent; border: 1px solid transparent; transition: all .2s; }
+    .nook-prof img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+    .nook-prof .nm { font-family: "Space Grotesk"; font-weight: 600; font-size: 16px; line-height: 1.15; }
+    .nook-prof .lb { font-family: "Fira Code"; font-size: 10px; letter-spacing: .18em; }
+    .nook-prof.gage.on { background: rgba(95,212,182,.14); border-color: rgba(95,212,182,.5); }
+    .nook-prof.kay.on { background: rgba(244,161,93,.14); border-color: rgba(244,161,93,.5); }
+    .nook-prof.gage:hover { background: rgba(95,212,182,.14); }
+    .nook-prof.kay:hover { background: rgba(244,161,93,.14); }
+    .nook-np { display: flex; gap: 18px; align-items: center; }
+    .nook-np-art { width: 116px; height: 116px; border-radius: 14px; flex: none; overflow: hidden;
+      background: repeating-linear-gradient(135deg,#1B2235 0 8px,#161C2C 8px 16px) center/cover;
+      border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 30px rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center; text-align: center; }
+    .nook-np-art-ph { font-family: "Fira Code"; font-size: 10px; letter-spacing: .12em; color: #5B6478; line-height: 1.5; }
+    .nook-np-meta { flex: 1; min-width: 0; }
+    .nook-np-status { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: #5B6478;
+      display: flex; align-items: center; gap: 8px; }
+    .nook-np-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #5B6478; flex: none; }
+    .nook-link { margin-left: auto; padding: 2px 8px; border-radius: 999px; border: 1px solid #5B6478; color: #5B6478; font-size: 9px; }
+    .nook-np-title { font-family: "Space Grotesk"; font-weight: 600; font-size: 24px; letter-spacing: -.01em;
+      margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-np-sub { font-size: 15px; color: #8A93A8; margin-top: 2px; }
+    .nook-np-prog { display: flex; align-items: center; gap: 10px; margin-top: 14px;
+      font-family: "Fira Code"; font-size: 11px; color: #5B6478; }
+    .nook-np-prog .bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .nook-np-prog .bar > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
+    .nook-tp-lg { display: flex; align-items: center; justify-content: center; gap: 18px; }
+    .nook-tp-lg .ic { width: 44px; height: 44px; border-radius: 50%; color: #6B748A; }
+    .nook-tp-lg .ic:hover { background: rgba(255,255,255,.06); }
+    .nook-tp-lg .ic.on { color: var(--acc); }
+    .nook-tp-lg .ic.mut { color: #D87B3A; }
+    .nook-tp-lg .md { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.05); color: #E8ECF5; }
+    .nook-tp-lg .md:hover { background: rgba(255,255,255,.1); }
+    .nook-tp-lg .pl { width: 68px; height: 68px; box-shadow: 0 10px 30px var(--acc-glow); }
+    .nook-queue { border-top: 1px solid rgba(255,255,255,.07); padding-top: 16px; }
+    .nook-queue-h { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: #5B6478; margin-bottom: 10px; }
+    .nook-q-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+    .nook-q-row:hover { background: rgba(255,255,255,.05); }
+    .nook-q-row .n { font-family: "Fira Code"; font-size: 12px; color: #5B6478; width: 14px; }
+    .nook-q-row .qa { width: 32px; height: 32px; border-radius: 6px; flex: none;
+      background: repeating-linear-gradient(135deg,#1B2235 0 5px,#161C2C 5px 10px); }
+    .nook-q-row .qm { flex: 1; min-width: 0; line-height: 1.2; }
+    .nook-q-row .qt { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-q-row .qar { font-size: 12px; color: #8A93A8; }
+    .nook-q-row .ql { font-family: "Fira Code"; font-size: 11px; color: #5B6478; }
+    .nook-hints { display: flex; justify-content: center; gap: 18px; font-family: "Fira Code";
+      font-size: 10px; letter-spacing: .14em; color: #3F475A; }
+    .nook-hints b { color: #6B748A; font-weight: 400; }
+    body.nook-open .scene { opacity: .35; transition: opacity .3s; }
   </style>
-  <div class="notch" id="notch" aria-hidden="true">
-    <div class="notch-inner">
-      <div class="notch-art" id="notchArt"></div>
-      <div class="notch-meta">
-        <div class="notch-title" id="notchTitle">Nothing playing</div>
-        <div class="notch-artist" id="notchArtist">Rotate to select · press to play</div>
+  <div class="nook" id="nook">
+    <div class="nook-notch" id="nookNotch">
+      <div class="nook-prog"><i id="nookProg"></i></div>
+      <div class="nook-artwrap">
+        <div class="nook-art" id="nookArt"><span class="nook-art-ph">ALBUM<br>ART</span></div>
+        <div class="nook-avatar"><img id="nookAvatar" src="assets/gage.jpg" alt=""></div>
       </div>
-      <div class="notch-controls" id="notchControls">
-        <button class="notch-btn" data-cmd="prev" title="Previous">⏮</button>
-        <button class="notch-btn" data-cmd="play_pause" id="notchPlay" title="Play / Pause">▶</button>
-        <button class="notch-btn" data-cmd="next" title="Next">⏭</button>
-        <button class="notch-btn" data-cmd="vol_down" title="Volume down">🔉</button>
-        <button class="notch-btn" data-cmd="vol_up" title="Volume up">🔊</button>
+      <div class="nook-eq"><i></i><i></i><i></i><i></i></div>
+      <div class="nook-text">
+        <div class="nook-title" id="nookTitle">Nothing playing</div>
+        <div class="nook-sub" id="nookSub">—</div>
       </div>
+      <div class="nook-tp">
+        <button class="sm" id="nookPrev"></button>
+        <button class="pl" id="nookPlay"></button>
+        <button class="sm" id="nookNext"></button>
+      </div>
+    </div>
+    <div class="nook-panel" id="nookPanel">
+      <div class="nook-profiles">
+        <div class="nook-prof gage" id="nookProfGage"><img src="assets/gage.jpg" alt=""><div><div class="nm">Gage</div><div class="lb" style="color:#5FD4B6">GAGE'S MIX</div></div></div>
+        <div class="nook-prof kay" id="nookProfKay"><img src="assets/kaylene.jpeg" alt=""><div><div class="nm">Kaylene</div><div class="lb" style="color:#F4A15D">KAYLENE'S MIX</div></div></div>
+      </div>
+      <div class="nook-np">
+        <div class="nook-np-art" id="nookNpArt"><span class="nook-np-art-ph">ALBUM<br>ART</span></div>
+        <div class="nook-np-meta">
+          <div class="nook-np-status"><span class="dot" id="nookDot"></span><span id="nookStatus">PAUSED</span>&nbsp;· YOUTUBE MUSIC<span class="nook-link" id="nookLink">DEMO</span></div>
+          <div class="nook-np-title" id="nookNpTitle">—</div>
+          <div class="nook-np-sub" id="nookNpSub">—</div>
+          <div class="nook-np-prog"><span id="nookElapsed">0:00</span><div class="bar"><i id="nookNpProg"></i></div><span id="nookTotal">0:00</span></div>
+        </div>
+      </div>
+      <div class="nook-tp-lg">
+        <button class="ic" id="nookShuffle" title="Shuffle"></button>
+        <button class="md" id="nookPrevLg"></button>
+        <button class="pl" id="nookPlayLg"></button>
+        <button class="md" id="nookNextLg"></button>
+        <button class="ic" id="nookMute" title="Mute"></button>
+      </div>
+      <div class="nook-queue" id="nookQueue">
+        <div class="nook-queue-h">UP NEXT</div>
+        <div id="nookQueueList"></div>
+      </div>
+      <div class="nook-hints"><span><b>␣</b> PLAY</span><span><b>◂ ▸</b> TRACK</span><span><b>TAB</b> PROFILE</span><span><b>M</b> MUTE</span><span><b>ESC</b> CLOSE</span></div>
     </div>
   </div>
 
@@ -2261,84 +2355,148 @@
     // music stops. Art URL is resolved server-side (iTunes), so the page
     // just displays whatever the function returns.
     const nowPlayingMs = 5_000;
-    let _np = null;   // last now-playing payload; also drives the F9 music notch
+    // Feeds the Audio Nook (defined below). A live track (fresh + titled) drives
+    // the notch; anything else reverts to the demo/idle mock so it's never empty.
     function applyNowPlaying(np) {
-      _np = np;
-      const title = $("notchTitle"), artist = $("notchArtist"), art = $("notchArt"), play = $("notchPlay");
-      if (np && np.live && np.title) {
-        if (title) title.textContent = np.title;
-        if (artist) artist.textContent = np.artist || "";
-        if (art) art.style.backgroundImage = np.art ? `url("${String(np.art).replace(/["\\]/g, "")}")` : "";
-        if (play) play.textContent = np.status === "Playing" ? "⏸" : "▶";
-      } else {
-        if (title) title.textContent = "Nothing playing";
-        if (artist) artist.textContent = "Press play to start YouTube Music";
-        if (art) art.style.backgroundImage = "";
-        if (play) play.textContent = "▶";
-      }
+      if (np && np.live && np.title) { nk.live = np; nk.linkState = "live"; }
+      else { nk.live = null; nk.linkState = token ? "idle" : "mock"; }
+      if (typeof nkRender === "function") nkRender();
     }
     async function refreshNowPlaying() {
       if (isDemo || !token) return;
       try {
         const r = await fetch(`${apiBase}/getNowPlaying?t=${encodeURIComponent(token)}`, { cache: "no-store" });
-        if (!r.ok) return;
+        if (!r.ok) { nk.live = null; nk.linkState = "idle"; if (typeof nkRender === "function") nkRender(); return; }
         applyNowPlaying(await r.json());
-      } catch (err) { /* leave card as-is on a blip */ }
+      } catch (err) { nk.live = null; nk.linkState = "error"; if (typeof nkRender === "function") nkRender(); }
     }
     refreshNowPlaying();
     setInterval(refreshNowPlaying, nowPlayingMs);
 
-    // ─────────────────── music notch (F9 + controller knob) ───────────────────
-    // Drops down on F9; the knob drives it. Displays getNowPlaying and sends
-    // playback commands via sendPiCommand → the Pi's playerctl watcher → YT Music.
+    // ─────────────────── Audio Nook (F9 + controller knob → YouTube Music) ───────────────────
+    // Drops down on F9; the knob drives it. Reads getNowPlaying (via applyNowPlaying
+    // above) and sends commands via sendPiCommand → the Pi's playerctl watcher.
     // KNOB KEY CONTRACT (program the controller to emit these):
-    //   rotate CW  → ArrowRight   (move selection →)
-    //   rotate CCW → ArrowLeft    (move selection ←)
-    //   press      → Enter        (activate selected control)
-    //   F9         → toggle the notch (handled in the keydown listener below)
-    let _notchOpen = false, _notchFocus = 1, _notchTimer = null;   // default focus = play/pause
-    const _notchBtns = () => Array.from(document.querySelectorAll("#notchControls .notch-btn"));
-    async function sendPi(command, args) {
+    //   rotate CW  → ArrowRight  (next track)   rotate CCW → ArrowLeft (prev)
+    //   press      → Enter       (open when closed; play/pause when open)
+    //   F9         → toggle the nook (handled in the keydown listener)
+    // Full keyboard while open: Space play/pause · ←/→ track · ↑/Esc close ·
+    //   Tab switch profile · M mute.
+    const NK_MIX = {
+      gage: [
+        { title: "Take Me Home, Country Roads", artist: "John Denver", album: "Poems, Prayers & Promises", len: 190 },
+        { title: "Wagon Wheel", artist: "Old Crow Medicine Show", album: "O.C.M.S.", len: 233 },
+        { title: "Chicken Fried", artist: "Zac Brown Band", album: "The Foundation", len: 238 },
+        { title: "Tennessee Whiskey", artist: "Chris Stapleton", album: "Traveller", len: 293 },
+      ],
+      kaylene: [
+        { title: "Cruel Summer", artist: "Taylor Swift", album: "Lover", len: 178 },
+        { title: "Espresso", artist: "Sabrina Carpenter", album: "Short n' Sweet", len: 175 },
+        { title: "Good Luck, Babe!", artist: "Chappell Roan", album: "Single", len: 218 },
+        { title: "Birds of a Feather", artist: "Billie Eilish", album: "Hit Me Hard and Soft", len: 210 },
+      ],
+    };
+    // Playlist URLs the Pi opens on profile switch (open_playlist command). Fill these in.
+    const NK_PLAYLISTS = { gage: "https://music.youtube.com/playlist?list=GAGE_PLAYLIST_ID", kaylene: "https://music.youtube.com/playlist?list=KAYLENE_PLAYLIST_ID" };
+    const NK_P = {
+      play: "M8 5v14l11-7z", pause: ["M6 5h4v14H6z", "M14 5h4v14h-4z"],
+      prev: ["M6 6h2v12H6z", "M18 6v12L9 12z"], next: ["M16 6h2v12h-2z", "M6 6v12l9-6z"],
+      shuffle: "M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z",
+      vol: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z",
+      mute: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.9 8.9 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71z",
+    };
+    const nkSvg = (d, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor">${[].concat(d).map(p => `<path d="${p}"/>`).join("")}</svg>`;
+    const nkFmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const nk = { open: false, profile: "gage", playing: true, shuffle: false, muted: false, idx: 0, elapsed: 0, live: null, linkState: token ? "idle" : "mock" };
+    const nkProfile = () => { const l = nk.live; if (l && (l.profile === "gage" || l.profile === "kaylene")) return l.profile; return nk.profile; };
+    const nkPlaying = () => { const l = nk.live; return l ? l.status === "Playing" : nk.playing; };
+    const nkList = () => NK_MIX[nkProfile()];
+    const nkAccent = () => nkProfile() === "gage" ? "#5FD4B6" : "#F4A15D";
+    async function nkSendCmd(command, args) {
       if (!token) return;
       try {
         await fetch(`${apiBase}/sendPiCommand?t=${encodeURIComponent(token)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(args ? { command, args } : { command }),
+          body: JSON.stringify({ command, args: args || {} }),
         });
       } catch (_) { /* ignore */ }
+      setTimeout(refreshNowPlaying, 1200);
     }
-    function renderNotchFocus() {
-      _notchBtns().forEach((b, i) => b.classList.toggle("focus", _notchOpen && i === _notchFocus));
+    function nkPlay() { nkSendCmd("play_pause"); if (!nk.live) nk.playing = !nk.playing; else nk.live = { ...nk.live, status: nk.live.status === "Playing" ? "Paused" : "Playing" }; nkRender(); }
+    function nkNext() { nkSendCmd("next"); if (!nk.live) { nk.idx = (nk.idx + 1) % 4; nk.elapsed = 0; } nkRender(); }
+    function nkPrev() { nkSendCmd("prev"); if (!nk.live) { if (nk.elapsed > 3) nk.elapsed = 0; else { nk.idx = (nk.idx + 3) % 4; nk.elapsed = 0; } } nkRender(); }
+    function nkPickProfile(p) { nkSendCmd("open_playlist", { url: NK_PLAYLISTS[p], profile: p }); nk.profile = p; nk.idx = 0; nk.elapsed = 0; nk.playing = true; if (nk.live) nk.live = { ...nk.live, profile: p }; nkRender(); }
+    function nkToggleShuffle() { const cur = (nk.live && typeof nk.live.shuffle === "boolean") ? nk.live.shuffle : nk.shuffle; nkSendCmd("shuffle"); nk.shuffle = !cur; nkRender(); }
+    function nkToggleMute() { const cur = (nk.live && typeof nk.live.muted === "boolean") ? nk.live.muted : nk.muted; nkSendCmd("mute"); nk.muted = !cur; nkRender(); }
+    function nkOpen() { nk.open = true; $("nook").classList.add("open"); document.body.classList.add("nook-open"); if (!nk.live) nkSendCmd("open_music"); nkRender(); }
+    function nkClose() { nk.open = false; $("nook").classList.remove("open"); document.body.classList.remove("nook-open"); }
+    function nkToggle() { nk.open ? nkClose() : nkOpen(); }
+    const nkSetArt = (el, on, url) => { el.classList.toggle("has", on); el.style.backgroundImage = on ? `url("${String(url).replace(/["\\]/g, "")}")` : ""; };
+    function nkRender() {
+      const prof = nkProfile(), playing = nkPlaying(), acc = nkAccent(), L = nk.live, list = nkList();
+      const t = L ? { title: L.title, artist: L.artist || "", album: L.album || "YouTube Music", len: Number(L.length) || 0, art: L.art || "" } : list[nk.idx];
+      const elapsed = L ? (Number(L.position) || 0) : nk.elapsed;
+      const pct = t.len ? Math.min(100, Math.round(elapsed / t.len * 100)) : 0;
+      const hasArt = !!t.art;
+      const root = $("nook");
+      root.style.setProperty("--acc", acc);
+      root.style.setProperty("--acc-glow", prof === "gage" ? "rgba(95,212,182,.35)" : "rgba(244,161,93,.35)");
+      root.classList.toggle("playing", playing);
+      // collapsed notch
+      nkSetArt($("nookArt"), hasArt, t.art);
+      $("nookAvatar").src = prof === "gage" ? "assets/gage.jpg" : "assets/kaylene.jpeg";
+      $("nookProg").style.width = pct + "%";
+      $("nookTitle").textContent = t.title || "Nothing playing";
+      $("nookSub").innerHTML = `${wdEsc(t.artist || "")} · <b>${prof === "gage" ? "Gage" : "Kaylene"}'s mix</b>`;
+      $("nookPrev").innerHTML = nkSvg(NK_P.prev, 30);
+      $("nookNext").innerHTML = nkSvg(NK_P.next, 30);
+      $("nookPlay").innerHTML = nkSvg(playing ? NK_P.pause : NK_P.play, 34);
+      // panel
+      $("nookProfGage").classList.toggle("on", prof === "gage");
+      $("nookProfKay").classList.toggle("on", prof === "kaylene");
+      nkSetArt($("nookNpArt"), hasArt, t.art);
+      $("nookDot").style.background = playing ? acc : "#5B6478";
+      $("nookStatus").textContent = playing ? "PLAYING" : "PAUSED";
+      const link = { mock: "DEMO", idle: "PI IDLE", live: "LIVE", error: "OFFLINE" }[nk.linkState];
+      const linkC = { mock: "#5B6478", idle: "#5B6478", live: "#5FD4B6", error: "#D87B3A" }[nk.linkState];
+      const le = $("nookLink"); le.textContent = link; le.style.color = linkC; le.style.borderColor = linkC;
+      $("nookNpTitle").textContent = t.title || "Nothing playing";
+      $("nookNpSub").textContent = `${t.artist || ""}${t.album ? " · " + t.album : ""}`;
+      $("nookElapsed").textContent = nkFmt(elapsed);
+      $("nookTotal").textContent = t.len ? nkFmt(t.len) : "–:––";
+      $("nookNpProg").style.width = pct + "%";
+      const shuffle = (L && typeof L.shuffle === "boolean") ? L.shuffle : nk.shuffle;
+      const muted = (L && typeof L.muted === "boolean") ? L.muted : nk.muted;
+      const sh = $("nookShuffle"); sh.innerHTML = nkSvg(NK_P.shuffle, 20); sh.classList.toggle("on", shuffle);
+      const mu = $("nookMute"); mu.innerHTML = nkSvg(muted ? NK_P.mute : NK_P.vol, 20); mu.classList.toggle("mut", muted);
+      $("nookPrevLg").innerHTML = nkSvg(NK_P.prev, 24);
+      $("nookNextLg").innerHTML = nkSvg(NK_P.next, 24);
+      $("nookPlayLg").innerHTML = nkSvg(playing ? NK_P.pause : NK_P.play, 32);
+      // up-next queue
+      let q;
+      if (L) q = (Array.isArray(L.queue) ? L.queue.slice(0, 3) : []).map((x, k) => ({ n: k + 1, title: x.title, artist: x.artist || "", len: x.length ? nkFmt(Number(x.length)) : "", i: -1 }));
+      else q = [1, 2, 3].map((k) => { const i = (nk.idx + k) % 4, x = list[i]; return { n: k, title: x.title, artist: x.artist, len: nkFmt(x.len), i }; });
+      const qc = $("nookQueue");
+      if (q.length) { qc.style.display = ""; $("nookQueueList").innerHTML = q.map((x) => `<div class="nook-q-row" data-i="${x.i}"><span class="n">${x.n}</span><div class="qa"></div><div class="qm"><div class="qt">${wdEsc(x.title)}</div><div class="qar">${wdEsc(x.artist)}</div></div><span class="ql">${wdEsc(x.len)}</span></div>`).join(""); }
+      else qc.style.display = "none";
     }
-    function notchAutoClose() { if (_notchTimer) clearTimeout(_notchTimer); _notchTimer = setTimeout(closeNotch, 15_000); }
-    function openNotch() {
-      _notchOpen = true;
-      const el = $("notch"); if (el) { el.classList.add("open"); el.setAttribute("aria-hidden", "false"); }
-      if (!(_np && _np.live)) sendPi("open_music");   // ensure YouTube Music is running
-      renderNotchFocus(); notchAutoClose();
-    }
-    function closeNotch() {
-      _notchOpen = false;
-      const el = $("notch"); if (el) { el.classList.remove("open"); el.setAttribute("aria-hidden", "true"); }
-      if (_notchTimer) { clearTimeout(_notchTimer); _notchTimer = null; }
-      renderNotchFocus();
-    }
-    function toggleNotch() { _notchOpen ? closeNotch() : openNotch(); }
-    function notchMove(dir) {
-      if (!_notchOpen) return;
-      const n = _notchBtns().length; if (!n) return;
-      _notchFocus = (_notchFocus + dir + n) % n;
-      renderNotchFocus(); notchAutoClose();
-    }
-    function notchActivate() {
-      if (!_notchOpen) return;
-      const btn = _notchBtns()[_notchFocus]; if (!btn) return;
-      sendPi(btn.dataset.cmd);
-      btn.classList.add("pulse"); setTimeout(() => btn.classList.remove("pulse"), 150);
-      notchAutoClose();
-    }
-    // Tap/click also works (touch + browser testing).
-    _notchBtns().forEach((b, i) => b.addEventListener("click", () => { _notchFocus = i; renderNotchFocus(); notchActivate(); }));
+    // Wire clicks (touch + browser testing); transport clicks don't toggle the notch.
+    const nkStop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    $("nookNotch").addEventListener("click", nkToggle);
+    $("nookPrev").addEventListener("click", nkStop(nkPrev));
+    $("nookPlay").addEventListener("click", nkStop(nkPlay));
+    $("nookNext").addEventListener("click", nkStop(nkNext));
+    $("nookPrevLg").addEventListener("click", nkStop(nkPrev));
+    $("nookPlayLg").addEventListener("click", nkStop(nkPlay));
+    $("nookNextLg").addEventListener("click", nkStop(nkNext));
+    $("nookShuffle").addEventListener("click", nkStop(nkToggleShuffle));
+    $("nookMute").addEventListener("click", nkStop(nkToggleMute));
+    $("nookProfGage").addEventListener("click", nkStop(() => nkPickProfile("gage")));
+    $("nookProfKay").addEventListener("click", nkStop(() => nkPickProfile("kaylene")));
+    $("nookQueueList").addEventListener("click", (e) => { const row = e.target.closest(".nook-q-row"); if (!row) return; e.stopPropagation(); const i = +row.dataset.i; if (i >= 0 && !nk.live) { nk.idx = i; nk.elapsed = 0; nk.playing = true; nkRender(); } });
+    // Mock ticker — advances the demo track when there's no live data.
+    setInterval(() => { if (nk.live || !nkPlaying()) return; const len = nkList()[nk.idx].len; if (nk.elapsed + 1 >= len) { nk.elapsed = 0; nk.idx = (nk.idx + 1) % 4; } else nk.elapsed++; nkRender(); }, 1000);
+    nkRender();
 
     // Demo mode: trigger both alternate scenes quickly so you don't
     // have to wait the full 5/8-minute production cadence to preview.
@@ -2416,13 +2574,17 @@
       // refresh() on boot anyway, so this is a strict superset of the old
       // behavior — and it's the only way new code ever reaches the kiosk.
       else if (k === "F8" || code === "F8") { e.preventDefault(); location.reload(); }
-      // F9 → drop/raise the music notch (+ ensure YouTube Music is running).
-      else if (k === "F9" || code === "F9") { e.preventDefault(); toggleNotch(); }
-      // Controller knob (only while the notch is open): rotate = select, press = activate.
-      else if (_notchOpen && (k === "ArrowRight" || k === "ArrowDown")) { e.preventDefault(); notchMove(1); }
-      else if (_notchOpen && (k === "ArrowLeft" || k === "ArrowUp")) { e.preventDefault(); notchMove(-1); }
-      else if (_notchOpen && (k === "Enter" || k === " " || code === "Space")) { e.preventDefault(); notchActivate(); }
-      else if (_notchOpen && k === "Escape") { e.preventDefault(); closeNotch(); }
+      // F9 → drop/raise the audio nook (+ ensure YouTube Music is running).
+      else if (k === "F9" || code === "F9") { e.preventDefault(); nkToggle(); }
+      // While closed, the knob press (Enter) also drops it down.
+      else if (!nk.open) { if (k === "Enter" || k === "ArrowDown") { e.preventDefault(); nkOpen(); } }
+      // While open: knob rotate = track, press = play/pause; full keyboard too.
+      else if (k === " " || code === "Space" || k === "Enter") { e.preventDefault(); nkPlay(); }
+      else if (k === "ArrowRight") { e.preventDefault(); nkNext(); }
+      else if (k === "ArrowLeft") { e.preventDefault(); nkPrev(); }
+      else if (k === "ArrowUp" || k === "Escape") { e.preventDefault(); nkClose(); }
+      else if (k === "Tab") { e.preventDefault(); nkPickProfile(nkProfile() === "gage" ? "kaylene" : "gage"); }
+      else if (k === "m" || k === "M") { e.preventDefault(); nkToggleMute(); }
     });
 
     // ─────────────────── remote-control command consumer ───────────────────

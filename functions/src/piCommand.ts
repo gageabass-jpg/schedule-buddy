@@ -28,6 +28,7 @@ const ALLOWED = new Set([
   "scene", "refresh",
   // OS-side (Pi watcher handles)
   "play_pause", "next", "prev", "vol_up", "vol_down",
+  "shuffle", "mute", "open_playlist",   // audio nook: playerctl shuffle / pactl mute / navigate YT Music tab (args:{url,profile})
   "open_music", "close_music",
   "hide_cursor",
   "reboot", "restart_kiosk", "toggle_kiosk",
