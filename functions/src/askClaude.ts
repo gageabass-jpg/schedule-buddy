@@ -459,7 +459,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `Their shift types (id → name, hours):\n` +
       ((state.shiftTypes ?? []).map((s) => `  ${s.id} → ${s.name} (${s.start}-${s.end})`).join("\n") || "  (none configured)") +
       `\n\nHousehold members: ${Object.values(memberNames).join(", ") || "unknown"}\n` +
-      `Date range covered by the calendar: ${state.range?.from ?? "?"} to ${state.range?.to ?? "?"}\n\n` +
+      `The calendar is open-ended — schedules are individual dated entries, not a fixed window. ` +
+      `When the user names a day number or weekday without a month (e.g. "the 2nd", "Friday"), ` +
+      `resolve it to the nearest such date on or after today (${today}); roll into next month when ` +
+      `the number has already passed this month. Only ask which month if it's genuinely ambiguous. ` +
+      `To see what's actually scheduled on a date, call summarize_period for that date rather than ` +
+      `assuming the calendar is empty or bounded.\n\n` +
       `Conventions:\n` +
       `- "Gage" is the household admin. His recurring schedule comes from a weekly template.\n` +
       `- "Kaylene" is Gage's partner. Her shifts are individual dated entries.\n` +
