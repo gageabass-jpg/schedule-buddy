@@ -1114,6 +1114,66 @@
     <div style="font-size:14px; color:rgba(255,245,224,0.5); letter-spacing:0.08em">Retrying every 30s</div>
   </div>
 
+  <!-- MUSIC NOTCH — drops down on F9, driven by the controller knob.
+       Shows getNowPlaying + sends play_pause/next/prev/vol via sendPiCommand
+       → the Pi's playerctl watcher → YouTube Music. Functional scaffold;
+       restyle the panel to match the Claude Design notch when it's ready. -->
+  <style>
+    .notch {
+      position: fixed; top: 0; left: 50%;
+      transform: translate(-50%, -135%);
+      transition: transform .45s cubic-bezier(.22,1,.36,1);
+      z-index: 100000;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .notch.open { transform: translate(-50%, 0); }
+    .notch-inner {
+      display: flex; align-items: center; gap: 18px;
+      background: rgba(14,16,22,0.92);
+      backdrop-filter: blur(24px) saturate(1.2);
+      -webkit-backdrop-filter: blur(24px) saturate(1.2);
+      border: 1px solid rgba(255,255,255,0.10); border-top: none;
+      border-radius: 0 0 30px 30px;
+      padding: 18px 30px 22px;
+      box-shadow: 0 22px 55px rgba(0,0,0,0.5);
+      min-width: 640px;
+    }
+    .notch-art {
+      width: 66px; height: 66px; border-radius: 13px; flex-shrink: 0;
+      background: #20242e center/cover no-repeat;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .notch-meta { flex: 1; min-width: 0; color: #f4f6fb; }
+    .notch-title { font-size: 23px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .notch-artist { font-size: 15px; color: #9aa3b8; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .notch-controls { display: flex; gap: 10px; flex-shrink: 0; }
+    .notch-btn {
+      width: 54px; height: 54px; border-radius: 15px;
+      background: rgba(255,255,255,0.07); border: 2px solid transparent;
+      color: #f4f6fb; font-size: 23px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: transform .1s ease, background .15s ease, border-color .15s ease;
+    }
+    .notch-btn.focus { border-color: #5fd4c0; background: rgba(95,212,192,0.16); }
+    .notch-btn.pulse { transform: scale(0.86); background: rgba(95,212,192,0.32); }
+  </style>
+  <div class="notch" id="notch" aria-hidden="true">
+    <div class="notch-inner">
+      <div class="notch-art" id="notchArt"></div>
+      <div class="notch-meta">
+        <div class="notch-title" id="notchTitle">Nothing playing</div>
+        <div class="notch-artist" id="notchArtist">Rotate to select · press to play</div>
+      </div>
+      <div class="notch-controls" id="notchControls">
+        <button class="notch-btn" data-cmd="prev" title="Previous">⏮</button>
+        <button class="notch-btn" data-cmd="play_pause" id="notchPlay" title="Play / Pause">▶</button>
+        <button class="notch-btn" data-cmd="next" title="Next">⏭</button>
+        <button class="notch-btn" data-cmd="vol_down" title="Volume down">🔉</button>
+        <button class="notch-btn" data-cmd="vol_up" title="Volume up">🔊</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ─────────────────── config ───────────────────
     const params  = new URLSearchParams(window.location.search);
@@ -2201,21 +2261,20 @@
     // music stops. Art URL is resolved server-side (iTunes), so the page
     // just displays whatever the function returns.
     const nowPlayingMs = 5_000;
+    let _np = null;   // last now-playing payload; also drives the F9 music notch
     function applyNowPlaying(np) {
-      const label = $("quoteLabel"), qBody = $("quoteBody"), npBody = $("npBody");
+      _np = np;
+      const title = $("notchTitle"), artist = $("notchArtist"), art = $("notchArt"), play = $("notchPlay");
       if (np && np.live && np.title) {
-        label.textContent = "Now Playing";
-        qBody.style.display = "none";
-        npBody.style.display = "flex";
-        $("npTitle").textContent = np.title;
-        $("npArtist").textContent = np.artist || "";
-        const art = $("npArt");
-        if (np.art) { art.src = np.art; art.style.visibility = "visible"; }
-        else { art.removeAttribute("src"); art.style.visibility = "hidden"; }
+        if (title) title.textContent = np.title;
+        if (artist) artist.textContent = np.artist || "";
+        if (art) art.style.backgroundImage = np.art ? `url("${String(np.art).replace(/["\\]/g, "")}")` : "";
+        if (play) play.textContent = np.status === "Playing" ? "⏸" : "▶";
       } else {
-        label.textContent = "Parks & Rec · daily";
-        npBody.style.display = "none";
-        qBody.style.display = "flex";
+        if (title) title.textContent = "Nothing playing";
+        if (artist) artist.textContent = "Press play to start YouTube Music";
+        if (art) art.style.backgroundImage = "";
+        if (play) play.textContent = "▶";
       }
     }
     async function refreshNowPlaying() {
@@ -2228,6 +2287,58 @@
     }
     refreshNowPlaying();
     setInterval(refreshNowPlaying, nowPlayingMs);
+
+    // ─────────────────── music notch (F9 + controller knob) ───────────────────
+    // Drops down on F9; the knob drives it. Displays getNowPlaying and sends
+    // playback commands via sendPiCommand → the Pi's playerctl watcher → YT Music.
+    // KNOB KEY CONTRACT (program the controller to emit these):
+    //   rotate CW  → ArrowRight   (move selection →)
+    //   rotate CCW → ArrowLeft    (move selection ←)
+    //   press      → Enter        (activate selected control)
+    //   F9         → toggle the notch (handled in the keydown listener below)
+    let _notchOpen = false, _notchFocus = 1, _notchTimer = null;   // default focus = play/pause
+    const _notchBtns = () => Array.from(document.querySelectorAll("#notchControls .notch-btn"));
+    async function sendPi(command, args) {
+      if (!token) return;
+      try {
+        await fetch(`${apiBase}/sendPiCommand?t=${encodeURIComponent(token)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(args ? { command, args } : { command }),
+        });
+      } catch (_) { /* ignore */ }
+    }
+    function renderNotchFocus() {
+      _notchBtns().forEach((b, i) => b.classList.toggle("focus", _notchOpen && i === _notchFocus));
+    }
+    function notchAutoClose() { if (_notchTimer) clearTimeout(_notchTimer); _notchTimer = setTimeout(closeNotch, 15_000); }
+    function openNotch() {
+      _notchOpen = true;
+      const el = $("notch"); if (el) { el.classList.add("open"); el.setAttribute("aria-hidden", "false"); }
+      if (!(_np && _np.live)) sendPi("open_music");   // ensure YouTube Music is running
+      renderNotchFocus(); notchAutoClose();
+    }
+    function closeNotch() {
+      _notchOpen = false;
+      const el = $("notch"); if (el) { el.classList.remove("open"); el.setAttribute("aria-hidden", "true"); }
+      if (_notchTimer) { clearTimeout(_notchTimer); _notchTimer = null; }
+      renderNotchFocus();
+    }
+    function toggleNotch() { _notchOpen ? closeNotch() : openNotch(); }
+    function notchMove(dir) {
+      if (!_notchOpen) return;
+      const n = _notchBtns().length; if (!n) return;
+      _notchFocus = (_notchFocus + dir + n) % n;
+      renderNotchFocus(); notchAutoClose();
+    }
+    function notchActivate() {
+      if (!_notchOpen) return;
+      const btn = _notchBtns()[_notchFocus]; if (!btn) return;
+      sendPi(btn.dataset.cmd);
+      btn.classList.add("pulse"); setTimeout(() => btn.classList.remove("pulse"), 150);
+      notchAutoClose();
+    }
+    // Tap/click also works (touch + browser testing).
+    _notchBtns().forEach((b, i) => b.addEventListener("click", () => { _notchFocus = i; renderNotchFocus(); notchActivate(); }));
 
     // Demo mode: trigger both alternate scenes quickly so you don't
     // have to wait the full 5/8-minute production cadence to preview.
@@ -2298,12 +2409,20 @@
     }
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "F7" || e.code === "F7") { e.preventDefault(); cycleDisplay(); }
+      const k = e.key, code = e.code;
+      if (k === "F7" || code === "F7") { e.preventDefault(); cycleDisplay(); }
       // F8 is the only "fix it" button on a wall with no keyboard, so it does
       // a real page reload rather than just re-polling data. A reload runs
       // refresh() on boot anyway, so this is a strict superset of the old
       // behavior — and it's the only way new code ever reaches the kiosk.
-      else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); location.reload(); }
+      else if (k === "F8" || code === "F8") { e.preventDefault(); location.reload(); }
+      // F9 → drop/raise the music notch (+ ensure YouTube Music is running).
+      else if (k === "F9" || code === "F9") { e.preventDefault(); toggleNotch(); }
+      // Controller knob (only while the notch is open): rotate = select, press = activate.
+      else if (_notchOpen && (k === "ArrowRight" || k === "ArrowDown")) { e.preventDefault(); notchMove(1); }
+      else if (_notchOpen && (k === "ArrowLeft" || k === "ArrowUp")) { e.preventDefault(); notchMove(-1); }
+      else if (_notchOpen && (k === "Enter" || k === " " || code === "Space")) { e.preventDefault(); notchActivate(); }
+      else if (_notchOpen && k === "Escape") { e.preventDefault(); closeNotch(); }
     });
 
     // ─────────────────── remote-control command consumer ───────────────────
