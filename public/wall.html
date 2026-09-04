@@ -1220,6 +1220,9 @@
       font-size: 10px; letter-spacing: .14em; color: #3F475A; }
     .nook-hints b { color: #6B748A; font-weight: 400; }
     body.nook-open .scene { opacity: .35; transition: opacity .3s; }
+    /* Knob selection ring — the highlighted control the press will activate. */
+    .nook-focus { box-shadow: 0 0 0 3px #0C101A, 0 0 0 6px var(--acc) !important; position: relative; z-index: 1; transition: box-shadow .12s ease; }
+    .nook-pulse { transform: scale(.9); }
   </style>
   <div class="nook" id="nook">
     <div class="nook-notch" id="nookNotch">
@@ -2407,7 +2410,34 @@
     };
     const nkSvg = (d, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor">${[].concat(d).map(p => `<path d="${p}"/>`).join("")}</svg>`;
     const nkFmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
-    const nk = { open: false, profile: "gage", playing: true, shuffle: false, muted: false, idx: 0, elapsed: 0, live: null, linkState: token ? "idle" : "mock" };
+    const nk = { open: false, profile: "gage", playing: true, shuffle: false, muted: false, idx: 0, elapsed: 0, live: null, linkState: token ? "idle" : "mock", focus: 4 };
+    // The knob moves a highlight across these control buttons (rotate) and
+    // activates the highlighted one (press) — like Tab / Enter. Order = ring order.
+    function nkFocusables() {
+      return [
+        { el: $("nookProfGage"), fn: () => nkPickProfile("gage") },
+        { el: $("nookProfKay"),  fn: () => nkPickProfile("kaylene") },
+        { el: $("nookShuffle"),  fn: nkToggleShuffle },
+        { el: $("nookPrevLg"),   fn: nkPrev },
+        { el: $("nookPlayLg"),   fn: nkPlay },
+        { el: $("nookNextLg"),   fn: nkNext },
+        { el: $("nookMute"),     fn: nkToggleMute },
+      ];
+    }
+    function nkRenderFocus() {
+      const items = nkFocusables();
+      items.forEach((it, i) => { if (it.el) it.el.classList.toggle("nook-focus", nk.open && i === nk.focus); });
+    }
+    function nkFocusMove(dir) {
+      const n = nkFocusables().length;
+      nk.focus = (nk.focus + dir + n) % n;
+      nkRenderFocus();
+    }
+    function nkActivate() {
+      const it = nkFocusables()[nk.focus]; if (!it) return;
+      if (it.el) { it.el.classList.add("nook-pulse"); setTimeout(() => it.el.classList.remove("nook-pulse"), 150); }
+      it.fn();
+    }
     const nkProfile = () => { const l = nk.live; if (l && (l.profile === "gage" || l.profile === "kaylene")) return l.profile; return nk.profile; };
     const nkPlaying = () => { const l = nk.live; return l ? l.status === "Playing" : nk.playing; };
     const nkList = () => NK_MIX[nkProfile()];
@@ -2428,7 +2458,7 @@
     function nkPickProfile(p) { nkSendCmd("open_playlist", { url: NK_PLAYLISTS[p], profile: p }); nk.profile = p; nk.idx = 0; nk.elapsed = 0; nk.playing = true; if (nk.live) nk.live = { ...nk.live, profile: p }; nkRender(); }
     function nkToggleShuffle() { const cur = (nk.live && typeof nk.live.shuffle === "boolean") ? nk.live.shuffle : nk.shuffle; nkSendCmd("shuffle"); nk.shuffle = !cur; nkRender(); }
     function nkToggleMute() { const cur = (nk.live && typeof nk.live.muted === "boolean") ? nk.live.muted : nk.muted; nkSendCmd("mute"); nk.muted = !cur; nkRender(); }
-    function nkOpen() { nk.open = true; $("nook").classList.add("open"); document.body.classList.add("nook-open"); if (!nk.live) nkSendCmd("open_music"); nkRender(); }
+    function nkOpen() { nk.open = true; nk.focus = 4; $("nook").classList.add("open"); document.body.classList.add("nook-open"); if (!nk.live) nkSendCmd("open_music"); nkRender(); }
     function nkClose() { nk.open = false; $("nook").classList.remove("open"); document.body.classList.remove("nook-open"); }
     function nkToggle() { nk.open ? nkClose() : nkOpen(); }
     const nkSetArt = (el, on, url) => { el.classList.toggle("has", on); el.style.backgroundImage = on ? `url("${String(url).replace(/["\\]/g, "")}")` : ""; };
@@ -2479,6 +2509,7 @@
       const qc = $("nookQueue");
       if (q.length) { qc.style.display = ""; $("nookQueueList").innerHTML = q.map((x) => `<div class="nook-q-row" data-i="${x.i}"><span class="n">${x.n}</span><div class="qa"></div><div class="qm"><div class="qt">${wdEsc(x.title)}</div><div class="qar">${wdEsc(x.artist)}</div></div><span class="ql">${wdEsc(x.len)}</span></div>`).join(""); }
       else qc.style.display = "none";
+      nkRenderFocus();
     }
     // Wire clicks (touch + browser testing); transport clicks don't toggle the notch.
     const nkStop = (fn) => (e) => { e.stopPropagation(); fn(); };
@@ -2496,7 +2527,7 @@
     $("nookQueueList").addEventListener("click", (e) => { const row = e.target.closest(".nook-q-row"); if (!row) return; e.stopPropagation(); const i = +row.dataset.i; if (i >= 0 && !nk.live) { nk.idx = i; nk.elapsed = 0; nk.playing = true; nkRender(); } });
     // Mock ticker — advances the demo track when there's no live data.
     setInterval(() => { if (nk.live || !nkPlaying()) return; const len = nkList()[nk.idx].len; if (nk.elapsed + 1 >= len) { nk.elapsed = 0; nk.idx = (nk.idx + 1) % 4; } else nk.elapsed++; nkRender(); }, 1000);
-    nkRender();
+    nkRender(); nkRenderFocus();
 
     // Demo mode: trigger both alternate scenes quickly so you don't
     // have to wait the full 5/8-minute production cadence to preview.
@@ -2576,15 +2607,14 @@
       else if (k === "F8" || code === "F8") { e.preventDefault(); location.reload(); }
       // F9 → drop/raise the audio nook (+ ensure YouTube Music is running).
       else if (k === "F9" || code === "F9") { e.preventDefault(); nkToggle(); }
-      // While closed, the knob press (Enter) also drops it down.
+      // While closed, the knob press (Enter) drops it down.
       else if (!nk.open) { if (k === "Enter" || k === "ArrowDown") { e.preventDefault(); nkOpen(); } }
-      // While open: knob rotate = track, press = play/pause; full keyboard too.
-      else if (k === " " || code === "Space" || k === "Enter") { e.preventDefault(); nkPlay(); }
-      else if (k === "ArrowRight") { e.preventDefault(); nkNext(); }
-      else if (k === "ArrowLeft") { e.preventDefault(); nkPrev(); }
-      else if (k === "ArrowUp" || k === "Escape") { e.preventDefault(); nkClose(); }
-      else if (k === "Tab") { e.preventDefault(); nkPickProfile(nkProfile() === "gage" ? "kaylene" : "gage"); }
-      else if (k === "m" || k === "M") { e.preventDefault(); nkToggleMute(); }
+      // While open — KNOB: rotate (←/→) moves the highlight across the control
+      // buttons; press (Enter) activates the highlighted one. Like Tab / Enter.
+      else if (k === "ArrowRight" || k === "ArrowDown") { e.preventDefault(); nkFocusMove(1); }
+      else if (k === "ArrowLeft" || k === "ArrowUp") { e.preventDefault(); nkFocusMove(-1); }
+      else if (k === "Enter" || k === " " || code === "Space") { e.preventDefault(); nkActivate(); }
+      else if (k === "Escape") { e.preventDefault(); nkClose(); }
     });
 
     // ─────────────────── remote-control command consumer ───────────────────
