@@ -362,7 +362,7 @@ export function Inspector({
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {daisySchool.length > 0 && (
             <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
-              {daisyName} has school {schoolSpanLabel(daisySchool)} — {dayCoverage.some((r) => daisyCoverageConflict(state!, r.date, r.startTime, r.endTime, r.endsNextDay)) ? "overlaps a coverage window; she may not be able to cover" : "unavailable to cover then"}
+              Unavailable
             </div>
           )}
           {isChildcareOff && (
