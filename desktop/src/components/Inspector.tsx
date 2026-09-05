@@ -829,7 +829,6 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
       ) : (
         <div
           onClick={() => setView((v) => (v + 1) % VIEWS.length)}
-          title="Click to cycle views"
           style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
         >
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
@@ -851,7 +850,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
               </div>
             </div>
             <div ref={bodyRef} style={{ minHeight: 112, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
-            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>{cur.note} <span style={{ opacity: 0.7 }}>· click to cycle</span></div>
+            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>{cur.note}</div>
           </div>
         </div>
       )}
