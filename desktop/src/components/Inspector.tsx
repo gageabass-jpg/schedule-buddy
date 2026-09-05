@@ -773,7 +773,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
     );
   }, [view]);
   const VIEWS = [
-    { title: "Effective $/hr by month", note: `Lower is better value. Flat $${CAREGIVER_MONTHLY_PAY}/mo, paid through time off — vacation months read higher.` },
+    { title: "Effective $/hr by month", note: "Lower is better value; vacation months read higher." },
     { title: "Hours per month", note: "Confirmed coverage hours each month." },
     { title: "Cumulative hours", note: "Running total across the period." },
     { title: "Sessions per month", note: "Confirmed coverage sessions each month." },
@@ -849,8 +849,8 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
                 {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
               </div>
             </div>
-            <div ref={bodyRef} style={{ minHeight: 112, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
-            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>{cur.note}</div>
+            <div ref={bodyRef} style={{ minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
+            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45, minHeight: 28 }}>{cur.note}</div>
           </div>
         </div>
       )}
