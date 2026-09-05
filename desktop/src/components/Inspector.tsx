@@ -740,10 +740,16 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   const avgMo = monthKeys.length ? totalH / monthKeys.length : 0;
   const avgWk = avgMo / 4.345;
 
+  const sessByMonth = new Map<string, number>();
+  confirmed.forEach((r) => { const k = r.date.slice(0, 7); sessByMonth.set(k, (sessByMonth.get(k) ?? 0) + 1); });
+
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
-  const recent = rows.slice(-6);
+  const recent = rows.slice(-6).map((r) => ({ ...r, sessions: sessByMonth.get(r.k) ?? 0 }));
   const maxRate = Math.max(0.01, ...recent.map((r) => r.rate));
+  const maxHours = Math.max(0.01, ...recent.map((r) => r.hours));
+  const maxSess = Math.max(1, ...recent.map((r) => r.sessions));
+  let run = 0; const cum = rows.map((r) => ({ k: r.k, y: (run += r.hours) })).slice(-6);
   const acc = palette.G;
   const stats: [string, string][] = [
     ["Total hours", `${totalH.toFixed(1)} h`],
@@ -752,13 +758,68 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
     ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
   ];
 
+  // Click-to-cycle visuals.
+  const [view, setView] = useState(0);
+  const VIEWS = [
+    { title: "Effective $/hr by month", note: `Lower is better value. Flat $${CAREGIVER_MONTHLY_PAY}/mo, paid through time off — vacation months read higher.` },
+    { title: "Hours per month", note: "Confirmed coverage hours each month." },
+    { title: "Cumulative hours", note: "Running total across the period." },
+    { title: "Sessions per month", note: "Confirmed coverage sessions each month." },
+  ];
+  const cur = VIEWS[view];
+
+  const rowBar = (label: string, frac: number, value: React.ReactNode, key: string) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
+      </div>
+      <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>{value}</div>
+    </div>
+  );
+
+  let body: React.ReactNode;
+  if (view === 0) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.rate / maxRate, <><span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span><span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span></>, r.k))}</div>;
+  } else if (view === 1) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.hours / maxHours, <span style={{ fontWeight: 600 }}>{r.hours.toFixed(1)}h</span>, r.k))}</div>;
+  } else if (view === 3) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.sessions / maxSess, <span style={{ fontWeight: 600 }}>{r.sessions}</span>, r.k))}</div>;
+  } else if (cum.length) {
+    // Cumulative-hours mini area.
+    const w = 264, h = 96, L = 6, R = 6, T = 10, B = 18, iw = w - L - R, ih = h - T - B;
+    const maxY = Math.max(1, ...cum.map((p) => p.y));
+    const X = (i: number) => cum.length > 1 ? L + iw * (i / (cum.length - 1)) : L + iw / 2;
+    const Y = (v: number) => T + ih - (v / maxY) * ih;
+    let line = `M ${X(0)} ${Y(cum[0].y)}`;
+    cum.forEach((p, i) => { if (i) line += ` L ${X(i)} ${Y(p.y)}`; });
+    const area = `${line} L ${X(cum.length - 1)} ${T + ih} L ${X(0)} ${T + ih} Z`;
+    const last = cum[cum.length - 1];
+    body = (
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: "auto", overflow: "visible" }} aria-label="Cumulative hours">
+        <path d={area} fill={rgba(acc, 0.14)} />
+        <path d={line} fill="none" stroke={acc} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {cum.map((p, i) => <circle key={p.k} cx={X(i)} cy={Y(p.y)} r={i === cum.length - 1 ? 3.5 : 2.5} fill={acc} />)}
+        {cum.map((p, i) => <text key={`${p.k}l`} x={X(i)} y={h - 4} textAnchor="middle" style={{ fill: t.text3, fontSize: "9px", fontFamily: "monospace" }}>{fmtMonth(p.k).split(" ")[0]}</text>)}
+        <text x={X(cum.length - 1)} y={Y(last.y) - 6} textAnchor="end" style={{ fill: t.text, fontSize: "10px", fontWeight: 600, fontFamily: "monospace" }}>{last.y.toFixed(0)}h</text>
+      </svg>
+    );
+  }
+
   return (
     <div>
       <div style={{ ...subhead(t), marginBottom: 6 }}>Caregiver Coverage Analysis</div>
       {confirmed.length === 0 ? (
         <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
       ) : (
-        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div
+          onClick={() => setView((v) => (v + 1) % VIEWS.length)}
+          title="Click to cycle views"
+          style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
+        >
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
             {stats.map(([k, v]) => (
               <div key={k}>
@@ -771,24 +832,14 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
             {daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"} · {humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}
           </div>
           <div>
-            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginBottom: 6 }}>Effective $/hr by month</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {recent.map((r) => (
-                <div key={r.k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{fmtMonth(r.k)}</div>
-                  <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.round(r.rate / maxRate * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
-                  </div>
-                  <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>
-                    <span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span>
-                    <span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span>
-                  </div>
-                </div>
-              ))}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{cur.title}</div>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
+              </div>
             </div>
-            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>
-              Lower is better value. Flat ${CAREGIVER_MONTHLY_PAY}/month ($200 twice a month), paid through time off — so months with vacation read higher.
-            </div>
+            {body}
+            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>{cur.note} <span style={{ opacity: 0.7 }}>· click to cycle</span></div>
           </div>
         </div>
       )}
