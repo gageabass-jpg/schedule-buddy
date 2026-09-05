@@ -1119,30 +1119,57 @@
        via sendPiCommand → the Pi's playerctl watcher. Demo mock with no token.
        Ported from the "Audio Nook" Claude Design handoff (high-fidelity). -->
   <style>
-    .nook { position: fixed; top: 0; left: 50%; transform: translate(-50%, -145%);
+    /* Audio Nook — themed. Day = Morning Press (light), night = Night Signal
+       (dark), switched by body.wall-night like the rest of the wall. Per-profile
+       accent (Gage / Kaylene) is set by the .nook-gage / .nook-kaylene class. */
+    .nook {
+      /* DAY (Morning Press) */
+      --nk-surface: #fffdf6; --nk-border: #e3dbc6; --nk-border-hover: #cfc4a8;
+      --nk-ink: #2a2620; --nk-ink2: #5d564a; --nk-muted: #8d8371; --nk-faint: #a99e86;
+      --nk-hint: #c2b79f; --nk-icon: #9a8f78;
+      --nk-fill: rgba(0,0,0,.04); --nk-fill2: rgba(0,0,0,.06); --nk-fill-hover: rgba(0,0,0,.09);
+      --nk-divider: rgba(0,0,0,.08); --nk-track: rgba(0,0,0,.10); --nk-onaccent: #f4efe4;
+      --nk-stripe1: #e9e1d0; --nk-stripe2: #f1ebde;
+      --nk-shadow: 0 14px 40px rgba(42,38,32,.20); --nk-shadow-lg: 0 30px 80px rgba(42,38,32,.28);
+      --nk-gage: #5a7030; --nk-gage-soft: #eef2e2; --nk-gage-line: #5a7030; --nk-gage-glow: rgba(90,112,48,.30);
+      --nk-kay: #c05f33; --nk-kay-soft: #f3e5d4; --nk-kay-line: #c05f33; --nk-kay-glow: rgba(192,95,51,.30);
+      --acc: var(--nk-gage); --acc-glow: var(--nk-gage-glow);
+      position: fixed; top: 0; left: 50%; transform: translate(-50%, -145%);
       transition: transform .3s ease; z-index: 100000;
-      --acc: #5FD4B6; --acc-glow: rgba(95,212,182,.35);
-      font-family: "Inter", system-ui, sans-serif; color: #E8ECF5; }
+      font-family: "Inter", system-ui, sans-serif; color: var(--nk-ink); }
+    body.wall-night .nook {
+      /* NIGHT (Night Signal) */
+      --nk-surface: #131928; --nk-border: rgba(255,255,255,.09); --nk-border-hover: rgba(255,255,255,.18);
+      --nk-ink: #E8ECF5; --nk-ink2: #B8C0D4; --nk-muted: #8A93A8; --nk-faint: #5B6478;
+      --nk-hint: #3F475A; --nk-icon: #6B748A;
+      --nk-fill: rgba(255,255,255,.04); --nk-fill2: rgba(255,255,255,.06); --nk-fill-hover: rgba(255,255,255,.10);
+      --nk-divider: rgba(255,255,255,.07); --nk-track: rgba(255,255,255,.08); --nk-onaccent: #0C101A;
+      --nk-stripe1: #1B2235; --nk-stripe2: #161C2C;
+      --nk-shadow: 0 14px 40px rgba(0,0,0,.5); --nk-shadow-lg: 0 30px 80px rgba(0,0,0,.6);
+      --nk-gage: #5FD4B6; --nk-gage-soft: #123b34; --nk-gage-line: rgba(95,212,182,.5); --nk-gage-glow: rgba(95,212,182,.35);
+      --nk-kay: #F4A15D; --nk-kay-soft: #3a2a18; --nk-kay-line: rgba(244,161,93,.5); --nk-kay-glow: rgba(244,161,93,.35); }
+    .nook.nook-gage { --acc: var(--nk-gage); --acc-glow: var(--nk-gage-glow); }
+    .nook.nook-kaylene { --acc: var(--nk-kay); --acc-glow: var(--nk-kay-glow); }
     .nook.open { transform: translate(-50%, 0); }
     .nook-notch { position: relative; z-index: 5; display: flex; align-items: center; gap: 22px;
       height: 116px; padding: 0 34px 0 18px; border-radius: 0 0 38px 38px;
-      background: #131928; border: 1px solid rgba(255,255,255,.09); border-top: none;
-      box-shadow: 0 14px 40px rgba(0,0,0,.5); min-width: 760px; max-width: 900px;
+      background: var(--nk-surface); border: 1px solid var(--nk-border); border-top: none;
+      box-shadow: var(--nk-shadow); min-width: 760px; max-width: 900px;
       overflow: hidden; box-sizing: border-box; cursor: pointer; transition: border-color .25s ease; }
-    .nook-notch:hover { border-color: rgba(255,255,255,.18); }
+    .nook-notch:hover { border-color: var(--nk-border-hover); }
     .nook.open .nook-notch { background: transparent; border-color: transparent; box-shadow: none; }
     .nook-prog { position: absolute; left: 38px; right: 38px; bottom: 0; height: 4px;
-      background: rgba(255,255,255,.08); border-radius: 2px 2px 0 0; overflow: hidden; }
+      background: var(--nk-track); border-radius: 2px 2px 0 0; overflow: hidden; }
     .nook-prog > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
     .nook-artwrap { position: relative; width: 80px; height: 80px; flex: none; }
     .nook-art { width: 80px; height: 80px; border-radius: 14px; overflow: hidden;
-      background: repeating-linear-gradient(135deg,#1B2235 0 7px,#161C2C 7px 14px) center/cover;
-      border: 1px solid rgba(255,255,255,.1); box-shadow: 0 8px 20px rgba(0,0,0,.4);
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 7px,var(--nk-stripe2) 7px 14px) center/cover;
+      border: 1px solid var(--nk-border); box-shadow: 0 8px 20px rgba(0,0,0,.25);
       display: flex; align-items: center; justify-content: center; text-align: center; }
-    .nook-art-ph { font-family: "Fira Code", monospace; font-size: 9px; letter-spacing: .12em; color: #5B6478; line-height: 1.5; }
+    .nook-art-ph { font-family: "Fira Code", monospace; font-size: 9px; letter-spacing: .12em; color: var(--nk-faint); line-height: 1.5; }
     .nook-art.has .nook-art-ph, .nook-np-art.has .nook-np-art-ph { display: none; }
     .nook-avatar { position: absolute; right: -8px; bottom: -8px; width: 32px; height: 32px;
-      border-radius: 50%; overflow: hidden; border: 3px solid #131928; }
+      border-radius: 50%; overflow: hidden; border: 3px solid var(--nk-surface); }
     .nook-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .nook-eq { display: flex; align-items: flex-end; gap: 5px; height: 38px; width: 38px; flex: none; }
     .nook-eq > i { width: 5px; height: 38px; border-radius: 2px; background: var(--acc); transform-origin: bottom; transform: scaleY(.25); }
@@ -1154,74 +1181,74 @@
     .nook-text { flex: 1; min-width: 0; line-height: 1.2; }
     .nook-title { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 28px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .nook-sub { font-size: 19px; color: #8A93A8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-sub { font-size: 19px; color: var(--nk-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nook-sub b { color: var(--acc); font-weight: 400; }
     .nook-tp { display: flex; align-items: center; gap: 6px; flex: none; }
     .nook-tp button, .nook-tp-lg button { border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-    .nook-tp .sm { width: 58px; height: 58px; border-radius: 50%; color: #B8C0D4; }
-    .nook-tp .sm:hover { background: rgba(255,255,255,.08); color: #fff; }
-    .nook-tp .pl, .nook-tp-lg .pl { border-radius: 50%; background: var(--acc); color: #0C101A; }
+    .nook-tp .sm { width: 58px; height: 58px; border-radius: 50%; color: var(--nk-ink2); }
+    .nook-tp .sm:hover { background: var(--nk-fill2); color: var(--nk-ink); }
+    .nook-tp .pl, .nook-tp-lg .pl { border-radius: 50%; background: var(--acc); color: var(--nk-onaccent); }
     .nook-tp .pl { width: 68px; height: 68px; }
     .nook-tp .pl:hover, .nook-tp-lg .pl:hover { filter: brightness(1.1); }
     .nook-panel { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-      width: 900px; background: #131928; border: 1px solid var(--acc); border-top: none;
-      border-radius: 0 0 38px 38px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+      width: 900px; background: var(--nk-surface); border: 1px solid var(--acc); border-top: none;
+      border-radius: 0 0 38px 38px; box-shadow: var(--nk-shadow-lg);
       padding: 142px 30px 30px; box-sizing: border-box; display: none; flex-direction: column; gap: 20px; z-index: -1; }
     .nook.open .nook-panel { display: flex; }
     .nook-profiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px;
-      background: rgba(255,255,255,.04); border-radius: 16px; }
+      background: var(--nk-fill); border-radius: 16px; }
     .nook-prof { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px;
       cursor: pointer; background: transparent; border: 1px solid transparent; transition: all .2s; }
     .nook-prof img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
     .nook-prof .nm { font-family: "Space Grotesk"; font-weight: 600; font-size: 16px; line-height: 1.15; }
     .nook-prof .lb { font-family: "Fira Code"; font-size: 10px; letter-spacing: .18em; }
-    .nook-prof.gage.on { background: rgba(95,212,182,.14); border-color: rgba(95,212,182,.5); }
-    .nook-prof.kay.on { background: rgba(244,161,93,.14); border-color: rgba(244,161,93,.5); }
-    .nook-prof.gage:hover { background: rgba(95,212,182,.14); }
-    .nook-prof.kay:hover { background: rgba(244,161,93,.14); }
+    .nook-prof.gage .lb { color: var(--nk-gage); }
+    .nook-prof.kay .lb { color: var(--nk-kay); }
+    .nook-prof.gage.on, .nook-prof.gage:hover { background: var(--nk-gage-soft); border-color: var(--nk-gage-line); }
+    .nook-prof.kay.on, .nook-prof.kay:hover { background: var(--nk-kay-soft); border-color: var(--nk-kay-line); }
     .nook-np { display: flex; gap: 18px; align-items: center; }
     .nook-np-art { width: 116px; height: 116px; border-radius: 14px; flex: none; overflow: hidden;
-      background: repeating-linear-gradient(135deg,#1B2235 0 8px,#161C2C 8px 16px) center/cover;
-      border: 1px solid rgba(255,255,255,.08); box-shadow: 0 12px 30px rgba(0,0,0,.4);
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 8px,var(--nk-stripe2) 8px 16px) center/cover;
+      border: 1px solid var(--nk-border); box-shadow: 0 12px 30px rgba(0,0,0,.25);
       display: flex; align-items: center; justify-content: center; text-align: center; }
-    .nook-np-art-ph { font-family: "Fira Code"; font-size: 10px; letter-spacing: .12em; color: #5B6478; line-height: 1.5; }
+    .nook-np-art-ph { font-family: "Fira Code"; font-size: 10px; letter-spacing: .12em; color: var(--nk-faint); line-height: 1.5; }
     .nook-np-meta { flex: 1; min-width: 0; }
-    .nook-np-status { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: #5B6478;
+    .nook-np-status { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: var(--nk-faint);
       display: flex; align-items: center; gap: 8px; }
-    .nook-np-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #5B6478; flex: none; }
-    .nook-link { margin-left: auto; padding: 2px 8px; border-radius: 999px; border: 1px solid #5B6478; color: #5B6478; font-size: 9px; }
+    .nook-np-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--nk-faint); flex: none; }
+    .nook-link { margin-left: auto; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--nk-faint); color: var(--nk-faint); font-size: 9px; }
     .nook-np-title { font-family: "Space Grotesk"; font-weight: 600; font-size: 24px; letter-spacing: -.01em;
       margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .nook-np-sub { font-size: 15px; color: #8A93A8; margin-top: 2px; }
+    .nook-np-sub { font-size: 15px; color: var(--nk-muted); margin-top: 2px; }
     .nook-np-prog { display: flex; align-items: center; gap: 10px; margin-top: 14px;
-      font-family: "Fira Code"; font-size: 11px; color: #5B6478; }
-    .nook-np-prog .bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+      font-family: "Fira Code"; font-size: 11px; color: var(--nk-faint); }
+    .nook-np-prog .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--nk-track); overflow: hidden; }
     .nook-np-prog .bar > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
     .nook-tp-lg { display: flex; align-items: center; justify-content: center; gap: 18px; }
-    .nook-tp-lg .ic { width: 44px; height: 44px; border-radius: 50%; color: #6B748A; }
-    .nook-tp-lg .ic:hover { background: rgba(255,255,255,.06); }
+    .nook-tp-lg .ic { width: 44px; height: 44px; border-radius: 50%; color: var(--nk-icon); }
+    .nook-tp-lg .ic:hover { background: var(--nk-fill); }
     .nook-tp-lg .ic.on { color: var(--acc); }
     .nook-tp-lg .ic.mut { color: #D87B3A; }
-    .nook-tp-lg .md { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.05); color: #E8ECF5; }
-    .nook-tp-lg .md:hover { background: rgba(255,255,255,.1); }
+    .nook-tp-lg .md { width: 52px; height: 52px; border-radius: 50%; background: var(--nk-fill2); color: var(--nk-ink); }
+    .nook-tp-lg .md:hover { background: var(--nk-fill-hover); }
     .nook-tp-lg .pl { width: 68px; height: 68px; box-shadow: 0 10px 30px var(--acc-glow); }
-    .nook-queue { border-top: 1px solid rgba(255,255,255,.07); padding-top: 16px; }
-    .nook-queue-h { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: #5B6478; margin-bottom: 10px; }
+    .nook-queue { border-top: 1px solid var(--nk-divider); padding-top: 16px; }
+    .nook-queue-h { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: var(--nk-faint); margin-bottom: 10px; }
     .nook-q-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
-    .nook-q-row:hover { background: rgba(255,255,255,.05); }
-    .nook-q-row .n { font-family: "Fira Code"; font-size: 12px; color: #5B6478; width: 14px; }
+    .nook-q-row:hover { background: var(--nk-fill2); }
+    .nook-q-row .n { font-family: "Fira Code"; font-size: 12px; color: var(--nk-faint); width: 14px; }
     .nook-q-row .qa { width: 32px; height: 32px; border-radius: 6px; flex: none;
-      background: repeating-linear-gradient(135deg,#1B2235 0 5px,#161C2C 5px 10px); }
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 5px,var(--nk-stripe2) 5px 10px); }
     .nook-q-row .qm { flex: 1; min-width: 0; line-height: 1.2; }
     .nook-q-row .qt { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .nook-q-row .qar { font-size: 12px; color: #8A93A8; }
-    .nook-q-row .ql { font-family: "Fira Code"; font-size: 11px; color: #5B6478; }
+    .nook-q-row .qar { font-size: 12px; color: var(--nk-muted); }
+    .nook-q-row .ql { font-family: "Fira Code"; font-size: 11px; color: var(--nk-faint); }
     .nook-hints { display: flex; justify-content: center; gap: 18px; font-family: "Fira Code";
-      font-size: 10px; letter-spacing: .14em; color: #3F475A; }
-    .nook-hints b { color: #6B748A; font-weight: 400; }
+      font-size: 10px; letter-spacing: .14em; color: var(--nk-hint); }
+    .nook-hints b { color: var(--nk-icon); font-weight: 400; }
     body.nook-open .scene { opacity: .35; transition: opacity .3s; }
     /* Knob selection ring — the highlighted control the press will activate. */
-    .nook-focus { box-shadow: 0 0 0 3px #0C101A, 0 0 0 6px var(--acc) !important; position: relative; z-index: 1; transition: box-shadow .12s ease; }
+    .nook-focus { box-shadow: 0 0 0 3px var(--nk-surface), 0 0 0 6px var(--acc) !important; position: relative; z-index: 1; transition: box-shadow .12s ease; }
     .nook-pulse { transform: scale(.9); }
   </style>
   <div class="nook" id="nook">
@@ -1244,8 +1271,8 @@
     </div>
     <div class="nook-panel" id="nookPanel">
       <div class="nook-profiles">
-        <div class="nook-prof gage" id="nookProfGage"><img src="assets/gage.jpg" alt=""><div><div class="nm">Gage</div><div class="lb" style="color:#5FD4B6">GAGE'S MIX</div></div></div>
-        <div class="nook-prof kay" id="nookProfKay"><img src="assets/kaylene.jpeg" alt=""><div><div class="nm">Kaylene</div><div class="lb" style="color:#F4A15D">KAYLENE'S MIX</div></div></div>
+        <div class="nook-prof gage" id="nookProfGage"><img src="assets/gage.jpg" alt=""><div><div class="nm">Gage</div><div class="lb">GAGE'S MIX</div></div></div>
+        <div class="nook-prof kay" id="nookProfKay"><img src="assets/kaylene.jpeg" alt=""><div><div class="nm">Kaylene</div><div class="lb">KAYLENE'S MIX</div></div></div>
       </div>
       <div class="nook-np">
         <div class="nook-np-art" id="nookNpArt"><span class="nook-np-art-ph">ALBUM<br>ART</span></div>
@@ -2463,14 +2490,16 @@
     function nkToggle() { nk.open ? nkClose() : nkOpen(); }
     const nkSetArt = (el, on, url) => { el.classList.toggle("has", on); el.style.backgroundImage = on ? `url("${String(url).replace(/["\\]/g, "")}")` : ""; };
     function nkRender() {
-      const prof = nkProfile(), playing = nkPlaying(), acc = nkAccent(), L = nk.live, list = nkList();
+      const prof = nkProfile(), playing = nkPlaying(), L = nk.live, list = nkList();
       const t = L ? { title: L.title, artist: L.artist || "", album: L.album || "YouTube Music", len: Number(L.length) || 0, art: L.art || "" } : list[nk.idx];
       const elapsed = L ? (Number(L.position) || 0) : nk.elapsed;
       const pct = t.len ? Math.min(100, Math.round(elapsed / t.len * 100)) : 0;
       const hasArt = !!t.art;
       const root = $("nook");
-      root.style.setProperty("--acc", acc);
-      root.style.setProperty("--acc-glow", prof === "gage" ? "rgba(95,212,182,.35)" : "rgba(244,161,93,.35)");
+      // Accent is CSS-driven per profile (green/rust by day, teal/amber by
+      // night) — a class, so it re-themes instantly when body.wall-night flips.
+      root.classList.toggle("nook-gage", prof === "gage");
+      root.classList.toggle("nook-kaylene", prof === "kaylene");
       root.classList.toggle("playing", playing);
       // collapsed notch
       nkSetArt($("nookArt"), hasArt, t.art);
@@ -2485,10 +2514,10 @@
       $("nookProfGage").classList.toggle("on", prof === "gage");
       $("nookProfKay").classList.toggle("on", prof === "kaylene");
       nkSetArt($("nookNpArt"), hasArt, t.art);
-      $("nookDot").style.background = playing ? acc : "#5B6478";
+      $("nookDot").style.background = playing ? "var(--acc)" : "var(--nk-faint)";
       $("nookStatus").textContent = playing ? "PLAYING" : "PAUSED";
       const link = { mock: "DEMO", idle: "PI IDLE", live: "LIVE", error: "OFFLINE" }[nk.linkState];
-      const linkC = { mock: "#5B6478", idle: "#5B6478", live: "#5FD4B6", error: "#D87B3A" }[nk.linkState];
+      const linkC = { mock: "var(--nk-faint)", idle: "var(--nk-faint)", live: "var(--acc)", error: "#D87B3A" }[nk.linkState];
       const le = $("nookLink"); le.textContent = link; le.style.color = linkC; le.style.borderColor = linkC;
       $("nookNpTitle").textContent = t.title || "Nothing playing";
       $("nookNpSub").textContent = `${t.artist || ""}${t.album ? " · " + t.album : ""}`;
