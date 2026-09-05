@@ -697,6 +697,82 @@ export function Inspector({
           />
         </div>
       </div>
+
+      {/* Caregiver Coverage Analysis — running total of confirmed coverage hours */}
+      <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+    </div>
+  );
+}
+
+/** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
+ *  hours, per-month bars, monthly/weekly averages, and the date range.
+ *  Computed from state.coverageRequests (status === "confirmed"). */
+function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
+  state: HouseholdState | null;
+  daisyName: string;
+  palette: Palette;
+  t: ThemeTokens;
+}) {
+  const reqs = state?.coverageRequests ?? [];
+  const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const dur = (r: { startTime: string; endTime: string; endsNextDay?: boolean }) => {
+    let d = toMin(r.endTime) - toMin(r.startTime);
+    if (r.endsNextDay || d <= 0) d += 1440;   // overnight window
+    return d;
+  };
+  const confirmed = reqs.filter((r) => r.status === "confirmed" && r.date && r.startTime && r.endTime);
+  const totalH = confirmed.reduce((s, r) => s + dur(r), 0) / 60;
+  const byMonth = new Map<string, number>();
+  confirmed.forEach((r) => { const k = r.date.slice(0, 7); byMonth.set(k, (byMonth.get(k) ?? 0) + dur(r) / 60); });
+  const monthKeys = [...byMonth.keys()].sort();
+  const dates = confirmed.map((r) => r.date).sort();
+  const now = new Date();
+  const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const completeMonths = monthKeys.filter((k) => k !== curKey);
+  const avgMo = completeMonths.length ? completeMonths.reduce((s, k) => s + (byMonth.get(k) ?? 0), 0) / completeMonths.length : totalH;
+  const avgWk = avgMo / 4.345;
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
+  const recent = monthKeys.slice(-6);
+  const maxMo = Math.max(1, ...recent.map((k) => byMonth.get(k) ?? 0));
+  const acc = palette.G;
+
+  return (
+    <div>
+      <div style={{ ...subhead(t), marginBottom: 6 }}>Caregiver Coverage Analysis</div>
+      {confirmed.length === 0 ? (
+        <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
+      ) : (
+        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", color: t.text }}>
+                {totalH.toFixed(1)} <span style={{ fontSize: 13, fontWeight: 600, color: t.text3 }}>hrs</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 1 }}>{daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>~{avgMo.toFixed(0)} hrs/mo</div>
+              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 1 }}>~{avgWk.toFixed(0)} hrs/wk</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: t.text3 }}>{humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {recent.map((k) => {
+              const h = byMonth.get(k) ?? 0;
+              return (
+                <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{fmtMonth(k)}</div>
+                  <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.round(h / maxMo * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
+                  </div>
+                  <div style={{ width: 42, textAlign: "right", fontSize: 11, fontWeight: 600, color: t.text, flexShrink: 0 }}>{h.toFixed(1)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
