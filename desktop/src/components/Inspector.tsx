@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import { compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
 import { dayColors, eventColor, lifeColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
@@ -758,8 +758,20 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
     ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
   ];
 
-  // Click-to-cycle visuals.
+  // Click-to-cycle visuals with a little shuffle animation on change.
   const [view, setView] = useState(0);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || typeof el.animate !== "function") return;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateX(18px) rotate(1.6deg) scale(0.97)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" },
+    );
+  }, [view]);
   const VIEWS = [
     { title: "Effective $/hr by month", note: `Lower is better value. Flat $${CAREGIVER_MONTHLY_PAY}/mo, paid through time off — vacation months read higher.` },
     { title: "Hours per month", note: "Confirmed coverage hours each month." },
@@ -838,7 +850,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
                 {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
               </div>
             </div>
-            {body}
+            <div ref={bodyRef} style={{ minHeight: 112, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
             <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>{cur.note} <span style={{ opacity: 0.7 }}>· click to cycle</span></div>
           </div>
         </div>
