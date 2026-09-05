@@ -40,6 +40,7 @@ export function FamilyConsole({
   const [caregiverCopied, setCaregiverCopied] = useState(false);
   const [caregiverBusy, setCaregiverBusy] = useState(false);
   const [removingUid, setRemovingUid] = useState<string | null>(null);
+  const [tab, setTab] = useState<"general" | "people" | "wall">("general");
 
   const selfUid = auth.currentUser?.uid ?? null;
 
@@ -116,10 +117,34 @@ export function FamilyConsole({
           >✕</button>
         </div>
         <div style={{ fontSize: 12, color: t.text2, marginBottom: 14 }}>
-          Manage household details, members, and dependents.
+          {state?.householdName ?? defaultHouseholdName(household)} · {members.length} member{members.length === 1 ? "" : "s"}
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 2, background: t.bg, padding: 3, borderRadius: 10, marginBottom: 16 }}>
+          {(["general", "people", "wall"] as const).map((key) => {
+            const label = key === "general" ? "General" : key === "people" ? "People" : "Wall display";
+            const on = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                style={{
+                  flex: 1, border: 0, padding: "7px 10px", borderRadius: 8,
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  background: on ? t.bgElev : "transparent",
+                  color: on ? t.text : t.text2,
+                  boxShadow: on ? "0 1px 3px rgba(0,0,0,0.18)" : "none",
+                  transition: "background .15s",
+                }}
+              >{label}</button>
+            );
+          })}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18, overflow: "auto", paddingRight: 4 }}>
+          {tab === "general" && (<>
           {/* Household name */}
           <Section title="Household name" t={t}>
             <div style={{ display: "flex", gap: 8 }}>
@@ -235,6 +260,9 @@ export function FamilyConsole({
             )}
           </Section>
 
+          </>)}
+
+          {tab === "wall" && (<>
           {/* Wall display — Raspberry Pi kiosk */}
           <Section
             title="Wall display"
@@ -262,6 +290,9 @@ export function FamilyConsole({
             <OccasionsSection householdId={householdId} state={state} t={t} palette={palette} />
           </Section>
 
+          </>)}
+
+          {tab === "people" && (<>
           {/* Members */}
           <Section title={`Members (${members.length})`} t={t}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -412,6 +443,9 @@ export function FamilyConsole({
 
           {/* Coverage requests moved to the View → Coverage Requests panel (⌘⇧C). */}
 
+          </>)}
+
+          {tab === "general" && (<>
           {/* Appearance */}
           <Section title="Appearance" t={t} hint="Match macOS or pick a fixed mode.">
             <div
@@ -474,6 +508,7 @@ export function FamilyConsole({
               Sign out
             </button>
           </Section>
+          </>)}
 
           {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
         </div>
