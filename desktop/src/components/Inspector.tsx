@@ -403,7 +403,7 @@ export function Inspector({
             </div>
           )}
 
-          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && (
+          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && daisySchool.length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
               No Coverage needed.
             </div>
