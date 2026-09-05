@@ -704,15 +704,20 @@ export function Inspector({
   );
 }
 
+// Caregiver pay model — flat $200 every two weeks (biweekly).
+const CAREGIVER_PAY = 200;
+const CAREGIVER_PERIOD_DAYS = 14;
+
 /** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
- *  hours, per-month bars, monthly/weekly averages, and the date range.
- *  Computed from state.coverageRequests (status === "confirmed"). */
+ *  hours, flat-pay cost model, effective $/hr per month, blended rate, cadence,
+ *  and date range. Computed from state.coverageRequests (status confirmed). */
 function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   state: HouseholdState | null;
   daisyName: string;
   palette: Palette;
   t: ThemeTokens;
 }) {
+  const perDay = CAREGIVER_PAY / CAREGIVER_PERIOD_DAYS;
   const reqs = state?.coverageRequests ?? [];
   const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const dur = (r: { startTime: string; endTime: string; endsNextDay?: boolean }) => {
@@ -722,20 +727,42 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   };
   const confirmed = reqs.filter((r) => r.status === "confirmed" && r.date && r.startTime && r.endTime);
   const totalH = confirmed.reduce((s, r) => s + dur(r), 0) / 60;
-  const byMonth = new Map<string, number>();
-  confirmed.forEach((r) => { const k = r.date.slice(0, 7); byMonth.set(k, (byMonth.get(k) ?? 0) + dur(r) / 60); });
-  const monthKeys = [...byMonth.keys()].sort();
+
+  const hoursByMonth = new Map<string, number>();
+  confirmed.forEach((r) => { const k = r.date.slice(0, 7); hoursByMonth.set(k, (hoursByMonth.get(k) ?? 0) + dur(r) / 60); });
+  const monthKeys = [...hoursByMonth.keys()].sort();
   const dates = confirmed.map((r) => r.date).sort();
   const now = new Date();
   const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // Modeled pay: prorate the biweekly $200 across each month's days (the current
+  // month counts only elapsed days, so its rate reads low until the month fills in).
+  const daysInMonth = (k: string) => {
+    const [y, m] = k.split("-").map(Number);
+    return k === curKey ? now.getDate() : new Date(y!, m!, 0).getDate();
+  };
+  const rows = monthKeys.map((k) => {
+    const hours = hoursByMonth.get(k) ?? 0;
+    const cost = perDay * daysInMonth(k);
+    return { k, hours, cost, rate: hours > 0 ? cost / hours : 0, partial: k === curKey };
+  });
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  const blended = totalH > 0 ? totalCost / totalH : 0;
+
   const completeMonths = monthKeys.filter((k) => k !== curKey);
-  const avgMo = completeMonths.length ? completeMonths.reduce((s, k) => s + (byMonth.get(k) ?? 0), 0) / completeMonths.length : totalH;
+  const avgMo = completeMonths.length ? completeMonths.reduce((s, k) => s + (hoursByMonth.get(k) ?? 0), 0) / completeMonths.length : totalH;
   const avgWk = avgMo / 4.345;
+
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
-  const recent = monthKeys.slice(-6);
-  const maxMo = Math.max(1, ...recent.map((k) => byMonth.get(k) ?? 0));
+  const recent = rows.slice(-6);
+  const maxRate = Math.max(0.01, ...recent.map((r) => r.rate));
   const acc = palette.G;
+  const stats: [string, string][] = [
+    ["Total hours", `${totalH.toFixed(1)} h`],
+    ["Total paid", `$${Math.round(totalCost).toLocaleString()}`],
+    ["Blended rate", `$${blended.toFixed(2)}/hr`],
+    ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
+  ];
 
   return (
     <div>
@@ -743,33 +770,37 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
       {confirmed.length === 0 ? (
         <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
       ) : (
-        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", color: t.text }}>
-                {totalH.toFixed(1)} <span style={{ fontSize: 13, fontWeight: 600, color: t.text3 }}>hrs</span>
+        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
+            {stats.map(([k, v]) => (
+              <div key={k}>
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{k}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", color: t.text, marginTop: 1 }}>{v}</div>
               </div>
-              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 1 }}>{daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>~{avgMo.toFixed(0)} hrs/mo</div>
-              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 1 }}>~{avgWk.toFixed(0)} hrs/wk</div>
-            </div>
+            ))}
           </div>
-          <div style={{ fontSize: 11, color: t.text3 }}>{humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {recent.map((k) => {
-              const h = byMonth.get(k) ?? 0;
-              return (
-                <div key={k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{fmtMonth(k)}</div>
+          <div style={{ fontSize: 10.5, color: t.text3 }}>
+            {daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"} · {humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}
+          </div>
+          <div>
+            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginBottom: 6 }}>Effective $/hr by month</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {recent.map((r) => (
+                <div key={r.k} style={{ display: "flex", alignItems: "center", gap: 8, opacity: r.partial ? 0.55 : 1 }}>
+                  <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{fmtMonth(r.k)}</div>
                   <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ width: `${Math.round(h / maxMo * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
+                    <div style={{ width: `${Math.round(r.rate / maxRate * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
                   </div>
-                  <div style={{ width: 42, textAlign: "right", fontSize: 11, fontWeight: 600, color: t.text, flexShrink: 0 }}>{h.toFixed(1)}</div>
+                  <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>
+                    <span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span>
+                    <span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span>
+                  </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>
+              Lower is better value. Modeled at ${CAREGIVER_PAY} every {CAREGIVER_PERIOD_DAYS} days; the current month is partial (dimmed).
+            </div>
           </div>
         </div>
       )}
