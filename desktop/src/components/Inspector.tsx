@@ -704,9 +704,8 @@ export function Inspector({
   );
 }
 
-// Caregiver pay model — flat $200 every two weeks (biweekly).
-const CAREGIVER_PAY = 200;
-const CAREGIVER_PERIOD_DAYS = 14;
+// Caregiver pay model — flat $400 a month ($200 twice a month).
+const CAREGIVER_MONTHLY_PAY = 400;
 
 /** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
  *  hours, flat-pay cost model, effective $/hr per month, blended rate, cadence,
@@ -717,7 +716,6 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   palette: Palette;
   t: ThemeTokens;
 }) {
-  const perDay = CAREGIVER_PAY / CAREGIVER_PERIOD_DAYS;
   const reqs = state?.coverageRequests ?? [];
   const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const dur = (r: { startTime: string; endTime: string; endsNextDay?: boolean }) => {
@@ -732,24 +730,14 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   confirmed.forEach((r) => { const k = r.date.slice(0, 7); hoursByMonth.set(k, (hoursByMonth.get(k) ?? 0) + dur(r) / 60); });
   const monthKeys = [...hoursByMonth.keys()].sort();
   const dates = confirmed.map((r) => r.date).sort();
-  const now = new Date();
-  const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  // Modeled pay: prorate the biweekly $200 across each month's days (the current
-  // month counts only elapsed days, so its rate reads low until the month fills in).
-  const daysInMonth = (k: string) => {
-    const [y, m] = k.split("-").map(Number);
-    return k === curKey ? now.getDate() : new Date(y!, m!, 0).getDate();
-  };
+  // Flat $400/month, paid consistently (including through her time off).
   const rows = monthKeys.map((k) => {
     const hours = hoursByMonth.get(k) ?? 0;
-    const cost = perDay * daysInMonth(k);
-    return { k, hours, cost, rate: hours > 0 ? cost / hours : 0, partial: k === curKey };
+    return { k, hours, cost: CAREGIVER_MONTHLY_PAY, rate: hours > 0 ? CAREGIVER_MONTHLY_PAY / hours : 0 };
   });
   const totalCost = rows.reduce((s, r) => s + r.cost, 0);
   const blended = totalH > 0 ? totalCost / totalH : 0;
-
-  const completeMonths = monthKeys.filter((k) => k !== curKey);
-  const avgMo = completeMonths.length ? completeMonths.reduce((s, k) => s + (hoursByMonth.get(k) ?? 0), 0) / completeMonths.length : totalH;
+  const avgMo = monthKeys.length ? totalH / monthKeys.length : 0;
   const avgWk = avgMo / 4.345;
 
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -786,7 +774,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
             <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginBottom: 6 }}>Effective $/hr by month</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {recent.map((r) => (
-                <div key={r.k} style={{ display: "flex", alignItems: "center", gap: 8, opacity: r.partial ? 0.55 : 1 }}>
+                <div key={r.k} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{fmtMonth(r.k)}</div>
                   <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ width: `${Math.round(r.rate / maxRate * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
@@ -799,7 +787,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
               ))}
             </div>
             <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45 }}>
-              Lower is better value. Modeled at ${CAREGIVER_PAY} every {CAREGIVER_PERIOD_DAYS} days; the current month is partial (dimmed).
+              Lower is better value. Flat ${CAREGIVER_MONTHLY_PAY}/month ($200 twice a month), paid through time off — so months with vacation read higher.
             </div>
           </div>
         </div>
