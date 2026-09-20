@@ -1316,6 +1316,28 @@
     font-size: 10px;
   }
 
+  /* Section headers (This week / Next week / Later) */
+  .agenda-section {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-3); padding: 12px 4px 2px;
+  }
+  .agenda-section:first-child { padding-top: 0; }
+
+  /* One line per shift: dot · name · range · hours */
+  .agenda-shifts { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .agenda-shift { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .agenda-shift-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+  .agenda-shift-name { font-weight: 600; color: var(--text); }
+  .agenda-shift-time { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .agenda-shift-hrs { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .agenda-pending { color: var(--ot); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; margin-left: 4px; }
+
+  /* Slim, quiet off-days */
+  .agenda-row.off { padding: 9px 14px; box-shadow: none; opacity: 0.72; }
+  .agenda-row.off .agenda-title { font-weight: 500; color: var(--text-dim); }
+  .agenda-row.off .ad-num { font-size: 20px; color: var(--text-dim); }
+  .agenda-row.off .agenda-rail { background: var(--sep); }
+
   /* Life-event pills, right edge of an agenda row */
   .agenda-events {
     display: flex;
@@ -13002,8 +13024,23 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   const dowFull = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
   const labels = _personLabels();
 
-  agEl.innerHTML = days.map(d => {
+  // Group into This week / Next week / Later. Work days list one clean line per
+  // shift (name · range · hours); off days render as a slim, quiet row.
+  const wkStart = (d) => addDays(d, -d.getDay());
+  const thisWk = toISODate(wkStart(start));
+  const nextWk = toISODate(addDays(wkStart(start), 7));
+  const sectionFor = (d) => {
+    const w = toISODate(wkStart(d));
+    return w === thisWk ? "This week" : w === nextWk ? "Next week" : "Later";
+  };
+
+  let html = "";
+  let curSection = null;
+  for (const d of days) {
     const dISO = toISODate(d);
+    const sec = sectionFor(d);
+    if (sec !== curSection) { curSection = sec; html += `<div class="agenda-section">${sec}</div>`; }
+
     const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     const isToday = dISO === todayISO;
     let kind = "off";
@@ -13017,40 +13054,14 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
       kind === "g"    ? `${labels.self} works` :
                         `${labels.partner} works`;
 
-    let chipsHTML = "";
+    let shiftsHTML = "";
     if (kind !== "off") {
-      const gTimes = new Set(cell.gOnDay.map(e => e.startTime + "-" + e.endTime));
-      const kTimes = new Set(cell.kOnDay.map(e => e.startTime + "-" + e.endTime));
-      const shared = [...gTimes].filter(t => kTimes.has(t));
-      for (const sh of shared) {
-        const e = cell.gOnDay.find(x => x.startTime + "-" + x.endTime === sh);
-        if (e) chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar" data-photo="g">G</span>
-          <span class="sb-avatar k" data-photo="k">K</span>
-          <span class="sb-chip" data-who="G+K"><span class="sb-chip-dot"></span>G+K · ${compactTime(e.startTime)}</span>
-        </span>`;
-      }
-      for (const e of cell.gOnDay) {
-        if (shared.includes(e.startTime + "-" + e.endTime)) continue;
-        chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar" data-photo="g">G</span>
-          <span class="sb-chip" data-who="G"><span class="sb-chip-dot"></span>G · ${compactTime(e.startTime)}</span>
-        </span>`;
-      }
-      for (const e of cell.kOnDay) {
-        if (shared.includes(e.startTime + "-" + e.endTime)) continue;
-        chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar k" data-photo="k">K</span>
-          <span class="sb-chip" data-who="K"${e.pending?' data-pending="1"':''}><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}${e.pending?" (pending)":""}</span>
-        </span>`;
-      }
+      for (const e of cell.gOnDay) shiftsHTML += _agendaShiftLine("G", e);
+      for (const e of cell.kOnDay) shiftsHTML += _agendaShiftLine("K", e);
     }
-
-    // Life events now render as themed pills on the RIGHT of the row (avatar +
-    // leaf). Tapping a pill opens a bottom sheet with the event's details.
     const evPillsHTML = getEventsForDate(dISO).map(agendaEventPillHTML).join("");
 
-    return `<div class="agenda-row${isToday ? " today" : ""}" data-kind="${kind}" data-date="${dISO}">
+    html += `<div class="agenda-row${isToday ? " today" : ""}${kind === "off" ? " off" : ""}" data-kind="${kind}" data-date="${dISO}">
       <div class="agenda-date">
         <div class="ad-dow">${dowFull[d.getDay()]}</div>
         <div class="ad-num">${d.getDate()}</div>
@@ -13059,11 +13070,27 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
       <div class="agenda-rail"></div>
       <div class="agenda-body">
         <div class="agenda-title">${title}${wvuMarkHTML(dISO, "agenda-wvu-icon")}</div>
-        ${chipsHTML ? `<div class="agenda-chips">${chipsHTML}</div>` : ""}
+        ${shiftsHTML ? `<div class="agenda-shifts">${shiftsHTML}</div>` : ""}
       </div>
       ${evPillsHTML ? `<div class="agenda-events">${evPillsHTML}</div>` : ""}
     </div>`;
-  }).join("");
+  }
+  agEl.innerHTML = html;
+}
+
+// One clean shift line for the agenda: colored dot · name · time range · hours.
+function _agendaShiftLine(who, e) {
+  const meta = _eventWhoMeta(who);
+  const color = who === "G" ? "var(--color-g)" : who === "K" ? "var(--color-k)" : "var(--color-off)";
+  const range = `${compactTime(e.startTime)}–${compactTime(e.endTime)}`;
+  const hrs = _eventWorkHours(e);
+  const hstr = (Number.isInteger(hrs) ? hrs : hrs.toFixed(1)) + "h";
+  return `<div class="agenda-shift">
+    <span class="agenda-shift-dot" style="background:${color}"></span>
+    <span class="agenda-shift-name">${escapeHTML(meta.name)}</span>
+    <span class="agenda-shift-time">${range}</span>
+    <span class="agenda-shift-hrs">${hstr}${e.pending ? ` <span class="agenda-pending">pending</span>` : ""}</span>
+  </div>`;
 }
 
 // Who → avatar + display-name metadata for life-event pills / detail sheet.
