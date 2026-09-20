@@ -1,7 +1,7 @@
 {
-  "name": "schedule-buddy-functions",
+  "name": "nucleus-functions",
   "version": "0.1.0",
-  "description": "Cloud Functions for Schedule Buddy — pushes when coverage requests change.",
+  "description": "Cloud Functions for Nucleus — pushes when coverage requests change.",
   "main": "lib/index.js",
   "engines": {
     "node": "20"

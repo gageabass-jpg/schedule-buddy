@@ -26,7 +26,7 @@ export function ApiKeySettings({ open, onClose, palette, t }: Props) {
   const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!window.sbm) {
-      setErr("This feature only works inside the Schedule Buddy Manager app.");
+      setErr("This feature only works inside the Nucleus Manager app.");
       return;
     }
     setErr(null);

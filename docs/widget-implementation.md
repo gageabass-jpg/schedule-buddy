@@ -1,4 +1,4 @@
-# Schedule Buddy — iOS Widget implementation
+# Nucleus — iOS Widget implementation
 
 Native WidgetKit widgets for concepts **1a (Today · small)**, **1c (Week strip · medium)**,
 and **1e (Week agenda · large)**. All the code is written; the remaining work is
@@ -116,7 +116,7 @@ is live when the widget reads.
 
 8. **Build & run** the `App` scheme on your device. Open the app once (so it
    writes the first snapshot), then long-press the home screen → **+** → search
-   "Schedule Buddy" → add the Today / Week / Agenda widgets.
+   "Nucleus" → add the Today / Week / Agenda widgets.
 
 ## Notes & tuning
 

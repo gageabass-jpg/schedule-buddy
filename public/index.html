@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Schedule Buddy</title>
+<title>Nucleus</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#0a84ff">
+<meta name="theme-color" content="#0F6E64">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<!-- Inter for the Claude wordmark pill. Space Grotesk is the "Schedule
-     Buddy" wordmark — free substitute for Styrene (Commercial Type's
-     paid font). System font fallback handles offline / first paint. -->
+<!-- Inter for the Claude wordmark pill. Sora is the Nucleus wordmark
+     (always lowercase, weight 600, -0.02em). System font fallback handles
+     offline / first paint. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700&display=swap">
 <style>
   :root {
     /* Surfaces (dark default, iOS HIG) */
@@ -39,8 +39,15 @@
     --color-k: #FF375F;          /* Kaylene — iOS systemPink */
     --color-both: #BF5AF2;       /* both working — systemPurple */
     --color-off: #34C759;        /* off — systemGreen (used sparingly) */
-    --accent: var(--color-g);
-    --accent-hover: #409cff;
+    /* Nucleus brand. Teal is the brand; on the dark ground the mark and
+       accent text lighten to Teal Light (7.0:1 on Ink). Filled buttons stay
+       Teal with white text on both grounds (6.1:1). */
+    --brand: #56B7A9;
+    --brand-fill: #0F6E64;
+    --brand-fill-hover: #0A4F48;
+    --brand-tint: #D8E7E4;
+    --accent: var(--brand);
+    --accent-hover: #7CCABF;
     --ot: #FF453A;
     --ok: #30D158;
     /* Import-review accents — brighter green on the dark default. */
@@ -53,7 +60,7 @@
     --radius-button: 14px;
     --radius-tile: 10px;
     --shadow-card: none;
-    --shadow-press: 0 4px 16px rgba(10,132,255,0.35);
+    --shadow-press: 0 4px 16px rgba(15,110,100,0.35);
 
     /* Type */
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
@@ -73,6 +80,8 @@
       --text-2: rgba(60,60,67,0.6);
       --text-3: rgba(60,60,67,0.3);
       --text-dim: rgba(60,60,67,0.6);
+      --brand: #0F6E64;
+      --accent-hover: #0A4F48;
       --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
       /* Deeper green on white for contrast (matches the proposed design). */
       --import-green: #16A34A;
@@ -3244,9 +3253,9 @@
   }
 
   /* ========== SPLASH SCREEN ==========
-     Matches the design's print mockup — solid indigo disc on cream bg,
-     large heading + tagline, three pulsing dots near bottom.
-     Dark-mode variant inverts surface + text but keeps the same disc. */
+     Nucleus stacked lockup: block-knot mark over the lowercase wordmark,
+     tagline, three pulsing dots near the bottom. Paper ground in light
+     mode, black in dark mode (matches the app's dark surface). */
   .splash-screen {
     position: fixed;
     inset: 0;
@@ -3256,7 +3265,7 @@
     align-items: center;
     justify-content: center;
     gap: 28px;
-    background: #ECECEE;     /* design's --bg */
+    background: #F7F6F3;     /* Nucleus Paper */
     color: #000;
     transition: opacity 0.4s ease;
   }
@@ -3277,34 +3286,30 @@
     position: absolute;
     inset: -42px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(10,132,255,0.22), transparent 70%);
+    background: radial-gradient(circle, rgba(15,110,100,0.22), transparent 70%);
     filter: blur(28px);
     pointer-events: none;
   }
-  /* Calendar brand mark — large variant for the splash. Near-black in light mode,
-     white in dark mode, with G + K accent dots in the middle row. */
+  /* Nucleus block-knot mark — large variant for the splash. Teal on Paper,
+     Teal Light on the dark ground (never pure white). */
   .splash-mark {
-    width: 200px;
-    height: 184px;
+    width: 168px;
+    height: 168px;
     display: block;
-    color: #0A0A0A;
+    color: #0F6E64;
   }
   @media (prefers-color-scheme: dark) {
-    .splash-mark { color: #FFFFFF; }
-  }
-  .splash-mark .dot-grey { fill: #E5E5EA; }
-  @media (prefers-color-scheme: dark) {
-    .splash-mark .dot-grey { fill: #3A3A3C; }
+    .splash-mark { color: #56B7A9; }
   }
   .splash-text {
     text-align: center;
   }
   .splash-text .title {
-    font-family: "Space Grotesk", "Styrene A", "Inter", -apple-system, sans-serif;
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1.05;
+    font-family: "Sora", "Helvetica Neue", Arial, -apple-system, sans-serif;
+    font-size: 44px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
     color: inherit;
   }
   .splash-text .tag {
@@ -3330,9 +3335,13 @@
     border-radius: 50%;
     animation: splash-pulse 1.4s ease-in-out infinite;
   }
-  .splash-dots > span:nth-child(1) { background: #0A84FF; animation-delay: 0s; }
-  .splash-dots > span:nth-child(2) { background: #FF375F; animation-delay: 0.2s; }
-  .splash-dots > span:nth-child(3) { background: #BF5AF2; animation-delay: 0.4s; }
+  .splash-dots > span { background: #0F6E64; }
+  @media (prefers-color-scheme: dark) {
+    .splash-dots > span { background: #56B7A9; }
+  }
+  .splash-dots > span:nth-child(1) { animation-delay: 0s; }
+  .splash-dots > span:nth-child(2) { animation-delay: 0.2s; }
+  .splash-dots > span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes splash-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
   /* ========== AUTH / HOUSEHOLD SCREENS (redesigned) ========== */
@@ -3350,7 +3359,16 @@
     padding: 0 24px 28px;
     max-width: 420px;
   }
-  .auth-hero .brand-mark { margin: 0 auto 14px; }
+  .auth-hero .brand-mark { margin: 0 auto 14px; color: var(--brand); }
+  .auth-hero .auth-wordmark {
+    font-family: "Sora", "Helvetica Neue", Arial, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+    margin: 0 0 22px;
+  }
   .auth-hero h1 {
     font-size: 28px;
     font-weight: 700;
@@ -3478,14 +3496,14 @@
     margin-top: 8px;
     border: 0;
     border-radius: var(--radius-button);
-    background: var(--color-g);
+    background: var(--brand-fill);
     color: #fff;
     font-family: var(--font);
     font-size: 17px;
     font-weight: 600;
     letter-spacing: -0.02em;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(10,132,255,0.35);
+    box-shadow: var(--shadow-press);
     transition: transform 0.08s ease, filter 0.15s;
   }
   .auth-primary:active { transform: scale(0.98); }
@@ -3499,7 +3517,7 @@
     color: var(--text-2);
   }
   .auth-toggle a {
-    color: var(--color-g);
+    color: var(--brand);
     cursor: pointer;
     text-decoration: none;
     font-weight: 500;
@@ -3516,7 +3534,7 @@
     width: 64px;
     height: 64px;
     border-radius: 18px;
-    background: rgba(10,132,255,0.18);
+    background: rgba(15,110,100,0.18);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3563,11 +3581,11 @@
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: rgba(10,132,255,0.2);
+    background: rgba(15,110,100,0.2);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-g);
+    color: var(--brand);
     flex-shrink: 0;
   }
   .hh-card-head-text .hh-card-title {
@@ -3593,13 +3611,13 @@
     height: 44px;
     border: 0;
     border-radius: 12px;
-    background: var(--color-g);
+    background: var(--brand-fill);
     color: #fff;
     font-family: var(--font);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(10,132,255,0.30);
+    box-shadow: 0 4px 14px rgba(15,110,100,0.30);
     transition: transform 0.08s ease;
   }
   .hh-cta-primary:active { transform: scale(0.98); }
@@ -3654,9 +3672,9 @@
     transition: border-color 0.12s, background 0.12s;
   }
   .hh-code-cell.active {
-    border-color: var(--color-g);
-    background: rgba(10,132,255,0.08);
-    box-shadow: 0 0 0 3px rgba(10,132,255,0.12);
+    border-color: var(--brand);
+    background: rgba(15,110,100,0.08);
+    box-shadow: 0 0 0 3px rgba(15,110,100,0.12);
   }
   .hh-divider {
     display: flex;
@@ -3773,7 +3791,7 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--brand-fill);
     color: white;
     font-size: 22px;
     border: none;
@@ -3894,7 +3912,9 @@
     pointer-events: none;
   }
 
-  /* Brand row in app header — small calendar + muted wordmark, sits ABOVE the big page title */
+  /* Brand row in app header — Nucleus mark + lowercase wordmark, sits ABOVE
+     the big page title. The lockup appears here once; the mark alone carries
+     every other surface. */
   .brand {
     display: flex;
     align-items: center;
@@ -3903,14 +3923,14 @@
   .brand-mark {
     flex-shrink: 0;
     display: block;
-    color: var(--text);
+    color: var(--brand);
   }
   .brand-name {
-    font-size: 14px;
-    font-weight: 700;
-    font-family: "Space Grotesk", "Styrene A", "Inter", -apple-system, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: "Sora", "Helvetica Neue", Arial, -apple-system, sans-serif;
     letter-spacing: -0.02em;
-    color: var(--text-2);
+    color: var(--text);
     white-space: nowrap;   /* never wrap the wordmark onto two lines */
   }
   .brand-tag {
@@ -4208,8 +4228,8 @@
     .pane-childcare { display: none; }
     .pane-chat      { display: none; }
     /* Tabs that have their own headers don't need the global brand bar
-       on mobile — frees up vertical space and prevents "Schedule Buddy"
-       from wrapping next to a crowded right-side icon cluster. */
+       on mobile — frees up vertical space and keeps the wordmark clear of
+       the crowded right-side icon cluster. */
     body[data-mobile-tab="chat"]      .header-row,
     body[data-mobile-tab="childcare"] .header-row,
     body[data-mobile-tab="profile"]   .header-row { display: none; }
@@ -4589,9 +4609,9 @@
     /* Lightning bolt visible but non-interactive on mobile — tap the day instead */
     .cal-ot-icon { pointer-events: none; }
 
-    /* Compact header — scale the wordmark to the viewport so "Schedule Buddy"
-       stays on ONE line from the smallest phones up, never stacking. */
-    .brand-name { font-size: clamp(15px, 5.6vw, 22px); }
+    /* Compact header — the wordmark is one short word, so a fixed size is
+       safe on every phone width. */
+    .brand-name { font-size: 18px; }
     .brand { min-width: 0; flex-shrink: 1; }
     .subtitle { display: none; }
     .header-row { gap: 6px; align-items: center; }
@@ -5599,36 +5619,13 @@
 <!-- ==================== SPLASH (shows briefly on first paint) ==================== -->
 <div id="splashScreen" class="splash-screen">
   <div class="splash-glow">
-    <!-- Calendar brand mark: 4 cols × 3 rows of dots; middle row has G + K accents -->
-    <svg class="splash-mark" viewBox="0 0 96 88" aria-hidden="true">
-      <!-- two tabs at the top -->
-      <rect x="20" y="2" width="6" height="14" rx="3" fill="currentColor"/>
-      <rect x="70" y="2" width="6" height="14" rx="3" fill="currentColor"/>
-      <!-- calendar body -->
-      <rect x="4" y="8" width="88" height="76" rx="20" fill="currentColor"/>
-      <!-- dot grid (4 columns × 3 rows) -->
-      <!-- row 1 -->
-      <circle cx="20" cy="36" r="4.5" class="dot-grey"/>
-      <circle cx="34" cy="36" r="4.5" class="dot-grey"/>
-      <circle cx="48" cy="36" r="4.5" class="dot-grey"/>
-      <circle cx="62" cy="36" r="4.5" class="dot-grey"/>
-      <circle cx="76" cy="36" r="4.5" class="dot-grey"/>
-      <!-- row 2 (middle) — G + K accents -->
-      <circle cx="20" cy="50" r="4.5" class="dot-grey"/>
-      <circle cx="34" cy="50" r="4.5" fill="#0A84FF"/>
-      <circle cx="48" cy="50" r="4.5" fill="#FF375F"/>
-      <circle cx="62" cy="50" r="4.5" class="dot-grey"/>
-      <circle cx="76" cy="50" r="4.5" class="dot-grey"/>
-      <!-- row 3 -->
-      <circle cx="20" cy="64" r="4.5" class="dot-grey"/>
-      <circle cx="34" cy="64" r="4.5" class="dot-grey"/>
-      <circle cx="48" cy="64" r="4.5" class="dot-grey"/>
-      <circle cx="62" cy="64" r="4.5" class="dot-grey"/>
-      <circle cx="76" cy="64" r="4.5" class="dot-grey"/>
+    <!-- Nucleus block-knot mark: four square loops read as four shift blocks -->
+    <svg class="splash-mark" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </div>
   <div class="splash-text">
-    <div class="title">Schedule Buddy</div>
+    <div class="title">nucleus</div>
     <div class="tag">A calendar worth opening.</div>
   </div>
   <div class="splash-dots" aria-hidden="true">
@@ -5639,31 +5636,11 @@
 <!-- ==================== AUTH SCREEN ==================== -->
 <div id="authScreen" class="auth-screen" style="display:none;">
   <div class="auth-hero">
-    <!-- Brand mark: refined calendar-with-dots SVG -->
-    <svg class="brand-mark" width="56" height="52" viewBox="0 0 96 88" aria-hidden="true">
-      <rect x="20" y="2" width="6" height="14" rx="3" fill="currentColor" opacity="0.9"/>
-      <rect x="70" y="2" width="6" height="14" rx="3" fill="currentColor" opacity="0.9"/>
-      <rect x="4" y="8" width="88" height="76" rx="20" fill="currentColor" opacity="0.08"/>
-      <rect x="4" y="8" width="88" height="76" rx="20" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"/>
-      <!-- dot grid: 4 cols × 3 rows; middle row has G + K accent dots -->
-      <g>
-        <circle cx="20" cy="30" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="34" cy="30" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="48" cy="30" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="62" cy="30" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="76" cy="30" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="20" cy="44" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="34" cy="44" r="4.5" fill="var(--color-g)"/>
-        <circle cx="48" cy="44" r="4.5" fill="var(--color-k)"/>
-        <circle cx="62" cy="44" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="76" cy="44" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="20" cy="58" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="34" cy="58" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="48" cy="58" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="62" cy="58" r="4.5" fill="currentColor" opacity="0.25"/>
-        <circle cx="76" cy="58" r="4.5" fill="currentColor" opacity="0.25"/>
-      </g>
+    <!-- Nucleus block-knot mark + stacked wordmark -->
+    <svg class="brand-mark" width="56" height="56" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
+    <div class="auth-wordmark">nucleus</div>
     <h1 id="authTitle">Welcome back</h1>
     <p class="auth-sub" id="authSubtitle">Sign in to sync your household.</p>
   </div>
@@ -5807,15 +5784,10 @@
 <div class="container">
   <div class="header-row">
     <div class="brand">
-      <svg class="brand-mark" width="28" height="26" viewBox="0 0 96 88" aria-hidden="true">
-        <rect x="20" y="2" width="6" height="14" rx="3" fill="currentColor" opacity="0.85"/>
-        <rect x="70" y="2" width="6" height="14" rx="3" fill="currentColor" opacity="0.85"/>
-        <rect x="4" y="8" width="88" height="76" rx="20" fill="currentColor" opacity="0.10"/>
-        <circle cx="34" cy="44" r="6.5" fill="var(--color-g)"/>
-        <circle cx="48" cy="44" r="6.5" fill="var(--color-k)"/>
-        <circle cx="62" cy="44" r="6.5" fill="currentColor" opacity="0.25"/>
+      <svg class="brand-mark" width="24" height="24" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" stroke="currentColor" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span class="brand-name">Schedule Buddy</span>
+      <span class="brand-name">nucleus</span>
       <span class="saved-note" id="savedNote">saved</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
@@ -9788,7 +9760,7 @@ async function doDeleteAccount() {
   const ok = confirm(
     "Delete your account?\n\n" +
     "This removes you from this household and permanently deletes your " +
-    "Schedule Buddy login. You'll be signed out and need a new invite code " +
+    "Nucleus login. You'll be signed out and need a new invite code " +
     "to rejoin. This can't be undone."
   );
   if (!ok) return;

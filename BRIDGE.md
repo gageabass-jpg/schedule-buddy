@@ -1,4 +1,6 @@
-# Schedule Buddy — Bridge Spec
+# Nucleus — Bridge Spec
+
+> Nucleus was called Schedule Buddy until Sept 2026. The Firebase project id, hosting URL, iOS bundle id, and app group keep the old name on purpose — renaming them would create a new app.
 
 **Audience:** anyone (or any agent) building a separate client — desktop Mac app, second mobile app, web admin, etc. — that needs to read or write the same household data the iOS app uses.
 

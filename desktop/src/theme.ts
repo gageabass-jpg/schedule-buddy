@@ -1,4 +1,5 @@
-/** Brand orange used for "Manager" wordmark + today highlight. iOS systemOrange. */
+/** Accent orange for the today highlight + light-bulb. iOS systemOrange.
+ *  (The wordmark itself uses the Nucleus tokens in components/BrandMark.tsx.) */
 export const MANAGER_ORANGE = "#FF9F0A";
 
 export type PaletteName = "modern" | "warm" | "garden" | "mono";
