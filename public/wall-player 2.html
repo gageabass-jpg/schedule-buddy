@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wall Player — Schedule Buddy</title>
+<link rel="icon" href="assets/wall-post.png">
+<style>
+  :root {
+    --bg: #0B0B0D;
+    --panel: #16161A;
+    --border: rgba(255,255,255,0.10);
+    --text: #F2F2F7;
+    --text-2: rgba(235,235,245,0.62);
+    --text-3: rgba(235,235,245,0.34);
+    --accent: #0A84FF;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex; flex-direction: column;
+    padding: max(env(safe-area-inset-top, 0px), 10px) 12px
+             max(env(safe-area-inset-bottom, 0px), 10px);
+    gap: 10px;
+  }
+
+  /* ---------- toolbar ---------- */
+  .bar {
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0; min-height: 32px;
+  }
+  .bar h1 {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    margin: 0; flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-3); flex-shrink: 0;
+    transition: background 0.3s ease;
+  }
+  .dot.live { background: #30D158; box-shadow: 0 0 8px rgba(48,209,88,0.6); }
+  .dot.err  { background: #FF453A; box-shadow: 0 0 8px rgba(255,69,58,0.6); }
+  .btn {
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); font-family: var(--font); font-size: 13px;
+    letter-spacing: -0.01em; height: 32px; padding: 0 12px;
+    border-radius: 9px; cursor: pointer; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+
+  /* ---------- the screen ---------- */
+  /* The stage fills what's left; the screen is scaled inside it so the wall
+     always keeps its true aspect ratio and never overflows the viewport. */
+  .stage {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* Fullscreen defaults to a black backdrop; keep the app's own background. */
+  .stage:fullscreen { background: var(--bg); padding: 10px; }
+  .stage:-webkit-full-screen { background: var(--bg); padding: 10px; }
+  .screen {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.6);
+    flex-shrink: 0;
+  }
+  /* Rendered at the wall's true pixel size, then scaled as a whole. wall.html
+     lays out in vw/vh units, so giving the frame a literal 1920x1080 viewport
+     reproduces the real display exactly — type sizes and all — instead of
+     re-flowing it into a small box. */
+  #frame {
+    border: 0; display: block;
+    transform-origin: top left;
+    background: #000;
+  }
+  .stand {
+    width: 22%; height: 9px; margin: 0 auto;
+    background: linear-gradient(180deg, #2A2A30, #17171B);
+    border-radius: 0 0 7px 7px;
+    flex-shrink: 0;
+  }
+  .stand-base {
+    width: 34%; height: 5px; margin: 0 auto;
+    background: #232329; border-radius: 3px; flex-shrink: 0;
+  }
+
+  /* ---------- token gate ---------- */
+  .gate {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    padding: 20px; text-align: center;
+  }
+  .gate h2 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .gate p { font-size: 14px; color: var(--text-2); margin: 0; max-width: 380px; line-height: 1.45; }
+  .gate input {
+    width: min(420px, 100%); height: 44px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 11px; padding: 0 14px;
+    color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; outline: none;
+  }
+  .gate input:focus { border-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--text-3); max-width: 380px; line-height: 1.45; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar" hidden>
+  <span class="dot" id="dot" title="Connection"></span>
+  <h1 id="title">Wall Player</h1>
+  <button class="btn" id="reloadBtn" type="button">Reload</button>
+  <button class="btn" id="fsBtn" type="button">Full screen</button>
+  <button class="btn" id="forgetBtn" type="button">Token</button>
+</div>
+
+<div class="stage" id="stage" hidden>
+  <div>
+    <div class="screen" id="screen">
+      <iframe id="frame" title="Wall display" referrerpolicy="no-referrer"></iframe>
+    </div>
+    <div class="stand"></div>
+    <div class="stand-base"></div>
+  </div>
+</div>
+
+<div class="gate" id="gate">
+  <h2>Wall Player</h2>
+  <p>Shows exactly what the wall display at home is showing, at the same proportions.</p>
+  <input id="tokenInput" type="text" placeholder="Paste the wall token" autocomplete="off"
+         autocapitalize="off" autocorrect="off" spellcheck="false">
+  <button class="btn primary" id="goBtn" type="button">Show the wall</button>
+  <p class="hint">The token is the <code>?t=</code> value from the wall URL. It's kept in this
+     browser's local storage only — it is never sent anywhere except the wall page itself.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // The wall is a 1080p display; wall.html lays out against the viewport it's
+  // given, so the frame is rendered at these exact dimensions and then scaled.
+  // Overridable via ?w=&h= if the panel is ever swapped for another size.
+  var params = new URLSearchParams(location.search);
+  var W = Math.max(320, parseInt(params.get("w"), 10) || 1920);
+  var H = Math.max(240, parseInt(params.get("h"), 10) || 1080);
+
+  var STORE_KEY = "sb.wallPlayer.token";
+  var frame  = document.getElementById("frame");
+  var screenEl = document.getElementById("screen");
+  var stage  = document.getElementById("stage");
+  var gate   = document.getElementById("gate");
+  var bar    = document.getElementById("bar");
+  var dot    = document.getElementById("dot");
+  var title  = document.getElementById("title");
+  var input  = document.getElementById("tokenInput");
+
+  function readToken() {
+    var fromUrl = (params.get("t") || "").trim();
+    if (fromUrl) return fromUrl;
+    try { return (localStorage.getItem(STORE_KEY) || "").trim(); } catch (e) { return ""; }
+  }
+  function saveToken(t) {
+    try { localStorage.setItem(STORE_KEY, t); } catch (e) { /* private mode — session only */ }
+  }
+
+  // Scale the 1920x1080 frame down to whatever room the stage has, preserving
+  // aspect ratio. The wrapper is sized to the scaled result so layout (and the
+  // little stand underneath) tracks the visible screen rather than the
+  // pre-transform box, which CSS transforms don't affect on their own.
+  function fit() {
+    if (stage.hidden) return;
+    var availW = stage.clientWidth;
+    var availH = stage.clientHeight - 14;      // leave room for the stand
+    if (availW <= 0 || availH <= 0) return;
+    var scale = Math.min(availW / W, availH / H);
+    frame.style.width  = W + "px";
+    frame.style.height = H + "px";
+    frame.style.transform = "scale(" + scale + ")";
+    // Not rounded — rounding the wrapper skews the aspect ratio by a
+    // fraction of a percent, and the point of this page is true proportions.
+    screenEl.style.width  = (W * scale) + "px";
+    screenEl.style.height = (H * scale) + "px";
+  }
+
+  function start(token) {
+    saveToken(token);
+    gate.hidden = true;
+    bar.hidden = false;
+    stage.hidden = false;
+    title.textContent = "Wall Player · " + W + "×" + H;
+    // Load the real wall page. Same origin, so it renders identically to the Pi.
+    frame.src = "/wall?t=" + encodeURIComponent(token);
+    fit();
+  }
+
+  frame.addEventListener("load", function () {
+    dot.classList.remove("err");
+    dot.classList.add("live");
+    dot.title = "Loaded " + new Date().toLocaleTimeString();
+    fit();
+  });
+  frame.addEventListener("error", function () {
+    dot.classList.remove("live");
+    dot.classList.add("err");
+  });
+
+  document.getElementById("goBtn").addEventListener("click", function () {
+    var t = input.value.trim();
+    // Tolerate a pasted full URL as well as a bare token.
+    var m = t.match(/[?&]t=([^&\s]+)/);
+    if (m) t = decodeURIComponent(m[1]);
+    if (t) start(t);
+  });
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") document.getElementById("goBtn").click();
+  });
+
+  document.getElementById("reloadBtn").addEventListener("click", function () {
+    // Re-assign rather than contentWindow.reload() so a cached document is
+    // re-requested and the no-cache header on /wall does its job.
+    var src = frame.src;
+    frame.src = "about:blank";
+    setTimeout(function () { frame.src = src; }, 50);
+  });
+
+  // Fullscreen the stage, not the screen itself: fit() sizes #screen in
+  // explicit pixels, which would fight a fullscreen box. The stage is the
+  // measured container, so going fullscreen just makes its clientWidth/Height
+  // the display size and the existing math re-fits for free.
+  document.getElementById("fsBtn").addEventListener("click", function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (stage.requestFullscreen) stage.requestFullscreen();
+    else if (stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
+  });
+
+  document.getElementById("forgetBtn").addEventListener("click", function () {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    frame.src = "about:blank";
+    stage.hidden = true;
+    bar.hidden = true;
+    gate.hidden = false;
+    input.value = "";
+    input.focus();
+  });
+
+  // Watch the stage box itself rather than trusting window events. A window
+  // "resize" doesn't reliably fire for every case that changes the available
+  // room — phone rotation, the iOS URL bar collapsing, entering fullscreen —
+  // and when it doesn't, the frame keeps its old scale and overflows.
+  // Observing the container catches all of them from one place.
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(fit).observe(stage);
+  }
+  window.addEventListener("resize", fit);
+  window.addEventListener("orientationchange", function () { setTimeout(fit, 150); });
+  document.addEventListener("fullscreenchange", function () { setTimeout(fit, 60); });
+
+  var existing = readToken();
+  if (existing) start(existing);
+  else input.focus();
+})();
+</script>
+</body>
+</html>

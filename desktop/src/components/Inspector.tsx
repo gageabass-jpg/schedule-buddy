@@ -85,15 +85,28 @@ export function Inspector({
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const daisySchool = state ? daisyDayRanges(state, selected) : [];
 
+  // Soft tinted "boxes" for the Childcare (amber) + Life (blue) sections.
+  const CHILD_BG = rgba("#E0A82E", dark ? 0.14 : 0.10);
+  const CHILD_LABEL = dark ? "#E8BB55" : "#9A7212";
+  const LIFE_BLUE = palette.G;
+  const LIFE_BG = rgba(LIFE_BLUE, dark ? 0.16 : 0.09);
+  const LIFE_LABEL = dark ? "#7FB0FF" : "#2563EB";
+  const boxBtn: React.CSSProperties = {
+    alignSelf: "stretch", textAlign: "center", padding: "8px 10px",
+    border: `0.5px solid ${t.sep}`, borderRadius: 11, background: t.bgElev,
+    color: t.text, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+    fontFamily: "inherit", letterSpacing: "-0.01em",
+  };
+
   return (
     <div
       style={{
         background: dark ? "rgba(20,20,22,0.5)" : "rgba(255,255,255,0.6)",
         borderLeft: `0.5px solid ${t.sep}`,
-        padding: 14,
+        padding: 11,
         display: "flex",
         flexDirection: "column",
-        gap: 12,
+        gap: 9,
         overflowY: "auto",
         overflowX: "hidden",
         backdropFilter: "blur(20px)",
@@ -136,14 +149,14 @@ export function Inspector({
       {/* Selected day card */}
       <div
         style={{
-          borderRadius: 12,
-          padding: 14,
+          borderRadius: 14,
+          padding: 12,
           background: kind === "off" ? t.bgElev : rgba(accent, dark ? 0.18 : 0.10),
           border: `0.5px solid ${kind === "off" ? t.sep : rgba(accent, 0.35)}`,
         }}
       >
         <div style={subhead(t)}>{dayLabel}</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 2 }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 2 }}>
           {kind === "off"
             ? "Both off"
             : kind === "both"
@@ -152,7 +165,7 @@ export function Inspector({
                 ? `${selfName} works`
                 : `${partnerName} works`}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
           {(shifts ?? []).map((s, i) => {
             const c = personColor(s.who, palette);
             const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
@@ -356,12 +369,14 @@ export function Inspector({
         </div>
       )}
 
-      {/* Childcare coverage for the selected day */}
-      <div>
-        <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {/* Childcare + Life — side-by-side soft boxes */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "stretch" }}>
+      {/* Childcare coverage for the selected day — soft amber box */}
+      <div style={{ background: CHILD_BG, borderRadius: 16, padding: 11, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: CHILD_LABEL }}>Childcare</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
           {daisySchool.length > 0 && (
-            <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
+            <div style={{ fontSize: 12, color: CHILD_LABEL, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
               Unavailable
             </div>
           )}
@@ -384,19 +399,7 @@ export function Inspector({
               <button
                 type="button"
                 onClick={() => onToggleChildcareOff(selected, false)}
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "6px 12px",
-                  border: `0.5px solid ${t.sep}`,
-                  borderRadius: 7,
-                  background: t.bgElev,
-                  color: t.text,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "-0.01em",
-                }}
+                style={boxBtn}
               >
                 Childcare available again
               </button>
@@ -404,8 +407,8 @@ export function Inspector({
           )}
 
           {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && daisySchool.length === 0 && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No Coverage needed.
+            <div style={{ fontSize: 13, color: CHILD_LABEL, fontWeight: 500 }}>
+              No coverage needed.
             </div>
           )}
 
@@ -453,35 +456,39 @@ export function Inspector({
               <div
                 key={req.id}
                 style={{
-                  padding: "9px 11px",
+                  padding: "8px 9px",
                   borderRadius: 9,
                   background: t.bgElev,
                   border: `0.5px solid ${t.sep}`,
                   borderLeft: `3px solid ${sc}`,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 4,
+                  gap: 5,
+                  minWidth: 0,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span
-                    style={{
-                      fontSize: 9.5,
-                      fontWeight: 700,
-                      padding: "2px 7px",
-                      borderRadius: 999,
-                      background: rgba(sc, 0.18),
-                      color: sc,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {COVERAGE_STATUS_LABEL[req.status]}
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums" }}>
-                    {req.startTime} → {req.endTime}{req.endsNextDay ? " +1d" : ""}
-                  </span>
-                </div>
+                {/* Status pill on its own line, then the window on ONE line —
+                    small + no-wrap so "16:45 → 00:00 +1d" never breaks. */}
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    padding: "2px 6px",
+                    borderRadius: 999,
+                    background: rgba(sc, 0.18),
+                    color: sc,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {COVERAGE_STATUS_LABEL[req.status]}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
+                  {req.startTime} → {req.endTime}
+                  {req.endsNextDay && <span style={{ color: t.text3, fontWeight: 600 }}> +1d</span>}
+                </span>
                 {req.arriveBy && (
                   <div style={{ fontSize: 10.5, color: t.text3 }}>
                     Arrive by <span style={{ color: t.text2, fontWeight: 600 }}>{req.arriveBy}</span>
@@ -505,52 +512,80 @@ export function Inspector({
           })}
 
           {!isChildcareOff && (
-            <button
-              type="button"
+            <BoxButton
+              label="Mark no childcare"
               onClick={() => onToggleChildcareOff(selected, true)}
+              accent={CHILD_LABEL}
+              t={t}
               title="Mark this day as having no childcare (caregiver off)"
-              style={{
-                alignSelf: "flex-start",
-                marginTop: 2,
-                padding: "5px 10px",
-                border: `0.5px solid ${t.sep}`,
-                borderRadius: 7,
-                background: "transparent",
-                color: t.text2,
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Mark no childcare
-            </button>
+            />
           )}
         </div>
       </div>
 
-      {/* Health-calendar appointments for the selected day (styled distinctly). */}
+      {/* Events for the selected day — soft blue box */}
+      <div style={{ background: LIFE_BG, borderRadius: 16, padding: 11, display: "flex", flexDirection: "column", gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: LIFE_LABEL }}>Life</span>
+        {/* Avatars sit right under the label (top-aligned, wrapping); the
+            "+ Add life item" button's margin-top:auto keeps it pinned below. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", alignContent: "flex-start", gap: 8, margin: "2px 0 6px" }}>
+          {/* EVERY event on the day gets an avatar here — life items AND
+              health appointments — so the cell always agrees with the
+              details list below (an event never shows in one but not the other). */}
+          {events.length === 0 && (
+            <div style={{ fontSize: 13, color: LIFE_LABEL, fontWeight: 500 }}>
+              No life items yet.
+            </div>
+          )}
+          {events.map((ev) => {
+            const personName =
+              ev.who === "G" ? selfName :
+              ev.who === "K" ? partnerName :
+              ev.who === "Daisy" ? "Daisy" : "Family";
+            // Same 12h formatter as the rows below so hover + row agree.
+            const title = `${ev.title}${ev.pending ? " (pending)" : ""} · ${apptTimeRange(ev)} · ${personName}`;
+            return (
+              <LifeAvatarButton
+                key={ev.id}
+                ev={ev}
+                title={title}
+                palette={palette}
+                dark={dark}
+                onClick={() => onEditEvent(ev)}
+              />
+            );
+          })}
+        </div>
+        <BoxButton
+          label="+ Add life item"
+          onClick={onAddEvent}
+          accent={LIFE_LABEL}
+          t={t}
+        />
+      </div>
+      </div>{/* /Childcare + Life grid */}
+
+      {/* Health-calendar appointments for the selected day (only when present). */}
       {events.some((e) => e.healthId) && (
         <div>
           <div style={{ ...subhead(t), marginBottom: 8 }}>Appointments</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {events.filter((e) => e.healthId).map((ev) => (
               <button
                 key={ev.id}
                 type="button"
                 onClick={() => onEditEvent(ev)}
                 style={{
-                  display: "flex", gap: 12, alignItems: "stretch", width: "100%",
+                  display: "flex", gap: 10, alignItems: "stretch", width: "100%",
                   background: "transparent", border: 0, padding: 0, cursor: "pointer",
-                  textAlign: "left", fontFamily: "inherit",
+                  textAlign: "left", fontFamily: "inherit", minWidth: 0,
                 }}
               >
                 <div style={{ width: 4, borderRadius: 4, background: "#34C759", flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: dark ? "#30D158" : "#1e9e4a" }}>{apptTimeRange(ev)}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginTop: 2, letterSpacing: "-0.01em" }}>{ev.title}</div>
-                  {ev.notes && <div style={{ fontSize: 12.5, color: t.text2, marginTop: 1 }}>{ev.notes}</div>}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: dark ? "#30D158" : "#1e9e4a" }}>{apptTimeRange(ev)}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginTop: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}</div>
+                  {ev.notes && <div style={{ fontSize: 12, color: t.text2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.notes}</div>}
                 </div>
               </button>
             ))}
@@ -558,101 +593,49 @@ export function Inspector({
         </div>
       )}
 
-      {/* Events for the selected day */}
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-          <span style={subhead(t)}>Life</span>
-          <button
-            type="button"
-            onClick={onAddEvent}
-            style={{
-              background: "transparent",
-              border: 0,
-              color: palette.G,
-              fontSize: 11.5,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              padding: 0,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            + Add life item
-          </button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {events.filter((e) => !e.healthId).length === 0 && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No Life items yet.
-            </div>
-          )}
-          {events.filter((e) => !e.healthId).map((ev) => {
-            const color = ev.pending ? "#FF9F0A" : lifeColor(ev.who);
-            const timeLabel = ev.startTime
-              ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
-              : "All day";
-            const personName =
-              ev.who === "G" ? selfName :
-              ev.who === "K" ? partnerName :
-              ev.who === "Daisy" ? "Daisy" : "Family";
-            return (
-              <button
-                key={ev.id}
-                type="button"
-                onClick={() => onEditEvent(ev)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: rgba(color, dark ? 0.18 : 0.10),
-                  border: `1px solid ${rgba(color, 0.55)}`,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontFamily: "inherit",
-                  color: t.text,
-                  width: "100%",
-                }}
-              >
-                {/* Avatar with the life leaf badged into its lower-right. */}
-                <div style={{ position: "relative", flexShrink: 0, lineHeight: 0 }}>
-                  <EventAvatar who={ev.who} size={26} palette={palette} dark={dark} />
-                  <img
-                    src="assets/green-leaf.png"
-                    alt=""
-                    aria-hidden="true"
-                    width={13}
-                    height={13}
-                    style={{
-                      position: "absolute",
-                      right: -3,
-                      bottom: -2,
-                      display: "block",
-                      // Halo in the pill's own tint so the leaf reads cleanly
-                      // against whatever the avatar photo happens to be.
-                      borderRadius: "50%",
-                      background: dark ? "#1C1C1E" : "#FFFFFF",
-                      padding: 1,
-                      boxSizing: "content-box",
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>
-                    {ev.title}
-                    {ev.pending && <span style={{ color: "#FF9F0A", fontWeight: 700 }}>  (pending)</span>}
+      {/* Life items — the details for every non-health event, in the same row
+          style as Appointments. Pairs with the avatars in the Life cell above:
+          an avatar there always has a row here, and vice-versa. */}
+      {events.some((e) => !e.healthId) && (
+        <div>
+          <div style={{ ...subhead(t), marginBottom: 8 }}>Life items</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {events.filter((e) => !e.healthId).map((ev) => {
+              const color = ev.pending ? "#FF9F0A" : lifeColor(ev.who);
+              const personName =
+                ev.who === "G" ? selfName :
+                ev.who === "K" ? partnerName :
+                ev.who === "Daisy" ? "Daisy" : "Family";
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => onEditEvent(ev)}
+                  style={{
+                    display: "flex", gap: 10, alignItems: "stretch", width: "100%",
+                    background: "transparent", border: 0, padding: 0, cursor: "pointer",
+                    textAlign: "left", fontFamily: "inherit", minWidth: 0,
+                  }}
+                >
+                  <div style={{ width: 4, borderRadius: 4, background: color, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color }}>{apptTimeRange(ev)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginTop: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {ev.title}
+                      {ev.pending && <span style={{ color: "#FF9F0A", fontWeight: 700 }}> (pending)</span>}
+                    </div>
+                    {/* One line, ellipsized — long notes must not grow the panel. */}
+                    <div style={{ fontSize: 12, color: t.text2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {personName}{ev.seriesId ? " · series" : ""}{ev.pending ? " · awaiting confirm" : ""}
+                      {ev.notes ? ` · ${ev.notes}` : ""}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10.5, color: t.text3 }}>
-                    {timeLabel} · {personName}{ev.seriesId ? " · series" : ""}
-                    {ev.pending ? " · awaiting confirm" : ""}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Fatigue heatmap */}
       <FatigueHeatmap
@@ -663,53 +646,16 @@ export function Inspector({
         onSelectDate={onSelectDate}
       />
 
-      {/* Utilities — Schedule Block + Cleaner */}
-      <div>
-        <div style={{ ...subhead(t), display: "flex", alignItems: "center", gap: 6 }}>
-          <WrenchIcon size={11} color={t.text3} />
-          <span>Utilities</span>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            background: t.bgElev,
-            border: `0.5px solid ${t.sep}`,
-            borderRadius: 10,
-            overflow: "hidden",
-            marginTop: 4,
-          }}
-        >
-          <UtilityRow
-            icon={<StopOctagonInline size={14} />}
-            label="Schedule Block"
-            hint="Block off a day or date range."
-            onClick={onOpenScheduleBlock}
-            t={t}
-          />
-          <div style={{ height: 0.5, background: t.sep, marginLeft: 38 }} />
-          <UtilityRow
-            icon={<WandIcon size={14} color={palette.G} />}
-            label="Cleaner"
-            hint="Upload a clean schedule. Review add / remove / change."
-            onClick={onOpenCleaner}
-            t={t}
-          />
-        </div>
-      </div>
-
-      {/* This Month — totals + shift-type breakdown */}
-      <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
-
-      {/* Caregiver Coverage Analysis — running total of confirmed coverage hours */}
-      <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+      {/* This Month ⟷ Caregiver Coverage — one toggling slot (‹ › flips) */}
+      <StatSlot state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
     </div>
   );
 }
 
-// This-month totals across the household + a per-shift-type breakdown.
-// Mirrors the web app's "This Month" stats panel.
-function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
+// One card slot that flips between the month totals and the caregiver
+// coverage analysis. Keeping them in a single slot (instead of two stacked
+// cards) is what keeps the right panel from scrolling.
+function StatSlot({ state, palette, t, selfName, partnerName, daisyName }: {
   state: HouseholdState | null;
   palette: Palette;
   t: ThemeTokens;
@@ -717,9 +663,166 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
   partnerName: string;
   daisyName: string;
 }) {
+  const [view, setView] = useState<0 | 1>(0);
+  const toggle = () => setView((v) => (v === 0 ? 1 : 0));
+  return view === 0
+    ? <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} onToggle={toggle} />
+    : <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} onToggle={toggle} />;
+}
+
+// Shared height for the two toggling stat cards so flipping between them never
+// changes the panel's height (they stay the same size).
+const STAT_CARD_MIN_H = 350;
+
+// Bottom-pinned action button for the Childcare / Life boxes. Fixed height so
+// the two always match, and it grows + glows on hover (in the box's accent).
+function BoxButton({ label, onClick, accent, t, title }: {
+  label: string;
+  onClick: () => void;
+  accent: string;
+  t: ThemeTokens;
+  title?: string;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={title}
+      style={{
+        alignSelf: "stretch",
+        width: "100%",
+        marginTop: "auto",
+        height: 38,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0 8px",
+        border: `0.5px solid ${hover ? rgba(accent, 0.5) : t.sep}`,
+        borderRadius: 11,
+        background: t.bgElev,
+        color: accent,
+        fontSize: 12,
+        fontWeight: 600,
+        letterSpacing: "-0.01em",
+        whiteSpace: "nowrap",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transform: hover ? "scale(1.045)" : "none",
+        boxShadow: hover ? `0 7px 20px ${rgba(accent, 0.34)}` : "none",
+        transition: "transform .16s ease, box-shadow .16s ease, border-color .16s ease",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// A life event rendered as a round avatar with the green life-leaf badged into
+// its corner. Tap opens the event; the title/time show on hover. Grows a touch
+// on hover to signal it's tappable.
+function LifeAvatarButton({ ev, title, palette, dark, onClick }: {
+  ev: SbEvent;
+  title: string;
+  palette: Palette;
+  dark: boolean;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={title}
+      aria-label={title}
+      style={{
+        position: "relative",
+        width: 32,
+        height: 32,
+        padding: 0,
+        border: 0,
+        background: "transparent",
+        cursor: "pointer",
+        borderRadius: "50%",
+        flex: "none",
+        lineHeight: 0,
+        transform: hover ? "scale(1.1)" : "none",
+        transition: "transform .15s ease",
+      }}
+    >
+      {/* The disc + leaf are not hover targets, so the BUTTON's title (event ·
+          time · person) is what the tooltip shows. EventAvatar's letter disc
+          carries its own "Daisy"/"Family" title and would otherwise win. */}
+      <span style={{ display: "block", lineHeight: 0, pointerEvents: "none" }}>
+        <EventAvatar who={ev.who} size={32} palette={palette} dark={dark} />
+      </span>
+      <img
+        src="assets/green-leaf.png"
+        alt=""
+        aria-hidden="true"
+        width={14}
+        height={14}
+        style={{
+          position: "absolute",
+          right: -3,
+          bottom: -3,
+          pointerEvents: "none",
+          display: "block",
+          borderRadius: "50%",
+          background: dark ? "#1C1C1E" : "#FFFFFF",
+          border: `2px solid ${dark ? "#1C1C1E" : "#FFFFFF"}`,
+          objectFit: "contain",
+          boxSizing: "border-box",
+        }}
+      />
+      {ev.pending && (
+        <span
+          style={{
+            position: "absolute",
+            top: -2,
+            right: -2,
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: "#FF9F0A",
+            border: `2px solid ${dark ? "#1C1C1E" : "#FFFFFF"}`,
+            boxSizing: "border-box",
+          }}
+        />
+      )}
+    </button>
+  );
+}
+
+// Two-dot slot indicator (● ○ / ○ ●) shown at the bottom of each stat card.
+function SlotDots({ active, t }: { active: 0 | 1; t: ThemeTokens }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", gap: 6, paddingTop: 4 }}>
+      {[0, 1].map((i) => (
+        <span key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: i === active ? t.text : t.sep }} />
+      ))}
+    </div>
+  );
+}
+
+// This-month totals across the household + a per-shift-type breakdown.
+// Mirrors the web app's "This Month" stats panel.
+function MonthTotals({ state, palette, t, selfName, partnerName, daisyName, onToggle }: {
+  state: HouseholdState | null;
+  palette: Palette;
+  t: ThemeTokens;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+  onToggle: () => void;
+}) {
   if (!state) return null;
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
+  const base = new Date();
+  const y = base.getFullYear(), m = base.getMonth();
   const pad = (n: number) => String(n).padStart(2, "0");
   const iso = (dd: number) => `${y}-${pad(m + 1)}-${pad(dd)}`;
   const daysInMonth = new Date(y, m + 1, 0).getDate();
@@ -765,46 +868,87 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
     ["Days off", String(daysOff)],
   ];
 
+  const anyPeople = (["G", "K", "D"] as const).some((w) => per[w].count > 0);
+
   return (
-    <div>
-      <div style={{ ...subhead(t), marginBottom: 6 }}>This Month</div>
-      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{MONTHS_LONG[m]} {y}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          {stats.map(([k, v]) => (
-            <div key={k} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: t.text }}>{v}</div>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
+    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: STAT_CARD_MIN_H }}>
+
+        {/* Header — month name + slot toggle */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 14px 8px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>{MONTHS_LONG[m]} {y}</div>
+          <CardPager onPrev={onToggle} onNext={onToggle} t={t} />
+        </div>
+
+        {/* Stats — 4 up, left-rule dividers */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", padding: "0 14px 10px" }}>
+          {stats.map(([k, v], i) => (
+            <div key={k} style={{ paddingLeft: i === 0 ? 0 : 9, borderLeft: i === 0 ? "none" : `1px solid ${t.sep}` }}>
+              <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, lineHeight: 1 }}>{v}</div>
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: t.text3, marginTop: 5 }}>{k}</div>
             </div>
           ))}
         </div>
-        {(["G", "K", "D"] as const).some((w) => per[w].count > 0) && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+
+        {anyPeople && <div style={{ height: 1, background: t.sep, margin: "0 14px" }} />}
+
+        {/* People chips */}
+        {anyPeople && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 14px" }}>
             {(["G", "K", "D"] as const).filter((w) => per[w].count > 0).map((w) => (
-              <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: t.text2 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 3, background: dotFor[w] }} />
-                {nameFor[w]} · <b style={{ color: t.text }}>{per[w].hours.toFixed(1)}h</b> · {per[w].count}
+              <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: t.bg, borderRadius: 999, padding: "5px 9px" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotFor[w], flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: t.text2, fontWeight: 500 }}>{nameFor[w]}</span>
+                <b style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{per[w].hours.toFixed(1)}h</b>
+                <span style={{ fontSize: 11, color: t.text3 }}>{per[w].count}</span>
               </span>
             ))}
           </div>
         )}
-        {typesArr.length ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {typesArr.map((x, i) => (
-              <div key={x.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 3, background: PAL[i % PAL.length], flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: t.text, width: 118, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{x.name}</span>
-                <span style={{ flex: 1, height: 8, background: rgba(PAL[i % PAL.length], 0.16), borderRadius: 4, overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${(x.hours / maxHours * 100).toFixed(1)}%`, background: PAL[i % PAL.length], borderRadius: 4 }} />
-                </span>
-                <span style={{ width: 22, textAlign: "right", fontSize: 12, fontWeight: 700, color: t.text3, flexShrink: 0 }}>{x.count}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: t.text3 }}>No shifts this month.</div>
-        )}
-      </div>
+
+        <div style={{ height: 1, background: t.sep, margin: "0 14px" }} />
+
+        {/* Shift-type breakdown */}
+        <div style={{ padding: "9px 14px 8px", display: "flex", flexDirection: "column", gap: 7 }}>
+          {typesArr.length ? typesArr.slice(0, 6).map((x, i) => (
+            <div key={x.name} style={{ display: "grid", gridTemplateColumns: "10px minmax(0,1fr) 84px 20px", alignItems: "center", gap: 9 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: PAL[i % PAL.length] }} />
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{x.name}</span>
+              <span style={{ height: 8, background: rgba(PAL[i % PAL.length], 0.18), borderRadius: 999, position: "relative", overflow: "hidden" }}>
+                <span style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(x.hours / maxHours * 100).toFixed(1)}%`, background: PAL[i % PAL.length], borderRadius: 999 }} />
+              </span>
+              <span style={{ textAlign: "right", fontSize: 12.5, fontWeight: 600, color: t.text3 }}>{x.count}</span>
+            </div>
+          )) : (
+            <div style={{ fontSize: 12.5, color: t.text3 }}>No shifts this month.</div>
+          )}
+        </div>
+
+        <div style={{ marginTop: "auto", paddingBottom: 10 }}>
+          <SlotDots active={0} t={t} />
+        </div>
+    </div>
+  );
+}
+
+// Small ‹ › (and optional ⟲ reset) pager used on the Inspector cards.
+function CardPager({ onPrev, onNext, onReset, t }: {
+  onPrev: () => void;
+  onNext: () => void;
+  onReset?: () => void;
+  t: ThemeTokens;
+}) {
+  const btn: React.CSSProperties = {
+    width: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center",
+    borderRadius: 6, border: `0.5px solid ${t.sep}`, background: t.bg, color: t.text2,
+    cursor: "pointer", fontFamily: "inherit", fontSize: 13, lineHeight: 1, padding: 0,
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+      {onReset && (
+        <button type="button" onClick={onReset} title="Back to current" style={{ ...btn, fontSize: 11 }}>●</button>
+      )}
+      <button type="button" onClick={onPrev} aria-label="Previous" title="Previous" style={btn}>‹</button>
+      <button type="button" onClick={onNext} aria-label="Next" title="Next" style={btn}>›</button>
     </div>
   );
 }
@@ -815,11 +959,12 @@ const CAREGIVER_MONTHLY_PAY = 400;
 /** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
  *  hours, flat-pay cost model, effective $/hr per month, blended rate, cadence,
  *  and date range. Computed from state.coverageRequests (status confirmed). */
-function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
+function CaregiverCoverageAnalysis({ state, daisyName, palette, t, onToggle }: {
   state: HouseholdState | null;
   daisyName: string;
   palette: Palette;
   t: ThemeTokens;
+  onToggle: () => void;
 }) {
   const reqs = state?.coverageRequests ?? [];
   const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
@@ -845,16 +990,10 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
   const avgMo = monthKeys.length ? totalH / monthKeys.length : 0;
   const avgWk = avgMo / 4.345;
 
-  const sessByMonth = new Map<string, number>();
-  confirmed.forEach((r) => { const k = r.date.slice(0, 7); sessByMonth.set(k, (sessByMonth.get(k) ?? 0) + 1); });
-
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
-  const recent = rows.slice(-6).map((r) => ({ ...r, sessions: sessByMonth.get(r.k) ?? 0 }));
+  const recent = rows.slice(-6);
   const maxRate = Math.max(0.01, ...recent.map((r) => r.rate));
-  const maxHours = Math.max(0.01, ...recent.map((r) => r.hours));
-  const maxSess = Math.max(1, ...recent.map((r) => r.sessions));
-  let run = 0; const cum = rows.map((r) => ({ k: r.k, y: (run += r.hours) })).slice(-6);
   const acc = palette.G;
   const stats: [string, string][] = [
     ["Total hours", `${totalH.toFixed(1)} h`],
@@ -863,102 +1002,53 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
     ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
   ];
 
-  // Click-to-cycle visuals with a little shuffle animation on change.
-  const [view, setView] = useState(0);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (!el || typeof el.animate !== "function") return;
-    el.animate(
-      [
-        { opacity: 0, transform: "translateX(18px) rotate(1.6deg) scale(0.97)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" },
-    );
-  }, [view]);
-  const VIEWS = [
-    { title: "Effective $/hr by month", note: "Lower is better value; vacation months read higher." },
-    { title: "Hours per month", note: "Confirmed coverage hours each month." },
-    { title: "Cumulative hours", note: "Running total across the period." },
-    { title: "Sessions per month", note: "Confirmed coverage sessions each month." },
-  ];
-  const cur = VIEWS[view];
-
-  const rowBar = (label: string, frac: number, value: React.ReactNode, key: string) => (
-    <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
-        <div style={{ width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
-      </div>
-      <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>{value}</div>
-    </div>
-  );
-
-  let body: React.ReactNode;
-  if (view === 0) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.rate / maxRate, <><span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span><span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span></>, r.k))}</div>;
-  } else if (view === 1) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.hours / maxHours, <span style={{ fontWeight: 600 }}>{r.hours.toFixed(1)}h</span>, r.k))}</div>;
-  } else if (view === 3) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.sessions / maxSess, <span style={{ fontWeight: 600 }}>{r.sessions}</span>, r.k))}</div>;
-  } else if (cum.length) {
-    // Cumulative-hours mini area.
-    const w = 264, h = 96, L = 6, R = 6, T = 10, B = 18, iw = w - L - R, ih = h - T - B;
-    const maxY = Math.max(1, ...cum.map((p) => p.y));
-    const X = (i: number) => cum.length > 1 ? L + iw * (i / (cum.length - 1)) : L + iw / 2;
-    const Y = (v: number) => T + ih - (v / maxY) * ih;
-    let line = `M ${X(0)} ${Y(cum[0].y)}`;
-    cum.forEach((p, i) => { if (i) line += ` L ${X(i)} ${Y(p.y)}`; });
-    const area = `${line} L ${X(cum.length - 1)} ${T + ih} L ${X(0)} ${T + ih} Z`;
-    const last = cum[cum.length - 1];
-    body = (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: "auto", overflow: "visible" }} aria-label="Cumulative hours">
-        <path d={area} fill={rgba(acc, 0.14)} />
-        <path d={line} fill="none" stroke={acc} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {cum.map((p, i) => <circle key={p.k} cx={X(i)} cy={Y(p.y)} r={i === cum.length - 1 ? 3.5 : 2.5} fill={acc} />)}
-        {cum.map((p, i) => <text key={`${p.k}l`} x={X(i)} y={h - 4} textAnchor="middle" style={{ fill: t.text3, fontSize: "9px", fontFamily: "monospace" }}>{fmtMonth(p.k).split(" ")[0]}</text>)}
-        <text x={X(cum.length - 1)} y={Y(last.y) - 6} textAnchor="end" style={{ fill: t.text, fontSize: "10px", fontWeight: 600, fontFamily: "monospace" }}>{last.y.toFixed(0)}h</text>
-      </svg>
-    );
-  }
-
   return (
-    <div>
-      <div style={{ ...subhead(t), marginBottom: 6 }}>Caregiver Coverage Analysis</div>
+    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 20, padding: "13px 14px 10px", display: "flex", flexDirection: "column", minHeight: STAT_CARD_MIN_H }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3 }}>Caregiver Coverage</div>
+        <CardPager onPrev={onToggle} onNext={onToggle} t={t} />
+      </div>
+
       {confirmed.length === 0 ? (
-        <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
+        <div style={{ fontSize: 13, color: t.text3, padding: "14px 2px 18px" }}>No confirmed coverage logged yet.</div>
       ) : (
-        <div
-          onClick={() => setView((v) => (v + 1) % VIEWS.length)}
-          style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "9px 10px", marginTop: 9 }}>
             {stats.map(([k, v]) => (
               <div key={k}>
-                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{k}</div>
-                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", color: t.text, marginTop: 1 }}>{v}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{k}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, marginTop: 3 }}>{v}</div>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 10.5, color: t.text3 }}>
+
+          <div style={{ fontSize: 11.5, color: t.text3, fontWeight: 500, marginTop: 9 }}>
             {daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"} · {humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{cur.title}</div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
+
+          <div style={{ height: 1, background: t.sep, margin: "9px 0" }} />
+
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: t.text3 }}>Effective $/hr by month</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
+            {recent.map((r) => (
+              <div key={r.k} style={{ display: "grid", gridTemplateColumns: "52px minmax(0,1fr) auto", alignItems: "center", gap: 9 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text2, whiteSpace: "nowrap" }}>{fmtMonth(r.k)}</span>
+                <span style={{ height: 9, borderRadius: 999, background: rgba(acc, 0.16), position: "relative", overflow: "hidden" }}>
+                  <span style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${Math.round((r.rate / maxRate) * 100)}%`, background: acc, borderRadius: 999 }} />
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.text, textAlign: "right", whiteSpace: "nowrap" }}>
+                  ${r.rate.toFixed(2)} <span style={{ color: t.text3, fontWeight: 500 }}>· {r.hours.toFixed(0)}h</span>
+                </span>
               </div>
-            </div>
-            <div ref={bodyRef} style={{ minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
-            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45, minHeight: 28 }}>{cur.note}</div>
+            ))}
           </div>
-        </div>
+          <div style={{ fontSize: 11, color: t.text3, fontWeight: 500, marginTop: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Lower $/hr = better value.</div>
+        </>
       )}
+
+      <div style={{ marginTop: "auto", paddingTop: 10 }}>
+        <SlotDots active={1} t={t} />
+      </div>
     </div>
   );
 }

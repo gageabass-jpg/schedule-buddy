@@ -12,7 +12,6 @@ import { doSignOut } from "../hooks/useAuth";
 import { auth } from "../firebase";
 import { PhotoAv } from "./PhotoAv";
 import { WallDisplaySection } from "./WallDisplaySection";
-import { ShareLinkSection } from "./ShareLinkSection";
 import { WallPhotosSection } from "./WallPhotosSection";
 import { OccasionsSection } from "./OccasionsSection";
 
@@ -264,15 +263,6 @@ export function FamilyConsole({
           </>)}
 
           {tab === "wall" && (<>
-          {/* Read-only public share link + ICS feed */}
-          <Section
-            title="Share read-only link"
-            t={t}
-            hint="Give someone a read-only view of the schedule — shifts + event titles only (no chat, coverage, health, or account info). Or subscribe to the ICS feed in Apple/Google Calendar. Revoke any time."
-          >
-            <ShareLinkSection householdId={householdId} state={state} t={t} palette={palette} />
-          </Section>
-
           {/* Wall display — Raspberry Pi kiosk */}
           <Section
             title="Wall display"

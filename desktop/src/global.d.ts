@@ -38,6 +38,8 @@ export interface SbmApi {
   onMenuEditShiftTypes: (cb: () => void) => () => void;
   onMenuEditTemplate: (cb: () => void) => () => void;
   onMenuOpenCoverageRequests: (cb: () => void) => () => void;
+  onMenuOpenScheduleBlock: (cb: () => void) => () => void;
+  onMenuOpenCleaner: (cb: () => void) => () => void;
 }
 
 declare global {

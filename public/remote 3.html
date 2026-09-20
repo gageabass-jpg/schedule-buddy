@@ -1,0 +1,286 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Schedule Buddy · Wall Remote</title>
+<link rel="icon" href="icons/icon-192.png" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg:         #0F0B08;
+    --bg-elev:    #1A1410;
+    --card:       #221812;
+    --card-hi:    #2C1F18;
+    --border:     rgba(255,220,170,0.10);
+    --text:       #FFF5E0;
+    --text-2:     rgba(255,245,224,0.7);
+    --text-3:     rgba(255,245,224,0.45);
+    --accent:     #C9A86A;
+    --accent-2:   #7FA86A;
+    --danger:     #D87B3A;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+  body { padding: 22px 18px 40px; max-width: 640px; margin: 0 auto; }
+
+  h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 26px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 4px;
+  }
+  .sub {
+    font-size: 13px; color: var(--text-3);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px 16px 18px;
+    margin-bottom: 14px;
+  }
+  section > .label {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 12px;
+  }
+
+  /* Now-playing header block */
+  .np {
+    display: flex; align-items: center; gap: 14px;
+    padding: 4px 0 6px;
+  }
+  .np-art {
+    width: 68px; height: 68px;
+    border-radius: 10px; object-fit: cover;
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    flex-shrink: 0;
+  }
+  .np-empty { color: var(--text-3); font-size: 14px; }
+  .np-title {
+    font-size: 17px; font-weight: 700;
+    line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .np-artist {
+    font-size: 14px; color: var(--text-2);
+    margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Button rows */
+  .row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .row.two { grid-template-columns: repeat(2, 1fr); }
+  .row.four { grid-template-columns: repeat(4, 1fr); }
+
+  button {
+    font-family: inherit; font-weight: 600; letter-spacing: -0.01em;
+    background: var(--card-hi);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 8px;
+    font-size: 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 90ms ease, background 120ms ease, border-color 120ms ease;
+    min-height: 52px;
+  }
+  button:active { transform: scale(0.97); background: var(--card); }
+  button.primary { background: var(--accent); color: #1A0F05; border-color: transparent; }
+  button.primary:active { background: #B8965A; }
+  button.danger { background: transparent; color: var(--danger); border-color: rgba(216,123,58,0.4); }
+  button.danger:active { background: rgba(216,123,58,0.15); }
+  button .glyph { font-size: 22px; display: block; line-height: 1; margin-bottom: 4px; }
+  button.tall { padding: 18px 8px; }
+
+  /* Toast for send feedback */
+  #toast {
+    position: fixed; left: 50%; bottom: 28px;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg-elev);
+    color: var(--text);
+    padding: 10px 18px; border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 200ms ease, transform 240ms ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.danger { color: var(--danger); border-color: rgba(216,123,58,0.4); }
+
+  .error {
+    padding: 12px 16px;
+    background: rgba(216,123,58,0.12);
+    border: 1px solid rgba(216,123,58,0.32);
+    border-radius: 12px;
+    font-size: 14px; color: var(--danger);
+    margin-bottom: 14px;
+  }
+</style>
+
+<h1>Wall Remote</h1>
+<div class="sub">Schedule Buddy · Kitchen Pi</div>
+
+<div id="tokenErr" class="error" style="display:none">
+  Missing <code>?t=</code> token in the URL. Copy the wall URL and change <code>/wall</code> to <code>/remote</code>.
+</div>
+
+<section id="npCard">
+  <div class="label">Now playing</div>
+  <div class="np" id="np"><div class="np-empty">Nothing playing.</div></div>
+</section>
+
+<section>
+  <div class="label">Playback</div>
+  <div class="row">
+    <button data-cmd="prev"><span class="glyph">⏮</span>Prev</button>
+    <button class="primary tall" data-cmd="play_pause"><span class="glyph">⏯</span>Play / Pause</button>
+    <button data-cmd="next"><span class="glyph">⏭</span>Next</button>
+  </div>
+  <div class="row two" style="margin-top:10px">
+    <button data-cmd="vol_down"><span class="glyph">🔉</span>Volume −</button>
+    <button data-cmd="vol_up"><span class="glyph">🔊</span>Volume +</button>
+  </div>
+</section>
+
+<section>
+  <div class="label">Display</div>
+  <div class="row">
+    <button data-cmd="scene" data-scene="showcase"><span class="glyph">🏠</span>Showcase</button>
+    <button data-cmd="scene" data-scene="calendar"><span class="glyph">📅</span>Calendar</button>
+    <button data-cmd="scene" data-scene="photos"><span class="glyph">🖼</span>Photos</button>
+  </div>
+  <div class="row two" style="margin-top:10px">
+    <button data-cmd="refresh"><span class="glyph">↻</span>Refresh</button>
+    <button data-cmd="open_music"><span class="glyph">🎵</span>Open YT Music</button>
+  </div>
+  <div class="row" style="margin-top:10px; grid-template-columns: 1fr;">
+    <button data-cmd="close_music"><span class="glyph">✕</span>Close YT Music</button>
+  </div>
+  <div class="row" style="margin-top:10px; grid-template-columns: 1fr;">
+    <button data-cmd="hide_cursor"><span class="glyph">👆</span>Hide cursor</button>
+  </div>
+</section>
+
+<section>
+  <div class="label">System</div>
+  <div class="row two">
+    <button data-cmd="restart_kiosk"><span class="glyph">↺</span>Restart kiosk</button>
+    <button data-cmd="toggle_kiosk"><span class="glyph">⇄</span>Kiosk ⇄ Desktop</button>
+  </div>
+  <div class="row" style="margin-top:10px; grid-template-columns: 1fr;">
+    <button class="danger" data-cmd="reboot" data-confirm="Reboot the Pi?"><span class="glyph">⚡</span>Reboot Pi</button>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<script>
+  const params  = new URLSearchParams(window.location.search);
+  const token   = params.get("t");
+  const apiBase = "https://us-central1-schedule-buddy-dd2cf.cloudfunctions.net";
+
+  if (!token) {
+    document.getElementById("tokenErr").style.display = "block";
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const toast = (msg, isDanger) => {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.toggle("danger", !!isDanger);
+    t.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove("show"), 1400);
+  };
+
+  async function send(command, args) {
+    if (!token) { toast("Missing token", true); return; }
+    try {
+      const r = await fetch(apiBase + "/sendPiCommand?t=" + encodeURIComponent(token), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command, args: args || {} }),
+      });
+      if (!r.ok) {
+        const body = await r.text();
+        toast("Error: " + body.slice(0, 60), true);
+        return;
+      }
+      toast(labelFor(command, args) + " sent");
+    } catch (err) {
+      toast("Network error", true);
+    }
+  }
+
+  function labelFor(cmd, args) {
+    if (cmd === "scene") return "Scene → " + (args.scene ?? "?");
+    return ({
+      play_pause: "Play/Pause", next: "Next", prev: "Prev",
+      vol_up: "Volume +", vol_down: "Volume −",
+      refresh: "Refresh", open_music: "Open YT Music", close_music: "Close YT Music",
+      hide_cursor: "Hide cursor",
+      restart_kiosk: "Restart kiosk", toggle_kiosk: "Toggle kiosk", reboot: "Reboot Pi",
+    })[cmd] || cmd;
+  }
+
+  document.querySelectorAll("button[data-cmd]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cmd = btn.dataset.cmd;
+      const confirmMsg = btn.dataset.confirm;
+      if (confirmMsg && !window.confirm(confirmMsg)) return;
+      const args = btn.dataset.scene ? { scene: btn.dataset.scene } : {};
+      send(cmd, args);
+    });
+  });
+
+  // Now-playing readout — reuses the wall's existing endpoint.
+  async function pollNowPlaying() {
+    if (!token) return;
+    try {
+      const r = await fetch(apiBase + "/getNowPlaying?t=" + encodeURIComponent(token), { cache: "no-store" });
+      if (!r.ok) return;
+      const d = await r.json();
+      const el = $("np");
+      if (d.live && d.title) {
+        el.innerHTML = `
+          <img class="np-art" src="${(d.art || "").replace(/"/g, "&quot;")}" alt="" onerror="this.style.visibility='hidden'" />
+          <div style="min-width:0; flex:1;">
+            <div class="np-title">${escapeHtml(d.title)}</div>
+            <div class="np-artist">${escapeHtml(d.artist)}</div>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `<div class="np-empty">Nothing playing.</div>`;
+      }
+    } catch (e) { /* leave as-is */ }
+  }
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+  }
+  pollNowPlaying();
+  setInterval(pollNowPlaying, 5_000);
+</script>

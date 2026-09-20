@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
 import type { ViewFilter } from "../App";
+import type { HouseholdState } from "../state";
 import { MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
 import { LightBulb } from "./ImprovementsModal";
+import { ShareButton } from "./ShareButton";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
@@ -31,6 +33,8 @@ interface SidebarProps {
   onSendCoverage: () => void;
   onOpenChildcare: () => void;
   pendingCoverageCount: number;
+  householdId: string | null;
+  state: HouseholdState | null;
 }
 
 export function Sidebar({
@@ -38,6 +42,7 @@ export function Sidebar({
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
   onOpenFamilyConsole, onSendCoverage, onOpenChildcare, pendingCoverageCount,
+  householdId, state,
 }: SidebarProps) {
   return (
     <div
@@ -210,6 +215,10 @@ export function Sidebar({
       </SidebarSection>
       </div>{/* /scrollable middle */}
 
+      {/* Bottom stack: Share row on top, then Family Console + idea bulb. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <ShareButton householdId={householdId} state={state} t={t} dark={dark} palette={palette} fullWidth />
+
       <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
         <button
           type="button"
@@ -265,6 +274,7 @@ export function Sidebar({
           <LightBulb size={17} color={MANAGER_ORANGE} />
         </button>
       </div>
+      </div>{/* /bottom stack */}
     </div>
   );
 }

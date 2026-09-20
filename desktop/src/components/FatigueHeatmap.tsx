@@ -1,7 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ShiftMap } from "../data";
 import type { HouseholdState } from "../state";
 import type { ThemeTokens } from "../theme";
+
+const WEEKDAY_3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function dayLabelFromIso(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y || 1970, (m || 1) - 1, d || 1);
+  return `${WEEKDAY_3[dt.getDay()]} · ${MONTH_3[(m || 1) - 1]} ${d}`;
+}
 
 interface Props {
   shifts: ShiftMap;
@@ -100,6 +108,18 @@ function colorForScore(score: number, hasShift: boolean): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+// Turn either a "#rrggbb" or an "rgb(r, g, b)" string into "rgba(r,g,b,a)".
+function rgbaFromCss(color: string, alpha: number): string {
+  const m = color.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (m) return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
+  const hex = color.replace("#", "");
+  if (hex.length === 6) {
+    const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+}
+
 export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: Props) {
   const { days, todayScore } = useMemo(() => {
     if (!state) return { days: [], todayScore: 0 };
@@ -123,64 +143,81 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
     return { days: out, todayScore: fatigueForDay(todayIso, shifts, state) };
   }, [shifts, state, anchorDate]);
 
+  const [hover, setHover] = useState<number | null>(null);
+
   if (!state) return null;
   const rested = todayScore <= 0.15;
+  const hovered = hover != null ? days[hover] : null;
 
   return (
-    <div>
+    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 16, padding: 13 }}>
       <div style={subhead(t)}>Fatigue index</div>
 
-      {/* Fira Code status line, matching the wall display */}
+      {/* Fira Code status line — shows the hovered day when scrubbing the
+          grid, otherwise today's rest status (matching the wall display). */}
       <div
         style={{
           fontFamily: "'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace",
           fontSize: 13,
           fontWeight: 500,
           letterSpacing: "-0.01em",
-          color: rested ? "#88BB6E" : "#DA6E50",
-          marginBottom: 8,
+          color: hovered
+            ? t.text
+            : rested ? "#88BB6E" : "#DA6E50",
+          marginBottom: 4,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
-        {rested ? "well rested :)" : "Get some rest."}
+        {hovered
+          ? `${dayLabelFromIso(hovered.iso)} — ${hovered.hasShift ? `fatigue ${Math.round(hovered.score * 100)}%` : "off day"}`
+          : rested ? "well rested :)" : "Get some rest."}
       </div>
 
-      {/* Quilt — solid block, no gaps, square cells via 7/4 aspect ratio. */}
+      {/* Quilt — individually-rounded cells with a small gap, so the outer
+          shape reads clean (no clipped/odd corners). Hovering a cell makes
+          it glow and pop forward; the status line above names the day. */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          gridTemplateRows: `repeat(${WEEKS}, 1fr)`,
-          gap: 0,
+          gap: 5,
           width: "100%",
-          aspectRatio: `7 / ${WEEKS}`,
-          borderRadius: 8,
-          overflow: "hidden",
-          background: "#0B0907",
+          marginTop: 10,
+          isolation: "isolate",
         }}
       >
-        {days.map((d) => {
+        {days.map((d, i) => {
           const isInteractive = !!onSelectDate;
           const bg = colorForScore(d.score, d.hasShift);
-          const ringStyle: React.CSSProperties = {};
-          if (d.isSelected) {
-            ringStyle.boxShadow = `inset 0 0 0 2px ${t.text}`;
-          } else if (d.isToday) {
-            ringStyle.boxShadow = "inset 0 0 0 2px rgba(255,245,224,0.85)";
-          }
+          const isHover = hover === i;
+          const ring =
+            d.isSelected ? `inset 0 0 0 2px ${t.text}`
+            : d.isToday   ? "inset 0 0 0 2px rgba(255,245,224,0.9)"
+            : null;
+          const glow = isHover
+            ? `0 0 0 2px ${rgbaFromCss(bg, 0.9)}, 0 4px 14px rgba(0,0,0,0.45)`
+            : null;
           return (
             <button
               key={d.iso}
               type="button"
               onClick={() => onSelectDate?.(d.iso)}
-              title={`${d.iso} — ${d.hasShift ? `fatigue ${Math.round(d.score * 100)}%` : "off day"}`}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover((h) => (h === i ? null : h))}
+              aria-label={`${d.iso} — ${d.hasShift ? `fatigue ${Math.round(d.score * 100)}%` : "off day"}`}
               style={{
                 background: bg,
                 border: 0,
+                borderRadius: 8,
+                aspectRatio: "1",
                 cursor: isInteractive ? "pointer" : "default",
                 padding: 0,
-                ...ringStyle,
-                // No rounded corners on cells — the parent grid's
-                // border-radius + overflow:hidden clip the outer shape.
+                boxShadow: [ring, glow].filter(Boolean).join(", ") || undefined,
+                transform: isHover ? "scale(1.18)" : "none",
+                zIndex: isHover ? 2 : 1,
+                transition: "transform .12s ease, box-shadow .12s ease",
               }}
             />
           );
@@ -192,18 +229,19 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          fontSize: 9.5,
+          gap: 8,
+          fontSize: 10.5,
+          fontWeight: 500,
           color: t.text3,
-          marginTop: 6,
+          marginTop: 11,
         }}
       >
         <span>Rested</span>
         <div
           style={{
             flex: 1,
-            height: 5,
-            borderRadius: 3,
+            height: 7,
+            borderRadius: 999,
             background: "linear-gradient(90deg, #88BB6E 0%, #F0B544 50%, #DA6E50 100%)",
           }}
         />

@@ -190,6 +190,18 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     return () => { unsub?.(); };
   }, []);
 
+  // Tools → Schedule Block… (Cmd+Shift+B).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenScheduleBlock(() => setScheduleBlockOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
+  // Tools → Cleaner… (Cmd+Shift+L).
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenCleaner(() => setCleanerOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
   // Normalized so custom template slots resolve to synthetic shift types every
@@ -423,6 +435,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
+        householdId={householdId}
+        state={state}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}

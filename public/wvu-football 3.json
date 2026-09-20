@@ -1,0 +1,20 @@
+{
+  "team": "WVU Football",
+  "season": "2026",
+  "source": "https://wvusports.com/calendar.ashx/calendar.rss",
+  "updated": "2026-08-15",
+  "games": [
+    { "date": "2026-09-05", "opponent": "Coastal Carolina", "home": true,  "neutral": false, "kickoff": "12:00 PM", "location": "Milan Puskar Stadium", "tv": "TNT/HBO Max" },
+    { "date": "2026-09-12", "opponent": "UT Martin",         "home": true,  "neutral": false, "kickoff": "1:00 PM",  "location": "Milan Puskar Stadium", "tv": "ESPN+" },
+    { "date": "2026-09-19", "opponent": "Virginia",          "home": false, "neutral": true,  "kickoff": "7:30 PM",  "location": "Bank of America Stadium, Charlotte", "tv": "ACC Network" },
+    { "date": "2026-09-26", "opponent": "Oklahoma State",    "home": true,  "neutral": false, "kickoff": "TBD",      "location": "Milan Puskar Stadium", "tv": "FOX/FS1" },
+    { "date": "2026-10-03", "opponent": "Iowa State",        "home": false, "neutral": false, "kickoff": "TBD",      "location": "Jack Trice Stadium, Ames", "tv": null },
+    { "date": "2026-10-10", "opponent": "Arizona",           "home": true,  "neutral": false, "kickoff": "TBD",      "location": "Milan Puskar Stadium", "tv": null },
+    { "date": "2026-10-17", "opponent": "Cincinnati",        "home": true,  "neutral": false, "kickoff": "TBD",      "location": "Milan Puskar Stadium", "tv": null },
+    { "date": "2026-10-24", "opponent": "TCU",               "home": false, "neutral": false, "kickoff": "TBD",      "location": "Amon G. Carter Stadium, Fort Worth", "tv": null },
+    { "date": "2026-11-07", "opponent": "Texas Tech",        "home": false, "neutral": false, "kickoff": "TBD",      "location": "Jones AT&T Stadium, Lubbock", "tv": null },
+    { "date": "2026-11-14", "opponent": "Kansas",            "home": true,  "neutral": false, "kickoff": "TBD",      "location": "Milan Puskar Stadium", "tv": null },
+    { "date": "2026-11-21", "opponent": "Houston",           "home": true,  "neutral": false, "kickoff": "TBD",      "location": "Milan Puskar Stadium", "tv": null },
+    { "date": "2026-11-27", "opponent": "Utah",              "home": false, "neutral": false, "kickoff": "9:00 PM",  "location": "Rice-Eccles Stadium, Salt Lake City", "tv": null }
+  ]
+}

@@ -425,6 +425,8 @@ function installAppMenu(): void {
   const sendEditShiftTypes = (): void => { focused()?.webContents.send("menu:edit-shift-types"); };
   const sendEditTemplate = (): void => { focused()?.webContents.send("menu:edit-template"); };
   const sendOpenCoverageRequests = (): void => { focused()?.webContents.send("menu:open-coverage-requests"); };
+  const sendOpenScheduleBlock = (): void => { focused()?.webContents.send("menu:open-schedule-block"); };
+  const sendOpenCleaner = (): void => { focused()?.webContents.send("menu:open-cleaner"); };
 
   const isMac = process.platform === "darwin";
 
@@ -515,6 +517,21 @@ function installAppMenu(): void {
         { role: "zoomOut" },
         { type: "separator" },
         { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Tools",
+      submenu: [
+        {
+          label: "Schedule Block…",
+          accelerator: "CmdOrCtrl+Shift+B",
+          click: sendOpenScheduleBlock,
+        },
+        {
+          label: "Cleaner…",
+          accelerator: "CmdOrCtrl+Shift+L",
+          click: sendOpenCleaner,
+        },
       ],
     },
     { role: "windowMenu" },
