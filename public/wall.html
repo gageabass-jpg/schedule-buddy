@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Schedule Buddy — Wall</title>
+  <title>Nucleus — Wall</title>
   <link rel="icon" href="icons/icon-192.png" />
 
   <!-- Fira Code for hero greeting + clock. Inter for body. Space Grotesk
@@ -11,7 +11,7 @@
        the calendar-dashboard branding. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Sora:wght@600&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
     /* ─────────────────── design tokens (warm amber) ─────────────────── */
@@ -119,13 +119,15 @@
       text-align: right;
     }
 
-    /* Shared "Schedule Buddy / Dynamic Dashboard" branding block —
+    /* Shared "nucleus / Dynamic Dashboard" branding block —
        used on both the Static Showcase top bar and the calendar scene
        header. Single source of styling so it stays in sync. */
     .brand-block .brand-title {
+      /* Nucleus wordmark: Sora 600, lowercase, never re-set in another face */
+      font-family: "Sora", "Helvetica Neue", Arial, sans-serif;
       font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -0.025em;
+      font-weight: 600;
+      letter-spacing: -0.02em;
       line-height: 1.0;
       color: var(--text);
     }
@@ -856,8 +858,8 @@
     .wd-head { display: flex; justify-content: space-between; align-items: flex-start; }
     .wd-brand { display: flex; gap: 14px; align-items: center; }
     .wd-logo { width: 94px; height: 94px; border-radius: 22px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 58px; line-height: 1; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
-    .wd-brand-title { font-family: var(--wd-serif); font-size: 44px; line-height: 1; }
-    body.wall-night .wd-brand-title { font-size: 40px; font-weight: 700; }
+    .wd-brand-title { font-family: "Sora", "Helvetica Neue", Arial, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 44px; line-height: 1; }
+    body.wall-night .wd-brand-title { font-size: 40px; }
     .wd-brand-sub { font-family: var(--wd-mono); font-size: 12px; letter-spacing: 3px; color: var(--wd-muted); margin-top: 6px; }
     .wd-clockwrap { display: flex; flex-direction: column; align-items: flex-end; }
     .wd-clock { display: flex; align-items: center; gap: 6px; perspective: 400px; }
@@ -981,7 +983,7 @@
         <div class="wd-brand">
           <div class="wd-logo" id="wdLogo">☀</div>
           <div>
-            <div class="wd-brand-title">Schedule Buddy</div>
+            <div class="wd-brand-title">nucleus</div>
             <div class="wd-brand-sub">DYNAMIC DASHBOARD</div>
           </div>
         </div>
@@ -1097,7 +1099,7 @@
     <div class="cal-root">
       <div class="cal-header">
         <div class="brand-block">
-          <div class="brand-title styrene">Schedule Buddy</div>
+          <div class="brand-title styrene">nucleus</div>
           <div class="brand-subtitle styrene">Dynamic Dashboard</div>
         </div>
         <div class="cal-clock-block">

@@ -1,7 +1,7 @@
 {
-  "name": "schedule-buddy-manager",
+  "name": "nucleus-manager",
   "version": "0.1.0",
-  "description": "Schedule Buddy Manager — desktop companion to the iOS Schedule Buddy app",
+  "description": "Nucleus Manager — desktop companion to the iOS Nucleus app",
   "author": "Gage Bass",
   "main": "dist-electron/main.js",
   "type": "module",
@@ -34,7 +34,7 @@
   },
   "build": {
     "appId": "com.gagebass.schedulebuddy.manager",
-    "productName": "Schedule Buddy Manager",
+    "productName": "Nucleus Manager",
     "copyright": "Copyright © 2026 Gage Bass",
     "directories": {
       "buildResources": "build",
@@ -57,7 +57,7 @@
       "identity": null
     },
     "dmg": {
-      "title": "Schedule Buddy Manager",
+      "title": "Nucleus Manager",
       "iconSize": 96,
       "contents": [
         { "x": 130, "y": 220, "type": "file" },

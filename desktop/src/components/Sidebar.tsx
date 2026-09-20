@@ -7,6 +7,7 @@ import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
 import { LightBulb } from "./ImprovementsModal";
 import { ShareButton } from "./ShareButton";
+import { BrandMark, BRAND_FONT, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./BrandMark";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
@@ -89,24 +90,22 @@ export function Sidebar({
           width: "100%",
         }}
       >
-        <img
-          src="icon.svg"
-          alt=""
-          aria-hidden="true"
-          width={28}
-          height={28}
+        {/* Nucleus Manager lockup: mark leading, "nucleus" 600 + "manager" 400.
+            This is the one place the lockup appears; the mark alone carries
+            every other surface. */}
+        <BrandMark
+          size={22}
+          color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL}
           style={{
-            display: "block",
-            borderRadius: 6,
             flexShrink: 0,
-            // Spin the logo once on refresh for visual feedback.
+            // Spin the mark once on refresh for visual feedback.
             animation: refreshing ? "sbmSpin 0.6s linear" : undefined,
           }}
         />
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", fontFamily: "\"Space Grotesk\", \"Styrene A\", \"Inter\", -apple-system, sans-serif" }}>Schedule Buddy</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: MANAGER_ORANGE, letterSpacing: "-0.01em" }}>Manager</span>
-        </div>
+        <span style={{ fontSize: 15, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: BRAND_FONT, whiteSpace: "nowrap" }}>
+          <span style={{ fontWeight: 600, color: t.text }}>nucleus</span>
+          <span style={{ fontWeight: 400, color: t.text2 }}> manager</span>
+        </span>
       </button>
 
       <div

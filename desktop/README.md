@@ -1,6 +1,6 @@
-# Schedule Buddy Manager
+# Nucleus Manager
 
-Desktop companion to the iOS [Schedule Buddy](../) app. Used by the household admin to edit shift types, the weekly template, partner shifts, blackouts, and OT decisions — all of which sync to the same Firestore `state/main` doc the iOS app reads from.
+Desktop companion to the iOS [Nucleus](../) app (formerly Schedule Buddy). Used by the household admin to edit shift types, the weekly template, partner shifts, blackouts, and OT decisions — all of which sync to the same Firestore `state/main` doc the iOS app reads from.
 
 **Stack:** Electron 33 · Vite 6 · React 18 · TypeScript
 

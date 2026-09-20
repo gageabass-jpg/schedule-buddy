@@ -75,10 +75,10 @@ export const icsFeed = onRequest({ cors: true, region: "us-central1" }, async (r
     const lines: string[] = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Schedule Buddy//Share//EN",
+      "PRODID:-//Nucleus//Share//EN",
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
-      `X-WR-CALNAME:${esc(data.householdName || "Schedule Buddy")}`,
+      `X-WR-CALNAME:${esc(data.householdName || "Nucleus")}`,
       "X-PUBLISHED-TTL:PT1H",
     ];
 

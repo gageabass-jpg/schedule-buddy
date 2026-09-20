@@ -144,11 +144,11 @@ function draw(snap){
 
   document.getElementById("app").innerHTML = `
     <div class="banner"><span class="dot"></span>Shared · read-only</div>
-    <div class="eyebrow">Schedule Buddy</div>
+    <div class="eyebrow">Nucleus</div>
     <h1>${esc(snap.householdName || "Our schedule")}</h1>
     <div class="sub">Upcoming shifts and events</div>
     ${rows}
-    <a class="cta" href="https://schedule-buddy-dd2cf.web.app">Open Schedule Buddy ›</a>`;
+    <a class="cta" href="https://schedule-buddy-dd2cf.web.app">Open Nucleus ›</a>`;
 }
 // compact "HH:MM" -> "7:30a" for the end time
 function icomp(t){ const [h,m]=(t||"").split(":").map(Number); if(isNaN(h))return t; const s=h>=12?"p":"a"; const hh=h%12===0?12:h%12; return m===0?`${hh}${s}`:`${hh}:${String(m).padStart(2,"0")}${s}`; }

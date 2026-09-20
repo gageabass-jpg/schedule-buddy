@@ -40,7 +40,7 @@ import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
 import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
-import { BrandMark } from "./components/BrandMark";
+import { BrandMark, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./components/BrandMark";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
@@ -692,7 +692,7 @@ function Splash({ title, message, showSignOut, dark = true }: { title?: string; 
         textAlign: "center",
       }}
     >
-      <BrandMark size={48} palette={palette} dark={dark} />
+      <BrandMark size={48} color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL} />
       {title && <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{title}</div>}
       <div style={{ fontSize: 13, color: t.text2, maxWidth: 380, lineHeight: 1.5 }}>{message}</div>
       {showSignOut && (

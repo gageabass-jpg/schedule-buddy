@@ -1,19 +1,39 @@
-# Schedule Buddy — Agent Handoff
+# Nucleus — Agent Handoff
 
 > Concise operator notes for anyone (human or AI) picking up mid-project.
 > For the Firebase/Firestore contract, read **[BRIDGE.md](BRIDGE.md)** first — it's authoritative.
 
 ## What this repo is
 
-A household shift-schedule + childcare-coverage + overtime-management app for **Gage** (admin) and **Kaylene** (partner). Three surfaces share one Firestore backend:
+**Nucleus** (formerly Schedule Buddy) is a household shift-schedule + childcare-coverage + overtime-management app for **Gage** (admin) and **Kaylene** (partner). The Firebase project id, hosting URL, GitHub repo, iOS bundle id, and app group keep the `schedule-buddy` name on purpose — renaming those would create a new app. Three surfaces share one Firestore backend:
 
 | Surface | Path | Deploy |
 |---|---|---|
 | Web PWA | `public/index.html` (single-file ~4k+ lines) | `firebase deploy --only hosting` |
 | iOS app (TestFlight) | Capacitor wrapper in `ios/` — loads live URL via `capacitor.config.json` `server.url` | Web deploy hits iOS instantly. Only archive again for native/plugin/entitlement changes. |
-| Mac desktop app | Electron/Vite in `desktop/` — installed to `/Applications` | Rebuild + `ditto` to ship (see [`desktop/README`] or ask user) |
+| Mac desktop app (**Nucleus Manager**) | Electron/Vite in `desktop/` — installed to `/Applications` | Rebuild + `ditto` to ship (see [`desktop/README`] or ask user) |
 
 Cloud Functions live in `functions/` (askClaude, **parseSchedule**, cleanSchedule, nowPlaying, piCommand, wallState, plus push triggers).
+
+## Brand (Nucleus)
+
+Source of truth: the Nucleus brand board (Claude Design export). What is applied in code:
+
+| Token | Value | Role |
+|---|---|---|
+| Teal | `#0F6E64` | The brand. Mark, primary buttons, links. White text passes at 6.1:1. |
+| Teal Deep | `#0A4F48` | Pressed / hover. |
+| Teal Light | `#56B7A9` | Mark + accent text on the **dark** ground only (7.0:1 on Ink). Never on Paper. |
+| Teal Tint | `#D8E7E4` | Fill behind a scheduled shift. |
+| Clay / Clay Light / Clay Tint | `#8A4B38` / `#D78F77` / `#EFDFDB` | Open shift, conflict, unfilled. Not yet wired into the calendar. |
+| Paper / Surface / Line | `#F7F6F3` / `#FFFFFF` / `#E2E0DA` | Light ground, cards, rules. |
+| Ink / Ink Muted | `#14201E` / `#5A6663` | Text, dark ground. |
+
+- **Wordmark:** `nucleus` — always lowercase, Sora 600, `letter-spacing: -0.02em`. Desktop: `nucleus` 600 + ` manager` 400 muted. Never re-set in another face, never stretched.
+- **Mark:** the block-knot path (`M40 25 … Z` in a 100×100 box, stroke 9, round caps/joins). Stroke thickens as it shrinks: 9 @ 48px+, 10 @ 32, 11 @ 24, 13 @ 16. Lives inline in `public/index.html` (splash, auth, header), `desktop/src/components/BrandMark.tsx`, and the SVG/PNG icons.
+- **Icons:** `public/icons/icon.svg` (web tile, radius 22%), `icon-desktop.svg` (macOS tile inset 100px, radius 22.5%). PNGs (`icon-192/512`, `icon-desktop-1024`, iOS `AppIcon-512@2x.png`, iOS `Splash.imageset`, `desktop/build/icon.png`) were rasterized from the same geometry with headless Chromium — mark at 55% of the tile, one flat Teal, no gradient/shadow.
+- **CSS tokens** in `public/index.html`: `--brand` (Teal Light in dark, Teal in light), `--brand-fill` (Teal, for filled buttons on both grounds), `--accent` now aliases `--brand`. Person colors (Gage/Kaylene/Daisy) are functional and unchanged.
+- **Typography:** only the wordmark switched to Sora. Body still uses the system font; the brand's Source Sans 3 / IBM Plex Mono system and the Paper light UI from the "Schedule screen" board are a separate restyle, not done.
 
 ## Recent additions (this session)
 
@@ -96,7 +116,7 @@ User handles this — they run the installed `/Applications` build, not the dev 
 - **Weekly template is PAUSED going forward** — `TEMPLATE_PAUSED` flag in state; new schedules use dated entries only.
 - **WVU football icon** — transparent Flying WV on game days. Data is static in `public/wvu-football.json` (baked from wvusports.com RSS, NOT live). To refresh: paste new RSS, redeploy hosting + rebuild Mac.
 - **Wall keypad** — physical 3-key pad on wall display: F7 cycle scenes, F8 refresh, F9 (OS-level) YouTube Music.
-- **Improvements log** — SB Manager light-bulb logs ideas to `userData/improvements.json`; read when asked to "update the app".
+- **Improvements log** — Nucleus Manager light-bulb logs ideas to `userData/improvements.json` (now `~/Library/Application Support/Nucleus Manager/`; the file is copied from the old `Schedule Buddy Manager` folder on first launch). Read when asked to "update the app". The Anthropic API key in the Mac app must be re-entered once after the rename (macOS ties the safeStorage keychain entry to the app name).
 - **Day detail sheet** — iOS/web day card is a redesigned bottom sheet; opens on `touchend` (iOS `:hover` causes double-tap). Don't revert to click-only.
 - **Calendar people** — Daisy is a first-class person alongside Gage/Kaylene with her own cells and school-schedule coverage timeline.
 - **Billing** — if wall shows "Network error" + all functions 503, project fell off Blaze to Spark; fix is re-upgrade to Blaze (user-only). Hosting stays up.

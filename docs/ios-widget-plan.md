@@ -1,4 +1,4 @@
-# Schedule Buddy — iOS Widget Plan
+# Nucleus — iOS Widget Plan
 
 Status: **design only** (no code yet). Chosen content: *Who's working today* + a *today + tomorrow* medium widget.
 

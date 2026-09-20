@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, OAuthProvider } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Same web app config as the iOS Schedule Buddy app — Firebase web apiKeys
+// Same web app config as the iOS Nucleus app — Firebase web apiKeys
 // are public identifiers; access is enforced by Firestore Security Rules.
 // See BRIDGE.md §1 for the full rationale.
 const firebaseConfig = {

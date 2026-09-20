@@ -48,11 +48,11 @@ export function JoinHousehold({ dark = true }: { dark?: boolean }) {
       }}
     >
       <div style={{ width: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-        <BrandMark size={52} palette={palette} dark={true} />
+        <BrandMark size={52} />
         <div style={{ textAlign: "center", marginBottom: 2 }}>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>Join your household</div>
           <div style={{ fontSize: 13, color: t.text2, marginTop: 6, lineHeight: 1.45, maxWidth: 340 }}>
-            Enter the 6-character invite code from the Schedule Buddy iOS app to link this Mac to your existing household.
+            Enter the 6-character invite code from the Nucleus iOS app to link this Mac to your existing household.
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export function JoinHousehold({ dark = true }: { dark?: boolean }) {
         )}
 
         <div style={{ fontSize: 11, color: t.text3, textAlign: "center", marginTop: 6, lineHeight: 1.5, maxWidth: 320 }}>
-          Don't have a code yet? Open Schedule Buddy on iOS — the invite code is in your household settings.
+          Don't have a code yet? Open Nucleus on iOS — the invite code is in your household settings.
         </div>
 
         <button

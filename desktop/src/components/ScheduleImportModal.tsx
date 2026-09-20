@@ -96,7 +96,7 @@ export function ScheduleImportModal({
   const onParse = async () => {
     if (!image) return;
     if (!window.sbm) {
-      setErr("Vision parsing only works inside the Schedule Buddy Manager app.");
+      setErr("Vision parsing only works inside the Nucleus Manager app.");
       return;
     }
     if (!hasKey) {

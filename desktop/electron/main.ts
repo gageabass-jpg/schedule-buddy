@@ -33,7 +33,7 @@ function isTransientTempError(err: unknown): boolean {
 function surfaceFatal(err: unknown): void {
   const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
   try {
-    dialog.showErrorBox("Schedule Buddy Manager — unexpected error", msg);
+    dialog.showErrorBox("Nucleus Manager — unexpected error", msg);
   } catch {
     // dialog can be unavailable very early in startup — the console log stands.
   }
@@ -554,7 +554,30 @@ function installAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// ───────────────── One-time userData migration ─────────────────
+// The app was renamed from "Schedule Buddy Manager" to "Nucleus Manager", and
+// Electron derives the userData folder from the product name. Carry the
+// improvements log across so nothing the user wrote is lost. The encrypted
+// Anthropic key is NOT copied: macOS ties the safeStorage keychain entry to
+// the app name, so it could not be decrypted anyway — the user re-enters it.
+function migrateLegacyUserData(): void {
+  try {
+    const legacyDir = path.join(app.getPath("appData"), "Schedule Buddy Manager");
+    const currentDir = app.getPath("userData");
+    if (legacyDir === currentDir || !fsSync.existsSync(legacyDir)) return;
+    const from = path.join(legacyDir, "improvements.json");
+    const to = path.join(currentDir, "improvements.json");
+    if (fsSync.existsSync(from) && !fsSync.existsSync(to)) {
+      fsSync.mkdirSync(currentDir, { recursive: true });
+      fsSync.copyFileSync(from, to);
+    }
+  } catch (err) {
+    console.warn("[nucleus] legacy userData migration skipped:", err);
+  }
+}
+
 app.whenReady().then(() => {
+  migrateLegacyUserData();
   installAppMenu();
   createWindow();
   app.on("activate", () => {

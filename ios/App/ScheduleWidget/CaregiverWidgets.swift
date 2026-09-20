@@ -65,7 +65,7 @@ private struct CaregiverEmpty: View {
     var body: some View {
         VStack(spacing: 6) {
             DaisyAvatar(size: 26)
-            Text("Open Schedule Buddy\nto load your shifts")
+            Text("Open Nucleus\nto load your shifts")
                 .font(.system(size: 11.5, weight: .medium))
                 .multilineTextAlignment(.center)
                 .foregroundColor(Palette.subtle)

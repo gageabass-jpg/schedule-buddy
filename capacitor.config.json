@@ -1,6 +1,6 @@
 {
   "appId": "com.gagebass.schedulebuddy",
-  "appName": "Schedule Buddy",
+  "appName": "Nucleus",
   "webDir": "public",
   "server": {
     "url": "https://schedule-buddy-dd2cf.web.app",
@@ -17,7 +17,7 @@
     "SplashScreen": {
       "launchShowDuration": 0,
       "launchAutoHide": true,
-      "backgroundColor": "#FFFFFF",
+      "backgroundColor": "#14201E",
       "splashFullScreen": true,
       "splashImmersive": true
     },
