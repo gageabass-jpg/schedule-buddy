@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import { compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
+import { buildShiftMap, compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
 import { dayColors, eventColor, lifeColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
@@ -698,8 +698,113 @@ export function Inspector({
         </div>
       </div>
 
+      {/* This Month — totals + shift-type breakdown */}
+      <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+
       {/* Caregiver Coverage Analysis — running total of confirmed coverage hours */}
       <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+    </div>
+  );
+}
+
+// This-month totals across the household + a per-shift-type breakdown.
+// Mirrors the web app's "This Month" stats panel.
+function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
+  state: HouseholdState | null;
+  palette: Palette;
+  t: ThemeTokens;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+}) {
+  if (!state) return null;
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (dd: number) => `${y}-${pad(m + 1)}-${pad(dd)}`;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const map = buildShiftMap(state, iso(1), iso(daysInMonth));
+
+  const types: Record<string, { name: string; start: string; end: string; crossesMidnight: boolean }> = {};
+  for (const st of state.shiftTypes || []) types[st.id] = st;
+  const toMin = (s: string) => { const [h, mm] = (s || "").split(":").map(Number); return (h || 0) * 60 + (mm || 0); };
+  const hoursOf = (id?: string) => {
+    const ty = id ? types[id] : null;
+    if (!ty) return 0;
+    let d = toMin(ty.end) - toMin(ty.start);
+    if (ty.crossesMidnight || d <= 0) d += 1440;
+    return d / 60;
+  };
+
+  const byType = new Map<string, { count: number; hours: number }>();
+  const per: Record<string, { count: number; hours: number }> = { G: { count: 0, hours: 0 }, K: { count: 0, hours: 0 }, D: { count: 0, hours: 0 } };
+  const workDays = new Set<string>();
+  let totalShifts = 0, totalHours = 0;
+  for (let dd = 1; dd <= daysInMonth; dd++) {
+    const key = iso(dd);
+    for (const s of (map[key] || [])) {
+      const hrs = hoursOf(s.shiftTypeId);
+      const name = (s.shiftTypeId && types[s.shiftTypeId]?.name) || s.label || "Shift";
+      totalShifts++; totalHours += hrs; workDays.add(key);
+      const cur = byType.get(name) || { count: 0, hours: 0 };
+      cur.count++; cur.hours += hrs; byType.set(name, cur);
+      if (per[s.who]) { per[s.who].count++; per[s.who].hours += hrs; }
+    }
+  }
+  const daysOff = daysInMonth - workDays.size;
+  const typesArr = [...byType.entries()].map(([name, v]) => ({ name, count: v.count, hours: v.hours })).sort((a, b) => b.hours - a.hours);
+  const maxHours = Math.max(0.01, ...typesArr.map((x) => x.hours));
+
+  const PAL = [palette.G, palette.K, "#BF5AF2", "#FF9F0A", "#30D158", "#5E5CE6", "#FF6961", "#40C8E0"];
+  const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
+  const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#30D158" };
+  const stats: [string, string][] = [
+    ["Shifts", String(totalShifts)],
+    ["Hours", `${Math.round(totalHours)}h`],
+    ["Avg / shift", `${(totalShifts ? totalHours / totalShifts : 0).toFixed(1)}h`],
+    ["Days off", String(daysOff)],
+  ];
+
+  return (
+    <div>
+      <div style={{ ...subhead(t), marginBottom: 6 }}>This Month</div>
+      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{MONTHS_LONG[m]} {y}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+          {stats.map(([k, v]) => (
+            <div key={k} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: t.text }}>{v}</div>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
+            </div>
+          ))}
+        </div>
+        {(["G", "K", "D"] as const).some((w) => per[w].count > 0) && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+            {(["G", "K", "D"] as const).filter((w) => per[w].count > 0).map((w) => (
+              <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: t.text2 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 3, background: dotFor[w] }} />
+                {nameFor[w]} · <b style={{ color: t.text }}>{per[w].hours.toFixed(1)}h</b> · {per[w].count}
+              </span>
+            ))}
+          </div>
+        )}
+        {typesArr.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {typesArr.map((x, i) => (
+              <div key={x.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 3, background: PAL[i % PAL.length], flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text, width: 118, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{x.name}</span>
+                <span style={{ flex: 1, height: 8, background: rgba(PAL[i % PAL.length], 0.16), borderRadius: 4, overflow: "hidden" }}>
+                  <span style={{ display: "block", height: "100%", width: `${(x.hours / maxHours * 100).toFixed(1)}%`, background: PAL[i % PAL.length], borderRadius: 4 }} />
+                </span>
+                <span style={{ width: 22, textAlign: "right", fontSize: 12, fontWeight: 700, color: t.text3, flexShrink: 0 }}>{x.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: t.text3 }}>No shifts this month.</div>
+        )}
+      </div>
     </div>
   );
 }

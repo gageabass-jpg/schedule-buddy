@@ -285,6 +285,11 @@ export interface HouseholdState {
   events?: Event[];
   /** Display name for the household (e.g. "Bass Household"). */
   householdName?: string;
+  /** Read-only public share (guest link + ICS feed). `shareToken` keys the
+   *  sanitized publicShares/{token} mirror; `shareEnabled` gates publishing.
+   *  Round-tripped by iOS too. */
+  shareEnabled?: boolean;
+  shareToken?: string;
   /** Coverage requests authored by contributing members for caregivers. */
   coverageRequests?: CoverageRequest[];
   /** Requests authored by caregivers — Schedule Block / Shift Conflict / Other.
