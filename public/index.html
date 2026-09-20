@@ -721,6 +721,25 @@
   .stats-section-eyebrow { padding: 6px 4px 8px; margin-bottom: 0; }
   .stats-section { padding: 16px; }
 
+  /* Month totals + shift-type breakdown */
+  .mt-head { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); margin-bottom: 12px; }
+  .mt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .mt-stat { background: var(--bg); border: 0.5px solid var(--sep); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .mt-num { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); line-height: 1; }
+  .mt-num .mt-u { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-left: 1px; }
+  .mt-lbl { font-size: 10px; font-weight: 600; color: var(--text-dim); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .mt-people { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; }
+  .mt-person { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
+  .mt-person b { color: var(--text); font-weight: 700; }
+  .mt-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .mt-breakdown { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+  .mt-type { display: flex; align-items: center; gap: 8px; }
+  .mt-type-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex-shrink: 0; width: 128px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mt-bar { flex: 1; height: 8px; border-radius: 99px; background: var(--scrim); overflow: hidden; }
+  .mt-bar-fill { display: block; height: 100%; border-radius: 99px; }
+  .mt-type-count { font-size: 12.5px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; width: 22px; text-align: right; flex-shrink: 0; }
+  .mt-empty { font-size: 13px; color: var(--text-dim); padding: 6px 2px; }
+
   /* Stats hero spark + extras */
   .stats-hero-spark {
     width: 100%;
@@ -1296,6 +1315,28 @@
     height: 22px;
     font-size: 10px;
   }
+
+  /* Section headers (This week / Next week / Later) */
+  .agenda-section {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-3); padding: 12px 4px 2px;
+  }
+  .agenda-section:first-child { padding-top: 0; }
+
+  /* One line per shift: dot · name · range · hours */
+  .agenda-shifts { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .agenda-shift { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .agenda-shift-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+  .agenda-shift-name { font-weight: 600; color: var(--text); }
+  .agenda-shift-time { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .agenda-shift-hrs { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .agenda-pending { color: var(--ot); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; margin-left: 4px; }
+
+  /* Slim, quiet off-days */
+  .agenda-row.off { padding: 9px 14px; box-shadow: none; opacity: 0.72; }
+  .agenda-row.off .agenda-title { font-weight: 500; color: var(--text-dim); }
+  .agenda-row.off .ad-num { font-size: 20px; color: var(--text-dim); }
+  .agenda-row.off .agenda-rail { background: var(--sep); }
 
   /* Life-event pills, right edge of an agenda row */
   .agenda-events {
@@ -4364,6 +4405,18 @@
   .pf-danger { color: var(--ot); }
   .pf-link   { color: var(--color-g); }
   .pf-note   { font-size: 13px; color: var(--text-3); padding: 0 32px 22px; letter-spacing: -0.01em; }
+  /* Share link rows */
+  .share-link-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+  .share-link-input {
+    flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-dim);
+    background: var(--bg); border: 0.5px solid var(--sep); border-radius: 8px;
+    padding: 7px 10px; font-family: var(--font-mono, monospace);
+  }
+  .share-copy {
+    flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--color-g);
+    background: transparent; border: 0.5px solid var(--sep); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
+  }
 
   .pf-back {
     display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
@@ -6056,6 +6109,12 @@
       <div class="stats-meta" id="statsRangeMeta">vs previous</div>
     </div>
 
+    <!-- Month totals + shift-type breakdown -->
+    <div class="stats-eyebrow stats-section-eyebrow">THIS MONTH</div>
+    <div class="section stats-section">
+      <div id="monthTotals"></div>
+    </div>
+
     <!-- Hero card: couple time / week -->
     <div class="stats-hero" id="statsHero" style="display:none;">
       <div class="stats-hero-eyebrow">
@@ -6230,6 +6289,10 @@
           <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
+
+      <div class="pf-group-label">Share</div>
+      <div class="pf-card" id="shareCard"></div>
+      <div class="pf-note">Anyone with the link sees a read-only calendar — shifts and event titles only. No chat, coverage, health, or account info. Revoke any time.</div>
 
       <div class="pf-card tight">
         <button class="pf-row" id="profileAccountBtn" type="button">
@@ -10227,6 +10290,10 @@ function mergeStateFromFirestore(data) {
     // Display name for the household (e.g. "Bass Household"); editable in
     // the desktop Family Console.
     householdName: typeof data.householdName === "string" ? data.householdName : undefined,
+    // Read-only public share (guest link + ICS feed). shareToken keys the
+    // sanitized publicShares/{token} mirror; shareEnabled gates publishing.
+    shareEnabled: typeof data.shareEnabled === "boolean" ? data.shareEnabled : undefined,
+    shareToken: typeof data.shareToken === "string" ? data.shareToken : undefined,
     // Coverage requests sent to caregivers from the desktop manager.
     coverageRequests: Array.isArray(data.coverageRequests) ? data.coverageRequests : [],
     caregiverRequests: Array.isArray(data.caregiverRequests) ? data.caregiverRequests : [],
@@ -10309,6 +10376,133 @@ async function saveStateToFirestore() {
     console.error("Firestore write error:", e);
     updateSyncStatus("offline");
   }
+  // Keep the read-only public share (guest link + ICS feed) in sync.
+  schedulePublicSharePush();
+}
+
+// ─────────────────── Read-only public share ───────────────────
+// A sanitized mirror of the schedule (shifts + life-event titles only) written
+// to publicShares/{token}, read without auth by share.html and the ICS feed.
+
+function _genShareToken() {
+  const a = new Uint8Array(16);
+  (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.floor(Math.random() * 256));
+  return [...a].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Build the sanitized snapshot: NO emails, chat, coverage, health, pay, notes.
+function buildPublicShareSnapshot() {
+  const g = generateEvents(), k = partnerEvents(), d = (typeof daisyEvents === "function" ? daisyEvents() : []);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const from = addDays(today, -7), to = addDays(today, 56);
+  const days = [];
+  for (let dt = new Date(from); dt <= to; dt = addDays(dt, 1)) {
+    const iso = toISODate(dt);
+    const shifts = [];
+    const push = (who, e) => shifts.push({ who, type: e.typeName || e.label || "Shift", start: e.startTime, end: e.endTime, label: e.label || compactTime(e.startTime), endsNextDay: (e.endDate && e.startDate && e.endDate > e.startDate) || false });
+    for (const e of eventsOnDate(g, iso)) push("G", e);
+    for (const e of eventsOnDate(k, iso)) push("K", e);
+    for (const e of eventsOnDate(d, iso)) push("Daisy", e);
+    const events = getEventsForDate(iso).map(ev => (ev.title || "").trim()).filter(Boolean);
+    if (shifts.length || events.length) days.push({ date: iso, shifts, events });
+  }
+  return {
+    v: 1,
+    ownerUid: currentUser ? currentUser.uid : null,
+    householdId,
+    householdName: state.householdName || "Our schedule",
+    people: {
+      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
+      Daisy: { name: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy", hex: "#34C759" },
+    },
+    days,
+    from: toISODate(from), to: toISODate(to),
+    updatedAt: Date.now(),
+  };
+}
+
+async function publishPublicShare() {
+  if (!state.shareEnabled || !state.shareToken || !householdId || !currentUser) return;
+  try {
+    await db.collection("publicShares").doc(state.shareToken).set(buildPublicShareSnapshot());
+  } catch (e) {
+    console.error("publicShare write error:", e);
+  }
+}
+
+let _sharePushTimer = null;
+function schedulePublicSharePush() {
+  if (!state.shareEnabled || !state.shareToken) return;
+  clearTimeout(_sharePushTimer);
+  _sharePushTimer = setTimeout(publishPublicShare, 1500);
+}
+
+// Profile toggle handlers.
+async function enablePublicShare() {
+  if (!state.shareToken) state.shareToken = _genShareToken();
+  state.shareEnabled = true;
+  saveState();
+  await publishPublicShare();
+  renderShareCard();
+}
+async function disablePublicShare() {
+  const token = state.shareToken;
+  state.shareEnabled = false;
+  saveState();
+  if (token) { try { await db.collection("publicShares").doc(token).delete(); } catch (_) {} }
+  renderShareCard();
+}
+async function rotateShareToken() {
+  const old = state.shareToken;
+  state.shareToken = _genShareToken();
+  saveState();
+  if (old) { try { await db.collection("publicShares").doc(old).delete(); } catch (_) {} }
+  await publishPublicShare();
+  renderShareCard();
+}
+function shareLinks() {
+  const base = location.origin;
+  const t = state.shareToken || "";
+  return {
+    web: `${base}/share.html?t=${t}`,
+    // webcal:// makes iOS/macOS Calendar offer "Subscribe" directly.
+    ics: `webcal://${location.host}/ics/${t}.ics`,
+  };
+}
+
+function renderShareCard() {
+  const el = document.getElementById("shareCard");
+  if (!el) return;
+  const on = !!state.shareEnabled && !!state.shareToken;
+  if (!on) {
+    el.innerHTML = `<button class="pf-row" id="shareEnableBtn" type="button">
+      <span class="pf-row-icon" style="background:#5E5CE6"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pf-row-label">Share read-only link</span>
+      <span class="pf-row-value">Off</span>
+    </button>`;
+    const b = document.getElementById("shareEnableBtn");
+    if (b) b.onclick = () => enablePublicShare();
+    return;
+  }
+  const L = shareLinks();
+  el.innerHTML = `
+    <div class="pf-row no-icon static"><span class="pf-row-label">Read-only link</span><span class="pf-row-value" style="color:#30D158;font-weight:600;">On</span></div>
+    <div class="share-link-row"><input class="share-link-input" readonly value="${escapeHTML(L.web)}"><button class="share-copy" type="button" data-copy="${escapeHTML(L.web)}">Copy</button></div>
+    <div class="share-link-row"><input class="share-link-input" readonly value="${escapeHTML(L.ics)}"><button class="share-copy" type="button" data-copy="${escapeHTML(L.ics)}">Copy</button></div>
+    <button class="pf-row no-icon pf-link" id="shareRotateBtn" type="button"><span class="pf-row-label">Rotate link</span></button>
+    <button class="pf-row no-icon pf-link pf-danger" id="shareRevokeBtn" type="button"><span class="pf-row-label">Turn off &amp; revoke</span></button>`;
+  el.querySelectorAll(".share-copy").forEach(b => {
+    b.onclick = () => {
+      const v = b.getAttribute("data-copy");
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(() => {});
+      const orig = b.textContent; b.textContent = "Copied"; setTimeout(() => { b.textContent = orig; }, 900);
+    };
+  });
+  const rot = document.getElementById("shareRotateBtn");
+  if (rot) rot.onclick = () => { if (confirm("Rotate the link? The old link and ICS feed stop working.")) rotateShareToken(); };
+  const rev = document.getElementById("shareRevokeBtn");
+  if (rev) rev.onclick = () => { if (confirm("Turn off sharing and revoke the link?")) disablePublicShare(); };
 }
 
 function updateSyncStatus(status) {
@@ -10949,6 +11143,9 @@ function makeEvent(date, shift, label, kind, pending) {
     endDate,   endTime: shift.end,
     label, kind,
     pending: !!pending,
+    // Carried for the month-totals breakdown-by-type (harmless elsewhere).
+    shiftTypeId: shift.id || "",
+    typeName: shift.name || label || "Shift",
   };
 }
 
@@ -11544,6 +11741,113 @@ function renderAnalysis() {
 
   // Render the new design's stats hero + bar comparison + day-of-week chart
   renderStatsHero(a);
+  renderMonthTotals();
+}
+
+// ---------- Month totals + shift-type breakdown (BetterShift-style) ----------
+// Worked hours for one generated event (overnight-aware via endDate>startDate).
+function _eventWorkHours(e) {
+  const s = parseHM(e.startTime), en = parseHM(e.endTime);
+  if (Number.isNaN(s) || Number.isNaN(en)) return 0;
+  let m = en - s;
+  if ((e.endDate && e.startDate && e.endDate > e.startDate) || m < 0) m += 24 * 60;
+  return m / 60;
+}
+
+// Totals for a calendar month across the whole household, plus a per-shift-type
+// breakdown. `year`/`monthIdx` (0-based) default to the current month.
+function computeMonthTotals(year, monthIdx) {
+  const now = new Date();
+  if (year == null) year = now.getFullYear();
+  if (monthIdx == null) monthIdx = now.getMonth();
+
+  const sources = [
+    { who: "G", evts: generateEvents() },
+    { who: "K", evts: partnerEvents() },
+    { who: "Daisy", evts: (typeof daisyEvents === "function" ? daisyEvents() : []) },
+  ];
+  const inMonth = (e) => {
+    const dt = parseISODate(e.startDate);
+    return dt && dt.getFullYear() === year && dt.getMonth() === monthIdx;
+  };
+
+  const byType = new Map();          // typeName -> { count, hours }
+  const per = {};                    // who -> { count, hours }
+  const workDays = new Set();
+  let totalShifts = 0, totalHours = 0;
+
+  for (const src of sources) {
+    let c = 0, h = 0;
+    for (const e of src.evts) {
+      if ((e.kind !== "shift" && e.kind !== "overtime") || !inMonth(e)) continue;
+      const hrs = _eventWorkHours(e);
+      c++; h += hrs; totalShifts++; totalHours += hrs;
+      workDays.add(e.startDate);
+      const name = e.typeName || e.label || "Shift";
+      const cur = byType.get(name) || { count: 0, hours: 0 };
+      cur.count++; cur.hours += hrs;
+      byType.set(name, cur);
+    }
+    per[src.who] = { count: c, hours: h };
+  }
+
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  let daysOff = 0;
+  for (let dd = 1; dd <= daysInMonth; dd++) {
+    if (!workDays.has(toISODate(new Date(year, monthIdx, dd)))) daysOff++;
+  }
+
+  const types = [...byType.entries()]
+    .map(([name, v]) => ({ name, count: v.count, hours: v.hours }))
+    .sort((a, b) => b.hours - a.hours);
+
+  return {
+    year, monthIdx,
+    totalShifts, totalHours,
+    avg: totalShifts ? totalHours / totalShifts : 0,
+    daysOff, per, types,
+  };
+}
+
+const _MT_PALETTE = ["var(--color-g)", "var(--color-k)", "var(--color-both)", "#FF9F0A", "#30D158", "#5E5CE6", "#FF6961", "#40C8E0", "#FFD426", "#BF5AF2"];
+const _MT_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function renderMonthTotals() {
+  const el = document.getElementById("monthTotals");
+  if (!el) return;
+  const t = computeMonthTotals();
+
+  // Per-person hour chips (only people who worked this month).
+  const nameFor = { G: state.selfName || "Gage", K: (state.partner && state.partner.name) || "Kaylene", Daisy: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy" };
+  const dotFor = { G: "var(--color-g)", K: "var(--color-k)", Daisy: "var(--color-off)" };
+  const chips = ["G", "K", "Daisy"]
+    .filter(w => t.per[w] && t.per[w].count > 0)
+    .map(w => `<span class="mt-person"><span class="mt-dot" style="background:${dotFor[w]}"></span>${escapeHTML(nameFor[w])} · <b>${t.per[w].hours.toFixed(1)}h</b> · ${t.per[w].count}</span>`)
+    .join("");
+
+  const maxHours = Math.max(1, ...t.types.map(x => x.hours));
+  const breakdown = t.types.length
+    ? t.types.map((x, i) => {
+        const col = _MT_PALETTE[i % _MT_PALETTE.length];
+        return `<div class="mt-type">
+          <span class="mt-dot" style="background:${col}"></span>
+          <span class="mt-type-name">${escapeHTML(x.name)}</span>
+          <span class="mt-bar"><span class="mt-bar-fill" style="width:${(x.hours / maxHours * 100).toFixed(1)}%;background:${col}"></span></span>
+          <span class="mt-type-count">${x.count}</span>
+        </div>`;
+      }).join("")
+    : `<div class="mt-empty">No shifts logged this month.</div>`;
+
+  el.innerHTML = `
+    <div class="mt-head">${_MT_MONTHS[t.monthIdx]} ${t.year}</div>
+    <div class="mt-grid">
+      <div class="mt-stat"><div class="mt-num">${t.totalShifts}</div><div class="mt-lbl">Shifts</div></div>
+      <div class="mt-stat"><div class="mt-num">${Math.round(t.totalHours)}<span class="mt-u">h</span></div><div class="mt-lbl">Hours</div></div>
+      <div class="mt-stat"><div class="mt-num">${t.avg.toFixed(1)}<span class="mt-u">h</span></div><div class="mt-lbl">Avg / shift</div></div>
+      <div class="mt-stat"><div class="mt-num">${t.daysOff}</div><div class="mt-lbl">Days off</div></div>
+    </div>
+    ${chips ? `<div class="mt-people">${chips}</div>` : ""}
+    <div class="mt-breakdown">${breakdown}</div>`;
 }
 
 // ---------- New stats: hero, bar comparison, day-of-week chart ----------
@@ -12867,8 +13171,23 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   const dowFull = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
   const labels = _personLabels();
 
-  agEl.innerHTML = days.map(d => {
+  // Group into This week / Next week / Later. Work days list one clean line per
+  // shift (name · range · hours); off days render as a slim, quiet row.
+  const wkStart = (d) => addDays(d, -d.getDay());
+  const thisWk = toISODate(wkStart(start));
+  const nextWk = toISODate(addDays(wkStart(start), 7));
+  const sectionFor = (d) => {
+    const w = toISODate(wkStart(d));
+    return w === thisWk ? "This week" : w === nextWk ? "Next week" : "Later";
+  };
+
+  let html = "";
+  let curSection = null;
+  for (const d of days) {
     const dISO = toISODate(d);
+    const sec = sectionFor(d);
+    if (sec !== curSection) { curSection = sec; html += `<div class="agenda-section">${sec}</div>`; }
+
     const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
     const isToday = dISO === todayISO;
     let kind = "off";
@@ -12882,40 +13201,14 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
       kind === "g"    ? `${labels.self} works` :
                         `${labels.partner} works`;
 
-    let chipsHTML = "";
+    let shiftsHTML = "";
     if (kind !== "off") {
-      const gTimes = new Set(cell.gOnDay.map(e => e.startTime + "-" + e.endTime));
-      const kTimes = new Set(cell.kOnDay.map(e => e.startTime + "-" + e.endTime));
-      const shared = [...gTimes].filter(t => kTimes.has(t));
-      for (const sh of shared) {
-        const e = cell.gOnDay.find(x => x.startTime + "-" + x.endTime === sh);
-        if (e) chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar" data-photo="g">G</span>
-          <span class="sb-avatar k" data-photo="k">K</span>
-          <span class="sb-chip" data-who="G+K"><span class="sb-chip-dot"></span>G+K · ${compactTime(e.startTime)}</span>
-        </span>`;
-      }
-      for (const e of cell.gOnDay) {
-        if (shared.includes(e.startTime + "-" + e.endTime)) continue;
-        chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar" data-photo="g">G</span>
-          <span class="sb-chip" data-who="G"><span class="sb-chip-dot"></span>G · ${compactTime(e.startTime)}</span>
-        </span>`;
-      }
-      for (const e of cell.kOnDay) {
-        if (shared.includes(e.startTime + "-" + e.endTime)) continue;
-        chipsHTML += `<span class="agenda-pair">
-          <span class="sb-avatar k" data-photo="k">K</span>
-          <span class="sb-chip" data-who="K"${e.pending?' data-pending="1"':''}><span class="sb-chip-dot"></span>K · ${compactTime(e.startTime)}${e.pending?" (pending)":""}</span>
-        </span>`;
-      }
+      for (const e of cell.gOnDay) shiftsHTML += _agendaShiftLine("G", e);
+      for (const e of cell.kOnDay) shiftsHTML += _agendaShiftLine("K", e);
     }
-
-    // Life events now render as themed pills on the RIGHT of the row (avatar +
-    // leaf). Tapping a pill opens a bottom sheet with the event's details.
     const evPillsHTML = getEventsForDate(dISO).map(agendaEventPillHTML).join("");
 
-    return `<div class="agenda-row${isToday ? " today" : ""}" data-kind="${kind}" data-date="${dISO}">
+    html += `<div class="agenda-row${isToday ? " today" : ""}${kind === "off" ? " off" : ""}" data-kind="${kind}" data-date="${dISO}">
       <div class="agenda-date">
         <div class="ad-dow">${dowFull[d.getDay()]}</div>
         <div class="ad-num">${d.getDate()}</div>
@@ -12924,11 +13217,27 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
       <div class="agenda-rail"></div>
       <div class="agenda-body">
         <div class="agenda-title">${title}${wvuMarkHTML(dISO, "agenda-wvu-icon")}</div>
-        ${chipsHTML ? `<div class="agenda-chips">${chipsHTML}</div>` : ""}
+        ${shiftsHTML ? `<div class="agenda-shifts">${shiftsHTML}</div>` : ""}
       </div>
       ${evPillsHTML ? `<div class="agenda-events">${evPillsHTML}</div>` : ""}
     </div>`;
-  }).join("");
+  }
+  agEl.innerHTML = html;
+}
+
+// One clean shift line for the agenda: colored dot · name · time range · hours.
+function _agendaShiftLine(who, e) {
+  const meta = _eventWhoMeta(who);
+  const color = who === "G" ? "var(--color-g)" : who === "K" ? "var(--color-k)" : "var(--color-off)";
+  const range = `${compactTime(e.startTime)}–${compactTime(e.endTime)}`;
+  const hrs = _eventWorkHours(e);
+  const hstr = (Number.isInteger(hrs) ? hrs : hrs.toFixed(1)) + "h";
+  return `<div class="agenda-shift">
+    <span class="agenda-shift-dot" style="background:${color}"></span>
+    <span class="agenda-shift-name">${escapeHTML(meta.name)}</span>
+    <span class="agenda-shift-time">${range}</span>
+    <span class="agenda-shift-hrs">${hstr}${e.pending ? ` <span class="agenda-pending">pending</span>` : ""}</span>
+  </div>`;
 }
 
 // Who → avatar + display-name metadata for life-event pills / detail sheet.
@@ -13846,6 +14155,7 @@ function renderAll() {
   renderOTApprovals();
   renderManagerChildcare((state && state.coverageRequests) || []);
   renderManagerRequests();
+  renderShareCard();
 }
 
 function syncGlobalFields() {

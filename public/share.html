@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Schedule · Shared</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg:#F2F2F7; --panel:#FFFFFF; --sep:rgba(60,60,67,0.16);
+    --text:#000; --text-2:rgba(60,60,67,0.62); --text-3:rgba(60,60,67,0.34);
+    --g:#0A84FF; --k:#FF375F; --d:#34C759;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#000; --panel:#1C1C1E; --sep:rgba(84,84,88,0.6);
+      --text:#fff; --text-2:rgba(235,235,245,0.6); --text-3:rgba(235,235,245,0.32); }
+  }
+  * { box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+    padding: max(env(safe-area-inset-top),18px) 16px calc(env(safe-area-inset-bottom) + 40px); }
+  .wrap { max-width:520px; margin:0 auto; }
+  .banner { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600;
+    color:var(--text-2); background:var(--panel); border:0.5px solid var(--sep);
+    border-radius:12px; padding:9px 12px; margin-bottom:14px; }
+  .banner .dot { width:7px;height:7px;border-radius:99px;background:var(--d);flex-shrink:0; }
+  .eyebrow { font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3); }
+  h1 { font-size:26px; font-weight:800; letter-spacing:-0.4px; margin:4px 0 2px; }
+  .sub { font-size:13px; color:var(--text-2); margin-bottom:18px; }
+  .section { font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--text-3); padding:14px 4px 6px; }
+  .section:first-of-type { padding-top:2px; }
+  .row { display:flex; gap:14px; align-items:stretch; padding:12px 14px; background:var(--panel);
+    border-radius:14px; border:0.5px solid transparent; margin-bottom:8px; }
+  .row.off { opacity:0.66; padding:9px 14px; }
+  .date { width:50px; text-align:center; flex-shrink:0; }
+  .date .dow { font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.08em; }
+  .date .num { font-size:24px;font-weight:700;letter-spacing:-0.03em;line-height:1.05; }
+  .date .mo { font-size:10px;color:var(--text-3);letter-spacing:0.04em; }
+  .rail { width:3px;border-radius:2px;background:var(--text-3);flex-shrink:0; align-self:stretch; }
+  .row[data-kind="g"] .rail{background:var(--g);} .row[data-kind="k"] .rail{background:var(--k);}
+  .row[data-kind="both"] .rail{background:#BF5AF2;} .row[data-kind="d"] .rail{background:var(--d);}
+  .body { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .title { font-size:14px; font-weight:600; letter-spacing:-0.01em; }
+  .row.off .title { font-weight:500; color:var(--text-2); }
+  .shift { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .shift .sdot { width:8px;height:8px;border-radius:3px;flex-shrink:0; }
+  .shift .sname { font-weight:600; }
+  .shift .stime { color:var(--text-2); font-variant-numeric:tabular-nums; }
+  .shift .shrs { margin-left:auto; font-size:12px; font-weight:600; color:var(--text-3); white-space:nowrap; }
+  .evs { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .ev { font-size:11.5px; font-weight:600; color:var(--text-2); background:var(--bg);
+    border:0.5px solid var(--sep); border-radius:999px; padding:3px 9px; }
+  .cta { display:block; text-align:center; margin-top:22px; font-size:14px; font-weight:600;
+    color:var(--g); text-decoration:none; }
+  .state { text-align:center; color:var(--text-2); font-size:14px; padding:60px 20px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"><div class="state">Loading…</div></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDgRavOYvAYbw2nVmOUG_CT8Klifl24Xbk",
+  authDomain: "schedule-buddy-dd2cf.firebaseapp.com",
+  projectId: "schedule-buddy-dd2cf",
+  storageBucket: "schedule-buddy-dd2cf.firebasestorage.app",
+  messagingSenderId: "588666483351",
+  appId: "1:588666483351:web:0000",
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const DOW = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const PCOL = { G:"var(--g)", K:"var(--k)", Daisy:"var(--d)" };
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function parseISO(s){ const [y,m,d]=(s||"").split("-").map(Number); return (y&&m&&d)?new Date(y,m-1,d):null; }
+function toISO(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function hrs(sh){
+  const p=t=>{const[a,b]=(t||"").split(":").map(Number);return a*60+b;};
+  let m=p(sh.end)-p(sh.start); if(sh.endsNextDay||m<=0)m+=1440; return m/60;
+}
+function render(el, msg){ document.getElementById("app").innerHTML = `<div class="state">${msg}</div>`; }
+
+const token = new URLSearchParams(location.search).get("t") || location.pathname.split("/").pop().replace(/\.html$/,"");
+
+async function boot(){
+  if(!token){ return render("app","This share link is missing its code."); }
+  let snap;
+  try {
+    const doc = await db.collection("publicShares").doc(token).get();
+    if(!doc.exists){ return render("app","This shared schedule is no longer available.<br>The link may have been turned off."); }
+    snap = doc.data();
+  } catch(e){ return render("app","Couldn't load this schedule. Check your connection."); }
+  draw(snap);
+}
+
+function draw(snap){
+  const people = snap.people || {};
+  const nameOf = w => (people[w] && people[w].name) || w;
+  const days = Array.isArray(snap.days) ? snap.days.slice().sort((a,b)=>a.date.localeCompare(b.date)) : [];
+
+  // Only show today forward.
+  const todayISO = toISO(new Date());
+  const upcoming = days.filter(d => d.date >= todayISO);
+
+  const wkStart = d => { const x=new Date(d); x.setDate(x.getDate()-x.getDay()); return toISO(x); };
+  const today = new Date();
+  const thisWk = wkStart(today), nextWk = (()=>{const x=new Date(today);x.setDate(x.getDate()-x.getDay()+7);return toISO(x);})();
+  const sectionFor = iso => { const w = wkStart(parseISO(iso)||today); return w===thisWk?"This week":w===nextWk?"Next week":"Later"; };
+
+  let rows = "", cur = null;
+  for(const d of upcoming){
+    const dt = parseISO(d.date); if(!dt) continue;
+    const sec = sectionFor(d.date);
+    if(sec !== cur){ cur = sec; rows += `<div class="section">${sec}</div>`; }
+    const shifts = d.shifts || [];
+    const gW = shifts.some(s=>s.who==="G"), kW = shifts.some(s=>s.who==="K");
+    let kind = "off";
+    if(gW && kW) kind="both"; else if(gW) kind="g"; else if(kW) kind="k"; else if(shifts.length) kind="d";
+    const title = shifts.length
+      ? (gW&&kW ? "Both working" : shifts.map(s=>nameOf(s.who)).filter((v,i,a)=>a.indexOf(v)===i).join(" & ") + " working")
+      : "Both off";
+    const shiftLines = shifts.map(s=>{
+      const h = hrs(s); const hs = (Number.isInteger(h)?h:h.toFixed(1))+"h";
+      return `<div class="shift"><span class="sdot" style="background:${PCOL[s.who]||'var(--text-3)'}"></span>
+        <span class="sname">${esc(nameOf(s.who))}</span>
+        <span class="stime">${esc(s.label||s.start)}${s.end?`–${esc(icomp(s.end))}`:""}</span>
+        <span class="shrs">${hs}</span></div>`;
+    }).join("");
+    const evs = (d.events||[]).map(t=>`<span class="ev">${esc(t)}</span>`).join("");
+    rows += `<div class="row ${shifts.length?"":"off"}" data-kind="${kind}">
+      <div class="date"><div class="dow">${DOW[dt.getDay()]}</div><div class="num">${dt.getDate()}</div><div class="mo">${MONTHS[dt.getMonth()]}</div></div>
+      <div class="rail"></div>
+      <div class="body"><div class="title">${esc(title)}</div>${shiftLines}${evs?`<div class="evs">${evs}</div>`:""}</div>
+    </div>`;
+  }
+  if(!rows) rows = `<div class="state">Nothing scheduled coming up.</div>`;
+
+  document.getElementById("app").innerHTML = `
+    <div class="banner"><span class="dot"></span>Shared · read-only</div>
+    <div class="eyebrow">Schedule Buddy</div>
+    <h1>${esc(snap.householdName || "Our schedule")}</h1>
+    <div class="sub">Upcoming shifts and events</div>
+    ${rows}
+    <a class="cta" href="https://schedule-buddy-dd2cf.web.app">Open Schedule Buddy ›</a>`;
+}
+// compact "HH:MM" -> "7:30a" for the end time
+function icomp(t){ const [h,m]=(t||"").split(":").map(Number); if(isNaN(h))return t; const s=h>=12?"p":"a"; const hh=h%12===0?12:h%12; return m===0?`${hh}${s}`:`${hh}:${String(m).padStart(2,"0")}${s}`; }
+
+boot();
+</script>
+</body>
+</html>

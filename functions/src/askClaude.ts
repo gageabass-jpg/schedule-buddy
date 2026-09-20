@@ -44,6 +44,7 @@ interface HouseholdState {
   shiftTypes: ShiftType[];
   template: Array<string | null>;
   alt?: { enabled: boolean; refSat?: string; sat?: string; sun?: string };
+  templateEndDate?: string;   // last date the recurring template applies (paused going forward)
   ot?: OTShift[];
   overrides?: Override[];
   partner?: { name: string; shifts: PartnerShift[] };
@@ -51,6 +52,39 @@ interface HouseholdState {
   childcareOff?: ChildcareOffDay[];
   range?: { from: string; to: string };
   selfName?: string;
+}
+
+// Resolve Gage's (self) shift on a date: an override wins; otherwise the
+// weekly template applies, but only on/before templateEndDate (the template is
+// paused going forward). Mirrors wallState.ts::templateShiftFor.
+function templateShiftFor(
+  dateIso: string,
+  template: Array<string | null> | undefined,
+  alt?: HouseholdState["alt"],
+): string | null {
+  if (!template || template.length !== 7) return null;
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dow = new Date(y!, m! - 1, d!).getDay();
+  if (alt?.enabled && alt.refSat && (dow === 0 || dow === 6)) {
+    const [ry, rm, rd] = alt.refSat.split("-").map(Number);
+    const weeksFromRef = Math.round((Date.UTC(y!, m! - 1, d!) - Date.UTC(ry!, rm! - 1, rd!)) / (7 * 86_400_000));
+    const onWorkingWeekend = weeksFromRef % 2 === 0;
+    if (dow === 6) return onWorkingWeekend ? (alt.sat ?? null) : null;
+    return onWorkingWeekend ? (alt.sun ?? null) : null;
+  }
+  return template[dow] ?? null;
+}
+
+/** Gage's resolved shift for a date + where it came from. */
+function resolveSelfShift(state: HouseholdState, date: string): { shiftTypeId: string | null; source: "override" | "template" | "none" } {
+  const ov = (state.overrides ?? []).find((o) => o.date === date);
+  if (ov) return { shiftTypeId: ov.shiftTypeId, source: "override" };
+  const templateActive = !state.templateEndDate || date <= state.templateEndDate;
+  if (templateActive) {
+    const t = templateShiftFor(date, state.template, state.alt);
+    if (t) return { shiftTypeId: t, source: "template" };
+  }
+  return { shiftTypeId: null, source: "none" };
 }
 interface ChildcareOffDay {
   date: string; label?: string;
@@ -282,13 +316,30 @@ async function execTool(
     case "summarize_period": {
       const from = String(input.from);
       const to = String(input.to);
-      const overrides = (state.overrides ?? []).filter((o) => o.date >= from && o.date <= to);
       const ot = (state.ot ?? []).filter((o) => o.date >= from && o.date <= to);
       const partner = (state.partner?.shifts ?? []).filter((p) => p.date >= from && p.date <= to);
       const events = (state.events ?? []).filter((e) => e.date >= from && e.date <= to);
       const childcareOff = (state.childcareOff ?? []).filter((c) => c.date >= from && c.date <= to);
-      return { from, to, overrides, ot, partnerShifts: partner, events, childcareOff,
-        template: state.template, shiftTypeCount: (state.shiftTypes ?? []).length };
+      const stName = (id: string | null) => (id ? ((state.shiftTypes ?? []).find((s) => s.id === id)?.name ?? id) : null);
+      // Resolved per-day schedule so the model can SEE what's actually scheduled
+      // (Gage's shift + whether it's a one-off override or from his template),
+      // instead of guessing from raw arrays.
+      const days = datesInRange(from, to).map((date) => {
+        const self = resolveSelfShift(state, date);
+        const k = partner.find((p) => p.date === date);
+        const o = ot.find((x) => x.date === date);
+        return {
+          date,
+          gage: self.shiftTypeId
+            ? { shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source }
+            : (self.source === "override" ? "off (override set)" : "off"),
+          kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId } : "off",
+          ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId } : null,
+          events: events.filter((e) => e.date === date).map((e) => e.title),
+          noChildcare: childcareOff.some((c) => c.date === date),
+        };
+      });
+      return { from, to, days, shiftTypeCount: (state.shiftTypes ?? []).length };
     }
 
     case "add_override": {
@@ -459,7 +510,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `Their shift types (id → name, hours):\n` +
       ((state.shiftTypes ?? []).map((s) => `  ${s.id} → ${s.name} (${s.start}-${s.end})`).join("\n") || "  (none configured)") +
       `\n\nHousehold members: ${Object.values(memberNames).join(", ") || "unknown"}\n` +
-      `Date range covered by the calendar: ${state.range?.from ?? "?"} to ${state.range?.to ?? "?"}\n\n` +
+      `The calendar is open-ended — schedules are individual dated entries, not a fixed window. ` +
+      `When the user names a day number or weekday without a month (e.g. "the 2nd", "Friday"), ` +
+      `resolve it to the nearest such date on or after today (${today}); roll into next month when ` +
+      `the number has already passed this month. Only ask which month if it's genuinely ambiguous. ` +
+      `To see what's actually scheduled on a date, call summarize_period for that date rather than ` +
+      `assuming the calendar is empty or bounded.\n\n` +
       `Conventions:\n` +
       `- "Gage" is the household admin. His recurring schedule comes from a weekly template.\n` +
       `- "Kaylene" is Gage's partner. Her shifts are individual dated entries.\n` +
@@ -469,6 +525,11 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +
       `- Kaylene's shifts always go through add_partner_shift.\n` +
       `- To mark days with NO childcare (Daisy scheduled off, or "block off" a week for childcare), use block_childcare with a from/to range — it stamps the whole range in ONE call, so a full week is reliably covered. Never use add_event or add_override for childcare availability. Use unblock_childcare to restore childcare.\n\n` +
+      `Editing Gage's shifts:\n` +
+      `- ALWAYS call summarize_period for the affected dates first to see what's actually there. Each day reports Gage's shift and its "source" ("override" = a one-off, "template" = from his weekly template).\n` +
+      `- To REMOVE / cancel Gage's shift on a day: if source is "override", call remove_override for that date; if source is "template", call add_override with action="off". Either way he ends up with no working shift that day. Do NOT add anything.\n` +
+      `- To MOVE Gage's shift from one day to another, do BOTH steps in the same confirmed action: (1) remove/cancel it on the OLD day (per the rule above), and (2) add_override action="work" on the NEW day using the same shift type it had. A move is never just an add — if you only add, the old shift is still there.\n` +
+      `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n\n` +
       `Behavior:\n` +
       `- For read-only questions, call list_shift_types or summarize_period as needed and answer concisely.\n` +
       `- For changes, first describe what you'll do in plain English and ASK for confirmation. ` +

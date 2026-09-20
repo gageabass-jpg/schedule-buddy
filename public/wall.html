@@ -606,7 +606,33 @@
     .styrene {
       font-family: "Space Grotesk", "Styrene A", "Styrene B", "Inter", -apple-system, sans-serif;
     }
-    .scene-calendar { background: var(--bg-deep); }
+    /* Two-week outlook recolored to the Morning Press palette: cream page,
+       white cells, warm borders, dark ink, sage/rust shift pills. Scoped
+       overrides of the global (dark) theme vars cascade to every .cal-*
+       element and the reused .brand-block header + clock. */
+    .scene-calendar {
+      --bg-deep: #e9e5dd;
+      --card:    #fffdf6;
+      --border:  #e3dbc6;
+      --text:    #2a2620;
+      --text-3:  #8d8371;
+      --text-4:  #b3a892;
+      --g: #5a7030; --g-soft: #eef2e2;
+      --k: #c05f33; --k-soft: #f3e5d4;
+      background: var(--bg-deep);
+    }
+    /* Night Signal variant — switches with the clock (body.wall-night) so the
+       outlook matches the dark dashboard after 8pm. */
+    body.wall-night .scene-calendar {
+      --bg-deep: #0e1420;
+      --card:    #151d2e;
+      --border:  #24314c;
+      --text:    #e8ecf5;
+      --text-3:  #6b7793;
+      --text-4:  #4a5674;
+      --g: #5fd4c0; --g-soft: #123b34;
+      --k: #f0a35e; --k-soft: #3a2a18;
+    }
     .cal-root {
       padding: 30px 44px 32px;
       height: 100vh;
@@ -627,6 +653,7 @@
       font-size: 28px;
       font-weight: 600;
       letter-spacing: -0.02em;
+      color: var(--text);
     }
     .cal-clock-block .date {
       font-size: 13px;
@@ -654,10 +681,10 @@
       overflow: hidden;
       transition: opacity 0.4s ease;
     }
-    .cal-day.past    { opacity: 0.40; }
+    .cal-day.past    { opacity: 0.55; }
     .cal-day.today   {
-      background: rgba(127, 168, 106, 0.10);
-      border-color: rgba(127, 168, 106, 0.45);
+      background: var(--g-soft);
+      border-color: var(--g);
     }
     .cal-day .cal-day-head {
       display: flex; align-items: baseline;
@@ -786,125 +813,167 @@
     .scene-dashboard {
       --wd-page: #e9e5dd; --wd-bg: #f4efe4; --wd-ink: #2a2620; --wd-ink2: #5d564a;
       --wd-muted: #8d8371; --wd-card: #fffdf6; --wd-cardline: #e3dbc6; --wd-line: #ddd5c2;
-      --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4;
-      --wd-k: #c05f33; --wd-k-chipink: #fff8ec; --wd-gold: #c9a84c;
+      --wd-g: #5a7030; --wd-g-bg: #eef2e2; --wd-g-chipink: #f4efe4; --wd-g-pillink: #4b5d28;
+      --wd-k: #c05f33; --wd-k-bg: #f3e5d4; --wd-k-chipink: #fff8ec;
+      --wd-gold: #c9a84c; --wd-period-col: #c05f33;
       --wd-row: #f7f2e5; --wd-dark: #2a2620; --wd-dark-ink: #f4efe4;
+      --wd-body: "IBM Plex Sans", "Inter", system-ui, sans-serif;
       --wd-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
       --wd-mono: "IBM Plex Mono", ui-monospace, monospace;
       --wd-clockfont: "IBM Plex Mono", ui-monospace, monospace; --wd-clockweight: 600;
+      --wd-greetweight: 400; --wd-greetls: -1px;
       --wd-logo-bg: #2a2620; --wd-logo-ink: #e8c46b;
     }
     body.wall-night .scene-dashboard {
-      --wd-page: #05070d; --wd-bg: #0e1420; --wd-ink: #e8ecf5; --wd-ink2: #aeb8cf;
-      --wd-muted: #6b7793; --wd-card: #131c2e; --wd-cardline: #232d42; --wd-line: #232d42;
-      --wd-g: #78b06a; --wd-g-bg: #17251c; --wd-g-chipink: #0e1420;
-      --wd-k: #e08a5a; --wd-k-chipink: #0e1420; --wd-gold: #c9a84c;
-      --wd-row: #101827; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
+      --wd-page: #05070d; --wd-bg: #0e1420; --wd-ink: #e8ecf5; --wd-ink2: #a7b0c6;
+      --wd-muted: #6b7793; --wd-card: #151d2e; --wd-cardline: #24314c; --wd-line: #24314c;
+      --wd-g: #5fd4c0; --wd-g-bg: #123b34; --wd-g-chipink: #0e1420; --wd-g-pillink: #5fd4c0;
+      --wd-k: #f0a35e; --wd-k-bg: #3a2a18; --wd-k-chipink: #0e1420;
+      --wd-gold: #e8c46b; --wd-period-col: #5fd4c0;
+      --wd-row: #101828; --wd-dark: #1c2740; --wd-dark-ink: #e8ecf5;
+      /* Night: the design uses Space Grotesk everywhere (no serif), with
+         Space Mono for the clock + all mono labels/pills. */
+      --wd-body: "Space Grotesk", system-ui, sans-serif;
+      --wd-serif: "Space Grotesk", system-ui, sans-serif;
+      --wd-mono: "Space Mono", ui-monospace, monospace;
       --wd-clockfont: "Space Mono", ui-monospace, monospace; --wd-clockweight: 700;
-      --wd-logo-bg: #1c2740; --wd-logo-ink: #5fd4c0;
+      --wd-greetweight: 700; --wd-greetls: -2px;
+      --wd-logo-bg: #5fd4c0; --wd-logo-ink: #0e1420;
     }
     .scene-dashboard { background: var(--wd-page); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    /* Fixed 1920x1080 design canvas, scaled uniformly by JS (--wd-scale) to
-       fill whatever resolution the wall runs at — so every element keeps the
-       design's proportions instead of shrinking on a bigger screen. */
+    /* Fixed 2560x1440 design canvas (27" monitor), scaled uniformly by JS
+       (--wd-zoom) to fill whatever resolution the wall runs at — so every
+       element keeps the design's proportions instead of shrinking. */
     .wd-root {
-      width: 1380px; height: 776px; flex-shrink: 0; box-sizing: border-box;
-      padding: 28px 44px;
+      width: 2560px; height: 1440px; flex-shrink: 0; box-sizing: border-box;
+      padding: 48px 56px 36px;
       zoom: var(--wd-zoom, 1);
       background: var(--wd-bg); color: var(--wd-ink);
-      font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
-      display: flex; flex-direction: column; gap: 12px;
+      font-family: var(--wd-body, "Inter", system-ui, sans-serif);
+      display: flex; flex-direction: column;
       overflow: hidden;
     }
     .wd-head { display: flex; justify-content: space-between; align-items: flex-start; }
     .wd-brand { display: flex; gap: 14px; align-items: center; }
-    .wd-logo { width: 64px; height: 64px; border-radius: 16px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
-    .wd-brand-title { font-family: var(--wd-serif); font-size: 34px; line-height: 1; }
+    .wd-logo { width: 94px; height: 94px; border-radius: 22px; background: var(--wd-logo-bg); color: var(--wd-logo-ink); display: flex; align-items: center; justify-content: center; font-size: 58px; line-height: 1; box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-brand-title { font-family: var(--wd-serif); font-size: 44px; line-height: 1; }
+    body.wall-night .wd-brand-title { font-size: 40px; font-weight: 700; }
     .wd-brand-sub { font-family: var(--wd-mono); font-size: 12px; letter-spacing: 3px; color: var(--wd-muted); margin-top: 6px; }
     .wd-clockwrap { display: flex; flex-direction: column; align-items: flex-end; }
-    .wd-clock { display: flex; align-items: center; gap: 5px; }
-    .wd-tile { width: 48px; height: 64px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 42px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
-    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; }
-    .wd-colon { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 2px; }
-    .wd-ampm { font-family: var(--wd-clockfont); font-size: 25px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 6px; margin-left: 4px; }
-    .wd-date { font-size: 30px; color: var(--wd-muted); margin-top: 8px; }
-    .wd-tile.flip { animation: wdFlip .4s ease; }
-    @keyframes wdFlip { 0% { transform: rotateX(-90deg); opacity: .3; } 100% { transform: rotateX(0); opacity: 1; } }
-    .wd-greeting { font-family: var(--wd-serif); font-weight: 400; font-size: 88px; line-height: 1; margin: 14px 0 0; letter-spacing: -1px; }
-    .wd-period { color: #c05f33; }
-    .wd-heroline { font-size: 19px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .wd-clock { display: flex; align-items: center; gap: 6px; perspective: 400px; }
+    .wd-tile { position: relative; width: 66px; height: 86px; background: var(--wd-dark); color: var(--wd-dark-ink); border-radius: 11px; display: flex; align-items: center; justify-content: center; font-family: var(--wd-clockfont); font-size: 60px; font-weight: var(--wd-clockweight); box-shadow: 0 2px 6px rgba(42,38,32,.25); }
+    .wd-tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: rgba(0,0,0,.45); }
+    body.wall-night .wd-tile { border: 1px solid #24314c; color: #5fd4c0; font-size: 56px; }
+    body.wall-night .wd-tile::after { background: rgba(0,0,0,.5); }
+    .wd-colon { font-family: var(--wd-clockfont); font-size: 48px; font-weight: var(--wd-clockweight); color: var(--wd-muted); padding: 0 3px; }
+    .wd-ampm { font-family: var(--wd-clockfont); font-size: 34px; font-weight: var(--wd-clockweight); color: var(--wd-muted); align-self: flex-end; padding-bottom: 8px; margin-left: 5px; }
+    .wd-date { font-size: 46px; color: var(--wd-muted); margin-top: 10px; }
+    .wd-tile.flip { animation: wdFlip .55s ease; }
+    @keyframes wdFlip { 0% { transform: rotateX(-85deg); opacity: .35; } 55% { transform: rotateX(12deg); } 100% { transform: rotateX(0deg); opacity: 1; } }
+    .wd-greeting { font-family: var(--wd-serif); font-weight: var(--wd-greetweight, 400); font-size: 108px; line-height: 1; margin: 36px 0 0; letter-spacing: var(--wd-greetls, -1px); }
+    body.wall-night .wd-greeting { font-size: 102px; }
+    .wd-period { color: var(--wd-period-col); }
+    .wd-heroline { font-size: 32px; color: var(--wd-ink2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
     .wd-heroline strong { font-weight: 700; }
-    .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
-    .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 18px 26px; display: flex; align-items: center; gap: 16px; }
-    .wd-avatar { width: 52px; height: 52px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 24px; flex-shrink: 0; overflow: hidden; }
+    .wd-pill { border: 1.5px solid var(--wd-g); color: var(--wd-g-pillink); font-family: var(--wd-mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
+    body.wall-night .wd-pill { background: var(--wd-g-bg); }
+    .wd-people { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+    .wd-person { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 22px 26px; display: flex; align-items: center; gap: 16px; }
+    .wd-avatar { width: 72px; height: 72px; border-radius: 50%; color: #f4efe4; display: flex; align-items: center; justify-content: center; font-family: var(--wd-serif); font-size: 30px; flex-shrink: 0; overflow: hidden; }
     .wd-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .wd-person-mid { flex: 1; min-width: 0; }
     .wd-person-top { display: flex; align-items: center; gap: 10px; }
-    .wd-person-name { font-weight: 700; font-size: 19px; }
-    .wd-status { font-family: var(--wd-mono); font-size: 10px; font-weight: 600; letter-spacing: 1.5px; padding: 3px 9px; border-radius: 999px; }
-    .wd-person-sub { color: var(--wd-muted); font-size: 14px; margin-top: 4px; }
-    .wd-person-time { font-family: var(--wd-mono); font-weight: 600; font-size: 19px; white-space: nowrap; }
-    .wd-grid { flex: 1; display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 16px; min-height: 0; }
-    .wd-col { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
-    .wd-card { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 20px 22px; min-height: 0; overflow: hidden; }
-    .wd-label { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 3px; color: var(--wd-muted); }
+    .wd-person-name { font-weight: 700; font-size: 26px; }
+    .wd-status { font-family: var(--wd-mono); font-size: 14px; font-weight: 600; letter-spacing: 1.5px; padding: 4px 12px; border-radius: 999px; }
+    .wd-person-sub { color: var(--wd-muted); font-size: 18px; margin-top: 5px; }
+    .wd-person-time { font-family: var(--wd-mono); font-weight: 600; font-size: 26px; white-space: nowrap; }
+    .wd-grid { flex: 1; display: grid; grid-template-columns: 900px 1fr 1fr; gap: 24px; margin-top: 24px; min-height: 0; }
+    .wd-col { display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+    .wd-card { background: var(--wd-card); border: 1px solid var(--wd-cardline); border-radius: 16px; padding: 22px; min-height: 0; overflow: hidden; }
+    .wd-label { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 3px; color: var(--wd-muted); }
     .wd-week { display: flex; flex-direction: column; min-height: 0; }
-    .wd-weeklist { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; flex: 1; min-height: 0; }
+    .wd-weeklist { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; flex: 1; min-height: 0; }
     .wd-day { display: flex; align-items: center; gap: 14px; background: var(--wd-row); border-radius: 10px; padding: 9px 14px; flex: 1; min-height: 0; overflow: hidden; }
     .wd-day.today { background: var(--wd-g-bg); border: 1.5px solid var(--wd-g); }
+    body.wall-night .wd-day.today { background: #12262c; }
     .wd-day.game { border: 1.5px solid var(--wd-gold); }
-    .wd-day-num { font-family: var(--wd-serif); font-size: 24px; width: 34px; text-align: center; color: var(--wd-ink2); }
+    .wd-day-num { font-family: var(--wd-serif); font-size: 34px; width: 48px; text-align: center; color: var(--wd-ink2); }
+    body.wall-night .wd-day-num { font-size: 30px; font-weight: 700; }
     .wd-day.today .wd-day-num { color: var(--wd-ink); }
-    .wd-day-dow { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1px; color: var(--wd-muted); width: 58px; display: inline-flex; align-items: center; gap: 5px; }
+    .wd-day-dow { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 1px; color: var(--wd-muted); width: 78px; display: inline-flex; align-items: center; gap: 6px; }
     .wd-day.today .wd-day-dow { color: var(--wd-g); font-weight: 600; }
-    .wd-day-dow img { width: 18px; height: 18px; object-fit: contain; }
+    .wd-day-dow img { width: 20px; height: 20px; object-fit: contain; }
     .wd-day-pills { flex: 1; display: flex; gap: 6px; justify-content: flex-end; }
-    .wd-chip { font-family: var(--wd-mono); font-size: 11px; padding: 3px 10px; border-radius: 5px; white-space: nowrap; }
+    .wd-chip { font-family: var(--wd-mono); font-size: 17px; padding: 5px 14px; border-radius: 7px; white-space: nowrap; }
     .wd-chip.g { background: var(--wd-g); color: var(--wd-g-chipink); }
     .wd-chip.k { background: var(--wd-k); color: var(--wd-k-chipink); }
-    .wd-weather, .wd-board { flex: 1; min-height: 0; }
-    .wd-board { display: flex; flex-direction: column; }
-    .wd-board-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .wd-wx-top { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-    .wd-wx-temp { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
-    .wd-wx-desc { color: var(--wd-muted); font-size: 13px; margin-top: 6px; }
-    .wd-wx-icon { font-size: 34px; color: #e0a23c; }
+    .wd-weather, .wd-board { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .wd-wx-top { flex: 1; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+    .wd-wx-temp { font-family: var(--wd-serif); font-size: 110px; line-height: 1; }
+    body.wall-night .wd-wx-temp { font-size: 104px; font-weight: 700; }
+    .wd-wx-desc { color: var(--wd-muted); font-size: 26px; margin-top: 10px; }
+    .wd-wx-icon { font-size: 76px; color: #e0a23c; }
+    body.wall-night .wd-wx-icon { color: var(--wd-gold); }
     .wd-wx-meta { display: flex; gap: 0; margin-top: 16px; border-top: 1px solid var(--wd-line); padding-top: 12px; }
     .wd-wx-meta > div { flex: 1; }
-    .wd-wx-k { font-family: var(--wd-mono); font-size: 10px; letter-spacing: 1.5px; color: var(--wd-muted); }
-    .wd-wx-v { font-size: 14px; font-weight: 600; margin-top: 3px; }
-    .wd-board-body { margin-top: 14px; }
-    .wd-board-msg { font-family: var(--wd-serif); font-size: 24px; line-height: 1.18; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-    .wd-board-by { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 12px; color: var(--wd-muted); font-size: 13px; flex-shrink: 0; }
-    .wd-board-av { width: 22px; height: 22px; border-radius: 50%; background: var(--wd-k); color: #fff8ec; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; overflow: hidden; }
+    .wd-wx-k { font-family: var(--wd-mono); font-size: 14px; letter-spacing: 1.5px; color: var(--wd-muted); }
+    .wd-wx-v { font-size: 20px; font-weight: 600; margin-top: 5px; }
+    .wd-board-body { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+    .wd-board-msg { font-family: var(--wd-serif); font-size: 45px; line-height: 1.15; flex: 1; display: flex; align-items: center; }
+    body.wall-night .wd-board-msg { font-size: 38px; font-weight: 600; }
+    .wd-board-by { display: flex; align-items: center; gap: 12px; margin-top: auto; padding-top: 12px; color: var(--wd-muted); font-size: 23px; flex-shrink: 0; }
+    .wd-board-av { width: 38px; height: 38px; border-radius: 50%; background: var(--wd-k); color: var(--wd-k-chipink); display: inline-flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; overflow: hidden; flex-shrink: 0; }
+    body.wall-night .wd-board-av { background: var(--wd-k-bg); border: 1px solid var(--wd-k); color: var(--wd-k); }
     .wd-board-av img { width: 100%; height: 100%; object-fit: cover; }
-    .wd-board-empty { color: var(--wd-muted); font-size: 15px; margin-top: 14px; }
-    .wd-countdown { background: var(--wd-dark); color: var(--wd-dark-ink); flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+    .wd-board-empty { color: var(--wd-muted); font-size: 24px; margin: auto 0; }
+    /* Right-column cards swap by theme: day = countdown + news, night = catthew + fatigue */
+    .wd-night-only { display: none; }
+    body.wall-night .wd-day-only { display: none; }
+    body.wall-night .wd-night-only { display: flex; }
+    .wd-countdown { background: var(--wd-card); color: var(--wd-ink); border: 1px solid var(--wd-cardline); flex: 0 0 44%; min-height: 0; display: flex; flex-direction: column; padding: 22px 24px; }
     .wd-cd-head { display: flex; justify-content: space-between; align-items: center; }
-    .wd-cd-label { font-family: var(--wd-serif); font-size: 24px; line-height: 1.1; }
+    .wd-cd-label { font-family: var(--wd-serif); font-size: 40px; line-height: 1.1; }
     .wd-cd-dots { display: flex; gap: 5px; }
-    .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: #57503f; }
+    .wd-cd-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--wd-line); }
     .wd-cd-dot.on { background: var(--wd-gold); }
-    .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 0; }
-    .wd-cd-num { font-family: var(--wd-serif); font-size: 56px; line-height: 1; }
-    .wd-cd-num small { font-size: 22px; color: var(--wd-muted); }
-    .wd-cd-sub { font-size: 15px; color: var(--wd-gold); margin-top: 10px; }
+    .wd-cd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 4px 0; }
+    .wd-cd-num { font-family: var(--wd-serif); font-size: 78px; line-height: 1; }
+    .wd-cd-num small { font-size: 30px; color: var(--wd-muted); }
+    .wd-cd-sub { font-size: 24px; color: var(--wd-gold); margin-top: 10px; }
+    body.wall-night .wd-cd-sub { color: var(--wd-gold); }
     .wd-cd-slide.anim { animation: wdSlideIn .5s ease; }
-    @keyframes wdSlideIn { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    .wd-news { flex: 1.4 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
-    .wd-news-img { height: 132px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
-    .wd-news-body { padding: 12px 18px 14px; display: flex; flex-direction: column; flex: 1; }
-    .wd-news-title { font-family: var(--wd-serif); font-size: 20px; line-height: 1.25; }
-    .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 11px; letter-spacing: 1px; color: var(--wd-muted); }
-    .wd-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 13px; border-top: 1px solid var(--wd-line); font-size: 14px; color: var(--wd-muted); gap: 20px; }
+    @keyframes wdSlideIn { 0% { transform: translateX(28px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+    .wd-news { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
+    .wd-news-img { height: 210px; background-size: cover; background-position: center 30%; background-color: var(--wd-row); flex-shrink: 0; }
+    .wd-news-body { padding: 16px 22px 20px; display: flex; flex-direction: column; flex: 1; }
+    .wd-news-title { font-family: var(--wd-serif); font-size: 38px; line-height: 1.25; }
+    .wd-news-meta { margin-top: auto; padding-top: 12px; font-family: var(--wd-mono); font-size: 21px; letter-spacing: 1px; color: var(--wd-muted); }
+    /* CATTHEW (night only) */
+    .wd-cat { flex: 1 1 0; min-height: 0; flex-direction: column; background: linear-gradient(160deg,#16283a,#11202f); border: 1px solid #24425c; padding: 22px 24px; }
+    .wd-cat-head { display: flex; justify-content: space-between; align-items: center; }
+    .wd-cat-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; margin-top: 12px; }
+    .wd-cat-row-top { display: flex; justify-content: space-between; font-size: 19px; margin-bottom: 8px; }
+    .wd-cat-row-top .lbl { color: var(--wd-ink2); }
+    .wd-cat-row-top .val { font-family: var(--wd-mono); }
+    .wd-cat-bar { height: 9px; background: #24314c; border-radius: 5px; overflow: hidden; }
+    .wd-cat-bar span { display: block; height: 100%; border-radius: 3px; }
+    .wd-cat-foot { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 1px; color: var(--wd-muted); margin-top: 14px; }
+    /* FATIGUE INDEX (night only) */
+    .wd-fatigue { flex: 1 1 0; min-height: 0; flex-direction: column; }
+    .wd-fat-status { font-family: var(--wd-mono); font-size: 30px; font-weight: 700; margin-top: 12px; }
+    .wd-fat-bars { display: flex; gap: 6px; margin-top: 16px; }
+    .wd-fat-bars span { height: 8px; flex: 1; background: #24314c; border-radius: 3px; }
+    .wd-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--wd-line); font-size: 20px; color: var(--wd-muted); gap: 20px; }
     .wd-events { display: flex; gap: 28px; flex: 1; min-width: 0; overflow: hidden; }
     .wd-events span { white-space: nowrap; }
     .wd-events strong { color: var(--wd-ink); }
     .wd-wvu { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-    .wd-wvu img { width: 26px; height: 26px; object-fit: contain; }
+    .wd-wvu img { width: 36px; height: 36px; object-fit: contain; }
     .wd-wvu strong { color: var(--wd-ink); }
-    .wd-stamp { font-family: var(--wd-mono); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
+    .wd-wvu .rec { font-weight: 400; color: var(--wd-muted); }
+    .wd-wvu .vs { font-family: var(--wd-mono); font-size: 16px; color: var(--wd-muted); }
+    .wd-wvu .when { font-family: var(--wd-mono); font-size: 16px; letter-spacing: 1px; color: var(--wd-muted); }
+    .wd-stamp { font-family: var(--wd-mono); font-size: 15px; letter-spacing: 2px; white-space: nowrap; }
   </style>
   <div class="scene scene-dashboard" id="sceneDashboard">
     <div class="wd-root">
@@ -936,7 +1005,7 @@
 
       <div class="wd-grid">
         <div class="wd-card wd-week">
-          <div class="wd-label">NEXT 7 DAYS</div>
+          <div class="wd-label">NEXT 5 DAYS</div>
           <div class="wd-weeklist" id="wdWeek"></div>
         </div>
         <div class="wd-col">
@@ -953,7 +1022,7 @@
               <div><div class="wd-wx-k">HI / LO</div><div class="wd-wx-v" id="wdWxHilo">—</div></div>
               <div><div class="wd-wx-k">WIND</div><div class="wd-wx-v" id="wdWxWind">—</div></div>
               <div><div class="wd-wx-k">HUMIDITY</div><div class="wd-wx-v" id="wdWxHum">—</div></div>
-              <div><div class="wd-wx-k">SUNRISE</div><div class="wd-wx-v" id="wdWxSun">—</div></div>
+              <div><div class="wd-wx-k" id="wdWxSunK">SUNRISE</div><div class="wd-wx-v" id="wdWxSun">—</div></div>
             </div>
           </div>
           <div class="wd-card wd-board">
@@ -962,19 +1031,43 @@
           </div>
         </div>
         <div class="wd-col">
-          <div class="wd-card wd-countdown">
+          <!-- DAY: countdown + WV news -->
+          <div class="wd-card wd-countdown wd-day-only">
             <div class="wd-cd-head">
               <div class="wd-cd-label" id="wdCdLabel">Next Payday</div>
               <div class="wd-cd-dots" id="wdCdDots"></div>
             </div>
             <div class="wd-cd-body" id="wdCdBody"></div>
           </div>
-          <div class="wd-card wd-news" id="wdNewsCard">
+          <div class="wd-card wd-news wd-day-only" id="wdNewsCard">
             <div class="wd-news-img" id="wdNewsImg"></div>
             <div class="wd-news-body">
               <div class="wd-news-title" id="wdNewsTitle">—</div>
               <div class="wd-news-meta" id="wdNewsMeta">—</div>
             </div>
+          </div>
+          <!-- NIGHT: Catthew + Fatigue Index -->
+          <div class="wd-card wd-cat wd-night-only">
+            <div class="wd-cat-head">
+              <div class="wd-label">CATTHEW</div>
+              <span style="font-size:26px">🐈</span>
+            </div>
+            <div class="wd-cat-body">
+              <div>
+                <div class="wd-cat-row-top"><span class="lbl">Food</span><span class="val" id="wdCatFoodV">—</span></div>
+                <div class="wd-cat-bar"><span id="wdCatFoodBar" style="width:0"></span></div>
+              </div>
+              <div>
+                <div class="wd-cat-row-top"><span class="lbl">Water</span><span class="val" id="wdCatWaterV">—</span></div>
+                <div class="wd-cat-bar"><span id="wdCatWaterBar" style="width:0"></span></div>
+              </div>
+            </div>
+            <div class="wd-cat-foot" id="wdCatFoot">—</div>
+          </div>
+          <div class="wd-card wd-fatigue wd-night-only">
+            <div class="wd-label">FATIGUE INDEX</div>
+            <div class="wd-fat-status" id="wdFatStatus">—</div>
+            <div class="wd-fat-bars" id="wdFatBars"></div>
           </div>
         </div>
       </div>
@@ -1021,6 +1114,190 @@
     <div style="font-size:14px; color:rgba(255,245,224,0.5); letter-spacing:0.08em">Retrying every 30s</div>
   </div>
 
+  <!-- AUDIO NOOK — drops from top-center on F9; knob-driven YouTube Music.
+       Reads getNowPlaying; sends play_pause/next/prev/shuffle/mute/open_playlist
+       via sendPiCommand → the Pi's playerctl watcher. Demo mock with no token.
+       Ported from the "Audio Nook" Claude Design handoff (high-fidelity). -->
+  <style>
+    /* Audio Nook — themed. Day = Morning Press (light), night = Night Signal
+       (dark), switched by body.wall-night like the rest of the wall. Per-profile
+       accent (Gage / Kaylene) is set by the .nook-gage / .nook-kaylene class. */
+    .nook {
+      /* DAY (Morning Press) */
+      --nk-surface: #fffdf6; --nk-border: #e3dbc6; --nk-border-hover: #cfc4a8;
+      --nk-ink: #2a2620; --nk-ink2: #5d564a; --nk-muted: #8d8371; --nk-faint: #a99e86;
+      --nk-hint: #c2b79f; --nk-icon: #9a8f78;
+      --nk-fill: rgba(0,0,0,.04); --nk-fill2: rgba(0,0,0,.06); --nk-fill-hover: rgba(0,0,0,.09);
+      --nk-divider: rgba(0,0,0,.08); --nk-track: rgba(0,0,0,.10); --nk-onaccent: #f4efe4;
+      --nk-stripe1: #e9e1d0; --nk-stripe2: #f1ebde;
+      --nk-shadow: 0 14px 40px rgba(42,38,32,.20); --nk-shadow-lg: 0 30px 80px rgba(42,38,32,.28);
+      --nk-gage: #5a7030; --nk-gage-soft: #eef2e2; --nk-gage-line: #5a7030; --nk-gage-glow: rgba(90,112,48,.30);
+      --nk-kay: #c05f33; --nk-kay-soft: #f3e5d4; --nk-kay-line: #c05f33; --nk-kay-glow: rgba(192,95,51,.30);
+      --acc: var(--nk-gage); --acc-glow: var(--nk-gage-glow);
+      position: fixed; top: 0; left: 50%; transform: translate(-50%, -145%);
+      transition: transform .3s ease; z-index: 100000;
+      font-family: "Inter", system-ui, sans-serif; color: var(--nk-ink); }
+    body.wall-night .nook {
+      /* NIGHT (Night Signal) */
+      --nk-surface: #131928; --nk-border: rgba(255,255,255,.09); --nk-border-hover: rgba(255,255,255,.18);
+      --nk-ink: #E8ECF5; --nk-ink2: #B8C0D4; --nk-muted: #8A93A8; --nk-faint: #5B6478;
+      --nk-hint: #3F475A; --nk-icon: #6B748A;
+      --nk-fill: rgba(255,255,255,.04); --nk-fill2: rgba(255,255,255,.06); --nk-fill-hover: rgba(255,255,255,.10);
+      --nk-divider: rgba(255,255,255,.07); --nk-track: rgba(255,255,255,.08); --nk-onaccent: #0C101A;
+      --nk-stripe1: #1B2235; --nk-stripe2: #161C2C;
+      --nk-shadow: 0 14px 40px rgba(0,0,0,.5); --nk-shadow-lg: 0 30px 80px rgba(0,0,0,.6);
+      --nk-gage: #5FD4B6; --nk-gage-soft: #123b34; --nk-gage-line: rgba(95,212,182,.5); --nk-gage-glow: rgba(95,212,182,.35);
+      --nk-kay: #F4A15D; --nk-kay-soft: #3a2a18; --nk-kay-line: rgba(244,161,93,.5); --nk-kay-glow: rgba(244,161,93,.35); }
+    .nook.nook-gage { --acc: var(--nk-gage); --acc-glow: var(--nk-gage-glow); }
+    .nook.nook-kaylene { --acc: var(--nk-kay); --acc-glow: var(--nk-kay-glow); }
+    .nook.open { transform: translate(-50%, 0); }
+    .nook-notch { position: relative; z-index: 5; display: flex; align-items: center; gap: 22px;
+      height: 116px; padding: 0 34px 0 18px; border-radius: 0 0 38px 38px;
+      background: var(--nk-surface); border: 1px solid var(--nk-border); border-top: none;
+      box-shadow: var(--nk-shadow); min-width: 760px; max-width: 900px;
+      overflow: hidden; box-sizing: border-box; cursor: pointer; transition: border-color .25s ease; }
+    .nook-notch:hover { border-color: var(--nk-border-hover); }
+    .nook.open .nook-notch { background: transparent; border-color: transparent; box-shadow: none; }
+    .nook-prog { position: absolute; left: 38px; right: 38px; bottom: 0; height: 4px;
+      background: var(--nk-track); border-radius: 2px 2px 0 0; overflow: hidden; }
+    .nook-prog > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
+    .nook-artwrap { position: relative; width: 80px; height: 80px; flex: none; }
+    .nook-art { width: 80px; height: 80px; border-radius: 14px; overflow: hidden;
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 7px,var(--nk-stripe2) 7px 14px) center/cover;
+      border: 1px solid var(--nk-border); box-shadow: 0 8px 20px rgba(0,0,0,.25);
+      display: flex; align-items: center; justify-content: center; text-align: center; }
+    .nook-art-ph { font-family: "Fira Code", monospace; font-size: 9px; letter-spacing: .12em; color: var(--nk-faint); line-height: 1.5; }
+    .nook-art.has .nook-art-ph, .nook-np-art.has .nook-np-art-ph { display: none; }
+    .nook-avatar { position: absolute; right: -8px; bottom: -8px; width: 32px; height: 32px;
+      border-radius: 50%; overflow: hidden; border: 3px solid var(--nk-surface); }
+    .nook-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .nook-eq { display: flex; align-items: flex-end; gap: 5px; height: 38px; width: 38px; flex: none; }
+    .nook-eq > i { width: 5px; height: 38px; border-radius: 2px; background: var(--acc); transform-origin: bottom; transform: scaleY(.25); }
+    .nook.playing .nook-eq > i:nth-child(1){ animation: eq .80s ease-in-out 0s infinite; }
+    .nook.playing .nook-eq > i:nth-child(2){ animation: eq .97s ease-in-out .1s infinite; }
+    .nook.playing .nook-eq > i:nth-child(3){ animation: eq 1.14s ease-in-out .2s infinite; }
+    .nook.playing .nook-eq > i:nth-child(4){ animation: eq 1.31s ease-in-out .3s infinite; }
+    @keyframes eq { 0%,100%{ transform: scaleY(.35);} 50%{ transform: scaleY(1);} }
+    .nook-text { flex: 1; min-width: 0; line-height: 1.2; }
+    .nook-title { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 28px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-sub { font-size: 19px; color: var(--nk-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-sub b { color: var(--acc); font-weight: 400; }
+    .nook-tp { display: flex; align-items: center; gap: 6px; flex: none; }
+    .nook-tp button, .nook-tp-lg button { border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .nook-tp .sm { width: 58px; height: 58px; border-radius: 50%; color: var(--nk-ink2); }
+    .nook-tp .sm:hover { background: var(--nk-fill2); color: var(--nk-ink); }
+    .nook-tp .pl, .nook-tp-lg .pl { border-radius: 50%; background: var(--acc); color: var(--nk-onaccent); }
+    .nook-tp .pl { width: 68px; height: 68px; }
+    .nook-tp .pl:hover, .nook-tp-lg .pl:hover { filter: brightness(1.1); }
+    .nook-panel { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 900px; background: var(--nk-surface); border: 1px solid var(--acc); border-top: none;
+      border-radius: 0 0 38px 38px; box-shadow: var(--nk-shadow-lg);
+      padding: 142px 30px 30px; box-sizing: border-box; display: none; flex-direction: column; gap: 20px; z-index: -1; }
+    .nook.open .nook-panel { display: flex; }
+    .nook-profiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px;
+      background: var(--nk-fill); border-radius: 16px; }
+    .nook-prof { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px;
+      cursor: pointer; background: transparent; border: 1px solid transparent; transition: all .2s; }
+    .nook-prof img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+    .nook-prof .nm { font-family: "Space Grotesk"; font-weight: 600; font-size: 16px; line-height: 1.15; }
+    .nook-prof .lb { font-family: "Fira Code"; font-size: 10px; letter-spacing: .18em; }
+    .nook-prof.gage .lb { color: var(--nk-gage); }
+    .nook-prof.kay .lb { color: var(--nk-kay); }
+    .nook-prof.gage.on, .nook-prof.gage:hover { background: var(--nk-gage-soft); border-color: var(--nk-gage-line); }
+    .nook-prof.kay.on, .nook-prof.kay:hover { background: var(--nk-kay-soft); border-color: var(--nk-kay-line); }
+    .nook-np { display: flex; gap: 18px; align-items: center; }
+    .nook-np-art { width: 116px; height: 116px; border-radius: 14px; flex: none; overflow: hidden;
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 8px,var(--nk-stripe2) 8px 16px) center/cover;
+      border: 1px solid var(--nk-border); box-shadow: 0 12px 30px rgba(0,0,0,.25);
+      display: flex; align-items: center; justify-content: center; text-align: center; }
+    .nook-np-art-ph { font-family: "Fira Code"; font-size: 10px; letter-spacing: .12em; color: var(--nk-faint); line-height: 1.5; }
+    .nook-np-meta { flex: 1; min-width: 0; }
+    .nook-np-status { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: var(--nk-faint);
+      display: flex; align-items: center; gap: 8px; }
+    .nook-np-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--nk-faint); flex: none; }
+    .nook-link { margin-left: auto; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--nk-faint); color: var(--nk-faint); font-size: 9px; }
+    .nook-np-title { font-family: "Space Grotesk"; font-weight: 600; font-size: 24px; letter-spacing: -.01em;
+      margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-np-sub { font-size: 15px; color: var(--nk-muted); margin-top: 2px; }
+    .nook-np-prog { display: flex; align-items: center; gap: 10px; margin-top: 14px;
+      font-family: "Fira Code"; font-size: 11px; color: var(--nk-faint); }
+    .nook-np-prog .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--nk-track); overflow: hidden; }
+    .nook-np-prog .bar > i { display: block; height: 100%; width: 0; background: var(--acc); transition: width 1s linear; }
+    .nook-tp-lg { display: flex; align-items: center; justify-content: center; gap: 18px; }
+    .nook-tp-lg .ic { width: 44px; height: 44px; border-radius: 50%; color: var(--nk-icon); }
+    .nook-tp-lg .ic:hover { background: var(--nk-fill); }
+    .nook-tp-lg .ic.on { color: var(--acc); }
+    .nook-tp-lg .ic.mut { color: #D87B3A; }
+    .nook-tp-lg .md { width: 52px; height: 52px; border-radius: 50%; background: var(--nk-fill2); color: var(--nk-ink); }
+    .nook-tp-lg .md:hover { background: var(--nk-fill-hover); }
+    .nook-tp-lg .pl { width: 68px; height: 68px; box-shadow: 0 10px 30px var(--acc-glow); }
+    .nook-queue { border-top: 1px solid var(--nk-divider); padding-top: 16px; }
+    .nook-queue-h { font-family: "Fira Code"; font-size: 10px; letter-spacing: .28em; color: var(--nk-faint); margin-bottom: 10px; }
+    .nook-q-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+    .nook-q-row:hover { background: var(--nk-fill2); }
+    .nook-q-row .n { font-family: "Fira Code"; font-size: 12px; color: var(--nk-faint); width: 14px; }
+    .nook-q-row .qa { width: 32px; height: 32px; border-radius: 6px; flex: none;
+      background: repeating-linear-gradient(135deg,var(--nk-stripe1) 0 5px,var(--nk-stripe2) 5px 10px); }
+    .nook-q-row .qm { flex: 1; min-width: 0; line-height: 1.2; }
+    .nook-q-row .qt { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nook-q-row .qar { font-size: 12px; color: var(--nk-muted); }
+    .nook-q-row .ql { font-family: "Fira Code"; font-size: 11px; color: var(--nk-faint); }
+    .nook-hints { display: flex; justify-content: center; gap: 18px; font-family: "Fira Code";
+      font-size: 10px; letter-spacing: .14em; color: var(--nk-hint); }
+    .nook-hints b { color: var(--nk-icon); font-weight: 400; }
+    body.nook-open .scene { opacity: .35; transition: opacity .3s; }
+    /* Knob selection ring — the highlighted control the press will activate. */
+    .nook-focus { box-shadow: 0 0 0 3px var(--nk-surface), 0 0 0 6px var(--acc) !important; position: relative; z-index: 1; transition: box-shadow .12s ease; }
+    .nook-pulse { transform: scale(.9); }
+  </style>
+  <div class="nook" id="nook">
+    <div class="nook-notch" id="nookNotch">
+      <div class="nook-prog"><i id="nookProg"></i></div>
+      <div class="nook-artwrap">
+        <div class="nook-art" id="nookArt"><span class="nook-art-ph">ALBUM<br>ART</span></div>
+        <div class="nook-avatar"><img id="nookAvatar" src="assets/gage.jpg" alt=""></div>
+      </div>
+      <div class="nook-eq"><i></i><i></i><i></i><i></i></div>
+      <div class="nook-text">
+        <div class="nook-title" id="nookTitle">Nothing playing</div>
+        <div class="nook-sub" id="nookSub">—</div>
+      </div>
+      <div class="nook-tp">
+        <button class="sm" id="nookPrev"></button>
+        <button class="pl" id="nookPlay"></button>
+        <button class="sm" id="nookNext"></button>
+      </div>
+    </div>
+    <div class="nook-panel" id="nookPanel">
+      <div class="nook-profiles">
+        <div class="nook-prof gage" id="nookProfGage"><img src="assets/gage.jpg" alt=""><div><div class="nm">Gage</div><div class="lb">GAGE'S MIX</div></div></div>
+        <div class="nook-prof kay" id="nookProfKay"><img src="assets/kaylene.jpeg" alt=""><div><div class="nm">Kaylene</div><div class="lb">KAYLENE'S MIX</div></div></div>
+      </div>
+      <div class="nook-np">
+        <div class="nook-np-art" id="nookNpArt"><span class="nook-np-art-ph">ALBUM<br>ART</span></div>
+        <div class="nook-np-meta">
+          <div class="nook-np-status"><span class="dot" id="nookDot"></span><span id="nookStatus">PAUSED</span>&nbsp;· YOUTUBE MUSIC<span class="nook-link" id="nookLink">DEMO</span></div>
+          <div class="nook-np-title" id="nookNpTitle">—</div>
+          <div class="nook-np-sub" id="nookNpSub">—</div>
+          <div class="nook-np-prog"><span id="nookElapsed">0:00</span><div class="bar"><i id="nookNpProg"></i></div><span id="nookTotal">0:00</span></div>
+        </div>
+      </div>
+      <div class="nook-tp-lg">
+        <button class="ic" id="nookShuffle" title="Shuffle"></button>
+        <button class="md" id="nookPrevLg"></button>
+        <button class="pl" id="nookPlayLg"></button>
+        <button class="md" id="nookNextLg"></button>
+        <button class="ic" id="nookMute" title="Mute"></button>
+      </div>
+      <div class="nook-queue" id="nookQueue">
+        <div class="nook-queue-h">UP NEXT</div>
+        <div id="nookQueueList"></div>
+      </div>
+      <div class="nook-hints"><span><b>␣</b> PLAY</span><span><b>◂ ▸</b> TRACK</span><span><b>TAB</b> PROFILE</span><span><b>M</b> MUTE</span><span><b>ESC</b> CLOSE</span></div>
+    </div>
+  </div>
+
   <script>
     // ─────────────────── config ───────────────────
     const params  = new URLSearchParams(window.location.search);
@@ -1034,11 +1311,13 @@
     const _DAYL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     let _wdSlides = [], _wdSlideIdx = 0, _wdSlideTimer = null;
     let _wvuGameDays = new Set();   // ISO dates (Eastern) with a WVU game, for the week-list icon
-    // Scale the fixed 1380x776 dashboard canvas to fill the actual screen.
+    let _lastWx = null;             // cached weather so the sun stat can re-apply on day/night flip
+    let _lastNews = null;           // last good news headline so a transient null doesn't blank the cell
+    // Scale the fixed 2560x1440 dashboard canvas to fill the actual screen.
     function wdFitScale() {
       const r = document.querySelector(".wd-root");
       if (!r) return;
-      r.style.setProperty("--wd-zoom", Math.min(window.innerWidth / 1380, window.innerHeight / 776));
+      r.style.setProperty("--wd-zoom", Math.min(window.innerWidth / 2560, window.innerHeight / 1440));
     }
     window.addEventListener("resize", wdFitScale);
     window.addEventListener("load", wdFitScale);
@@ -1060,19 +1339,26 @@
         const wvu = comp.competitors.find(c => c.team.id === "277") || comp.competitors[0];
         const opp = comp.competitors.find(c => c !== wvu) || comp.competitors[1];
         const logo = (c) => (c.team.logos && c.team.logos[0] && c.team.logos[0].href) || c.team.logo || "";
-        const rec = (c) => (c.records && c.records[0] && c.records[0].summary) || "";
-        const recH = (c) => { const r = rec(c); return r ? ` <span style="font-weight:400;color:var(--wd-muted)">(${wdEsc(r)})</span>` : ""; };
+        const rec = (c) => (c.records && c.records[0] && c.records[0].summary) || "0-0";
+        const recH = (c) => ` <span class="rec">(${wdEsc(rec(c))})</span>`;
         const state = comp.status && comp.status.type && comp.status.type.state;
         const d = new Date(ev.date);
         let status;
         if (state === "post") status = `Final ${wvu.score != null ? (wvu.score.value ?? wvu.score) : ""}–${opp.score != null ? (opp.score.value ?? opp.score) : ""}`;
         else if (state === "in") status = (comp.status.type.shortDetail || "Live");
-        else status = `${_DOWU[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
+        else {
+          // e.g. "SAT 9/5 · 12:00 PM · TNT"
+          let tm = d.getHours(); const ap = tm >= 12 ? "PM" : "AM"; tm = tm % 12 || 12;
+          const timeStr = comp.status?.type?.detail?.includes("TBD") ? "TBD" : `${tm}:${String(d.getMinutes()).padStart(2,"0")} ${ap}`;
+          const tv = (comp.broadcasts && comp.broadcasts[0] && (comp.broadcasts[0].names || comp.broadcasts[0].media)?.[0])
+            || (comp.geoBroadcasts && comp.geoBroadcasts[0] && comp.geoBroadcasts[0].media?.shortName) || "";
+          status = `${_DOWU[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()} · ${timeStr}${tv ? " · " + tv : ""}`;
+        }
         host.innerHTML =
           `<img src="${wdEsc(logo(wvu))}" alt="WVU"><strong>WVU${recH(wvu)}</strong>` +
-          `<span style="font-family:var(--wd-mono);font-size:12px;color:var(--wd-muted)">${wvu.homeAway === "home" ? "vs" : "@"}</span>` +
+          `<span class="vs">${wvu.homeAway === "home" ? "vs" : "@"}</span>` +
           `<img src="${wdEsc(logo(opp))}" alt=""><strong>${wdEsc(opp.team.shortDisplayName || opp.team.displayName)}${recH(opp)}</strong>` +
-          `<span style="font-family:var(--wd-mono);font-size:12px;letter-spacing:1px;color:var(--wd-muted)">${wdEsc(status)}</span>`;
+          `<span class="when">${wdEsc(status)}</span>`;
         host.style.display = "flex";
       } catch (e) { host.style.display = "none"; }
     }
@@ -2017,7 +2303,9 @@
         ],
         occasions: [
           { date: today, label: "Payday", type: "payday" },
+          { date: plus(33), label: "Gatlinburg weekend", type: "trip" },
         ],
+        pet: { foodPct: 20, waterPct: 75, note: "FED 6:15 PM · REFILL FOOD TONIGHT" },
         photos: [
           "https://picsum.photos/seed/wall1/1920/1080",
           "https://picsum.photos/seed/wall2/1920/1080",
@@ -2097,33 +2385,178 @@
     // music stops. Art URL is resolved server-side (iTunes), so the page
     // just displays whatever the function returns.
     const nowPlayingMs = 5_000;
+    // Feeds the Audio Nook (defined below). A live track (fresh + titled) drives
+    // the notch; anything else reverts to the demo/idle mock so it's never empty.
     function applyNowPlaying(np) {
-      const label = $("quoteLabel"), qBody = $("quoteBody"), npBody = $("npBody");
-      if (np && np.live && np.title) {
-        label.textContent = "Now Playing";
-        qBody.style.display = "none";
-        npBody.style.display = "flex";
-        $("npTitle").textContent = np.title;
-        $("npArtist").textContent = np.artist || "";
-        const art = $("npArt");
-        if (np.art) { art.src = np.art; art.style.visibility = "visible"; }
-        else { art.removeAttribute("src"); art.style.visibility = "hidden"; }
-      } else {
-        label.textContent = "Parks & Rec · daily";
-        npBody.style.display = "none";
-        qBody.style.display = "flex";
-      }
+      if (np && np.live && np.title) { nk.live = np; nk.linkState = "live"; }
+      else { nk.live = null; nk.linkState = token ? "idle" : "mock"; }
+      if (typeof nkRender === "function") nkRender();
     }
     async function refreshNowPlaying() {
       if (isDemo || !token) return;
       try {
         const r = await fetch(`${apiBase}/getNowPlaying?t=${encodeURIComponent(token)}`, { cache: "no-store" });
-        if (!r.ok) return;
+        if (!r.ok) { nk.live = null; nk.linkState = "idle"; if (typeof nkRender === "function") nkRender(); return; }
         applyNowPlaying(await r.json());
-      } catch (err) { /* leave card as-is on a blip */ }
+      } catch (err) { nk.live = null; nk.linkState = "error"; if (typeof nkRender === "function") nkRender(); }
     }
     refreshNowPlaying();
     setInterval(refreshNowPlaying, nowPlayingMs);
+
+    // ─────────────────── Audio Nook (F9 + controller knob → YouTube Music) ───────────────────
+    // Drops down on F9; the knob drives it. Reads getNowPlaying (via applyNowPlaying
+    // above) and sends commands via sendPiCommand → the Pi's playerctl watcher.
+    // KNOB KEY CONTRACT (program the controller to emit these):
+    //   rotate CW  → ArrowRight  (next track)   rotate CCW → ArrowLeft (prev)
+    //   press      → Enter       (open when closed; play/pause when open)
+    //   F9         → toggle the nook (handled in the keydown listener)
+    // Full keyboard while open: Space play/pause · ←/→ track · ↑/Esc close ·
+    //   Tab switch profile · M mute.
+    const NK_MIX = {
+      gage: [
+        { title: "Take Me Home, Country Roads", artist: "John Denver", album: "Poems, Prayers & Promises", len: 190 },
+        { title: "Wagon Wheel", artist: "Old Crow Medicine Show", album: "O.C.M.S.", len: 233 },
+        { title: "Chicken Fried", artist: "Zac Brown Band", album: "The Foundation", len: 238 },
+        { title: "Tennessee Whiskey", artist: "Chris Stapleton", album: "Traveller", len: 293 },
+      ],
+      kaylene: [
+        { title: "Cruel Summer", artist: "Taylor Swift", album: "Lover", len: 178 },
+        { title: "Espresso", artist: "Sabrina Carpenter", album: "Short n' Sweet", len: 175 },
+        { title: "Good Luck, Babe!", artist: "Chappell Roan", album: "Single", len: 218 },
+        { title: "Birds of a Feather", artist: "Billie Eilish", album: "Hit Me Hard and Soft", len: 210 },
+      ],
+    };
+    // Playlist URLs the Pi opens on profile switch (open_playlist command). Fill these in.
+    const NK_PLAYLISTS = { gage: "https://music.youtube.com/playlist?list=GAGE_PLAYLIST_ID", kaylene: "https://music.youtube.com/playlist?list=KAYLENE_PLAYLIST_ID" };
+    const NK_P = {
+      play: "M8 5v14l11-7z", pause: ["M6 5h4v14H6z", "M14 5h4v14h-4z"],
+      prev: ["M6 6h2v12H6z", "M18 6v12L9 12z"], next: ["M16 6h2v12h-2z", "M6 6v12l9-6z"],
+      shuffle: "M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z",
+      vol: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z",
+      mute: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.9 8.9 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71z",
+    };
+    const nkSvg = (d, size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor">${[].concat(d).map(p => `<path d="${p}"/>`).join("")}</svg>`;
+    const nkFmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const nk = { open: false, profile: "gage", playing: true, shuffle: false, muted: false, idx: 0, elapsed: 0, live: null, linkState: token ? "idle" : "mock", focus: 4 };
+    // The knob moves a highlight across these control buttons (rotate) and
+    // activates the highlighted one (press) — like Tab / Enter. Order = ring order.
+    function nkFocusables() {
+      return [
+        { el: $("nookProfGage"), fn: () => nkPickProfile("gage") },
+        { el: $("nookProfKay"),  fn: () => nkPickProfile("kaylene") },
+        { el: $("nookShuffle"),  fn: nkToggleShuffle },
+        { el: $("nookPrevLg"),   fn: nkPrev },
+        { el: $("nookPlayLg"),   fn: nkPlay },
+        { el: $("nookNextLg"),   fn: nkNext },
+        { el: $("nookMute"),     fn: nkToggleMute },
+      ];
+    }
+    function nkRenderFocus() {
+      const items = nkFocusables();
+      items.forEach((it, i) => { if (it.el) it.el.classList.toggle("nook-focus", nk.open && i === nk.focus); });
+    }
+    function nkFocusMove(dir) {
+      const n = nkFocusables().length;
+      nk.focus = (nk.focus + dir + n) % n;
+      nkRenderFocus();
+    }
+    function nkActivate() {
+      const it = nkFocusables()[nk.focus]; if (!it) return;
+      if (it.el) { it.el.classList.add("nook-pulse"); setTimeout(() => it.el.classList.remove("nook-pulse"), 150); }
+      it.fn();
+    }
+    const nkProfile = () => { const l = nk.live; if (l && (l.profile === "gage" || l.profile === "kaylene")) return l.profile; return nk.profile; };
+    const nkPlaying = () => { const l = nk.live; return l ? l.status === "Playing" : nk.playing; };
+    const nkList = () => NK_MIX[nkProfile()];
+    const nkAccent = () => nkProfile() === "gage" ? "#5FD4B6" : "#F4A15D";
+    async function nkSendCmd(command, args) {
+      if (!token) return;
+      try {
+        await fetch(`${apiBase}/sendPiCommand?t=${encodeURIComponent(token)}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command, args: args || {} }),
+        });
+      } catch (_) { /* ignore */ }
+      setTimeout(refreshNowPlaying, 1200);
+    }
+    function nkPlay() { nkSendCmd("play_pause"); if (!nk.live) nk.playing = !nk.playing; else nk.live = { ...nk.live, status: nk.live.status === "Playing" ? "Paused" : "Playing" }; nkRender(); }
+    function nkNext() { nkSendCmd("next"); if (!nk.live) { nk.idx = (nk.idx + 1) % 4; nk.elapsed = 0; } nkRender(); }
+    function nkPrev() { nkSendCmd("prev"); if (!nk.live) { if (nk.elapsed > 3) nk.elapsed = 0; else { nk.idx = (nk.idx + 3) % 4; nk.elapsed = 0; } } nkRender(); }
+    function nkPickProfile(p) { nkSendCmd("open_playlist", { url: NK_PLAYLISTS[p], profile: p }); nk.profile = p; nk.idx = 0; nk.elapsed = 0; nk.playing = true; if (nk.live) nk.live = { ...nk.live, profile: p }; nkRender(); }
+    function nkToggleShuffle() { const cur = (nk.live && typeof nk.live.shuffle === "boolean") ? nk.live.shuffle : nk.shuffle; nkSendCmd("shuffle"); nk.shuffle = !cur; nkRender(); }
+    function nkToggleMute() { const cur = (nk.live && typeof nk.live.muted === "boolean") ? nk.live.muted : nk.muted; nkSendCmd("mute"); nk.muted = !cur; nkRender(); }
+    function nkOpen() { nk.open = true; nk.focus = 4; $("nook").classList.add("open"); document.body.classList.add("nook-open"); if (!nk.live) nkSendCmd("open_music"); nkRender(); }
+    function nkClose() { nk.open = false; $("nook").classList.remove("open"); document.body.classList.remove("nook-open"); }
+    function nkToggle() { nk.open ? nkClose() : nkOpen(); }
+    const nkSetArt = (el, on, url) => { el.classList.toggle("has", on); el.style.backgroundImage = on ? `url("${String(url).replace(/["\\]/g, "")}")` : ""; };
+    function nkRender() {
+      const prof = nkProfile(), playing = nkPlaying(), L = nk.live, list = nkList();
+      const t = L ? { title: L.title, artist: L.artist || "", album: L.album || "YouTube Music", len: Number(L.length) || 0, art: L.art || "" } : list[nk.idx];
+      const elapsed = L ? (Number(L.position) || 0) : nk.elapsed;
+      const pct = t.len ? Math.min(100, Math.round(elapsed / t.len * 100)) : 0;
+      const hasArt = !!t.art;
+      const root = $("nook");
+      // Accent is CSS-driven per profile (green/rust by day, teal/amber by
+      // night) — a class, so it re-themes instantly when body.wall-night flips.
+      root.classList.toggle("nook-gage", prof === "gage");
+      root.classList.toggle("nook-kaylene", prof === "kaylene");
+      root.classList.toggle("playing", playing);
+      // collapsed notch
+      nkSetArt($("nookArt"), hasArt, t.art);
+      $("nookAvatar").src = prof === "gage" ? "assets/gage.jpg" : "assets/kaylene.jpeg";
+      $("nookProg").style.width = pct + "%";
+      $("nookTitle").textContent = t.title || "Nothing playing";
+      $("nookSub").innerHTML = `${wdEsc(t.artist || "")} · <b>${prof === "gage" ? "Gage" : "Kaylene"}'s mix</b>`;
+      $("nookPrev").innerHTML = nkSvg(NK_P.prev, 30);
+      $("nookNext").innerHTML = nkSvg(NK_P.next, 30);
+      $("nookPlay").innerHTML = nkSvg(playing ? NK_P.pause : NK_P.play, 34);
+      // panel
+      $("nookProfGage").classList.toggle("on", prof === "gage");
+      $("nookProfKay").classList.toggle("on", prof === "kaylene");
+      nkSetArt($("nookNpArt"), hasArt, t.art);
+      $("nookDot").style.background = playing ? "var(--acc)" : "var(--nk-faint)";
+      $("nookStatus").textContent = playing ? "PLAYING" : "PAUSED";
+      const link = { mock: "DEMO", idle: "PI IDLE", live: "LIVE", error: "OFFLINE" }[nk.linkState];
+      const linkC = { mock: "var(--nk-faint)", idle: "var(--nk-faint)", live: "var(--acc)", error: "#D87B3A" }[nk.linkState];
+      const le = $("nookLink"); le.textContent = link; le.style.color = linkC; le.style.borderColor = linkC;
+      $("nookNpTitle").textContent = t.title || "Nothing playing";
+      $("nookNpSub").textContent = `${t.artist || ""}${t.album ? " · " + t.album : ""}`;
+      $("nookElapsed").textContent = nkFmt(elapsed);
+      $("nookTotal").textContent = t.len ? nkFmt(t.len) : "–:––";
+      $("nookNpProg").style.width = pct + "%";
+      const shuffle = (L && typeof L.shuffle === "boolean") ? L.shuffle : nk.shuffle;
+      const muted = (L && typeof L.muted === "boolean") ? L.muted : nk.muted;
+      const sh = $("nookShuffle"); sh.innerHTML = nkSvg(NK_P.shuffle, 20); sh.classList.toggle("on", shuffle);
+      const mu = $("nookMute"); mu.innerHTML = nkSvg(muted ? NK_P.mute : NK_P.vol, 20); mu.classList.toggle("mut", muted);
+      $("nookPrevLg").innerHTML = nkSvg(NK_P.prev, 24);
+      $("nookNextLg").innerHTML = nkSvg(NK_P.next, 24);
+      $("nookPlayLg").innerHTML = nkSvg(playing ? NK_P.pause : NK_P.play, 32);
+      // up-next queue
+      let q;
+      if (L) q = (Array.isArray(L.queue) ? L.queue.slice(0, 3) : []).map((x, k) => ({ n: k + 1, title: x.title, artist: x.artist || "", len: x.length ? nkFmt(Number(x.length)) : "", i: -1 }));
+      else q = [1, 2, 3].map((k) => { const i = (nk.idx + k) % 4, x = list[i]; return { n: k, title: x.title, artist: x.artist, len: nkFmt(x.len), i }; });
+      const qc = $("nookQueue");
+      if (q.length) { qc.style.display = ""; $("nookQueueList").innerHTML = q.map((x) => `<div class="nook-q-row" data-i="${x.i}"><span class="n">${x.n}</span><div class="qa"></div><div class="qm"><div class="qt">${wdEsc(x.title)}</div><div class="qar">${wdEsc(x.artist)}</div></div><span class="ql">${wdEsc(x.len)}</span></div>`).join(""); }
+      else qc.style.display = "none";
+      nkRenderFocus();
+    }
+    // Wire clicks (touch + browser testing); transport clicks don't toggle the notch.
+    const nkStop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    $("nookNotch").addEventListener("click", nkToggle);
+    $("nookPrev").addEventListener("click", nkStop(nkPrev));
+    $("nookPlay").addEventListener("click", nkStop(nkPlay));
+    $("nookNext").addEventListener("click", nkStop(nkNext));
+    $("nookPrevLg").addEventListener("click", nkStop(nkPrev));
+    $("nookPlayLg").addEventListener("click", nkStop(nkPlay));
+    $("nookNextLg").addEventListener("click", nkStop(nkNext));
+    $("nookShuffle").addEventListener("click", nkStop(nkToggleShuffle));
+    $("nookMute").addEventListener("click", nkStop(nkToggleMute));
+    $("nookProfGage").addEventListener("click", nkStop(() => nkPickProfile("gage")));
+    $("nookProfKay").addEventListener("click", nkStop(() => nkPickProfile("kaylene")));
+    $("nookQueueList").addEventListener("click", (e) => { const row = e.target.closest(".nook-q-row"); if (!row) return; e.stopPropagation(); const i = +row.dataset.i; if (i >= 0 && !nk.live) { nk.idx = i; nk.elapsed = 0; nk.playing = true; nkRender(); } });
+    // Mock ticker — advances the demo track when there's no live data.
+    setInterval(() => { if (nk.live || !nkPlaying()) return; const len = nkList()[nk.idx].len; if (nk.elapsed + 1 >= len) { nk.elapsed = 0; nk.idx = (nk.idx + 1) % 4; } else nk.elapsed++; nkRender(); }, 1000);
+    nkRender(); nkRenderFocus();
 
     // Demo mode: trigger both alternate scenes quickly so you don't
     // have to wait the full 5/8-minute production cadence to preview.
@@ -2194,12 +2627,23 @@
     }
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "F7" || e.code === "F7") { e.preventDefault(); cycleDisplay(); }
+      const k = e.key, code = e.code;
+      if (k === "F7" || code === "F7") { e.preventDefault(); cycleDisplay(); }
       // F8 is the only "fix it" button on a wall with no keyboard, so it does
       // a real page reload rather than just re-polling data. A reload runs
       // refresh() on boot anyway, so this is a strict superset of the old
       // behavior — and it's the only way new code ever reaches the kiosk.
-      else if (e.key === "F8" || e.code === "F8") { e.preventDefault(); location.reload(); }
+      else if (k === "F8" || code === "F8") { e.preventDefault(); location.reload(); }
+      // F9 → drop/raise the audio nook (+ ensure YouTube Music is running).
+      else if (k === "F9" || code === "F9") { e.preventDefault(); nkToggle(); }
+      // While closed, the knob press (Enter) drops it down.
+      else if (!nk.open) { if (k === "Enter" || k === "ArrowDown") { e.preventDefault(); nkOpen(); } }
+      // While open — KNOB: rotate (←/→) moves the highlight across the control
+      // buttons; press (Enter) activates the highlighted one. Like Tab / Enter.
+      else if (k === "ArrowRight" || k === "ArrowDown") { e.preventDefault(); nkFocusMove(1); }
+      else if (k === "ArrowLeft" || k === "ArrowUp") { e.preventDefault(); nkFocusMove(-1); }
+      else if (k === "Enter" || k === " " || code === "Space") { e.preventDefault(); nkActivate(); }
+      else if (k === "Escape") { e.preventDefault(); nkClose(); }
     });
 
     // ─────────────────── remote-control command consumer ───────────────────
@@ -2245,7 +2689,15 @@
       return m ? `${h12}:${String(m).padStart(2,"0")}${ap}` : `${h12}${ap}`;
     }
 
+    // Day card shows SUNRISE, night card shows SUNSET — re-applied on theme flip.
+    function applySunStat() {
+      const w = _lastWx; if (!w) return;
+      const night = document.body.classList.contains("wall-night");
+      const k = $("wdWxSunK"); if (k) k.textContent = night ? "SUNSET" : "SUNRISE";
+      const v = $("wdWxSun"); if (v) v.textContent = (night ? w.sunset : w.sunrise) || "—";
+    }
     function renderWeather(w) {
+      _lastWx = w;
       const set = (id, v) => { const e = $(id); if (e) e.textContent = v; };
       set("wdWxTemp", (w.tempNow != null ? w.tempNow : "—") + "°");
       set("wdWxDesc", (w.feels != null ? `Feels like ${w.feels}° · ` : "") + (WX_DESC[w.code] ?? "—"));
@@ -2253,27 +2705,27 @@
       set("wdWxHilo", `${w.todayHi ?? "—"}° / ${w.todayLo ?? "—"}°`);
       set("wdWxWind", w.wind != null ? `${w.wind} mph ${w.windDir || ""}`.trim() : "—");
       set("wdWxHum", w.hum != null ? `${w.hum}%` : "—");
-      set("wdWxSun", w.sunrise || "—");
+      applySunStat();
     }
     async function refreshWeather() {
       try {
         if (isDemo) {
-          renderWeather({ tempNow: 58, code: 2, isDay: 1, feels: 55, todayHi: 64, todayLo: 41, wind: 6, windDir: "NW", hum: 48, sunrise: "6:47a" });
+          renderWeather({ tempNow: 58, code: 2, isDay: 1, feels: 55, todayHi: 64, todayLo: 41, wind: 6, windDir: "NW", hum: 48, sunrise: "6:47a", sunset: "7:52p" });
           return;
         }
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}` +
           `&current=temperature_2m,apparent_temperature,weather_code,is_day,relative_humidity_2m,wind_speed_10m,wind_direction_10m` +
-          `&daily=temperature_2m_max,temperature_2m_min,sunrise` +
+          `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset` +
           `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=1`;
         const j = await (await fetch(url)).json();
         const dirs = ["N","NE","E","SE","S","SW","W","NW"]; const wdir = j.current?.wind_direction_10m;
-        let srStr = "—"; const sr = j.daily?.sunrise?.[0];
-        if (sr) { const t = new Date(sr); let h = t.getHours(); const ap = h >= 12 ? "p" : "a"; h = h % 12 || 12; srStr = `${h}:${String(t.getMinutes()).padStart(2,"0")}${ap}`; }
+        const hhmm = (iso) => { if (!iso) return "—"; const t = new Date(iso); let h = t.getHours(); const ap = h >= 12 ? "p" : "a"; h = h % 12 || 12; return `${h}:${String(t.getMinutes()).padStart(2,"0")}${ap}`; };
         renderWeather({
           tempNow: Math.round(j.current?.temperature_2m), code: j.current?.weather_code, isDay: j.current?.is_day,
           feels: Math.round(j.current?.apparent_temperature), hum: Math.round(j.current?.relative_humidity_2m),
           wind: Math.round(j.current?.wind_speed_10m), windDir: wdir != null ? dirs[Math.round(wdir / 45) % 8] : "",
-          todayHi: Math.round(j.daily?.temperature_2m_max?.[0]), todayLo: Math.round(j.daily?.temperature_2m_min?.[0]), sunrise: srStr,
+          todayHi: Math.round(j.daily?.temperature_2m_max?.[0]), todayLo: Math.round(j.daily?.temperature_2m_min?.[0]),
+          sunrise: hhmm(j.daily?.sunrise?.[0]), sunset: hhmm(j.daily?.sunset?.[0]),
         });
       } catch (err) { const d = $("wdWxDesc"); if (d) d.textContent = "Weather unavailable"; }
     }
@@ -2296,6 +2748,8 @@
       document.body.classList.toggle("wall-night", isNight);
       document.body.classList.toggle("dim", h >= 22 || h < 6);
       const logo = $("wdLogo"); if (logo) logo.textContent = isNight ? "🌙" : "☀";
+      const per = document.querySelector("#wdGreeting .wd-period"); if (per) per.textContent = isNight ? "_" : ".";
+      applySunStat();
     }
 
     // Countdown card — rotate the derived slides every 6s.
@@ -2364,10 +2818,10 @@
         let label, lc, sub, time;
         if (cur)          { label = "ON SHIFT";    lc = c; sub = wdEsc(cur.s.label); time = `${cur.t.start}–${cur.t.end}`; }
         else if (rec && up){ label = "ON SHIFT";   lc = c; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))} · back on at ${wdEsc(mil(up.t.start))}`; time = `${up.t.start}–${up.t.end}`; }
-        else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = "— · —"; }
+        else if (rec)     { label = "RECOVERING";  lc = "var(--wd-muted)"; sub = `Recovering until ${wdEsc(mil(rec.untilHHMM))}`; time = ""; }
         else if (up)      { label = "LATER TODAY"; lc = c; sub = wdEsc(up.s.label); time = `${up.t.start}–${up.t.end}`; }
-        else if (past)    { label = "DONE";        lc = "var(--wd-muted)"; sub = `Worked ${wdCompact(past.t.start)}–${wdCompact(past.t.end)} today`; time = "— · —"; }
-        else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = "— · —"; }
+        else if (past)    { label = "DONE";        lc = "var(--wd-muted)"; sub = `Worked ${wdCompact(past.t.start)}–${wdCompact(past.t.end)} today`; time = ""; }
+        else              { label = "OFF TODAY";   lc = "var(--wd-muted)"; sub = "No shifts · home all day"; time = ""; }
         const bg = lc === c ? (who === "G" ? "var(--wd-g-bg)" : "rgba(192,95,51,0.13)") : "rgba(141,131,113,0.14)";
         return `<div class="wd-person">
           <div class="wd-avatar" style="background:${c}">${av}</div>
@@ -2379,11 +2833,11 @@
         </div>`;
       }).join("");
 
-      // Next 7 days
+      // Next 5 days
       const wk = $("wdWeek");
       if (wk) {
         let rows = "";
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 5; i++) {
           const iso = addDays(p.today, i); const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
           const pills = (p.shifts[iso] || []).map(s => {
             const t = stypeById.get(s.shiftTypeId); const cls = s.who === "G" ? "g" : "k";
@@ -2405,15 +2859,24 @@
         } else { bd.innerHTML = `<div class="wd-board-empty">No messages right now.</div>`; }
       }
 
-      // News card
+      // News card — keep the last good headline so a transient null (slow/down
+      // feed) never blanks the cell; only fall back to a muted placeholder if
+      // we've genuinely never had news this session.
       const newsCard = $("wdNewsCard");
       if (newsCard) {
-        if (p.news && p.news.title) {
-          newsCard.style.display = "";
-          const img = $("wdNewsImg"); if (img) img.style.backgroundImage = p.news.image ? `url("${p.news.image}")` : "";
-          $("wdNewsTitle").textContent = p.news.title;
-          $("wdNewsMeta").textContent = `${p.news.source || "News"}${p.news.time ? " · " + p.news.time : ""}`;
-        } else { newsCard.style.display = "none"; }
+        if (p.news && p.news.title) _lastNews = p.news;
+        const news = _lastNews;
+        newsCard.style.display = "";
+        const img = $("wdNewsImg");
+        if (news && news.title) {
+          if (img) img.style.backgroundImage = news.image ? `url("${news.image}")` : "";
+          $("wdNewsTitle").textContent = news.title;
+          $("wdNewsMeta").textContent = `${news.source || "News"}${news.time ? " · " + news.time : ""}`;
+        } else {
+          if (img) img.style.backgroundImage = "";
+          $("wdNewsTitle").textContent = "Latest headline loading…";
+          $("wdNewsMeta").textContent = "WV MetroNews";
+        }
       }
 
       // Countdown slides — next payday + next day off together
@@ -2423,7 +2886,7 @@
         const days = Math.round((dobj - todayMid) / 86400000);
         _wdSlides.push({ label: "Next Payday", num: days <= 0 ? "Today" : days, unit: days <= 0 ? "" : (days === 1 ? "day" : "days"), sub: `${_DAYL[dobj.getDay()]} · ${_MONS[dobj.getMonth()]} ${dd}` });
       }
-      for (let i = 1; i <= 7; i++) {
+      for (let i = 1; i <= 14; i++) {
         const iso = addDays(p.today, i);
         if (!(p.shifts[iso] || []).length) {
           const [yy, mm, dd] = iso.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
@@ -2431,8 +2894,45 @@
           break;
         }
       }
+      // Upcoming trip — from an occasion (type "trip") or a life event whose title reads like a trip.
+      const tripRe = /\b(trip|vacation|getaway|weekend away|holiday)\b/i;
+      const trip = (p.occasions || []).filter(o => o.type === "trip" && o.date >= p.today).sort((a, b) => a.date.localeCompare(b.date))[0]
+        || (p.events || []).filter(e => e.date >= p.today && tripRe.test(e.title || "")).sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (trip) {
+        const [yy, mm, dd] = trip.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
+        const days = Math.round((dobj - todayMid) / 86400000);
+        _wdSlides.push({ label: "Upcoming Trip", num: days <= 0 ? "Now" : days, unit: days <= 0 ? "" : (days === 1 ? "day" : "days"), sub: `${wdEsc(trip.label || trip.title)} · ${_MONS[dobj.getMonth()]} ${dd}` });
+      }
       if (!_wdSlides.length) _wdSlides.push({ label: "All caught up", num: "—", unit: "", sub: "Nothing on the horizon" });
       wdStartRotation();
+
+      // CATTHEW (night card) — food/water status. Reads p.pet if present; else placeholder.
+      const pet = p.pet || null;
+      {
+        const foodPct = pet && pet.foodPct != null ? pet.foodPct : 20;
+        const waterPct = pet && pet.waterPct != null ? pet.waterPct : 75;
+        const setBar = (barId, valId, pct) => {
+          const low = pct <= 30; const c = low ? "var(--wd-k)" : "var(--wd-g)";
+          const bar = $(barId); if (bar) { bar.style.width = Math.max(0, Math.min(100, pct)) + "%"; bar.style.background = c; }
+          const v = $(valId); if (v) { v.textContent = `${low ? "LOW" : "OK"} · ${pct}%`; v.style.color = c; }
+        };
+        setBar("wdCatFoodBar", "wdCatFoodV", foodPct);
+        setBar("wdCatWaterBar", "wdCatWaterV", waterPct);
+        const foot = $("wdCatFoot");
+        if (foot) foot.textContent = pet && pet.note ? pet.note : (pet && pet.fedAt ? `FED ${pet.fedAt}` : "FED 6:15 PM · REFILL FOOD TONIGHT");
+      }
+
+      // FATIGUE INDEX (night card) — reuse the app's fatigue scoring.
+      {
+        const score = fatigueForDay(p.today, p.shifts, p.shiftTypes);
+        const rested = score <= 0.15;
+        const st = $("wdFatStatus");
+        if (st) { st.textContent = rested ? "Well rested." : "Get some rest."; st.style.color = rested ? "var(--wd-g)" : "var(--wd-k)"; }
+        const filled = Math.max(1, Math.min(5, Math.round(score * 5)));
+        const bars = $("wdFatBars");
+        if (bars) bars.innerHTML = Array.from({ length: 5 }, (_, i) =>
+          `<span style="${i < filled ? `background:${rested ? "var(--wd-g)" : "var(--wd-k)"}` : ""}"></span>`).join("");
+      }
 
       // Events ticker
       const ev = $("wdEvents");
@@ -2440,9 +2940,19 @@
         const dot = { G: "var(--wd-g)", K: "var(--wd-k)", Daisy: "var(--wd-gold)", family: "var(--wd-gold)" };
         ev.innerHTML = (p.events || []).filter(e => e.date >= p.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).map(e => {
           const [yy, mm, dd] = e.date.split("-").map(Number); const dobj = new Date(yy, mm - 1, dd);
-          return `<span><span style="color:${dot[e.who] || "var(--wd-muted)"}">●</span> <strong>${wdEsc(e.title)}</strong> ${_DOWS[dobj.getDay()]}${e.startTime ? " · " + wdCompact(e.startTime) : ""}</span>`;
+          // "● Title | 9/24 | 1pm" — M/D date and a clean am/pm time (minutes only when non-zero).
+          let t = "";
+          if (e.startTime) { const [h, mi] = e.startTime.split(":").map(Number); const ap = h >= 12 ? "pm" : "am"; const h12 = h % 12 || 12; t = mi ? `${h12}:${String(mi).padStart(2, "0")}${ap}` : `${h12}${ap}`; }
+          return `<span><span style="color:${dot[e.who] || "var(--wd-muted)"}">●</span> <strong>${wdEsc(e.title)}</strong> | ${dobj.getMonth() + 1}/${dobj.getDate()}${t ? " | " + t : ""}</span>`;
         }).join("");
       }
+
+      // Photo slideshow rotation — initialize whenever the payload has photos.
+      // (This wiring was lost in the dashboard redesign, which left the photo
+      // scene never starting.) Photos arrive newest-first from getWallState,
+      // and the slideshow starts at index 0 — so the most recently uploaded
+      // photo is shown first.
+      if (p.photos && p.photos.length > 0) setupPhotos(p.photos);
 
       const stamp = $("wdStamp"); if (stamp) stamp.textContent = `UPDATED ${fmtClock(new Date())}`;
       tickClock();

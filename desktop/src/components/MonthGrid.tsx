@@ -6,6 +6,7 @@ import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette,
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
+import { AgendaView } from "./AgendaView";
 import { eventInitial } from "./EventAvatar";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
@@ -137,7 +138,7 @@ export function MonthGrid({
             background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)",
           }}
         >
-          {(["day", "week", "month", "year"] as const).map((v) => {
+          {(["day", "week", "month", "year", "agenda"] as const).map((v) => {
             const active = calLayout === v;
             return (
               <button
@@ -300,6 +301,22 @@ export function MonthGrid({
           events={eventsByDate[selected] ?? []}
           onEditEvent={onEditEvent}
           wvuGames={wvuGames}
+        />
+      )}
+
+      {calLayout === "agenda" && (
+        <AgendaView
+          palette={palette}
+          t={t}
+          dark={dark}
+          shifts={shifts}
+          state={state}
+          today={today}
+          selfName={selfName}
+          partnerName={partnerName}
+          eventsByDate={eventsByDate}
+          onSelectDate={onSelectDate}
+          onEditEvent={onEditEvent}
         />
       )}
 

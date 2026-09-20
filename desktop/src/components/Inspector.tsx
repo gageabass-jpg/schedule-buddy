@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import { compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
+import { buildShiftMap, compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
 import { dayColors, eventColor, lifeColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
@@ -362,7 +362,7 @@ export function Inspector({
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {daisySchool.length > 0 && (
             <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
-              {daisyName} has school {schoolSpanLabel(daisySchool)} — {dayCoverage.some((r) => daisyCoverageConflict(state!, r.date, r.startTime, r.endTime, r.endsNextDay)) ? "overlaps a coverage window; she may not be able to cover" : "unavailable to cover then"}
+              Unavailable
             </div>
           )}
           {isChildcareOff && (
@@ -403,7 +403,7 @@ export function Inspector({
             </div>
           )}
 
-          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && (
+          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && daisySchool.length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
               No Coverage needed.
             </div>
@@ -697,6 +697,268 @@ export function Inspector({
           />
         </div>
       </div>
+
+      {/* This Month — totals + shift-type breakdown */}
+      <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+
+      {/* Caregiver Coverage Analysis — running total of confirmed coverage hours */}
+      <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+    </div>
+  );
+}
+
+// This-month totals across the household + a per-shift-type breakdown.
+// Mirrors the web app's "This Month" stats panel.
+function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
+  state: HouseholdState | null;
+  palette: Palette;
+  t: ThemeTokens;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+}) {
+  if (!state) return null;
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (dd: number) => `${y}-${pad(m + 1)}-${pad(dd)}`;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const map = buildShiftMap(state, iso(1), iso(daysInMonth));
+
+  const types: Record<string, { name: string; start: string; end: string; crossesMidnight: boolean }> = {};
+  for (const st of state.shiftTypes || []) types[st.id] = st;
+  const toMin = (s: string) => { const [h, mm] = (s || "").split(":").map(Number); return (h || 0) * 60 + (mm || 0); };
+  const hoursOf = (id?: string) => {
+    const ty = id ? types[id] : null;
+    if (!ty) return 0;
+    let d = toMin(ty.end) - toMin(ty.start);
+    if (ty.crossesMidnight || d <= 0) d += 1440;
+    return d / 60;
+  };
+
+  const byType = new Map<string, { count: number; hours: number }>();
+  const per: Record<string, { count: number; hours: number }> = { G: { count: 0, hours: 0 }, K: { count: 0, hours: 0 }, D: { count: 0, hours: 0 } };
+  const workDays = new Set<string>();
+  let totalShifts = 0, totalHours = 0;
+  for (let dd = 1; dd <= daysInMonth; dd++) {
+    const key = iso(dd);
+    for (const s of (map[key] || [])) {
+      const hrs = hoursOf(s.shiftTypeId);
+      const name = (s.shiftTypeId && types[s.shiftTypeId]?.name) || s.label || "Shift";
+      totalShifts++; totalHours += hrs; workDays.add(key);
+      const cur = byType.get(name) || { count: 0, hours: 0 };
+      cur.count++; cur.hours += hrs; byType.set(name, cur);
+      if (per[s.who]) { per[s.who].count++; per[s.who].hours += hrs; }
+    }
+  }
+  const daysOff = daysInMonth - workDays.size;
+  const typesArr = [...byType.entries()].map(([name, v]) => ({ name, count: v.count, hours: v.hours })).sort((a, b) => b.hours - a.hours);
+  const maxHours = Math.max(0.01, ...typesArr.map((x) => x.hours));
+
+  const PAL = [palette.G, palette.K, "#BF5AF2", "#FF9F0A", "#30D158", "#5E5CE6", "#FF6961", "#40C8E0"];
+  const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
+  const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#30D158" };
+  const stats: [string, string][] = [
+    ["Shifts", String(totalShifts)],
+    ["Hours", `${Math.round(totalHours)}h`],
+    ["Avg / shift", `${(totalShifts ? totalHours / totalShifts : 0).toFixed(1)}h`],
+    ["Days off", String(daysOff)],
+  ];
+
+  return (
+    <div>
+      <div style={{ ...subhead(t), marginBottom: 6 }}>This Month</div>
+      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{MONTHS_LONG[m]} {y}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+          {stats.map(([k, v]) => (
+            <div key={k} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: t.text }}>{v}</div>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
+            </div>
+          ))}
+        </div>
+        {(["G", "K", "D"] as const).some((w) => per[w].count > 0) && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+            {(["G", "K", "D"] as const).filter((w) => per[w].count > 0).map((w) => (
+              <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: t.text2 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 3, background: dotFor[w] }} />
+                {nameFor[w]} · <b style={{ color: t.text }}>{per[w].hours.toFixed(1)}h</b> · {per[w].count}
+              </span>
+            ))}
+          </div>
+        )}
+        {typesArr.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {typesArr.map((x, i) => (
+              <div key={x.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 3, background: PAL[i % PAL.length], flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text, width: 118, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{x.name}</span>
+                <span style={{ flex: 1, height: 8, background: rgba(PAL[i % PAL.length], 0.16), borderRadius: 4, overflow: "hidden" }}>
+                  <span style={{ display: "block", height: "100%", width: `${(x.hours / maxHours * 100).toFixed(1)}%`, background: PAL[i % PAL.length], borderRadius: 4 }} />
+                </span>
+                <span style={{ width: 22, textAlign: "right", fontSize: 12, fontWeight: 700, color: t.text3, flexShrink: 0 }}>{x.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: t.text3 }}>No shifts this month.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Caregiver pay model — flat $400 a month ($200 twice a month).
+const CAREGIVER_MONTHLY_PAY = 400;
+
+/** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
+ *  hours, flat-pay cost model, effective $/hr per month, blended rate, cadence,
+ *  and date range. Computed from state.coverageRequests (status confirmed). */
+function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
+  state: HouseholdState | null;
+  daisyName: string;
+  palette: Palette;
+  t: ThemeTokens;
+}) {
+  const reqs = state?.coverageRequests ?? [];
+  const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const dur = (r: { startTime: string; endTime: string; endsNextDay?: boolean }) => {
+    let d = toMin(r.endTime) - toMin(r.startTime);
+    if (r.endsNextDay || d <= 0) d += 1440;   // overnight window
+    return d;
+  };
+  const confirmed = reqs.filter((r) => r.status === "confirmed" && r.date && r.startTime && r.endTime);
+  const totalH = confirmed.reduce((s, r) => s + dur(r), 0) / 60;
+
+  const hoursByMonth = new Map<string, number>();
+  confirmed.forEach((r) => { const k = r.date.slice(0, 7); hoursByMonth.set(k, (hoursByMonth.get(k) ?? 0) + dur(r) / 60); });
+  const monthKeys = [...hoursByMonth.keys()].sort();
+  const dates = confirmed.map((r) => r.date).sort();
+  // Flat $400/month, paid consistently (including through her time off).
+  const rows = monthKeys.map((k) => {
+    const hours = hoursByMonth.get(k) ?? 0;
+    return { k, hours, cost: CAREGIVER_MONTHLY_PAY, rate: hours > 0 ? CAREGIVER_MONTHLY_PAY / hours : 0 };
+  });
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  const blended = totalH > 0 ? totalCost / totalH : 0;
+  const avgMo = monthKeys.length ? totalH / monthKeys.length : 0;
+  const avgWk = avgMo / 4.345;
+
+  const sessByMonth = new Map<string, number>();
+  confirmed.forEach((r) => { const k = r.date.slice(0, 7); sessByMonth.set(k, (sessByMonth.get(k) ?? 0) + 1); });
+
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
+  const recent = rows.slice(-6).map((r) => ({ ...r, sessions: sessByMonth.get(r.k) ?? 0 }));
+  const maxRate = Math.max(0.01, ...recent.map((r) => r.rate));
+  const maxHours = Math.max(0.01, ...recent.map((r) => r.hours));
+  const maxSess = Math.max(1, ...recent.map((r) => r.sessions));
+  let run = 0; const cum = rows.map((r) => ({ k: r.k, y: (run += r.hours) })).slice(-6);
+  const acc = palette.G;
+  const stats: [string, string][] = [
+    ["Total hours", `${totalH.toFixed(1)} h`],
+    ["Total paid", `$${Math.round(totalCost).toLocaleString()}`],
+    ["Blended rate", `$${blended.toFixed(2)}/hr`],
+    ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
+  ];
+
+  // Click-to-cycle visuals with a little shuffle animation on change.
+  const [view, setView] = useState(0);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || typeof el.animate !== "function") return;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateX(18px) rotate(1.6deg) scale(0.97)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" },
+    );
+  }, [view]);
+  const VIEWS = [
+    { title: "Effective $/hr by month", note: "Lower is better value; vacation months read higher." },
+    { title: "Hours per month", note: "Confirmed coverage hours each month." },
+    { title: "Cumulative hours", note: "Running total across the period." },
+    { title: "Sessions per month", note: "Confirmed coverage sessions each month." },
+  ];
+  const cur = VIEWS[view];
+
+  const rowBar = (label: string, frac: number, value: React.ReactNode, key: string) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
+      </div>
+      <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>{value}</div>
+    </div>
+  );
+
+  let body: React.ReactNode;
+  if (view === 0) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.rate / maxRate, <><span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span><span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span></>, r.k))}</div>;
+  } else if (view === 1) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.hours / maxHours, <span style={{ fontWeight: 600 }}>{r.hours.toFixed(1)}h</span>, r.k))}</div>;
+  } else if (view === 3) {
+    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
+      rowBar(fmtMonth(r.k), r.sessions / maxSess, <span style={{ fontWeight: 600 }}>{r.sessions}</span>, r.k))}</div>;
+  } else if (cum.length) {
+    // Cumulative-hours mini area.
+    const w = 264, h = 96, L = 6, R = 6, T = 10, B = 18, iw = w - L - R, ih = h - T - B;
+    const maxY = Math.max(1, ...cum.map((p) => p.y));
+    const X = (i: number) => cum.length > 1 ? L + iw * (i / (cum.length - 1)) : L + iw / 2;
+    const Y = (v: number) => T + ih - (v / maxY) * ih;
+    let line = `M ${X(0)} ${Y(cum[0].y)}`;
+    cum.forEach((p, i) => { if (i) line += ` L ${X(i)} ${Y(p.y)}`; });
+    const area = `${line} L ${X(cum.length - 1)} ${T + ih} L ${X(0)} ${T + ih} Z`;
+    const last = cum[cum.length - 1];
+    body = (
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: "auto", overflow: "visible" }} aria-label="Cumulative hours">
+        <path d={area} fill={rgba(acc, 0.14)} />
+        <path d={line} fill="none" stroke={acc} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {cum.map((p, i) => <circle key={p.k} cx={X(i)} cy={Y(p.y)} r={i === cum.length - 1 ? 3.5 : 2.5} fill={acc} />)}
+        {cum.map((p, i) => <text key={`${p.k}l`} x={X(i)} y={h - 4} textAnchor="middle" style={{ fill: t.text3, fontSize: "9px", fontFamily: "monospace" }}>{fmtMonth(p.k).split(" ")[0]}</text>)}
+        <text x={X(cum.length - 1)} y={Y(last.y) - 6} textAnchor="end" style={{ fill: t.text, fontSize: "10px", fontWeight: 600, fontFamily: "monospace" }}>{last.y.toFixed(0)}h</text>
+      </svg>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ ...subhead(t), marginBottom: 6 }}>Caregiver Coverage Analysis</div>
+      {confirmed.length === 0 ? (
+        <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
+      ) : (
+        <div
+          onClick={() => setView((v) => (v + 1) % VIEWS.length)}
+          style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
+            {stats.map(([k, v]) => (
+              <div key={k}>
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{k}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", color: t.text, marginTop: 1 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10.5, color: t.text3 }}>
+            {daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"} · {humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{cur.title}</div>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
+              </div>
+            </div>
+            <div ref={bodyRef} style={{ minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
+            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45, minHeight: 28 }}>{cur.note}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

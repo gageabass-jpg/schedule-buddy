@@ -2,6 +2,7 @@ export { askClaude } from "./askClaude";
 export { parseSchedule } from "./parseSchedule";
 export { syncHealthCalendar } from "./healthCalendar";
 export { getWallState } from "./wallState";
+export { icsFeed } from "./icsFeed";
 export { cleanSchedule } from "./cleanSchedule";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";

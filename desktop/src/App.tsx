@@ -3,7 +3,7 @@ import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
-export type CalLayout = "day" | "week" | "month" | "year";
+export type CalLayout = "day" | "week" | "month" | "year" | "agenda";
 export type ThemePref = "system" | "light" | "dark";
 
 const THEME_PREF_KEY = "sbm.theme";

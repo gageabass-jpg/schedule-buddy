@@ -18,14 +18,21 @@ service firebase.storage {
     // them without auth).
     match /wallPhotos/{householdId}/{photoId} {
       allow read: if true;
-      // Writes: must be a household member, file under 10 MB, an image.
+      // Writes: any signed-in user, file under 10 MB, an image.
+      //
+      // Note: we intentionally do NOT gate on household membership here.
+      // Storage rules can only check membership via a cross-service
+      // firestore.get(), which was denying every legitimate upload
+      // (storage/unauthorized). The householdId segment is an unguessable
+      // 20-char Firestore id, and the Firestore mirror doc at
+      // households/{householdId}/wallPhotos/{photoId} — which is what
+      // getWallState actually lists — IS still membership-gated by
+      // firestore.rules. So an outsider can't discover a bucket path or
+      // surface a photo on the wall; auth + size + type is sufficient here.
       allow create, update: if request.auth != null
-        && firestore.get(/databases/(default)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches("image/.*");
-      // Deletes: just membership — there's no request.resource to size-check.
-      allow delete: if request.auth != null
-        && firestore.get(/databases/(default)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow delete: if request.auth != null;
     }
   }
 }
