@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { signInWithGoogle, signInWithApple, signInWithEmail } from "../hooks/useAuth";
-import { themeTokens, getPalette } from "../theme";
-import { BrandMark } from "./BrandMark";
+import { themeTokens } from "../theme";
+import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 
 export function SignIn({ dark = true }: { dark?: boolean }) {
   const t = themeTokens(dark);
-  const palette = getPalette("modern");
   const [mode, setMode] = useState<"choose" | "email">("choose");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -50,10 +49,12 @@ export function SignIn({ dark = true }: { dark?: boolean }) {
       }}
     >
       <div style={{ width: 360, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        <BrandMark size={56} palette={palette} dark={true} />
+        <BrandMark size={56} />
         <div style={{ textAlign: "center", marginBottom: 4 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.025em", fontFamily: "\"Space Grotesk\", \"Styrene A\", \"Inter\", -apple-system, sans-serif" }}>Schedule Buddy</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: palette.G, letterSpacing: "-0.01em", marginTop: 2 }}>Manager</div>
+          <div style={{ fontSize: 24, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: BRAND_FONT, whiteSpace: "nowrap" }}>
+            <span style={{ fontWeight: 600 }}>nucleus</span>
+            <span style={{ fontWeight: 400, color: t.text2 }}> manager</span>
+          </div>
         </div>
 
         {mode === "choose" && (
@@ -105,7 +106,7 @@ export function SignIn({ dark = true }: { dark?: boolean }) {
               required
               style={inputStyle(t)}
             />
-            <button type="submit" disabled={busy} style={primaryBtn(palette.G, busy)}>
+            <button type="submit" disabled={busy} style={primaryBtn(BRAND_TEAL, busy)}>
               {busy ? "Signing in…" : "Sign in"}
             </button>
             <button type="button" onClick={() => setMode("choose")} style={linkBtn(t)}>

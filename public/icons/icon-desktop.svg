@@ -1,35 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FFB04D"/>
-      <stop offset="100%" stop-color="#D2691E"/>
-    </linearGradient>
-    <linearGradient id="cal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.92"/>
-    </linearGradient>
-  </defs>
-
-  <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
-
-  <g transform="translate(166,195) scale(7.2)">
-    <rect x="20" y="2" width="6" height="14" rx="3" fill="url(#cal)"/>
-    <rect x="70" y="2" width="6" height="14" rx="3" fill="url(#cal)"/>
-    <rect x="4" y="8" width="88" height="76" rx="20" fill="url(#cal)"/>
-    <circle cx="20" cy="36" r="4.5" fill="#3A3A3C"/>
-    <circle cx="34" cy="36" r="4.5" fill="#3A3A3C"/>
-    <circle cx="48" cy="36" r="4.5" fill="#3A3A3C"/>
-    <circle cx="62" cy="36" r="4.5" fill="#3A3A3C"/>
-    <circle cx="76" cy="36" r="4.5" fill="#3A3A3C"/>
-    <circle cx="20" cy="50" r="4.5" fill="#3A3A3C"/>
-    <circle cx="34" cy="50" r="4.5" fill="#0A84FF"/>
-    <circle cx="48" cy="50" r="4.5" fill="#FF375F"/>
-    <circle cx="62" cy="50" r="4.5" fill="#3A3A3C"/>
-    <circle cx="76" cy="50" r="4.5" fill="#3A3A3C"/>
-    <circle cx="20" cy="64" r="4.5" fill="#3A3A3C"/>
-    <circle cx="34" cy="64" r="4.5" fill="#3A3A3C"/>
-    <circle cx="48" cy="64" r="4.5" fill="#3A3A3C"/>
-    <circle cx="62" cy="64" r="4.5" fill="#3A3A3C"/>
-    <circle cx="76" cy="64" r="4.5" fill="#3A3A3C"/>
+  <!-- Nucleus Manager macOS tile: the tile sits inset 100 px on each side of the
+       1024 canvas so it matches other Dock icons. Radius 22.5% of the tile. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#0F6E64"/>
+  <g transform="translate(285.4 285.4) scale(4.532)">
+    <path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" fill="none" stroke="#F7F6F3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

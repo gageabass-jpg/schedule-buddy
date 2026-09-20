@@ -1,6 +1,6 @@
-// Schedule Buddy service worker — enables offline + installability.
+// Nucleus service worker — enables offline + installability.
 // Strategy: never cache HTML (always network); cache static assets.
-const CACHE_NAME = 'schedbuddy-v8-calendar-splash';
+const CACHE_NAME = 'nucleus-v9-rebrand';
 const PRECACHE = [
   '/manifest.json',
   '/icons/icon-192.png',
