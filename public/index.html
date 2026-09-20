@@ -4405,6 +4405,18 @@
   .pf-danger { color: var(--ot); }
   .pf-link   { color: var(--color-g); }
   .pf-note   { font-size: 13px; color: var(--text-3); padding: 0 32px 22px; letter-spacing: -0.01em; }
+  /* Share link rows */
+  .share-link-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+  .share-link-input {
+    flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-dim);
+    background: var(--bg); border: 0.5px solid var(--sep); border-radius: 8px;
+    padding: 7px 10px; font-family: var(--font-mono, monospace);
+  }
+  .share-copy {
+    flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--color-g);
+    background: transparent; border: 0.5px solid var(--sep); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
+  }
 
   .pf-back {
     display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
@@ -6277,6 +6289,10 @@
           <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
+
+      <div class="pf-group-label">Share</div>
+      <div class="pf-card" id="shareCard"></div>
+      <div class="pf-note">Anyone with the link sees a read-only calendar — shifts and event titles only. No chat, coverage, health, or account info. Revoke any time.</div>
 
       <div class="pf-card tight">
         <button class="pf-row" id="profileAccountBtn" type="button">
@@ -10274,6 +10290,10 @@ function mergeStateFromFirestore(data) {
     // Display name for the household (e.g. "Bass Household"); editable in
     // the desktop Family Console.
     householdName: typeof data.householdName === "string" ? data.householdName : undefined,
+    // Read-only public share (guest link + ICS feed). shareToken keys the
+    // sanitized publicShares/{token} mirror; shareEnabled gates publishing.
+    shareEnabled: typeof data.shareEnabled === "boolean" ? data.shareEnabled : undefined,
+    shareToken: typeof data.shareToken === "string" ? data.shareToken : undefined,
     // Coverage requests sent to caregivers from the desktop manager.
     coverageRequests: Array.isArray(data.coverageRequests) ? data.coverageRequests : [],
     caregiverRequests: Array.isArray(data.caregiverRequests) ? data.caregiverRequests : [],
@@ -10356,6 +10376,133 @@ async function saveStateToFirestore() {
     console.error("Firestore write error:", e);
     updateSyncStatus("offline");
   }
+  // Keep the read-only public share (guest link + ICS feed) in sync.
+  schedulePublicSharePush();
+}
+
+// ─────────────────── Read-only public share ───────────────────
+// A sanitized mirror of the schedule (shifts + life-event titles only) written
+// to publicShares/{token}, read without auth by share.html and the ICS feed.
+
+function _genShareToken() {
+  const a = new Uint8Array(16);
+  (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.floor(Math.random() * 256));
+  return [...a].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Build the sanitized snapshot: NO emails, chat, coverage, health, pay, notes.
+function buildPublicShareSnapshot() {
+  const g = generateEvents(), k = partnerEvents(), d = (typeof daisyEvents === "function" ? daisyEvents() : []);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const from = addDays(today, -7), to = addDays(today, 56);
+  const days = [];
+  for (let dt = new Date(from); dt <= to; dt = addDays(dt, 1)) {
+    const iso = toISODate(dt);
+    const shifts = [];
+    const push = (who, e) => shifts.push({ who, type: e.typeName || e.label || "Shift", start: e.startTime, end: e.endTime, label: e.label || compactTime(e.startTime), endsNextDay: (e.endDate && e.startDate && e.endDate > e.startDate) || false });
+    for (const e of eventsOnDate(g, iso)) push("G", e);
+    for (const e of eventsOnDate(k, iso)) push("K", e);
+    for (const e of eventsOnDate(d, iso)) push("Daisy", e);
+    const events = getEventsForDate(iso).map(ev => (ev.title || "").trim()).filter(Boolean);
+    if (shifts.length || events.length) days.push({ date: iso, shifts, events });
+  }
+  return {
+    v: 1,
+    ownerUid: currentUser ? currentUser.uid : null,
+    householdId,
+    householdName: state.householdName || "Our schedule",
+    people: {
+      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
+      Daisy: { name: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy", hex: "#34C759" },
+    },
+    days,
+    from: toISODate(from), to: toISODate(to),
+    updatedAt: Date.now(),
+  };
+}
+
+async function publishPublicShare() {
+  if (!state.shareEnabled || !state.shareToken || !householdId || !currentUser) return;
+  try {
+    await db.collection("publicShares").doc(state.shareToken).set(buildPublicShareSnapshot());
+  } catch (e) {
+    console.error("publicShare write error:", e);
+  }
+}
+
+let _sharePushTimer = null;
+function schedulePublicSharePush() {
+  if (!state.shareEnabled || !state.shareToken) return;
+  clearTimeout(_sharePushTimer);
+  _sharePushTimer = setTimeout(publishPublicShare, 1500);
+}
+
+// Profile toggle handlers.
+async function enablePublicShare() {
+  if (!state.shareToken) state.shareToken = _genShareToken();
+  state.shareEnabled = true;
+  saveState();
+  await publishPublicShare();
+  renderShareCard();
+}
+async function disablePublicShare() {
+  const token = state.shareToken;
+  state.shareEnabled = false;
+  saveState();
+  if (token) { try { await db.collection("publicShares").doc(token).delete(); } catch (_) {} }
+  renderShareCard();
+}
+async function rotateShareToken() {
+  const old = state.shareToken;
+  state.shareToken = _genShareToken();
+  saveState();
+  if (old) { try { await db.collection("publicShares").doc(old).delete(); } catch (_) {} }
+  await publishPublicShare();
+  renderShareCard();
+}
+function shareLinks() {
+  const base = location.origin;
+  const t = state.shareToken || "";
+  return {
+    web: `${base}/share.html?t=${t}`,
+    // webcal:// makes iOS/macOS Calendar offer "Subscribe" directly.
+    ics: `webcal://${location.host}/ics/${t}.ics`,
+  };
+}
+
+function renderShareCard() {
+  const el = document.getElementById("shareCard");
+  if (!el) return;
+  const on = !!state.shareEnabled && !!state.shareToken;
+  if (!on) {
+    el.innerHTML = `<button class="pf-row" id="shareEnableBtn" type="button">
+      <span class="pf-row-icon" style="background:#5E5CE6"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pf-row-label">Share read-only link</span>
+      <span class="pf-row-value">Off</span>
+    </button>`;
+    const b = document.getElementById("shareEnableBtn");
+    if (b) b.onclick = () => enablePublicShare();
+    return;
+  }
+  const L = shareLinks();
+  el.innerHTML = `
+    <div class="pf-row no-icon static"><span class="pf-row-label">Read-only link</span><span class="pf-row-value" style="color:#30D158;font-weight:600;">On</span></div>
+    <div class="share-link-row"><input class="share-link-input" readonly value="${escapeHTML(L.web)}"><button class="share-copy" type="button" data-copy="${escapeHTML(L.web)}">Copy</button></div>
+    <div class="share-link-row"><input class="share-link-input" readonly value="${escapeHTML(L.ics)}"><button class="share-copy" type="button" data-copy="${escapeHTML(L.ics)}">Copy</button></div>
+    <button class="pf-row no-icon pf-link" id="shareRotateBtn" type="button"><span class="pf-row-label">Rotate link</span></button>
+    <button class="pf-row no-icon pf-link pf-danger" id="shareRevokeBtn" type="button"><span class="pf-row-label">Turn off &amp; revoke</span></button>`;
+  el.querySelectorAll(".share-copy").forEach(b => {
+    b.onclick = () => {
+      const v = b.getAttribute("data-copy");
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(() => {});
+      const orig = b.textContent; b.textContent = "Copied"; setTimeout(() => { b.textContent = orig; }, 900);
+    };
+  });
+  const rot = document.getElementById("shareRotateBtn");
+  if (rot) rot.onclick = () => { if (confirm("Rotate the link? The old link and ICS feed stop working.")) rotateShareToken(); };
+  const rev = document.getElementById("shareRevokeBtn");
+  if (rev) rev.onclick = () => { if (confirm("Turn off sharing and revoke the link?")) disablePublicShare(); };
 }
 
 function updateSyncStatus(status) {
@@ -14008,6 +14155,7 @@ function renderAll() {
   renderOTApprovals();
   renderManagerChildcare((state && state.coverageRequests) || []);
   renderManagerRequests();
+  renderShareCard();
 }
 
 function syncGlobalFields() {
