@@ -721,6 +721,25 @@
   .stats-section-eyebrow { padding: 6px 4px 8px; margin-bottom: 0; }
   .stats-section { padding: 16px; }
 
+  /* Month totals + shift-type breakdown */
+  .mt-head { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); margin-bottom: 12px; }
+  .mt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .mt-stat { background: var(--bg); border: 0.5px solid var(--sep); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .mt-num { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); line-height: 1; }
+  .mt-num .mt-u { font-size: 12px; font-weight: 700; color: var(--text-dim); margin-left: 1px; }
+  .mt-lbl { font-size: 10px; font-weight: 600; color: var(--text-dim); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .mt-people { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; }
+  .mt-person { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
+  .mt-person b { color: var(--text); font-weight: 700; }
+  .mt-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .mt-breakdown { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+  .mt-type { display: flex; align-items: center; gap: 8px; }
+  .mt-type-name { font-size: 12.5px; font-weight: 600; color: var(--text); flex-shrink: 0; width: 128px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mt-bar { flex: 1; height: 8px; border-radius: 99px; background: var(--scrim); overflow: hidden; }
+  .mt-bar-fill { display: block; height: 100%; border-radius: 99px; }
+  .mt-type-count { font-size: 12.5px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; width: 22px; text-align: right; flex-shrink: 0; }
+  .mt-empty { font-size: 13px; color: var(--text-dim); padding: 6px 2px; }
+
   /* Stats hero spark + extras */
   .stats-hero-spark {
     width: 100%;
@@ -6056,6 +6075,12 @@
       <div class="stats-meta" id="statsRangeMeta">vs previous</div>
     </div>
 
+    <!-- Month totals + shift-type breakdown -->
+    <div class="stats-eyebrow stats-section-eyebrow">THIS MONTH</div>
+    <div class="section stats-section">
+      <div id="monthTotals"></div>
+    </div>
+
     <!-- Hero card: couple time / week -->
     <div class="stats-hero" id="statsHero" style="display:none;">
       <div class="stats-hero-eyebrow">
@@ -10949,6 +10974,9 @@ function makeEvent(date, shift, label, kind, pending) {
     endDate,   endTime: shift.end,
     label, kind,
     pending: !!pending,
+    // Carried for the month-totals breakdown-by-type (harmless elsewhere).
+    shiftTypeId: shift.id || "",
+    typeName: shift.name || label || "Shift",
   };
 }
 
@@ -11544,6 +11572,113 @@ function renderAnalysis() {
 
   // Render the new design's stats hero + bar comparison + day-of-week chart
   renderStatsHero(a);
+  renderMonthTotals();
+}
+
+// ---------- Month totals + shift-type breakdown (BetterShift-style) ----------
+// Worked hours for one generated event (overnight-aware via endDate>startDate).
+function _eventWorkHours(e) {
+  const s = parseHM(e.startTime), en = parseHM(e.endTime);
+  if (Number.isNaN(s) || Number.isNaN(en)) return 0;
+  let m = en - s;
+  if ((e.endDate && e.startDate && e.endDate > e.startDate) || m < 0) m += 24 * 60;
+  return m / 60;
+}
+
+// Totals for a calendar month across the whole household, plus a per-shift-type
+// breakdown. `year`/`monthIdx` (0-based) default to the current month.
+function computeMonthTotals(year, monthIdx) {
+  const now = new Date();
+  if (year == null) year = now.getFullYear();
+  if (monthIdx == null) monthIdx = now.getMonth();
+
+  const sources = [
+    { who: "G", evts: generateEvents() },
+    { who: "K", evts: partnerEvents() },
+    { who: "Daisy", evts: (typeof daisyEvents === "function" ? daisyEvents() : []) },
+  ];
+  const inMonth = (e) => {
+    const dt = parseISODate(e.startDate);
+    return dt && dt.getFullYear() === year && dt.getMonth() === monthIdx;
+  };
+
+  const byType = new Map();          // typeName -> { count, hours }
+  const per = {};                    // who -> { count, hours }
+  const workDays = new Set();
+  let totalShifts = 0, totalHours = 0;
+
+  for (const src of sources) {
+    let c = 0, h = 0;
+    for (const e of src.evts) {
+      if ((e.kind !== "shift" && e.kind !== "overtime") || !inMonth(e)) continue;
+      const hrs = _eventWorkHours(e);
+      c++; h += hrs; totalShifts++; totalHours += hrs;
+      workDays.add(e.startDate);
+      const name = e.typeName || e.label || "Shift";
+      const cur = byType.get(name) || { count: 0, hours: 0 };
+      cur.count++; cur.hours += hrs;
+      byType.set(name, cur);
+    }
+    per[src.who] = { count: c, hours: h };
+  }
+
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  let daysOff = 0;
+  for (let dd = 1; dd <= daysInMonth; dd++) {
+    if (!workDays.has(toISODate(new Date(year, monthIdx, dd)))) daysOff++;
+  }
+
+  const types = [...byType.entries()]
+    .map(([name, v]) => ({ name, count: v.count, hours: v.hours }))
+    .sort((a, b) => b.hours - a.hours);
+
+  return {
+    year, monthIdx,
+    totalShifts, totalHours,
+    avg: totalShifts ? totalHours / totalShifts : 0,
+    daysOff, per, types,
+  };
+}
+
+const _MT_PALETTE = ["var(--color-g)", "var(--color-k)", "var(--color-both)", "#FF9F0A", "#30D158", "#5E5CE6", "#FF6961", "#40C8E0", "#FFD426", "#BF5AF2"];
+const _MT_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function renderMonthTotals() {
+  const el = document.getElementById("monthTotals");
+  if (!el) return;
+  const t = computeMonthTotals();
+
+  // Per-person hour chips (only people who worked this month).
+  const nameFor = { G: state.selfName || "Gage", K: (state.partner && state.partner.name) || "Kaylene", Daisy: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy" };
+  const dotFor = { G: "var(--color-g)", K: "var(--color-k)", Daisy: "var(--color-off)" };
+  const chips = ["G", "K", "Daisy"]
+    .filter(w => t.per[w] && t.per[w].count > 0)
+    .map(w => `<span class="mt-person"><span class="mt-dot" style="background:${dotFor[w]}"></span>${escapeHTML(nameFor[w])} · <b>${t.per[w].hours.toFixed(1)}h</b> · ${t.per[w].count}</span>`)
+    .join("");
+
+  const maxHours = Math.max(1, ...t.types.map(x => x.hours));
+  const breakdown = t.types.length
+    ? t.types.map((x, i) => {
+        const col = _MT_PALETTE[i % _MT_PALETTE.length];
+        return `<div class="mt-type">
+          <span class="mt-dot" style="background:${col}"></span>
+          <span class="mt-type-name">${escapeHTML(x.name)}</span>
+          <span class="mt-bar"><span class="mt-bar-fill" style="width:${(x.hours / maxHours * 100).toFixed(1)}%;background:${col}"></span></span>
+          <span class="mt-type-count">${x.count}</span>
+        </div>`;
+      }).join("")
+    : `<div class="mt-empty">No shifts logged this month.</div>`;
+
+  el.innerHTML = `
+    <div class="mt-head">${_MT_MONTHS[t.monthIdx]} ${t.year}</div>
+    <div class="mt-grid">
+      <div class="mt-stat"><div class="mt-num">${t.totalShifts}</div><div class="mt-lbl">Shifts</div></div>
+      <div class="mt-stat"><div class="mt-num">${Math.round(t.totalHours)}<span class="mt-u">h</span></div><div class="mt-lbl">Hours</div></div>
+      <div class="mt-stat"><div class="mt-num">${t.avg.toFixed(1)}<span class="mt-u">h</span></div><div class="mt-lbl">Avg / shift</div></div>
+      <div class="mt-stat"><div class="mt-num">${t.daysOff}</div><div class="mt-lbl">Days off</div></div>
+    </div>
+    ${chips ? `<div class="mt-people">${chips}</div>` : ""}
+    <div class="mt-breakdown">${breakdown}</div>`;
 }
 
 // ---------- New stats: hero, bar comparison, day-of-week chart ----------
