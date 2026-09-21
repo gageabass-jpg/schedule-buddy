@@ -167,7 +167,7 @@ export function MonthGrid({
         <button
           type="button"
           onClick={onOpenAskClaude}
-          title="Ask Claude — natural-language schedule editing"
+          title="Ask Nucleus — natural-language schedule editing"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -177,15 +177,15 @@ export function MonthGrid({
             padding: 4,
             borderRadius: 7,
             border: 0,
-            background: "linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%)",
+            background: "linear-gradient(135deg, #12857A 0%, #0F6E64 50%, #0A4F48 100%)",
             cursor: "pointer",
-            boxShadow: "0 1px 2px rgba(201,100,66,0.25)",
+            boxShadow: "0 1px 2px rgba(15,110,100,0.25)",
             flexShrink: 0,
           }}
         >
           <img
-            src="/assets/claude-ai.png"
-            alt="Claude"
+            src="/assets/nucleus-mark.svg"
+            alt="Nucleus"
             draggable={false}
             style={{
               width: "100%",

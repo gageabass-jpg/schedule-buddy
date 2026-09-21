@@ -76,7 +76,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
       <div
         role="dialog"
-        aria-label="Ask Claude"
+        aria-label="Ask Nucleus"
         style={{
           position: "fixed",
           top: 0,
@@ -103,7 +103,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
         >
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>
-              ✨ Ask Claude
+              ✨ Ask Nucleus
             </div>
             <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>
               Schedule changes in plain English. Confirms before writing.
@@ -221,7 +221,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                 send(draft);
               }
             }}
-            placeholder="Tell Claude what to change…"
+            placeholder="Tell Nucleus what to change…"
             rows={1}
             disabled={busy}
             style={{

@@ -290,7 +290,7 @@ export function CleanerModal({
           <div style={{ padding: "60px 0", textAlign: "center", color: t.text2 }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Reading the schedule…</div>
             <div style={{ fontSize: 12, color: t.text3, marginTop: 6 }}>
-              Claude is parsing the image. Usually 10-20 seconds.
+              Nucleus is parsing the image. Usually 10-20 seconds.
             </div>
           </div>
         )}

@@ -208,7 +208,7 @@ export function ScheduleImportModal({
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{def.label}</div>
             <div style={{ fontSize: 12, color: t.text2, marginTop: 4, lineHeight: 1.45 }}>
-              Drop a photo of {def.personLabel}'s schedule. Claude reads it, you review, then save.
+              Drop a photo of {def.personLabel}'s schedule. Nucleus reads it, you review, then save.
             </div>
           </div>
           {!hasKey && phase.kind === "upload" && (
@@ -234,7 +234,7 @@ export function ScheduleImportModal({
 
         {phase.kind === "parsing" && (
           <div style={{ padding: 40, textAlign: "center", color: t.text2, fontSize: 13 }}>
-            Asking Claude to read the schedule…
+            Asking Nucleus to read the schedule…
           </div>
         )}
 
@@ -356,7 +356,7 @@ function UploadPhase({
           disabled={!image || !hasKey}
           style={primaryBtn(palette.G, !image || !hasKey)}
         >
-          Parse with Claude
+          Parse with Nucleus
         </button>
       </div>
     </>
@@ -383,7 +383,7 @@ function ReviewPhase({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
         <div style={{ fontSize: 12, color: t.text2 }}>
           Months: {months.length ? months.join(", ") : "—"}
-          {monthCovered && monthCovered !== months[0] && <> · Claude said {monthCovered}</>}
+          {monthCovered && monthCovered !== months[0] && <> · Nucleus said {monthCovered}</>}
           {" · "}{kept} of {rows.length} ready to save
         </div>
         <div style={{ fontSize: 11, color: t.text3 }}>
