@@ -2047,14 +2047,14 @@
     height: 52px;
     padding: 8px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #C96442 0%, #D97757 50%, #E8845C 100%);
+    background: linear-gradient(135deg, #12857A 0%, #0F6E64 50%, #0A4F48 100%);
     border: 0;
     cursor: pointer;
     display: none;          /* shown only on the Schedule tab — see below */
     align-items: center;
     justify-content: center;
     -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 6px 18px rgba(201,100,66,0.4);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.4);
   }
   .ask-claude-fab:active { transform: scale(0.96); }
   .ask-claude-fab img {
@@ -2444,7 +2444,7 @@
   }
   .ask-avatar {
     flex-shrink: 0; width: 38px; height: 38px; border-radius: 13px;
-    background: linear-gradient(145deg, #D97757, #BC5230);
+    background: linear-gradient(145deg, #0F6E64, #0A4F48);
     display: flex; align-items: center; justify-content: center;
   }
   .ask-title-wrap { flex: 1; min-width: 0; line-height: 1.15; }
@@ -2479,7 +2479,7 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 700; color: var(--text);
   }
-  .ask-week-day.today .ask-week-num { background: #C96442; color: #fff; }
+  .ask-week-day.today .ask-week-num { background: #0F6E64; color: #fff; }
   .ask-week-dots { display: flex; gap: 3px; height: 6px; }
   .ask-week-dot { width: 6px; height: 6px; border-radius: 50%; }
   .ask-scroll {
@@ -2515,12 +2515,12 @@
   }
   .ask-bubble.mine {
     align-self: flex-end; border-radius: 18px 18px 6px 18px;
-    background: linear-gradient(145deg, #D97757, #BC5230); color: #fff;
+    background: linear-gradient(145deg, #0F6E64, #0A4F48); color: #fff;
   }
   .ask-msg-claude { display: flex; gap: 9px; max-width: 92%; align-self: flex-start; }
   .ask-msg-avatar {
     flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px; margin-top: 1px;
-    background: linear-gradient(145deg, #D97757, #BC5230);
+    background: linear-gradient(145deg, #0F6E64, #0A4F48);
     display: flex; align-items: center; justify-content: center;
   }
   .ask-avatar img { width: 21px; height: 21px; }
@@ -2548,7 +2548,7 @@
   }
   .ask-send {
     flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: 0;
-    background: linear-gradient(145deg, #D97757, #BC5230);
+    background: linear-gradient(145deg, #0F6E64, #0A4F48);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; padding: 0;
     -webkit-tap-highlight-color: transparent;
@@ -4925,6 +4925,9 @@
   .mc-hnum { font-size: 25px; font-weight: 800; color: var(--ct); letter-spacing: -0.8px; line-height: 1; }
   .mc-hlbl { font-size: 11px; font-weight: 700; color: var(--ct); opacity: 0.6; letter-spacing: 0.5px; margin-top: 3px; }
   .mc-card2-foot { border-top: 0.5px solid var(--border); margin: 0 16px; padding: 10px 0 12px; display: flex; flex-direction: column; gap: 8px; }
+  /* Consequence line — say what a decline MEANS. Daisy is the only caregiver,
+     so a decline is not a status, it is a hole in coverage. */
+  .mc-consequence { font-size: 12px; font-weight: 700; color: var(--clay); margin-top: 4px; letter-spacing: -0.01em; }
   @media (prefers-color-scheme: dark) {
     .mc-card2.confirmed { --ct: #30D158; }
     .mc-card2.pending   { --ct: #FFB340; }
@@ -6246,12 +6249,12 @@
 
   <!-- ===== Ask Claude modal (manager-only natural-language schedule editor) ===== -->
   <div class="ask-modal-backdrop" id="askBackdrop"></div>
-  <div class="ask-modal" id="askModal" role="dialog" aria-modal="true" aria-label="Ask Claude">
+  <div class="ask-modal" id="askModal" role="dialog" aria-modal="true" aria-label="Ask Nucleus">
     <div class="ask-grab"></div>
     <div class="ask-head">
-      <div class="ask-avatar"><img src="/assets/claude-ai.png" alt="" draggable="false" /></div>
+      <div class="ask-avatar"><img src="/assets/nucleus-mark.svg" alt="" draggable="false" /></div>
       <div class="ask-title-wrap">
-        <div class="ask-title">Ask Claude</div>
+        <div class="ask-title">Ask Nucleus</div>
         <div class="ask-sub">Schedule changes in plain English</div>
       </div>
       <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close">✕</button>
@@ -6289,7 +6292,7 @@
       </div>
     </div>
     <div class="ask-composer">
-      <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell Claude what to change…"></textarea>
+      <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell Nucleus what to change…"></textarea>
       <button type="button" class="ask-send" id="askSendBtn" aria-label="Send" disabled><svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 16V2M2.5 7.5L8 2l5.5 5.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
@@ -6439,8 +6442,8 @@
 </nav>
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
-<button class="ask-claude-fab" id="askClaudeBtn" type="button" aria-label="Ask Claude">
-  <img src="/assets/claude-ai.png" alt="" draggable="false" />
+<button class="ask-claude-fab" id="askClaudeBtn" type="button" aria-label="Ask Nucleus">
+  <img src="/assets/nucleus-mark.svg" alt="" draggable="false" />
 </button>
 
 <!-- "+" Import schedule from photo (shining ring), stacked above the Claude FAB -->
@@ -6512,7 +6515,7 @@
     <div class="parse-head-icon" aria-hidden="true">✨</div>
     <div class="parse-head-main">
       <div class="parse-title">Import from photo</div>
-      <div class="parse-sub">Snap a schedule; Claude reads the days. Nothing is added until you confirm.</div>
+      <div class="parse-sub">Snap a schedule; Nucleus reads the days. Nothing is added until you confirm.</div>
     </div>
     <button type="button" class="parse-close" id="parseCloseBtn" aria-label="Close">✕</button>
   </div>
@@ -8370,8 +8373,8 @@ function wireAllChatComposers() {
 let _askHistory = [];
 let _askBusy = false;
 
-// The Claude logo, reused on assistant message avatars (same asset as the FAB).
-const CLAUDE_MARK_SVG = '<img src="/assets/claude-ai.png" alt="" draggable="false" />';
+// The Nucleus mark, reused on assistant message avatars (same asset as the FAB).
+const CLAUDE_MARK_SVG = '<img src="/assets/nucleus-mark.svg" alt="" draggable="false" />';
 
 // Fills the sheet's "This week" strip: each day of the current week (Sun–Sat)
 // with dots for who works (Gage green / Kaylene purple / Daisy blue) and today
@@ -9684,6 +9687,7 @@ function mcCardHTML(r) {
           <div class="mc-detail">
             <div class="mc-times"><b>${escapeHtml(startDisp)}</b> <span class="arrow">→</span> <b>${escapeHtml(endDisp)}</b> ${nd}</div>
             <div><span class="mc-pill2">${statusLabel}</span>${newDot}</div>
+            ${status === "declined" ? `<div class="mc-consequence">Nobody has the kids — Daisy is the only caregiver.</div>` : ""}
           </div>
           <div class="mc-hours"><div class="mc-hnum">${hoursNum}</div><div class="mc-hlbl">HOURS</div></div>
         </div>
@@ -12851,6 +12855,9 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
     const titleBits = [];
     if (blockInfo) titleBits.push(`${blockInfo.label || "Schedule block"} — ${covered ? "covered" : "nobody yet"}`);
     else if (covered) titleBits.push("Childcare covered");
+    // Say the consequence, not the mechanism: a childcare gap means nobody has
+    // the kids (Daisy is the only caregiver).
+    if (da.childcare === "gap") titleBits.push("Nobody has the kids");
     const blockTitle = titleBits.length ? ` title="${escapeAttr(titleBits.join(" · "))}"` : "";
 
     html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}${careClass}${blockClass}"
