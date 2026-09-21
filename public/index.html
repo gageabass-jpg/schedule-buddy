@@ -41,6 +41,15 @@
     --color-k: #FF375F;          /* Kaylene — iOS systemPink */
     --color-both: #BF5AF2;       /* both working — systemPurple */
     --color-off: #34C759;        /* off — systemGreen (used sparingly) */
+    /* Canonical PERSON palette (the calendar / "life" scheme) — the ONE place
+       these values live. Everything that colours a person on the calendar
+       (shift pills, day/week blocks, today rings, chip dots) derives from these.
+       Theme-independent. Kept SEPARATE from --color-* above (the accent /
+       avatar scheme, blue/pink) on purpose. Mirrored in JS as PERSON_HEX. */
+    --person-g: #30D158;         /* Gage — green */
+    --person-k: #BF5AF2;         /* Kaylene — purple */
+    --person-both: #5E5CE6;      /* both working — indigo */
+    --person-d: #0A84FF;         /* Daisy — blue */
     /* Nucleus brand. Teal is the brand; on the dark ground the mark and
        accent text lighten to Teal Light (7.0:1 on Ink). Filled buttons stay
        Teal with white text on both grounds (6.1:1). */
@@ -1002,8 +1011,10 @@
     margin: 14px 0 6px;
   }
 
-  /* Calendar-specific color tokens — Apple-style soft tints
-     (person + intensity scheme: Gage = indigo, Kaylene = coral, both = purple, off = clear) */
+  /* Calendar-specific color tokens — Apple-style soft per-day cell tints.
+     The person washes match --person-* (Gage green, Kaylene purple, both
+     indigo). NOTE: these are still frozen rgba literals — deriving them from
+     --person-* is a later Phase C step, not done here. */
   :root {
     --cal-self:    rgba(48,209,88,0.14);   /* Gage works → soft green */
     --cal-partner: rgba(191,90,242,0.15);  /* Kaylene works → soft purple */
@@ -1244,9 +1255,9 @@
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   }
-  .week-rail-block[data-who="G"]   { background: rgba(48,209,88,0.30);   color: var(--text); border-left-color: #30D158; }
-  .week-rail-block[data-who="K"]   { background: rgba(191,90,242,0.30);  color: var(--text); border-left-color: #BF5AF2; }
-  .week-rail-block[data-who="G+K"] { background: rgba(94,92,230,0.30);   color: var(--text); border-left-color: #5E5CE6; }
+  .week-rail-block[data-who="G"]   { background: rgba(48,209,88,0.30);   color: var(--text); border-left-color: var(--person-g); }
+  .week-rail-block[data-who="K"]   { background: rgba(191,90,242,0.30);  color: var(--text); border-left-color: var(--person-k); }
+  .week-rail-block[data-who="G+K"] { background: rgba(94,92,230,0.30);   color: var(--text); border-left-color: var(--person-both); }
   @media (prefers-color-scheme: dark) {
     .week-rail-block { color: #fff; }
   }
@@ -1593,11 +1604,11 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #30D158;
+    background: var(--person-g);
     box-shadow: 0 0 6px rgba(48,209,88,0.6);
   }
-  .sb-chip[data-who="K"]   .sb-chip-dot { background: #BF5AF2; box-shadow: 0 0 6px rgba(191,90,242,0.6); }
-  .sb-chip[data-who="G+K"] .sb-chip-dot { background: #5E5CE6; box-shadow: 0 0 6px rgba(94,92,230,0.6); }
+  .sb-chip[data-who="K"]   .sb-chip-dot { background: var(--person-k);    box-shadow: 0 0 6px rgba(191,90,242,0.6); }
+  .sb-chip[data-who="G+K"] .sb-chip-dot { background: var(--person-both); box-shadow: 0 0 6px rgba(94,92,230,0.6); }
 
   /* Calendar grid (Month layout) — roomy Apple-style cells */
   .cal-wrap { position: relative; margin-bottom: 16px; }
@@ -1652,9 +1663,9 @@
   }
   /* Today ring tracks the day's "kind" (who works) — matches the design */
   .cal-cell.today                       { box-shadow: inset 0 0 0 1.5px var(--color-g); }
-  .cal-cell.today[data-kind="g"]        { box-shadow: inset 0 0 0 1.5px #30D158; }
-  .cal-cell.today[data-kind="k"]        { box-shadow: inset 0 0 0 1.5px #BF5AF2; }
-  .cal-cell.today[data-kind="both"]     { box-shadow: inset 0 0 0 1.5px #5E5CE6; }
+  .cal-cell.today[data-kind="g"]        { box-shadow: inset 0 0 0 1.5px var(--person-g); }
+  .cal-cell.today[data-kind="k"]        { box-shadow: inset 0 0 0 1.5px var(--person-k); }
+  .cal-cell.today[data-kind="both"]     { box-shadow: inset 0 0 0 1.5px var(--person-both); }
   .cal-cell.today[data-kind="off"]      { box-shadow: inset 0 0 0 1.5px var(--text-3); }
   .cal-shifts {
     display: flex;
@@ -1687,10 +1698,10 @@
   /* Person-based color overrides — primary visual scheme */
   /* Calendar person colors: Gage green, Kaylene purple, Daisy blue.
      "Both" (a shared G+K shift) uses indigo so it stays distinct from Kaylene. */
-  .shift-pill[data-who="g"]    { background: #30D158; color: #fff; }   /* Gage — green */
-  .shift-pill[data-who="k"]    { background: #BF5AF2; color: #fff; }   /* Kaylene — purple */
-  .shift-pill[data-who="both"] { background: #5E5CE6; color: #fff; }   /* Both — indigo */
-  .shift-pill[data-who="d"]    { background: #0A84FF; color: #fff; }   /* Daisy — blue */
+  .shift-pill[data-who="g"]    { background: var(--person-g);    color: #fff; }   /* Gage — green */
+  .shift-pill[data-who="k"]    { background: var(--person-k);    color: #fff; }   /* Kaylene — purple */
+  .shift-pill[data-who="both"] { background: var(--person-both); color: #fff; }   /* Both — indigo */
+  .shift-pill[data-who="d"]    { background: var(--person-d);    color: #fff; }   /* Daisy — blue */
   /* Pending (photo-import awaiting manager approval) — yellow, overrides who. */
   .shift-pill[data-pending="1"]      { background: #ff9f0a !important; color: #3a2a00 !important; }
   .sb-chip[data-pending="1"]         { background: rgba(255,159,10,0.22); color: #b26a00; }
@@ -1949,10 +1960,10 @@
     z-index: 2;
     border-left: 3px solid transparent;
   }
-  .day-block[data-who="G"]   { background: rgba(48,209,88,0.22);   border-left-color: #30D158; }
-  .day-block[data-who="K"]   { background: rgba(191,90,242,0.22);  border-left-color: #BF5AF2; }
-  .day-block[data-who="D"]   { background: rgba(10,132,255,0.22);  border-left-color: #0A84FF; }
-  .day-block[data-who="G+K"] { background: rgba(94,92,230,0.22);   border-left-color: #5E5CE6; }
+  .day-block[data-who="G"]   { background: rgba(48,209,88,0.22);   border-left-color: var(--person-g); }
+  .day-block[data-who="K"]   { background: rgba(191,90,242,0.22);  border-left-color: var(--person-k); }
+  .day-block[data-who="D"]   { background: rgba(10,132,255,0.22);  border-left-color: var(--person-d); }
+  .day-block[data-who="G+K"] { background: rgba(94,92,230,0.22);   border-left-color: var(--person-both); }
   .day-block .title {
     font-size: 12px; font-weight: 700;
     letter-spacing: -0.01em;
@@ -4834,7 +4845,7 @@
     line-height: 1.4;
   }
   .mc-cg-note {
-    font-size: 12.5px; color: var(--text2, var(--text-dim));
+    font-size: 12.5px; color: var(--text-2, var(--text-dim));
     line-height: 1.4;
     font-style: italic;
   }
@@ -12137,15 +12148,15 @@ function eventInitial(who) {
   if (who === "Daisy") return "D";
   return "F";
 }
+// Canonical person palette (the calendar / "life" scheme): the ONE JS source
+// for a person's colour. eventCSSColor and the iOS widget snapshot both read
+// from it, so those surfaces can no longer silently drift apart. Kept distinct
+// from the accent palette (--color-*, blue/pink) used for avatars + chat, which
+// is a separate deliberate scheme. Values match the --person-* CSS tokens.
+const PERSON_HEX = { G: "#30D158", K: "#BF5AF2", Daisy: "#0A84FF", family: "#5E5CE6" };
 function eventCSSColor(who) {
-  // Person colors: Gage green, Kaylene purple, Daisy blue, family indigo.
-  switch (who) {
-    case "G":     return "#30D158";
-    case "K":     return "#BF5AF2";
-    case "Daisy": return "#0A84FF";
-    case "family":return "#5E5CE6";
-    default:      return "var(--text-2)";
-  }
+  // Gage green, Kaylene purple, Daisy blue, family indigo.
+  return PERSON_HEX[who] || "var(--text-2)";
 }
 /** Outlined chip used in Agenda rows + Today ribbon (room for the full title). */
 function eventChipHTML(ev) {
@@ -12670,8 +12681,8 @@ function buildWidgetSnapshot() {
       // Widget-facing colors — must match `Palette` in the widget extension's
       // WidgetHelpers.swift (green / purple). Deliberately NOT the web app's
       // own --color-g / --color-k, which stay blue / pink.
-      G: { name: state.selfName || "Gage", hex: "#30D158" },
-      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#BF5AF2" },
+      G: { name: state.selfName || "Gage", hex: PERSON_HEX.G },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: PERSON_HEX.K },
     },
     days,
   };
