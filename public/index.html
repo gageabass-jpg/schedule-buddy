@@ -31,7 +31,9 @@
     /* Text */
     --text: #ffffff;
     --text-2: rgba(235,235,245,0.6);
-    --text-3: rgba(235,235,245,0.3);
+    /* Raised from 0.3 → 0.5 so captions/labels clear WCAG AA (~4.6:1 on --bg).
+       0.3 was ~2.25:1 — the single biggest contrast liability. */
+    --text-3: rgba(235,235,245,0.5);
     --text-dim: rgba(235,235,245,0.6);  /* legacy alias */
 
     /* Person + intensity palette (Modern) */
@@ -46,6 +48,10 @@
     --brand-fill: #0F6E64;
     --brand-fill-hover: #0A4F48;
     --brand-tint: #D8E7E4;
+    /* Clay — reserved time (schedule block) and "needs attention" edges.
+       Clay-Light on the dark ground for a 3px rule to clear 3:1. */
+    --clay: #D78F77;
+    --clay-tint: rgba(215,143,119,0.16);
     --accent: var(--brand);
     --accent-hover: #7CCABF;
     --ot: #FF453A;
@@ -78,9 +84,13 @@
       --scrim: rgba(0,0,0,0.04);
       --text: #000000;
       --text-2: rgba(60,60,67,0.6);
-      --text-3: rgba(60,60,67,0.3);
+      /* Raised from 0.3 → 0.7 so captions/labels clear WCAG AA on white. */
+      --text-3: rgba(60,60,67,0.7);
       --text-dim: rgba(60,60,67,0.6);
       --brand: #0F6E64;
+      /* Clay reads at full strength on the light ground. */
+      --clay: #8A4B38;
+      --clay-tint: #EFDFDB;
       --accent-hover: #0A4F48;
       --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
       /* Deeper green on white for contrast (matches the proposed design). */
@@ -417,8 +427,8 @@
     padding-top: 4px;
   }
   .settings-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     background: var(--bg-elev);
     border: 0.5px solid var(--sep);
@@ -1118,8 +1128,8 @@
     letter-spacing: -0.02em;
   }
   .month-nav-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     background: var(--bg-elev);
     border: 0.5px solid var(--sep);
@@ -1627,7 +1637,7 @@
   .cal-cell:hover { filter: brightness(1.04); }
   .cal-cell:active { transform: scale(0.99); }
   .cal-grid.tooltip-open .cal-cell { pointer-events: none !important; }
-  .cal-cell.outside { opacity: 0.28; pointer-events: none; }
+  .cal-cell.outside { opacity: 0.5; pointer-events: none; }
   .cal-date {
     font-size: 15px;
     font-weight: 700;
@@ -2166,7 +2176,7 @@
   .as-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 14px; }
   .as-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
   .as-close {
-    width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0;
+    width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0;
     background: var(--scrim, rgba(127,127,127,0.12)); color: var(--text-2);
     font-size: 14px; font-weight: 600; cursor: pointer;
     display: flex; align-items: center; justify-content: center; line-height: 1;
@@ -2248,7 +2258,7 @@
   .parse-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
   .parse-sub { font-size: 13px; line-height: 1.4; color: var(--text-2); margin-top: 3px; text-wrap: pretty; }
   .parse-close {
-    width: 30px; height: 30px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     border: 0; background: var(--scrim, rgba(127,127,127,0.12));
     color: var(--text-2); font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;
@@ -2441,7 +2451,7 @@
   .ask-title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
   .ask-sub   { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
   .ask-close {
-    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
     background: var(--bg-elev); border: 0; color: var(--text-dim);
     font-size: 14px; cursor: pointer; font-family: var(--font);
     display: flex; align-items: center; justify-content: center;
@@ -2668,9 +2678,9 @@
     outline: none;
   }
   .chat-send {
-    height: 36px;
-    padding: 0 16px;
-    border-radius: 18px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 22px;
     border: 0;
     background: var(--color-g);
     color: #fff;
@@ -2707,10 +2717,14 @@
     /* Soft lift instead of a hard page-bg ring, which read as a heavy dark
        border on the colored cell tints. */
     box-shadow: 0 1px 2px rgba(0,0,0,0.35);
-    pointer-events: auto;
+    /* Pure indicator — the day sheet is the tappable surface. Was pointer-events:
+       auto only to show a native title, which does not exist on touch anyway. */
+    pointer-events: none;
   }
-  .cal-pay-chip.g { background: #30D158; }
-  .cal-pay-chip.k { background: #BF5AF2; }
+  /* Deeper fills so the white "$" clears AA at 9px (system green/purple were
+     ~2:1 against white). */
+  .cal-pay-chip.g { background: #157A3C; }
+  .cal-pay-chip.k { background: #6B21A8; }
 
   /* Confirmed-childcare bar — green strip along the bottom edge of any
      calendar cell whose coverage request has been accepted. */
@@ -2727,25 +2741,57 @@
     pointer-events: none;
   }
 
-  /* Schedule-block overlay — red diagonal stripes at 50% opacity over
-     any cell inside an active block range. Authored on Mac via the
-     Inspector's Utilities → Schedule Block tool; iOS mirrors the
-     visual using a ::before pseudo so it stacks under the date
-     number + shift pills. */
+  /* Month-grid legend — explains the cell tints (per active view) plus the
+     always-present schedule-block edge and childcare-covered bar. Without it the
+     stripes/edges/tints have no key on the month view. */
+  .cal-legend {
+    display: flex;
+    gap: 8px 14px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-2);
+    padding: 12px 2px 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .cal-legend i {
+    display: inline-block; flex: 0 0 auto;
+    width: 13px; height: 13px;
+    border-radius: 3px;
+    border: 1px solid var(--sep);
+  }
+  /* Shaped marks (no border): the Clay edge and the care bar. */
+  .cal-legend i.lg-edge      { width: 3px; height: 14px; border: 0; border-radius: 3px; background: var(--clay); }
+  .cal-legend i.lg-edge-open { width: 3px; height: 14px; border: 0; border-radius: 3px;
+    background: repeating-linear-gradient(var(--clay) 0, var(--clay) 3px, transparent 3px, transparent 6px); }
+  .cal-legend i.lg-care      { width: 13px; height: 3px; border: 0; border-radius: 2px; background: #30D158; }
+
+  /* Schedule-block edge — a 3px Clay rule down the LEFT of any cell inside an
+     active block range. Replaces the old red diagonal hatch, which carried the
+     meaning by hue alone, fought the shift chips for the same pixels, and was
+     the worst possible pairing for red/green colour-blindness. The edge does
+     not compete with cell content and adds a second, non-colour signal:
+     SOLID = the block is covered, DASHED = nobody has it yet. Authored on Mac
+     via the Inspector's Utilities → Schedule Block tool; iOS mirrors it here. */
   .cal-cell.has-block::before {
     content: "";
     position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: repeating-linear-gradient(
-      135deg,
-      rgba(255,69,58,0.5)  0px,
-      rgba(255,69,58,0.5)  6px,
-      rgba(255,69,58,0)    6px,
-      rgba(255,69,58,0)   14px
-    );
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--clay);
     pointer-events: none;
     z-index: 0;
+  }
+  /* Nobody has the block yet → dashed rule (short Clay dashes down the edge). */
+  .cal-cell.has-block.block-open::before {
+    background: repeating-linear-gradient(
+      var(--clay) 0, var(--clay) 4px,
+      transparent 4px, transparent 8px
+    );
   }
   /* Lift the in-flow content above the ::before stripe overlay. NOTE: this must
      NOT target every child — the corner icons (payday, OT, WVU) are absolutely
@@ -3993,8 +4039,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     border: 0;
     border-radius: 10px;
     background: transparent;
@@ -4535,8 +4581,8 @@
 
   /* Notification bell */
   .notif-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     background: var(--bg-elev);
     border: 0.5px solid var(--sep);
@@ -5093,7 +5139,7 @@
     font-variant-numeric: tabular-nums;
   }
   .cg-cal-navbtn {
-    width: 34px; height: 34px;
+    width: 44px; height: 44px;
     border-radius: 10px;
     background: var(--bg-elev);
     border: 0.5px solid var(--sep);
@@ -5106,8 +5152,8 @@
     -webkit-tap-highlight-color: transparent;
   }
   .cg-cal-todaybtn {
-    height: 34px;
-    padding: 0 12px;
+    height: 44px;
+    padding: 0 14px;
     border-radius: 10px;
     background: transparent;
     border: 0.5px solid var(--sep);
@@ -5153,7 +5199,7 @@
   }
   .cg-cal-cell.has-req { cursor: pointer; }
   .cg-cal-cell.has-req:active { transform: scale(0.97); }
-  .cg-cal-cell.outside { opacity: 0.34; }
+  .cg-cal-cell.outside { opacity: 0.5; }
   .cg-cal-cell.today { box-shadow: inset 0 0 0 1.5px #30D158; }
   .cg-cal-cell.selected {
     background: rgba(48,209,88,0.10);
@@ -5167,23 +5213,35 @@
   }
   .cg-cal-cell.today .cg-cal-date { color: #30D158; }
   .cg-cal-chips { display: flex; flex-direction: column; gap: 2px; }
+  /* Neutral chip + a coloured SHAPE marker. The old chips were a solid
+     status colour with the start time in white on top — the status had no
+     carrier but hue, and white-on-saturated failed contrast. Now the shape
+     carries the state (greyscale-safe) and the time sits on a neutral track. */
   .cg-cal-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     font-size: 9.5px;
     font-weight: 700;
     padding: 2px 4px;
     border-radius: 4px;
     letter-spacing: -0.01em;
     line-height: 1.15;
-    color: #fff;
+    color: var(--text);
+    background: var(--scrim, rgba(127,127,127,0.16));
     text-align: center;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cg-cal-chip.pending   { background: #5E5CE6; }
-  .cg-cal-chip.confirmed { background: #30D158; }
-  .cg-cal-chip.declined  { background: #FF453A; }
-  .cg-cal-chip.issue     { background: #FF9F0A; }
+  .cg-cal-chip .cgc-label { overflow: hidden; text-overflow: ellipsis; }
+  .cg-cal-chip .cgc-dot { flex: 0 0 auto; width: 7px; height: 7px; }
+  .cg-cal-chip.confirmed .cgc-dot { border-radius: 50%; background: var(--ok); }                                   /* filled dot = accepted */
+  .cg-cal-chip.pending   .cgc-dot { border-radius: 50%; border: 1.5px solid var(--brand); background: transparent; } /* hollow ring = assigned */
+  .cg-cal-chip.declined  .cgc-dot { height: 2px; border-radius: 1px; background: var(--clay); }                     /* short bar = declined */
+  .cg-cal-chip.issue     .cgc-dot { width: 0; height: 0; background: transparent;
+    border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid var(--import-red); } /* triangle = issue */
+  .cg-cal-chip.nobody    .cgc-dot { border-radius: 50%; border: 1.5px dashed var(--clay); background: transparent; } /* dashed ring = nobody yet */
 
   /* Detail card below the calendar */
   .cg-cal-detail {
@@ -5232,14 +5290,16 @@
   .cg-cal-legend span {
     display: inline-flex; align-items: center; gap: 5px;
   }
+  /* Legend swatches echo the chip shapes, not just colours. */
   .cg-cal-legend i {
-    display: inline-block;
-    width: 9px; height: 9px; border-radius: 2px;
+    display: inline-block; flex: 0 0 auto;
+    width: 9px; height: 9px;
   }
-  .cg-cal-legend i.pending   { background: #5E5CE6; }
-  .cg-cal-legend i.confirmed { background: #30D158; }
-  .cg-cal-legend i.declined  { background: #FF453A; }
-  .cg-cal-legend i.issue     { background: #FF9F0A; }
+  .cg-cal-legend i.pending   { border-radius: 50%; border: 1.5px solid var(--brand); }   /* hollow ring */
+  .cg-cal-legend i.confirmed { border-radius: 50%; background: var(--ok); }               /* filled dot */
+  .cg-cal-legend i.declined  { height: 2px; margin: 3px 0; border-radius: 1px; background: var(--clay); } /* bar */
+  .cg-cal-legend i.issue     { width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--import-red); } /* triangle */
 
   .cg-screen[data-cg-tab="schedule"] .cg-pane-schedule { display: flex; }
   .cg-screen[data-cg-tab="requests"] .cg-pane-requests { display: flex; }
@@ -5402,7 +5462,7 @@
   .cgr-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
   .cgr-sub { font-size: 14px; color: var(--text-2); margin-top: 3px; letter-spacing: -0.01em; }
   .cgr-close {
-    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
     background: rgba(118,118,128,0.24); border: 0; color: var(--text-2);
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; font-weight: 600; line-height: 1; padding: 0;
@@ -5486,7 +5546,7 @@
   .wbp-btn {
     position: relative;
     display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px;
+    width: 44px; height: 44px;
     border: 0; border-radius: 10px; background: transparent;
     padding: 0; cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -5530,7 +5590,7 @@
   .wbp-title { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
   .wbp-sub { font-size: 14px; color: var(--text-2); margin-top: 3px; letter-spacing: -0.01em; }
   .wbp-close {
-    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
     background: rgba(118,118,128,0.24); border: 0; color: var(--text-2);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; font-family: var(--font); -webkit-tap-highlight-color: transparent;
@@ -6026,6 +6086,10 @@
   <!-- Calendar grid (Month) -->
   <div class="cal-wrap" data-layout="month">
     <div class="cal-grid" id="calGrid"></div>
+    <!-- Key for the month grid. Populated per active view (Schedule / Fatigue /
+         Childcare / Couple) by renderCalLegend(); the persistent block-edge and
+         childcare-covered marks are always shown. -->
+    <div class="cal-legend" id="calLegend" aria-label="Calendar key"></div>
     <div class="cal-tooltip" id="calTooltipHover" style="display:none;"></div>
   </div>
   <!-- Dimmed backdrop behind the mobile day sheet; tap to dismiss. -->
@@ -7748,9 +7812,11 @@ function renderCaregiverCalendar() {
     const hasReq = reqs.length > 0;
 
     // Chip per request — short label "hh:mm". Cap to 2 visible, "+N" for the rest.
-    const chips = reqs.slice(0, 2).map(r =>
-      `<div class="cg-cal-chip ${r.status || "pending"}" title="${escapeHtml(r.startTime || "")} → ${escapeHtml(r.endTime || "")}">${escapeHtml(r.startTime || "")}</div>`
-    ).join("");
+    const chips = reqs.slice(0, 2).map(r => {
+      const st = r.status || "pending";
+      const stWord = st === "confirmed" ? "Accepted" : st === "declined" ? "Declined" : st === "issue" ? "Issue" : "Assigned";
+      return `<div class="cg-cal-chip ${st}" title="${stWord} · ${escapeHtml(r.startTime || "")} → ${escapeHtml(r.endTime || "")}"><span class="cgc-dot"></span><span class="cgc-label">${escapeHtml(r.startTime || "")}</span></div>`;
+    }).join("");
     const more = reqs.length > 2
       ? `<div class="cg-cal-chip" style="background:transparent;color:var(--text-dim);font-weight:600;">+${reqs.length - 2}</div>`
       : "";
@@ -7867,9 +7933,9 @@ function caregiverCardHTML(r) {
   const id = escapeHtml(r.id || "");
   const status = r.status || "pending";
   const statusLabel =
-    status === "confirmed" ? "Confirmed" :
+    status === "confirmed" ? "Accepted" :
     status === "declined"  ? "Declined"  :
-    status === "issue"     ? "Issue"     : "Pending";
+    status === "issue"     ? "Issue"     : "Assigned";
   // Friendly date
   let dayLabel = r.date || "";
   try {
@@ -12774,10 +12840,18 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
     const otIcon = cell.hasOT ? `<span class="cal-ot-icon" data-date="${dISO}" data-ot="1">&#9889;</span>` : "";
     const paydayIcons = paydayIconsForCell(dISO);
     const wvuIcon = wvuCellIconHTML(dISO);
-    const careClass = hasConfirmedCoverage(dISO) ? " has-confirmed-care" : "";
+    const covered = hasConfirmedCoverage(dISO);
+    const careClass = covered ? " has-confirmed-care" : "";
     const blockInfo = scheduleBlockFor(dISO);
-    const blockClass = blockInfo ? " has-block" : "";
-    const blockTitle = blockInfo ? ` title="${escapeAttr(blockInfo.label || "Schedule block")}"` : "";
+    // has-block gets the Clay left edge; block-open (no confirmed coverage)
+    // makes that edge dashed = "nobody has it yet".
+    const blockClass = blockInfo ? (covered ? " has-block" : " has-block block-open") : "";
+    // Tooltip carries the meaning for touch (native title has no touch affordance,
+    // but VoiceOver and desktop hover both read it, and it is the only text label).
+    const titleBits = [];
+    if (blockInfo) titleBits.push(`${blockInfo.label || "Schedule block"} — ${covered ? "covered" : "nobody yet"}`);
+    else if (covered) titleBits.push("Childcare covered");
+    const blockTitle = titleBits.length ? ` title="${escapeAttr(titleBits.join(" · "))}"` : "";
 
     html += `<div class="cal-cell${otherMonth ? " outside" : ""}${outside ? " outside" : ""}${isToday ? " today" : ""}${careClass}${blockClass}"
                   data-date="${dISO}" data-kind="${kind}" style="background:${bg}"${blockTitle}>
@@ -12789,8 +12863,35 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
   }
   document.getElementById("calGrid").innerHTML = html;
 
+  // Key for the tints of the active view + the persistent block/care marks.
+  renderCalLegend(view);
+
   // Wire tooltip handlers on cells (hover/click)
   _wireCellHandlers();
+}
+
+// Month-grid legend. The tint swatches follow the active view; the block-edge
+// and childcare-covered marks are constant. Swatch fills reuse the same --cal-*
+// tokens the cells use, so the key can never drift from the grid.
+function renderCalLegend(view) {
+  const el = document.getElementById("calLegend");
+  if (!el) return;
+  const sw = (bg, label) => `<span><i style="background:${bg}"></i>${label}</span>`;
+  let tints;
+  if (view === "fatigue") {
+    tints = sw("var(--cal-fatigue-ok)", "Rested") + sw("var(--cal-fatigue-mid)", "Short rest") + sw("var(--cal-fatigue-bad)", "Critical");
+  } else if (view === "childcare") {
+    tints = sw("var(--cal-care-ok)", "Covered") + sw("var(--cal-care-solo)", "One parent") + sw("var(--cal-care-gap)", "Gap — nobody");
+  } else if (view === "couple") {
+    tints = sw("var(--cal-couple-none)", "No shared time") + sw("var(--cal-couple-lo)", "Under 4h") + sw("var(--cal-couple-med)", "4–8h") + sw("var(--cal-couple-hi)", "8h+");
+  } else {
+    tints = sw("var(--cal-self)", "Gage works") + sw("var(--cal-partner)", "Kaylene works") + sw("var(--cal-both)", "Both work");
+  }
+  const marks =
+    `<span><i class="lg-edge"></i>Schedule block · covered</span>` +
+    `<span><i class="lg-edge-open"></i>Block · nobody yet</span>` +
+    `<span><i class="lg-care"></i>Childcare covered</span>`;
+  el.innerHTML = tints + marks;
 }
 
 function renderWeekView(gageEvts, kayEvts, daisyEvts, view) {
