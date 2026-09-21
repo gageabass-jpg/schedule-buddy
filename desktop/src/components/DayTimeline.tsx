@@ -153,11 +153,11 @@ export function DayTimeline({
           <div style={{ position: "relative", flex: 1, height: 20, background: trackBg, borderRadius: 7 }}>
             {daisy.map((r, i) => {
               const p = pos(r);
-              return <div key={i} style={{ position: "absolute", top: 2, bottom: 2, left: p.left, width: p.width, borderRadius: 6, background: DAISY_COLOR }} title="school — can't cover" />;
+              return <div key={i} style={{ position: "absolute", top: 2, bottom: 2, left: p.left, width: p.width, borderRadius: 6, background: DAISY_COLOR }} title="in class — can't cover" />;
             })}
           </div>
           <div style={{ width: 92, fontSize: 12, color: t.text3, textAlign: "right", flexShrink: 0 }}>
-            {spanLabel(daisy)} · school
+            {spanLabel(daisy)} · class
           </div>
         </div>
       )}

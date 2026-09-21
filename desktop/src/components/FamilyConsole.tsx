@@ -417,13 +417,13 @@ export function FamilyConsole({
                       {daisy.name || "Daisy"}
                     </div>
                     <div style={{ fontSize: 10.5, color: t.text3 }}>
-                      {daisy.shifts?.length ?? 0} school day{(daisy.shifts?.length ?? 0) === 1 ? "" : "s"} on file
+                      {daisy.shifts?.length ?? 0} class day{(daisy.shifts?.length ?? 0) === 1 ? "" : "s"} on file
                     </div>
                   </div>
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: t.text3, padding: "6px 2px" }}>
-                  No dependents yet. Import Daisy's school schedule from the sidebar to add her.
+                  No dependents yet. Import Daisy's class schedule from the sidebar to add her.
                 </div>
               )}
             </div>

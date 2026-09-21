@@ -38,11 +38,11 @@ export const SCHEDULE_IMPORTS: ScheduleImportDef[] = [
   },
   {
     id: "daisy-school",
-    label: "Daisy School Sch",
+    label: "Daisy Class Sch",
     target: "dependent-daisy",
     personLabel: "Daisy",
     parserHint:
-      "This is a school calendar for Daisy. Extract every date she is at school. A simple 'school' label is fine; flag half-days or no-school days separately if visible.",
+      "This is Daisy's college class schedule. Extract every date she has class. A simple 'class' label is fine; flag half-days or no-class days separately if visible.",
   },
 ];
 

@@ -414,15 +414,21 @@ export function MonthGrid({
                     )}
                     {blockByDate.has(key) && (
                       <div
-                        title={blockByDate.get(key)}
+                        title={`${blockByDate.get(key)} — ${confirmedCareDates.has(key) ? "covered" : "nobody yet"}`}
                         style={{
                           position: "absolute",
-                          inset: 0,
-                          borderRadius: 8,
-                          // Red diagonal stripes at 50% opacity. Two-color
-                          // repeating-linear-gradient: red stripe → transparent
-                          // → red stripe, on a 45° angle.
-                          background: "repeating-linear-gradient(135deg, rgba(255,69,58,0.5) 0px, rgba(255,69,58,0.5) 6px, rgba(255,69,58,0) 6px, rgba(255,69,58,0) 14px)",
+                          left: 0,
+                          top: 4,
+                          bottom: 4,
+                          width: 3,
+                          borderRadius: 3,
+                          // Clay left edge, replacing the red diagonal hatch. The
+                          // hatch carried meaning by hue alone (worst case for
+                          // red/green colour-blindness) and fought the shift chips.
+                          // Solid = the block is covered, dashed = nobody has it yet.
+                          background: confirmedCareDates.has(key)
+                            ? "#C56B52"
+                            : "repeating-linear-gradient(#C56B52 0, #C56B52 4px, transparent 4px, transparent 8px)",
                           pointerEvents: "none",
                         }}
                       />

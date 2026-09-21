@@ -201,9 +201,9 @@ export function CoverageRequestModal({
                     <HoursPill letter={selfName[0]?.toUpperCase() || "G"} text={startsLabel(info.selfStarts)} accent={palette.G} bg={rgba(palette.G, dark ? 0.22 : 0.12)} t={t} />
                     <HoursPill letter={partnerName[0]?.toUpperCase() || "K"} text={startsLabel(info.partnerStarts)} accent={palette.K} bg={rgba(palette.K, dark ? 0.24 : 0.12)} t={t} />
                     {daisyClash && (
-                      <span title="Daisy has school during this window — she may not be able to cover"
+                      <span title="Daisy has class during this window — she may not be able to cover"
                         style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#c77700" }}>
-                        ⚠ {daisyName} at school
+                        ⚠ {daisyName} in class
                       </span>
                     )}
                   </div>

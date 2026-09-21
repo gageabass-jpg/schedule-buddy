@@ -276,7 +276,7 @@ export function ChildcarePanel({
                       const clash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
                       return clash ? (
                         <div style={{ fontSize: 11.5, fontWeight: 600, color: "#c77700", display: "flex", alignItems: "center", gap: 5 }}>
-                          ⚠ {daisyName} has school {schoolLabel(clash)} — may not be able to cover
+                          ⚠ {daisyName} has class {schoolLabel(clash)} — may not be able to cover
                         </div>
                       ) : null;
                     })()}

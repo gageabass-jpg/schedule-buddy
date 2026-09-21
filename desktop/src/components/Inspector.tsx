@@ -362,7 +362,7 @@ export function Inspector({
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {daisySchool.length > 0 && (
             <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
-              Unavailable
+              Daisy in class {schoolSpanLabel(daisySchool)} — can't cover
             </div>
           )}
           {isChildcareOff && (
