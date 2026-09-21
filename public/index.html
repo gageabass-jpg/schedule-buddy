@@ -127,10 +127,10 @@
       --color-both: #14201E;
       --color-off: #56B7A9;       /* off / free — Teal-Mid, used for tints/rings only */
 
-      /* Who-works day washes echo each person's hue. */
-      --cal-self:    #D8E7E4;     /* Gage works → Teal-Tint */
-      --cal-partner: #EFDFDB;     /* Kaylene works → Clay-Tint */
-      --cal-both:    rgba(20,32,30,0.08);
+      --ok: #0F6E64;              /* success / confirmed → Teal */
+      --ot: #8A4B38;              /* overtime / alarm → Clay (no red token) */
+      /* NOTE: the --cal-* day tints live in a second :root block below and are
+         overridden for light there (they must, to beat that later block). */
     }
   }
   * { box-sizing: border-box; }
@@ -1060,6 +1060,32 @@
     --pill-medium: rgba(255, 159, 10, 0.75);
     --pill-long: rgba(255, 159, 10, 0.75);
     --pill-extra: rgba(255, 69, 58, 0.75);
+  }
+  /* Nucleus Paper overrides for the calendar tokens. This MUST come after the
+     :root above — same specificity, so source order decides, and the block
+     above would otherwise win in light and keep the old green/amber/red. */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --cal-self:    #D8E7E4;                 /* Gage → Teal-Tint */
+      --cal-partner: #EFDFDB;                 /* Kaylene → Clay-Tint */
+      --cal-both:    rgba(20,32,30,0.08);     /* Both / household → Ink wash */
+      /* Analytic ramps: Teal (good) ↔ Clay (attention), no green/amber/red. */
+      --cal-fatigue-ok:  rgba(15,110,100,0.16);
+      --cal-fatigue-mid: rgba(138,75,56,0.16);
+      --cal-fatigue-bad: rgba(138,75,56,0.34);
+      --cal-care-ok:     rgba(15,110,100,0.18);
+      --cal-care-solo:   rgba(138,75,56,0.16);
+      --cal-care-gap:    rgba(138,75,56,0.34);
+      --cal-couple-hi:   rgba(15,110,100,0.28);
+      --cal-couple-med:  rgba(15,110,100,0.15);
+      --cal-couple-lo:   rgba(138,75,56,0.14);
+      --cal-couple-none: rgba(138,75,56,0.30);
+      /* Shift-length pills follow the same diverging idea. */
+      --pill-short:  rgba(15,110,100,0.70);
+      --pill-medium: rgba(138,75,56,0.55);
+      --pill-long:   rgba(138,75,56,0.55);
+      --pill-extra:  rgba(138,75,56,0.80);
+    }
   }
 
   /* View-mode pill bar — iOS segmented control */
