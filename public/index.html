@@ -65,6 +65,7 @@
     --accent-hover: #7CCABF;
     --ot: #FF453A;
     --ok: #30D158;
+    --covered: #30D158;          /* confirmed-childcare bar (Teal in light) */
     /* Import-review accents — brighter green on the dark default. */
     --import-green: #30D158;
     --import-red: #FF453A;
@@ -83,28 +84,53 @@
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #F2F2F7;
-      --bg-elev: #FFFFFF;
-      --bg-elev2: #F2F2F7;
+      /* ============================================================
+         NUCLEUS PAPER UI — the design board "Schedule screen".
+         The light theme is the Nucleus target. Dark mode is left on
+         the prior scheme for now (recoloured in a later stage), so the
+         two can be compared side by side. All pairs below are measured:
+         Ink/Paper 15.5:1, Ink-Muted/Paper 5.5:1, Ink-Dim/Paper 4.9:1,
+         white on Teal/Clay/Ink-Muted 6.1 / 6.7 / 6.0:1.
+         ============================================================ */
+      --bg: #F7F6F3;              /* Paper — page ground */
+      --bg-elev: #FFFFFF;         /* Surface — cards, cells */
+      --bg-elev2: #EFEDE7;        /* Track — quiet fills */
       --panel: #FFFFFF;
-      --panel-2: #F2F2F7;
-      --border: rgba(60,60,67,0.18);
-      --sep: rgba(60,60,67,0.18);
-      --scrim: rgba(0,0,0,0.04);
-      --text: #000000;
-      --text-2: rgba(60,60,67,0.6);
-      /* Raised from 0.3 → 0.7 so captions/labels clear WCAG AA on white. */
-      --text-3: rgba(60,60,67,0.7);
-      --text-dim: rgba(60,60,67,0.6);
-      --brand: #0F6E64;
-      /* Clay reads at full strength on the light ground. */
+      --panel-2: #EFEDE7;
+      --border: #E2E0DA;          /* Line — 1px hairlines, not shadows */
+      --sep: #E2E0DA;
+      --scrim: rgba(20,32,30,0.05);
+      --text: #14201E;            /* Ink */
+      --text-2: #5A6663;          /* Ink-Muted */
+      --text-3: #6E6B64;          /* Ink-Dim */
+      --text-dim: #5A6663;
+      --brand: #0F6E64;           /* Teal — primary action */
       --clay: #8A4B38;
       --clay-tint: #EFDFDB;
       --accent-hover: #0A4F48;
-      --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
-      /* Deeper green on white for contrast (matches the proposed design). */
-      --import-green: #16A34A;
-      --import-red: #FF453A;
+      --shadow-card: 0 1px 2px rgba(20,32,30,0.05), 0 4px 16px rgba(20,32,30,0.05);
+      /* There is no red token — Clay is this system's alarm, Teal its "fine". */
+      --import-green: #0F6E64;
+      --import-red: #8A4B38;
+      --covered: #0F6E64;         /* confirmed-childcare bar → Teal on Paper */
+
+      /* Person palette (Nucleus): a person owns a hue. Gage Teal, Kaylene
+         Clay, Daisy Ink-Muted; "both / the household" is not a person, so it
+         takes Ink. Mirrored to the accent (--color-*) scheme so avatars,
+         chips and pills all agree in light mode. */
+      --person-g: #0F6E64;
+      --person-k: #8A4B38;
+      --person-both: #14201E;
+      --person-d: #5A6663;
+      --color-g: #0F6E64;
+      --color-k: #8A4B38;
+      --color-both: #14201E;
+      --color-off: #56B7A9;       /* off / free — Teal-Mid, used for tints/rings only */
+
+      /* Who-works day washes echo each person's hue. */
+      --cal-self:    #D8E7E4;     /* Gage works → Teal-Tint */
+      --cal-partner: #EFDFDB;     /* Kaylene works → Clay-Tint */
+      --cal-both:    rgba(20,32,30,0.08);
     }
   }
   * { box-sizing: border-box; }
@@ -1573,8 +1599,9 @@
     background-position: center;
   }
   .sb-avatar.k { background-color: var(--color-k); box-shadow: 0 0 0 1.5px var(--color-k); }
-  /* Daisy — supporting caregiver. Green to match avatarColor()'s mapping. */
-  .sb-avatar.d { background-color: var(--color-off); box-shadow: 0 0 0 1.5px var(--color-off); }
+  /* Daisy — supporting caregiver. Uses her own person hue (Ink-Muted in the
+     Nucleus light theme), not the "off/free" colour. */
+  .sb-avatar.d { background-color: var(--person-d); box-shadow: 0 0 0 1.5px var(--person-d); }
   .sb-avatar.both { background-color: var(--color-both); box-shadow: 0 0 0 1.5px var(--color-both); }
   .sb-avatar[data-photo="g"] { background-image: url("/assets/gage.jpg"); color: transparent; }
   .sb-avatar[data-photo="k"] { background-image: url("/assets/kaylene.jpeg"); color: transparent; }
@@ -2747,8 +2774,8 @@
     bottom: 3px;
     height: 3px;
     border-radius: 2px;
-    background: #30D158;
-    box-shadow: 0 0 4px rgba(48,209,88,0.5);
+    background: var(--covered);
+    box-shadow: 0 0 4px var(--covered);
     pointer-events: none;
   }
 
@@ -2776,7 +2803,7 @@
   .cal-legend i.lg-edge      { width: 3px; height: 14px; border: 0; border-radius: 3px; background: var(--clay); }
   .cal-legend i.lg-edge-open { width: 3px; height: 14px; border: 0; border-radius: 3px;
     background: repeating-linear-gradient(var(--clay) 0, var(--clay) 3px, transparent 3px, transparent 6px); }
-  .cal-legend i.lg-care      { width: 13px; height: 3px; border: 0; border-radius: 2px; background: #30D158; }
+  .cal-legend i.lg-care      { width: 13px; height: 3px; border: 0; border-radius: 2px; background: var(--covered); }
 
   /* Schedule-block edge — a 3px Clay rule down the LEFT of any cell inside an
      active block range. Replaces the old red diagonal hatch, which carried the
@@ -12154,9 +12181,13 @@ function eventInitial(who) {
 // from the accent palette (--color-*, blue/pink) used for avatars + chat, which
 // is a separate deliberate scheme. Values match the --person-* CSS tokens.
 const PERSON_HEX = { G: "#30D158", K: "#BF5AF2", Daisy: "#0A84FF", family: "#5E5CE6" };
+// DOM-facing person colours resolve through the CSS tokens, so life-event chips
+// follow the active theme (Nucleus Paper in light, iOS-style in dark) exactly
+// like the shift pills do. The literal PERSON_HEX above is only for the widget
+// snapshot, which crosses into Swift and cannot read a CSS variable.
+const PERSON_VAR = { G: "var(--person-g)", K: "var(--person-k)", Daisy: "var(--person-d)", family: "var(--person-both)" };
 function eventCSSColor(who) {
-  // Gage green, Kaylene purple, Daisy blue, family indigo.
-  return PERSON_HEX[who] || "var(--text-2)";
+  return PERSON_VAR[who] || "var(--text-2)";
 }
 /** Outlined chip used in Agenda rows + Today ribbon (room for the full title). */
 function eventChipHTML(ev) {
@@ -13665,7 +13696,7 @@ function showCalTooltip(cellEl, dateISO, evt, pinned) {
       <div class="dds-people">
         ${_ddsPersonRow(self, "var(--color-g)", gageEvts)}
         ${_ddsPersonRow(partner, "var(--color-k)", kayEvts)}
-        ${daisyEvts.length ? _ddsPersonRow(daisyName, "#30D158", daisyEvts) : ""}
+        ${daisyEvts.length ? _ddsPersonRow(daisyName, "var(--person-d)", daisyEvts) : ""}
       </div>
       <div class="dds-metrics">
         ${_ddsRestTile(`Rest · ${escapeHTML(self)}`, da.restG != null ? da.restG : null)}
