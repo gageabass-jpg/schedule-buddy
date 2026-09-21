@@ -1281,9 +1281,9 @@
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   }
-  .week-rail-block[data-who="G"]   { background: rgba(48,209,88,0.30);   color: var(--text); border-left-color: var(--person-g); }
-  .week-rail-block[data-who="K"]   { background: rgba(191,90,242,0.30);  color: var(--text); border-left-color: var(--person-k); }
-  .week-rail-block[data-who="G+K"] { background: rgba(94,92,230,0.30);   color: var(--text); border-left-color: var(--person-both); }
+  .week-rail-block[data-who="G"]   { background: color-mix(in srgb, var(--person-g) 30%, transparent);    color: var(--text); border-left-color: var(--person-g); }
+  .week-rail-block[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 30%, transparent);    color: var(--text); border-left-color: var(--person-k); }
+  .week-rail-block[data-who="G+K"] { background: color-mix(in srgb, var(--person-both) 30%, transparent); color: var(--text); border-left-color: var(--person-both); }
   @media (prefers-color-scheme: dark) {
     .week-rail-block { color: #fff; }
   }
@@ -1420,10 +1420,10 @@
   .agenda-ev-pill:active { transform: scale(0.95); }
   .agenda-ev-pill .sb-avatar { width: 24px; height: 24px; font-size: 10px; }
   .agenda-ev-pill .ev-leaf { width: 14px; height: 14px; display: block; }
-  .agenda-ev-pill[data-who="G"]      { background: rgba(48,209,88,0.16);   border-color: rgba(48,209,88,0.42); }
-  .agenda-ev-pill[data-who="K"]      { background: rgba(191,90,242,0.16);  border-color: rgba(191,90,242,0.42); }
-  .agenda-ev-pill[data-who="Daisy"]  { background: rgba(10,132,255,0.16);  border-color: rgba(10,132,255,0.42); }
-  .agenda-ev-pill[data-who="family"] { background: rgba(94,92,230,0.16);   border-color: rgba(94,92,230,0.42); }
+  .agenda-ev-pill[data-who="G"]      { background: color-mix(in srgb, var(--person-g) 16%, transparent);    border-color: color-mix(in srgb, var(--person-g) 42%, transparent); }
+  .agenda-ev-pill[data-who="K"]      { background: color-mix(in srgb, var(--person-k) 16%, transparent);    border-color: color-mix(in srgb, var(--person-k) 42%, transparent); }
+  .agenda-ev-pill[data-who="Daisy"]  { background: color-mix(in srgb, var(--person-d) 16%, transparent);    border-color: color-mix(in srgb, var(--person-d) 42%, transparent); }
+  .agenda-ev-pill[data-who="family"] { background: color-mix(in srgb, var(--person-both) 16%, transparent); border-color: color-mix(in srgb, var(--person-both) 42%, transparent); }
 
   /* ===== Life-event detail bottom sheet ===== */
   .event-sheet-backdrop {
@@ -1524,12 +1524,12 @@
     filter: blur(24px);
     pointer-events: none;
   }
-  .today-ribbon[data-kind="g"]    { border-color: rgba(48,209,88,0.4);  background: linear-gradient(135deg, rgba(48,209,88,0.26),  rgba(48,209,88,0.10)); }
-  .today-ribbon[data-kind="g"]::before    { background: rgba(48,209,88,0.18); }
-  .today-ribbon[data-kind="k"]    { border-color: rgba(191,90,242,0.4); background: linear-gradient(135deg, rgba(191,90,242,0.26), rgba(191,90,242,0.10)); }
-  .today-ribbon[data-kind="k"]::before    { background: rgba(191,90,242,0.18); }
-  .today-ribbon[data-kind="both"] { border-color: rgba(94,92,230,0.4);  background: linear-gradient(135deg, rgba(94,92,230,0.26),  rgba(94,92,230,0.10)); }
-  .today-ribbon[data-kind="both"]::before { background: rgba(94,92,230,0.18); }
+  .today-ribbon[data-kind="g"]    { border-color: color-mix(in srgb, var(--person-g) 40%, transparent);  background: linear-gradient(135deg, color-mix(in srgb, var(--person-g) 26%, transparent),  color-mix(in srgb, var(--person-g) 10%, transparent)); }
+  .today-ribbon[data-kind="g"]::before    { background: color-mix(in srgb, var(--person-g) 18%, transparent); }
+  .today-ribbon[data-kind="k"]    { border-color: color-mix(in srgb, var(--person-k) 40%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--person-k) 26%, transparent), color-mix(in srgb, var(--person-k) 10%, transparent)); }
+  .today-ribbon[data-kind="k"]::before    { background: color-mix(in srgb, var(--person-k) 18%, transparent); }
+  .today-ribbon[data-kind="both"] { border-color: color-mix(in srgb, var(--person-both) 40%, transparent);  background: linear-gradient(135deg, color-mix(in srgb, var(--person-both) 26%, transparent),  color-mix(in srgb, var(--person-both) 10%, transparent)); }
+  .today-ribbon[data-kind="both"]::before { background: color-mix(in srgb, var(--person-both) 18%, transparent); }
   .today-ribbon[data-kind="off"]  { border-color: rgba(142,142,147,0.35); background: linear-gradient(135deg, rgba(142,142,147,0.20), rgba(142,142,147,0.08)); }
   .today-ribbon[data-kind="off"]::before  { background: rgba(142,142,147,0.18); }
   .today-ribbon-inner { position: relative; }
@@ -1617,16 +1617,16 @@
     height: 26px;
     padding: 0 10px;
     border-radius: 13px;
-    background: rgba(10,132,255,0.22);
+    background: color-mix(in srgb, var(--person-d) 22%, transparent);
     color: var(--text);
     font-size: 13px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    box-shadow: inset 0 0 0 0.5px rgba(48,209,88,0.4);
+    box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--person-g) 40%, transparent);
     white-space: nowrap;
   }
-  .sb-chip[data-who="K"]   { background: rgba(191,90,242,0.22); box-shadow: inset 0 0 0 0.5px rgba(191,90,242,0.4); }
-  .sb-chip[data-who="G+K"] { background: rgba(94,92,230,0.22);  box-shadow: inset 0 0 0 0.5px rgba(94,92,230,0.4); }
+  .sb-chip[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 22%, transparent);    box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--person-k) 40%, transparent); }
+  .sb-chip[data-who="G+K"] { background: color-mix(in srgb, var(--person-both) 22%, transparent); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--person-both) 40%, transparent); }
   .sb-chip-dot {
     width: 6px;
     height: 6px;
@@ -1987,10 +1987,10 @@
     z-index: 2;
     border-left: 3px solid transparent;
   }
-  .day-block[data-who="G"]   { background: rgba(48,209,88,0.22);   border-left-color: var(--person-g); }
-  .day-block[data-who="K"]   { background: rgba(191,90,242,0.22);  border-left-color: var(--person-k); }
-  .day-block[data-who="D"]   { background: rgba(10,132,255,0.22);  border-left-color: var(--person-d); }
-  .day-block[data-who="G+K"] { background: rgba(94,92,230,0.22);   border-left-color: var(--person-both); }
+  .day-block[data-who="G"]   { background: color-mix(in srgb, var(--person-g) 22%, transparent);    border-left-color: var(--person-g); }
+  .day-block[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 22%, transparent);    border-left-color: var(--person-k); }
+  .day-block[data-who="D"]   { background: color-mix(in srgb, var(--person-d) 22%, transparent);    border-left-color: var(--person-d); }
+  .day-block[data-who="G+K"] { background: color-mix(in srgb, var(--person-both) 22%, transparent); border-left-color: var(--person-both); }
   .day-block .title {
     font-size: 12px; font-weight: 700;
     letter-spacing: -0.01em;
