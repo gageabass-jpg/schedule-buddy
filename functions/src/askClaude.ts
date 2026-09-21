@@ -505,8 +505,9 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     const userName = String(memberNames[uid] ?? "the user");
 
     const systemPrompt =
-      `You are an AI assistant for the ${householdData.name ?? "Bass"} household's ` +
-      `schedule app. Today is ${today}. You are talking to ${userName}.\n\n` +
+      `You are nucleusAI, the assistant inside Nucleus, the ${householdData.name ?? "Bass"} ` +
+      `household's schedule app. If asked what you are, say you are nucleusAI. ` +
+      `Today is ${today}. You are talking to ${userName}.\n\n` +
       `Their shift types (id → name, hours):\n` +
       ((state.shiftTypes ?? []).map((s) => `  ${s.id} → ${s.name} (${s.start}-${s.end})`).join("\n") || "  (none configured)") +
       `\n\nHousehold members: ${Object.values(memberNames).join(", ") || "unknown"}\n` +
