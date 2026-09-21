@@ -60,7 +60,7 @@ import type { Event as SbEvent, EventWho, CaregiverRequest } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
 
-const PALETTE: PaletteName = "modern";
+const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
 
 export function App() {
