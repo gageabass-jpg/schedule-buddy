@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import { buildShiftMap, compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
-import { dayColors, eventColor, lifeColor, personColor, rgba, type Palette, type ThemeTokens } from "../theme";
+import { dayColors, eventColor, lifeColor, personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
@@ -165,7 +165,7 @@ export function Inspector({
         }}
       >
         <div style={subhead(t)}>{dayLabel}</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 2 }}>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 18, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 2 }}>
           {kind === "off"
             ? "Both off"
             : kind === "both"

@@ -4,6 +4,7 @@ import type { HouseholdState } from "../state";
 import { compactTime } from "../state";
 import type { ShiftSource } from "../data";
 import { editShift } from "../lib/writeShift";
+import { BRAND_FONT } from "./BrandMark";
 
 export interface EditShiftTarget {
   date: string;
@@ -97,7 +98,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
           fontFamily: "inherit",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Edit shift</div>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 4 }}>Edit shift</div>
         <div style={{ fontSize: 12, color: t.text2, marginBottom: 14 }}>
           {personName} · {target.date}
         </div>
