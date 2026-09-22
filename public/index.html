@@ -12248,7 +12248,7 @@ function eventInitial(who) {
 // from it, so those surfaces can no longer silently drift apart. Kept distinct
 // from the accent palette (--color-*, blue/pink) used for avatars + chat, which
 // is a separate deliberate scheme. Values match the --person-* CSS tokens.
-const PERSON_HEX = { G: "#30D158", K: "#BF5AF2", Daisy: "#0A84FF", family: "#5E5CE6" };
+const PERSON_HEX = { G: "#0F6E64", K: "#8A4B38", Daisy: "#5A6663", family: "#14201E" };
 // DOM-facing person colours resolve through the CSS tokens, so life-event chips
 // follow the active theme (Nucleus Paper in light, iOS-style in dark) exactly
 // like the shift pills do. The literal PERSON_HEX above is only for the widget
@@ -12777,9 +12777,8 @@ function buildWidgetSnapshot() {
   return {
     generatedAt: Date.now(),
     people: {
-      // Widget-facing colors — must match `Palette` in the widget extension's
-      // WidgetHelpers.swift (green / purple). Deliberately NOT the web app's
-      // own --color-g / --color-k, which stay blue / pink.
+      // Widget-facing colors — Nucleus person palette (Gage Teal, Kaylene Clay).
+      // Must match `Palette` in the widget extension's WidgetHelpers.swift.
       G: { name: state.selfName || "Gage", hex: PERSON_HEX.G },
       K: { name: (state.partner && state.partner.name) || "Kaylene", hex: PERSON_HEX.K },
     },

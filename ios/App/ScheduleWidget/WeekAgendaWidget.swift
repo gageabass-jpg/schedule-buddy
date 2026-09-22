@@ -51,7 +51,7 @@ struct WeekAgendaView: View {
                     ForEach(Array(day.shifts.enumerated()), id: \.offset) { _, s in shiftChip(s) }
                     if isGap {
                         Text("gap")
-                            .font(.system(size: 11, weight: .semibold)).foregroundColor(Color(hex: "#C67A0A"))
+                            .font(.system(size: 11, weight: .semibold)).foregroundColor(Color(hex: "#8A4B38"))
                             .padding(.horizontal, 9).padding(.vertical, 3)
                             .background(RoundedRectangle(cornerRadius: 8).stroke(Palette.gap, style: StrokeStyle(lineWidth: 1, dash: [3])))
                     }
@@ -63,7 +63,7 @@ struct WeekAgendaView: View {
             }
             .padding(.vertical, 9)
             if !isLast {
-                Rectangle().fill(Color(hex: "#F4F4F6")).frame(height: 1)
+                Rectangle().fill(Color(hex: "#F7F6F3")).frame(height: 1)
             }
         }
     }
@@ -100,7 +100,7 @@ struct WeekAgendaView: View {
 
             Spacer(minLength: 8)
 
-            Divider().overlay(Color(hex: "#F0F0F3"))
+            Divider().overlay(Color(hex: "#E2E0DA"))
             HStack {
                 totalLabel(color: Palette.gage, name: snap?.person("G").name ?? "Gage",
                            value: String(format: "%.1fh", gageHours))
@@ -118,7 +118,7 @@ struct WeekAgendaView: View {
     private func totalLabel(color: Color, name: String, value: String) -> some View {
         HStack(spacing: 7) {
             RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 9, height: 9)
-            Text(name).font(.system(size: 13)).foregroundColor(Color(hex: "#6E6E76"))
+            Text(name).font(.system(size: 13)).foregroundColor(Color(hex: "#5A6663"))
             Text(value).font(.system(size: 13, weight: .bold)).foregroundColor(Palette.ink)
         }
     }

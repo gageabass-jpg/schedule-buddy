@@ -62,14 +62,14 @@ struct TodayWidgetView: View {
                     avatar(who)
                     Text(name).font(.system(size: 22, weight: .bold)).tracking(-0.4).foregroundColor(Palette.ink)
                 }
-                Text("works today").font(.system(size: 14)).foregroundColor(Color(hex: "#6E6E76"))
+                Text("works today").font(.system(size: 14)).foregroundColor(Color(hex: "#5A6663"))
                 Spacer(minLength: 10)
                 HStack(spacing: 8) {
                     Text("Starts \(solo.label)")
                         .font(.system(size: 13, weight: .semibold)).foregroundColor(.white)
                         .padding(.horizontal, 11).padding(.vertical, 5)
                         .background(Capsule().fill(Palette.color(for: who)))
-                    Text("\(otherName.prefix(1)) off").font(.system(size: 12.5)).foregroundColor(Color(hex: "#B4B4BC"))
+                    Text("\(otherName.prefix(1)) off").font(.system(size: 12.5)).foregroundColor(Color(hex: "#A9B3B0"))
                 }
             } else {
                 // Nobody working

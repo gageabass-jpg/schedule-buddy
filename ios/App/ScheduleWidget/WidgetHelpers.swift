@@ -21,35 +21,37 @@ extension Color {
     }
 }
 
-/// Brand palette shared across the widgets.
+/// Nucleus palette shared across the widgets. A person owns a hue: Gage Teal,
+/// Kaylene Clay, Daisy Ink-Muted; the couple/household is Ink. No red/amber/green
+/// — Clay is the alarm, Teal is "fine".
 enum Palette {
-    static let gage    = Color(hex: "#30D158")   // green
-    static let kaylene = Color(hex: "#BF5AF2")   // purple
-    static let couple  = Color(hex: "#AF52DE")   // purple
-    static let covered = Color(hex: "#34C759")   // green
-    static let gap     = Color(hex: "#E8890C")   // amber
-    static let ink     = Color(hex: "#16161A")
-    static let subtle  = Color(hex: "#9A9AA2")
+    static let gage    = Color(hex: "#0F6E64")   // Teal
+    static let kaylene = Color(hex: "#8A4B38")   // Clay
+    static let couple  = Color(hex: "#14201E")   // Ink
+    static let covered = Color(hex: "#0F6E64")   // Teal
+    static let gap     = Color(hex: "#8A4B38")   // Clay (attention)
+    static let ink     = Color(hex: "#14201E")   // Ink
+    static let subtle  = Color(hex: "#5A6663")   // Ink-Muted
 
     // Two-week outlook (concept 2a) tokens.
-    static let quaternary  = Color(hex: "#A0A0A8")   // weekday letters
-    static let cellBg      = Color(hex: "#F7F8FA")   // day cell background
-    static let offBar      = Color(hex: "#EDEDF0")   // not working
-    static let gapText     = Color(hex: "#C67A0A")
-    static let gapBg       = Color(hex: "#FFF6EC")
-    static let gapBadgeBg  = Color(hex: "#FFF1DC")
-    static let gapBar      = Color(hex: "#FBE2C0")   // uncovered person's bar
-    static let hairline    = Color(hex: "#F0F0F3")
+    static let quaternary  = Color(hex: "#6E6B64")   // Ink-Dim — weekday letters
+    static let cellBg      = Color(hex: "#FFFFFF")   // Surface — day cell background
+    static let offBar      = Color(hex: "#EFEDE7")   // Track — not working
+    static let gapText     = Color(hex: "#8A4B38")   // Clay
+    static let gapBg       = Color(hex: "#EFDFDB")   // Clay-Tint
+    static let gapBadgeBg  = Color(hex: "#EFDFDB")   // Clay-Tint
+    static let gapBar      = Color(hex: "#D78F77")   // Clay-Light — uncovered person's bar
+    static let hairline    = Color(hex: "#E2E0DA")   // Line
 
     // Caregiver (Daisy) widget tokens — concepts 1b / 3a / 3b / 3c.
-    static let daisy        = Color(hex: "#FF3B5C")
-    static let daisyBg      = Color(hex: "#FFF0F3")
-    static let daisyBorder  = Color(hex: "#FFD9E0")
-    static let greenText    = Color(hex: "#1F9D57")
-    static let greenPillBg  = Color(hex: "#E4F7EC")
-    static let secondary    = Color(hex: "#6E6E76")
-    static let muted        = Color(hex: "#B4B4BC")
-    static let neutralFill  = Color(hex: "#F2F2F5")
+    static let daisy        = Color(hex: "#5A6663")  // Ink-Muted
+    static let daisyBg       = Color(hex: "#EFEDE7") // Track
+    static let daisyBorder   = Color(hex: "#E2E0DA") // Line
+    static let greenText     = Color(hex: "#0F6E64") // Teal
+    static let greenPillBg   = Color(hex: "#D8E7E4") // Teal-Tint
+    static let secondary     = Color(hex: "#5A6663") // Ink-Muted
+    static let muted         = Color(hex: "#A9B3B0") // Grey
+    static let neutralFill   = Color(hex: "#EFEDE7") // Track
 
     static func color(for who: String) -> Color { who == "G" ? gage : kaylene }
 }

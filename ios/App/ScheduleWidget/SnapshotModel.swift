@@ -65,7 +65,7 @@ struct WidgetSnapshot: Codable {
 
     func person(_ who: String) -> Person {
         people?[who] ?? Person(name: who == "G" ? "Gage" : "Kaylene",
-                              hex: who == "G" ? "#0A84FF" : "#FF375F")
+                              hex: who == "G" ? "#0F6E64" : "#8A4B38")
     }
 
     func day(on date: Date) -> Day? {

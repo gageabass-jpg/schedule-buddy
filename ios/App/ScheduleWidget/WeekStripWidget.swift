@@ -35,7 +35,7 @@ struct WeekStripView: View {
         return VStack(spacing: 4) {
             Text(d.map(WidgetDate.weekdayInitial) ?? "")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(isToday ? Palette.gage : Color(hex: "#A0A0A8"))
+                .foregroundColor(isToday ? Palette.gage : Color(hex: "#6E6B64"))
             Text(d.map(WidgetDate.dayNumber) ?? "")
                 .font(.system(size: 13, weight: isToday ? .heavy : .bold))
                 .foregroundColor(isToday ? Palette.gage : Palette.ink)
