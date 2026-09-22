@@ -85,6 +85,11 @@ export function Inspector({
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const daisySchool = state ? daisyDayRanges(state, selected) : [];
 
+  // Overview rail tabs (design boards): the header stays tied to the tapped
+  // day; the tabs below switch the broader view (Month / Childcare / Life).
+  const [railTab, setRailTab] = useState<"month" | "childcare" | "life">("month");
+  const lifeCount = events.filter((e) => !e.healthId).length;
+
   return (
     <div
       style={{
@@ -356,7 +361,8 @@ export function Inspector({
         </div>
       )}
 
-      {/* Childcare coverage for the selected day */}
+      {/* Childcare tab — coverage for the selected day */}
+      {railTab === "childcare" && (
       <div>
         <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -524,6 +530,7 @@ export function Inspector({
           )}
         </div>
       </div>
+      )}
 
       {/* Health-calendar appointments for the selected day (styled distinctly). */}
       {events.some((e) => e.healthId) && (
@@ -553,7 +560,8 @@ export function Inspector({
         </div>
       )}
 
-      {/* Events for the selected day */}
+      {/* Life tab — events for the selected day */}
+      {railTab === "life" && (
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
           <span style={subhead(t)}>Life</span>
@@ -648,21 +656,116 @@ export function Inspector({
           })}
         </div>
       </div>
+      )}
 
-      {/* Fatigue heatmap */}
-      <FatigueHeatmap
-        shifts={allShifts}
-        state={state}
-        anchorDate={selected}
+      {/* Month tab — fatigue heatmap + this-month totals */}
+      {railTab === "month" && (
+      <>
+        <FatigueHeatmap
+          shifts={allShifts}
+          state={state}
+          anchorDate={selected}
+          t={t}
+          onSelectDate={onSelectDate}
+        />
+        <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+      </>
+      )}
+
+      {/* Childcare tab — running total of confirmed coverage hours */}
+      {railTab === "childcare" && (
+        <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+      )}
+
+      {/* Bottom tab bar — Month / Childcare / Life (design boards) */}
+      <InspectorTabBar
+        tab={railTab}
+        onTab={setRailTab}
+        childcareCount={coverageNeedsCount}
+        lifeCount={lifeCount}
         t={t}
-        onSelectDate={onSelectDate}
       />
+    </div>
+  );
+}
 
-      {/* This Month — totals + shift-type breakdown */}
-      <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
-
-      {/* Caregiver Coverage Analysis — running total of confirmed coverage hours */}
-      <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+// Bottom segmented control for the Inspector rail. Pinned to the base of the
+// scroll area; the selected tab reads as a white card with Teal label.
+function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
+  tab: "month" | "childcare" | "life";
+  onTab: (t: "month" | "childcare" | "life") => void;
+  childcareCount: number;
+  lifeCount: number;
+  t: ThemeTokens;
+}) {
+  const tabs: Array<{ key: "month" | "childcare" | "life"; label: string; count: number }> = [
+    { key: "month", label: "Month", count: 0 },
+    { key: "childcare", label: "Childcare", count: childcareCount },
+    { key: "life", label: "Life", count: lifeCount },
+  ];
+  return (
+    <div
+      style={{
+        position: "sticky",
+        bottom: 0,
+        marginTop: "auto",
+        display: "flex",
+        gap: 4,
+        padding: 4,
+        borderRadius: 12,
+        background: t.bgElev,
+        border: `0.5px solid ${t.sep}`,
+      }}
+    >
+      {tabs.map((x) => {
+        const active = tab === x.key;
+        return (
+          <button
+            key={x.key}
+            type="button"
+            onClick={() => onTab(x.key)}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "7px 4px",
+              borderRadius: 9,
+              border: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: 12.5,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              background: active ? t.bgElev2 : "transparent",
+              color: active ? "#0F6E64" : t.text2,
+              boxShadow: active ? `inset 0 0 0 1px ${t.sep}` : "none",
+            }}
+          >
+            {x.label}
+            {x.count > 0 && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  minWidth: 15,
+                  height: 15,
+                  padding: "0 4px",
+                  borderRadius: 999,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: active ? "#0F6E64" : t.sep,
+                  color: active ? "#fff" : t.text2,
+                }}
+              >
+                {x.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
