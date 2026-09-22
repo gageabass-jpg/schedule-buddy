@@ -5981,15 +5981,6 @@
         <button class="signout-btn" id="signOutBtnDesktop">Sign out</button>
       </div>
       <button class="notif-btn desktop-only" id="notifBell" title="Notifications">&#128276;<span class="notif-badge" id="notifBadge" style="display:none;">0</span></button>
-      <!-- Mobile: In-Basket Messages, sits left of the avatar pair. Replaces
-           the old Chat bottom tab. -->
-      <button class="inbox-btn mobile-only" id="inboxBtn" type="button" aria-label="In-Basket Messages">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M3 13h4l1.5 3h7L17 13h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M5.2 5.5h13.6a2 2 0 0 1 1.9 1.4L23 13v4a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-4l2.3-6.1a2 2 0 0 1 1.9-1.4z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-        </svg>
-        <span class="inbox-badge" id="inboxBtnBadge" hidden></span>
-      </button>
       <!-- Mobile: post a note to the wall display's message board. Available
            to every role, including supporting caregivers. -->
       <button class="wbp-btn mobile-only" id="wallPostBtn" type="button" aria-label="Post to wall message board">
@@ -6352,20 +6343,6 @@
     </div>
   </div><!-- /.pane-childcare -->
 
-  <!-- ===== Chat pane (replaces Stats in the manager bottom-bar) ===== -->
-  <div class="pane-chat" id="paneChat">
-    <header class="chat-header">
-      <div class="chat-header-title">In-Basket Messages</div>
-      <div class="chat-header-sub" id="chatHeaderSub">Everyone in the household</div>
-    </header>
-    <div class="chat-scroll" id="chatScroll">
-      <div class="chat-empty">No messages yet. Be the first to say hi.</div>
-    </div>
-    <div class="chat-composer">
-      <textarea class="chat-input" id="chatInput" rows="1" placeholder="Message…"></textarea>
-      <button type="button" class="chat-send" id="chatSendBtn" disabled>Send</button>
-    </div>
-  </div>
 
   <!-- ===== Ask Claude modal (manager-only natural-language schedule editor) ===== -->
   <div class="ask-modal-backdrop" id="askBackdrop"></div>
@@ -6699,17 +6676,6 @@
     </div>
   </div>
 
-  <!-- CHAT pane: family chat (caregiver-side) -->
-  <div class="cg-pane cg-pane-chat" id="cgPaneChat">
-    <div class="chat-scroll" id="cgChatScroll">
-      <div class="chat-empty">No messages yet. Say hi to the family.</div>
-    </div>
-    <div class="chat-composer">
-      <textarea class="chat-input" id="cgChatInput" rows="1" placeholder="Message…"></textarea>
-      <button type="button" class="chat-send" id="cgChatSendBtn" disabled>Send</button>
-    </div>
-  </div>
-
   <!-- PROFILE pane: name / email / actions / sign out / delete account -->
   <div class="cg-pane cg-pane-profile" id="cgPaneProfile">
     <!-- Main profile view -->
@@ -6781,13 +6747,6 @@
         </svg>
         <span class="cg-tab-label">Requests</span>
         <span class="cg-tab-badge" id="cgRequestsBadge" hidden></span>
-      </button>
-      <button type="button" class="cg-tab" data-cg-tab-btn="chat" aria-label="Chat">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.4 9.4 0 0 1-4.4-1L3 20l1.3-3.9A8.4 8.4 0 1 1 21 11.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-        </svg>
-        <span class="cg-tab-label">In-Basket</span>
-        <span class="cg-tab-badge" id="cgChatBadge" hidden></span>
       </button>
       <button type="button" class="cg-tab" data-cg-tab-btn="profile" aria-label="Profile">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -7518,15 +7477,6 @@ function handlePushTap(data) {
         }
       }
     }
-    return;
-  }
-
-  // --- In-Basket Messages — route straight to the thread, either role.
-  // Without this, a chat push fell into the manager catch-all below (opening
-  // Childcare) and did nothing at all for the caregiver.
-  if (kind === "chat_message") {
-    if (userRole === "supporting") setCaregiverTab("chat");
-    else setMobileTab("chat");   // also marks the thread read
     return;
   }
 
@@ -8271,6 +8221,10 @@ async function markChatReadNow() {
 }
 
 function initChat() {
+  // In-Basket Messages was removed (never used). Keep this as a no-op so the
+  // enterApp call sites stay intact and no chat listener is ever registered.
+  return;
+  // eslint-disable-next-line no-unreachable
   if (!householdId || !currentUser) return;
   if (_chatUnsub) _chatUnsub();
   if (_chatReadUnsub) _chatReadUnsub();
@@ -14632,11 +14586,6 @@ function setMobileTab(tab) {
 document.querySelectorAll(".bottom-tab").forEach(btn => {
   btn.addEventListener("click", () => setMobileTab(btn.dataset.tab));
 });
-// In-Basket Messages opens from the header rather than a bottom tab. The
-// header hides inside the chat pane, so the remaining tabs are the way back.
-const _inboxBtn = document.getElementById("inboxBtn");
-if (_inboxBtn) _inboxBtn.addEventListener("click", () => setMobileTab("chat"));
-
 // Swipe in from the left edge to go back to Schedule. The chat pane hides the
 // header (and its inbox button), so this restores the familiar iOS back
 // gesture instead of forcing a trip to the bottom tabs.
