@@ -1264,9 +1264,9 @@
   }
   .week-day-cell.today .wd-name,
   .week-day-cell.today .wd-num { color: #fff; }
-  .week-day-cell.today[data-kind="g"]    { background: #30D158; }
-  .week-day-cell.today[data-kind="k"]    { background: #BF5AF2; }
-  .week-day-cell.today[data-kind="both"] { background: #5E5CE6; }
+  .week-day-cell.today[data-kind="g"]    { background: var(--person-g); }
+  .week-day-cell.today[data-kind="k"]    { background: var(--person-k); }
+  .week-day-cell.today[data-kind="both"] { background: var(--person-both); }
   .week-day-cell.today[data-kind="off"]  { background: var(--text-2); }
   .week-rail {
     position: relative;
@@ -1323,7 +1323,7 @@
     line-height: 1.1;
     border-left: 3px solid;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    box-shadow: none;
   }
   .week-rail-block[data-who="G"]   { background: color-mix(in srgb, var(--person-g) 30%, transparent);    color: var(--text); border-left-color: var(--person-g); }
   .week-rail-block[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 30%, transparent);    color: var(--text); border-left-color: var(--person-k); }
@@ -1350,9 +1350,9 @@
     box-shadow: var(--shadow-card);
   }
   .agenda-row.today                      { border-color: var(--color-g); }
-  .agenda-row.today[data-kind="g"]       { border-color: #30D158; }
-  .agenda-row.today[data-kind="k"]       { border-color: #BF5AF2; }
-  .agenda-row.today[data-kind="both"]    { border-color: #5E5CE6; }
+  .agenda-row.today[data-kind="g"]       { border-color: var(--person-g); }
+  .agenda-row.today[data-kind="k"]       { border-color: var(--person-k); }
+  .agenda-row.today[data-kind="both"]    { border-color: var(--person-both); }
   .agenda-date {
     width: 50px;
     text-align: center;
@@ -1377,11 +1377,11 @@
     letter-spacing: 0.04em;
   }
   .agenda-row.today .ad-dow,
-  .agenda-row.today .ad-num { color: #30D158; }
+  .agenda-row.today .ad-num { color: var(--person-g); }
   .agenda-row.today[data-kind="k"]    .ad-dow,
-  .agenda-row.today[data-kind="k"]    .ad-num { color: #BF5AF2; }
+  .agenda-row.today[data-kind="k"]    .ad-num { color: var(--person-k); }
   .agenda-row.today[data-kind="both"] .ad-dow,
-  .agenda-row.today[data-kind="both"] .ad-num { color: #5E5CE6; }
+  .agenda-row.today[data-kind="both"] .ad-num { color: var(--person-both); }
   .agenda-rail {
     width: 3px;
     align-self: stretch;
@@ -1389,9 +1389,9 @@
     background: var(--text-3);
     flex-shrink: 0;
   }
-  .agenda-row[data-kind="g"]    .agenda-rail { background: #30D158; }
-  .agenda-row[data-kind="k"]    .agenda-rail { background: #BF5AF2; }
-  .agenda-row[data-kind="both"] .agenda-rail { background: #5E5CE6; }
+  .agenda-row[data-kind="g"]    .agenda-rail { background: var(--person-g); }
+  .agenda-row[data-kind="k"]    .agenda-rail { background: var(--person-k); }
+  .agenda-row[data-kind="both"] .agenda-rail { background: var(--person-both); }
   .agenda-body { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .agenda-title {
     font-size: 14px;
@@ -1943,7 +1943,7 @@
     flex-shrink: 0;
   }
   .day-header-date.today {
-    background: #ff9500; color: #fff; border-color: #ff9500;
+    background: #0F6E64; color: #fff; border-color: #0F6E64;
   }
   .day-header-date .mo {
     font-size: 9px; font-weight: 700;
@@ -2017,10 +2017,10 @@
     position: absolute;
     left: 0; right: 0;
     height: 2px;
-    background: #ff9500;
+    background: #0F6E64;
     z-index: 4;
     pointer-events: none;
-    box-shadow: 0 0 6px rgba(255,149,0,0.5);
+    box-shadow: 0 0 6px rgba(15,110,100,0.5);
   }
   .day-block {
     position: absolute;
@@ -2088,10 +2088,10 @@
   .week-nowline {
     position: absolute;
     height: 2px;
-    background: #ff9500;
+    background: #0F6E64;
     z-index: 4;
     pointer-events: none;
-    box-shadow: 0 0 6px rgba(255,149,0,0.5);
+    box-shadow: 0 0 6px rgba(15,110,100,0.5);
   }
 
   /* Week view — WV in the bottom-right of the day-strip cell. */
