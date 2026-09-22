@@ -2,7 +2,7 @@ import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap }
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
-import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -645,10 +645,10 @@ function ToolbarTitle({
   t: ThemeTokens;
 }) {
   const big = (s: string) => (
-    <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: "-0.02em" }}>{s}</span>
+    <span style={{ fontSize: 22, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", fontFamily: BRAND_FONT }}>{s}</span>
   );
   const light = (s: string) => (
-    <span style={{ fontSize: 22, fontWeight: 400, color: t.text2, letterSpacing: "-0.02em" }}>{s}</span>
+    <span style={{ fontSize: 22, fontWeight: 400, color: t.text2, letterSpacing: "-0.02em", fontFamily: BRAND_FONT }}>{s}</span>
   );
 
   if (calLayout === "year") {

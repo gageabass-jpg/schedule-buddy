@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { rgba, type Palette, type ThemeTokens } from "../theme";
+import { rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
 import { hmToMin, daisyCoverageConflict, type OverlapCandidate, type MinuteRange, type DaySegments } from "../lib/computeOverlap";
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
@@ -137,7 +137,7 @@ export function CoverageRequestModal({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "24px 28px 16px" }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: t.text3 }}>Batch request</div>
-            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: t.text, marginTop: 3 }}>Send to caregiver</div>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: t.text, marginTop: 3, fontFamily: BRAND_FONT }}>Send to caregiver</div>
             <div style={{ fontSize: 13, color: t.text2, marginTop: 5, lineHeight: 1.45, maxWidth: 520 }}>
               Upcoming days where both of you are unavailable and no coverage is lined up yet. The start is when the caregiver should arrive. Adjust times or notes, then send the batch.
             </div>

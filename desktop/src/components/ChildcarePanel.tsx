@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MANAGER_ORANGE, rgba, type Palette, type ThemeTokens } from "../theme";
+import { MANAGER_ORANGE, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { deleteCoverageRequest, markCoverageReviewed, statusLabel } from "../lib/writeCoverageRequest";
 import { hmToMin, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
@@ -162,7 +162,7 @@ export function ChildcarePanel({
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: t.text3 }}>
               Childcare coverage
             </div>
-            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: t.text, marginTop: 3 }}>
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: t.text, marginTop: 3, fontFamily: BRAND_FONT }}>
               Assigned shifts
             </div>
             <div style={{ fontSize: 13, color: t.text2, marginTop: 5, lineHeight: 1.45, maxWidth: 360 }}>
