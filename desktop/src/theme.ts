@@ -3,6 +3,10 @@
  *  (The wordmark itself uses the Nucleus tokens in components/BrandMark.tsx.) */
 export const MANAGER_ORANGE = "#0F6E64";
 
+/** Wordmark font token. Defined in components/BrandMark.tsx; re-exported here so
+ *  call sites can pull it from the theme alongside the other tokens. */
+export { BRAND_FONT } from "./components/BrandMark";
+
 export type PaletteName = "nucleus" | "modern" | "warm" | "garden" | "mono";
 
 export interface Palette {
