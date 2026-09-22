@@ -204,44 +204,28 @@ export function Inspector({
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "6px 8px",
-                  borderRadius: 8,
-                  background: t.bgElev,
+                  padding: "6px 2px",
                   cursor: hasActions ? "pointer" : "default",
                   position: "relative",
                   overflow: "hidden",
                 }}
               >
-                <PhotoAv who={s.who} size={26} palette={palette} dark={dark} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
-                    {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: t.text3 }}>
-                    {s.label}{recurring ? " · recurring" : ""}
-                  </div>
+                <span style={{ width: 3, alignSelf: "stretch", minHeight: 18, borderRadius: 2, background: c, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
+                  {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                 </div>
                 <span
                   style={{
-                    fontSize: 11,
-                    padding: "2px 8px",
-                    borderRadius: 999,
-                    background: rgba(c, 0.18),
-                    color: c,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
+                    fontSize: 13,
+                    color: t.text2,
                     fontVariantNumeric: "tabular-nums",
-                    maxWidth: 180,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    flexShrink: 1,
-                    // Without this, flex min-content keeps the pill from
-                    // shrinking, so a long shift name overran the person's name.
-                    minWidth: 0,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                   title={pillText}
                 >
-                  {pillText}
+                  {stype ? `${compactTime(stype.start)}–${compactTime(stype.end)}` : s.label}
                 </span>
                 {hasActions && (
                   // Slide-out tray. Hidden (translated off the right edge)
@@ -727,7 +711,7 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
         gap: 4,
         padding: 4,
         borderRadius: 12,
-        background: t.bgElev,
+        background: t.bgElev2,
         border: `0.5px solid ${t.sep}`,
       }}
     >
@@ -752,8 +736,8 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
               fontSize: 12.5,
               fontWeight: 600,
               letterSpacing: "-0.01em",
-              background: active ? t.bgElev2 : "transparent",
-              color: active ? "#0F6E64" : t.text2,
+              background: active ? t.bgElev : "transparent",
+              color: active ? t.text : t.text2,
               boxShadow: active ? `inset 0 0 0 1px ${t.sep}` : "none",
             }}
           >
