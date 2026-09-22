@@ -306,7 +306,7 @@ export function DayView({
               return (
                 <div
                   key={`tail-${i}`}
-                  style={{ position: "absolute", left: 8, right: 8, top, height: Math.max(height, 22), background: rgba(color, 0.22), borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "6px 10px", color: dark ? "#fff" : t.text, overflow: "hidden" }}
+                  style={{ position: "absolute", left: 8, right: 8, top, height: Math.max(height, 22), background: t.bgElev, border: `1px solid ${t.sep}`, borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "6px 10px", color: t.text, opacity: 0.85, overflow: "hidden" }}
                   title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>
@@ -385,11 +385,12 @@ export function DayView({
                     right: 8,
                     top,
                     height: Math.max(height, 28),
-                    background: rgba(color, 0.22),
+                    background: t.bgElev,
+                    border: `1px solid ${t.sep}`,
                     borderLeft: `3px solid ${color}`,
                     borderRadius: 6,
                     padding: "6px 10px",
-                    color: dark ? "#fff" : t.text,
+                    color: t.text,
                     display: "flex",
                     flexDirection: "column",
                     gap: 2,

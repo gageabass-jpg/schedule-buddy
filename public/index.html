@@ -1315,22 +1315,21 @@
     position: absolute;
     left: 0;
     right: 0;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 4px 6px;
     font-size: 10.5px;
     font-weight: 700;
-    color: #fff;
+    color: var(--text);
     line-height: 1.1;
-    border-left: 3px solid;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-left: 3px solid var(--person-both);
     overflow: hidden;
     box-shadow: none;
   }
-  .week-rail-block[data-who="G"]   { background: color-mix(in srgb, var(--person-g) 30%, transparent);    color: var(--text); border-left-color: var(--person-g); }
-  .week-rail-block[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 30%, transparent);    color: var(--text); border-left-color: var(--person-k); }
-  .week-rail-block[data-who="G+K"] { background: color-mix(in srgb, var(--person-both) 30%, transparent); color: var(--text); border-left-color: var(--person-both); }
-  @media (prefers-color-scheme: dark) {
-    .week-rail-block { color: #fff; }
-  }
+  .week-rail-block[data-who="G"]   { border-left-color: var(--person-g); }
+  .week-rail-block[data-who="K"]   { border-left-color: var(--person-k); }
+  .week-rail-block[data-who="G+K"] { border-left-color: var(--person-both); }
 
   /* ========== AGENDA VIEW (vertical list of day cards) ========== */
   .agenda-view {
@@ -1786,8 +1785,8 @@
   .shift-pill[data-pending="1"] { background: var(--clay-tint); border-left-color: var(--clay); color: var(--text); }
   .sb-chip[data-pending="1"]         { background: rgba(255,159,10,0.22); color: #b26a00; }
   .sb-chip[data-pending="1"] .sb-chip-dot { background: #ff9f0a; box-shadow: 0 0 6px rgba(255,159,10,0.6); }
-  .day-block[data-pending="1"]       { background: rgba(255,159,10,0.24) !important; border-left-color: #ff9f0a !important; }
-  .week-rail-block[data-pending="1"] { background: rgba(255,159,10,0.30) !important; border-left-color: #ff9f0a !important; color: var(--text) !important; }
+  .day-block[data-pending="1"]       { background: var(--clay-tint) !important; border-left-color: var(--clay) !important; }
+  .week-rail-block[data-pending="1"] { background: var(--clay-tint) !important; border-left-color: var(--clay) !important; color: var(--text) !important; }
   /* Pending (caregiver-submitted, unconfirmed) life items. */
   .ev-chip[data-pending="1"]         { background: rgba(255,159,10,0.14); }
   .week-rail-event[data-pending="1"] { border-color: #ff9f0a !important; background: rgba(255,159,10,0.14) !important; }
@@ -2038,12 +2037,14 @@
     color: var(--text);
     overflow: hidden;
     z-index: 2;
-    border-left: 3px solid transparent;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-left: 3px solid var(--person-both);
   }
-  .day-block[data-who="G"]   { background: color-mix(in srgb, var(--person-g) 22%, transparent);    border-left-color: var(--person-g); }
-  .day-block[data-who="K"]   { background: color-mix(in srgb, var(--person-k) 22%, transparent);    border-left-color: var(--person-k); }
-  .day-block[data-who="D"]   { background: color-mix(in srgb, var(--person-d) 22%, transparent);    border-left-color: var(--person-d); }
-  .day-block[data-who="G+K"] { background: color-mix(in srgb, var(--person-both) 22%, transparent); border-left-color: var(--person-both); }
+  .day-block[data-who="G"]   { border-left-color: var(--person-g); }
+  .day-block[data-who="K"]   { border-left-color: var(--person-k); }
+  .day-block[data-who="D"]   { border-left-color: var(--person-d); }
+  .day-block[data-who="G+K"] { border-left-color: var(--person-both); }
   .day-block .title {
     font-size: 12px; font-weight: 700;
     letter-spacing: -0.01em;

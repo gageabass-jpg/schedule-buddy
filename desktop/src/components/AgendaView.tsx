@@ -100,7 +100,7 @@ export function AgendaView({ palette, t, dark, shifts, state, today, selfName, p
           padding: isOff ? "8px 12px" : "11px 12px",
           background: t.bgElev,
           borderRadius: 12,
-          border: `0.5px solid ${isToday ? railColor : "transparent"}`,
+          border: `1px solid ${isToday ? railColor : t.sep}`,
           opacity: isOff ? 0.6 : 1,
           cursor: "pointer",
           marginBottom: 6,

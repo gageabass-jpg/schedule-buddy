@@ -294,8 +294,8 @@ export function WeekView({
                       key={`tail-${i}`}
                       style={{
                         position: "absolute", left: 4, right: 4, top, height: Math.max(height, 14),
-                        background: rgba(color, 0.28), borderLeft: `3px solid ${color}`, borderRadius: 4,
-                        padding: "2px 6px", fontSize: 10.5, fontWeight: 600, color: dark ? "#fff" : t.text,
+                        background: t.bgElev, border: `1px solid ${t.sep}`, borderLeft: `3px solid ${color}`, borderRadius: 4,
+                        padding: "2px 6px", fontSize: 10.5, fontWeight: 600, color: t.text, opacity: 0.85,
                         overflow: "hidden", whiteSpace: "nowrap", letterSpacing: "-0.01em",
                       }}
                       title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
@@ -322,13 +322,14 @@ export function WeekView({
                         right: 4,
                         top,
                         height: Math.max(height, 18),
-                        background: rgba(color, 0.28),
+                        background: t.bgElev,
+                        border: `1px solid ${t.sep}`,
                         borderLeft: `3px solid ${color}`,
                         borderRadius: 4,
                         padding: "2px 6px",
                         fontSize: 10.5,
                         fontWeight: 600,
-                        color: dark ? "#fff" : t.text,
+                        color: t.text,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
