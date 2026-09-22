@@ -2154,13 +2154,13 @@
     display: none;          /* shown only on the Schedule tab — see below */
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%);
+    background: linear-gradient(135deg, #12857A 0%, #0F6E64 50%, #0A4F48 100%);
     color: #fff;
     font-size: 30px;
     font-weight: 300;
     line-height: 1;
     -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 6px 18px rgba(10,132,255,0.4);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.4);
   }
   .parse-fab .parse-plus { transform: translateY(-1px); }
   .parse-fab:active { transform: scale(0.96); }
@@ -5735,6 +5735,29 @@
     height: 44px; border: 0; background: transparent; color: var(--color-g);
     font-size: 17px; letter-spacing: -0.02em; font-family: var(--font);
     cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  /* ===== Nucleus Paper: status families (light only) =====
+     Kept out of the base rules (which stay the iOS scheme for dark) and placed
+     last so it wins in light. Strict palette: accepted/confirmed = Teal, and
+     everything needing attention (pending / declined / issue) = Clay. The words
+     and shapes already distinguish them, so colour need not. */
+  @media (prefers-color-scheme: light) {
+    .mc-card.confirmed { border-left-color: #0F6E64; }
+    .mc-card.pending, .mc-card.declined, .mc-card.issue { border-left-color: #8A4B38; }
+
+    .mc-pill.confirmed, .cg-status.confirmed, .cg-sched-status.confirmed {
+      background: rgba(15,110,100,0.14); color: #0F6E64;
+    }
+    .mc-pill.pending,   .cg-sched-status.pending {
+      background: rgba(138,75,56,0.12); color: #8A4B38;
+    }
+    .mc-pill.declined,  .cg-status.declined,  .cg-sched-status.declined,
+    .mc-pill.issue,     .cg-status.issue,     .cg-sched-status.issue {
+      background: rgba(138,75,56,0.16); color: #8A4B38;
+    }
+
+    .mc-card2.confirmed { --c: #0F6E64; --ct: #0F6E64; }
+    .mc-card2.pending, .mc-card2.declined, .mc-card2.issue { --c: #8A4B38; --ct: #8A4B38; }
   }
 </style>
 </head>
