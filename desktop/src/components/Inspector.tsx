@@ -6,7 +6,7 @@ import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
-import { daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
+import { computeOverlapCandidates, daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
@@ -378,10 +378,15 @@ export function Inspector({
         </div>
       )}
 
+      {/* Childcare tab — rest & coverage bars for the week */}
+      {railTab === "childcare" && (
+        <WeekRestBars selected={selected} state={state} t={t} />
+      )}
+
       {/* Childcare tab — coverage for the selected day */}
       {railTab === "childcare" && (
       <div>
-        <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
+        <div style={{ ...subhead(t), marginBottom: 6 }}>This day</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {isChildcareOff && (
             <div
@@ -1256,6 +1261,98 @@ function apptTimeRange(ev: SbEvent): string {
   const e = hm12(ev.endTime);
   const sPart = s.ap === e.ap ? `${s.h}:${s.mm}` : `${s.h}:${s.mm}${s.ap}`;
   return `${sPart}–${e.h}:${e.mm}${e.ap}`;
+}
+
+// Per-day rest / coverage bars for the current week (design boards' Childcare
+// tab). Uses the app's own overlap-coverage engine: each day's window is the
+// hours a caregiver must be home; a confirmed or pending request marks the day
+// covered, otherwise it "needs cover".
+function WeekRestBars({ selected, state, t }: {
+  selected: string;
+  state: HouseholdState | null;
+  t: ThemeTokens;
+}) {
+  if (!state) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const [sy, sm, sd] = selected.split("-").map(Number);
+  const weekStart = new Date(sy, sm - 1, sd);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // back to Sunday
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); days.push(iso(d));
+  }
+  const fromDt = new Date(weekStart); fromDt.setDate(weekStart.getDate() - 1);
+  const toDt = new Date(weekStart); toDt.setDate(weekStart.getDate() + 7);
+  const stFilled: HouseholdState = {
+    ...state,
+    template: state.template ?? [],
+    overrides: state.overrides ?? [],
+    ot: state.ot ?? [],
+  };
+  const cands = computeOverlapCandidates(buildShiftMap(stFilled, iso(fromDt), iso(toDt)), stFilled);
+  const covered = new Set(
+    (state.coverageRequests ?? [])
+      .filter((r) => r.status === "confirmed" || r.status === "pending")
+      .map((r) => r.date),
+  );
+  const parseHM = (hhmm: string): number => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const winHours = (c: { startTime: string; endTime: string; endsNextDay: boolean }): number => {
+    let d = parseHM(c.endTime) - parseHM(c.startTime);
+    if (c.endsNextDay || d <= 0) d += 1440;
+    return d / 60;
+  };
+  const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const rows = days.map((date) => {
+    const dc = cands.filter((c) => c.date === date);
+    const hours = dc.reduce((s, c) => s + winHours(c), 0);
+    return { date, hours, hasWindow: dc.length > 0, isCovered: dc.length > 0 && covered.has(date) };
+  });
+  const maxH = Math.max(1, ...rows.map((r) => r.hours));
+  const needCover = rows.filter((r) => r.hasWindow && !r.isCovered).length;
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={subhead(t)}>Rest &amp; coverage · this week</span>
+        {needCover > 0 && (
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {rows.map((r, i) => {
+          const pct = r.hasWindow ? Math.max(10, (r.hours / maxH) * 100) : 0;
+          return (
+            <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text3 }}>{WD[i]}</span>
+              <div style={{ flex: 1, height: 12, borderRadius: 6, background: t.bgElev2, overflow: "hidden", position: "relative" }}>
+                {r.hasWindow && (
+                  <div style={{
+                    position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 6, boxSizing: "border-box",
+                    background: r.isCovered ? rgba("#0F6E64", 0.55) : rgba("#8A4B38", 0.14),
+                    border: r.isCovered ? "none" : `1px dashed ${rgba("#8A4B38", 0.6)}`,
+                  }} />
+                )}
+              </div>
+              <span style={{ width: 36, textAlign: "right", fontSize: 10.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.hasWindow && !r.isCovered ? "#8A4B38" : "transparent" }}>
+                {r.hasWindow && !r.isCovered ? `${r.hours % 1 === 0 ? r.hours : r.hours.toFixed(1)}h` : "·"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 10, color: t.text3 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 12, height: 8, borderRadius: 3, background: rgba("#0F6E64", 0.55) }} />Covered
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 12, height: 8, borderRadius: 3, border: `1px dashed ${rgba("#8A4B38", 0.6)}` }} />Needs cover
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function subhead(t: ThemeTokens): React.CSSProperties {
