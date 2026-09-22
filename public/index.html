@@ -8492,7 +8492,7 @@ function renderAskWeekStrip() {
   const today = new Date();
   const start = addDays(today, -today.getDay());   // Sunday
   const DOW = ["S", "M", "T", "W", "T", "F", "S"];
-  const G = "#30D158", K = "#BF5AF2", D = "#0A84FF";
+  const G = "var(--person-g)", K = "var(--person-k)", D = "var(--person-d)";
   const todayIso = toISODate(today);
   let cells = "";
   for (let i = 0; i < 7; i++) {
@@ -10560,9 +10560,9 @@ function buildPublicShareSnapshot() {
     householdId,
     householdName: state.householdName || "Our schedule",
     people: {
-      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
-      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
-      Daisy: { name: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy", hex: "#34C759" },
+      G: { name: state.selfName || "Gage", hex: "#0F6E64" },
+      K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#8A4B38" },
+      Daisy: { name: (state.dependents && state.dependents.daisy && state.dependents.daisy.name) || "Daisy", hex: "#5A6663" },
     },
     days,
     from: toISODate(from), to: toISODate(to),
@@ -10625,7 +10625,7 @@ function renderShareCard() {
   const on = !!state.shareEnabled && !!state.shareToken;
   if (!on) {
     el.innerHTML = `<button class="pf-row" id="shareEnableBtn" type="button">
-      <span class="pf-row-icon" style="background:#5E5CE6"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="pf-row-icon" style="background:#0F6E64"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       <span class="pf-row-label">Share read-only link</span>
       <span class="pf-row-value">Off</span>
     </button>`;
