@@ -491,6 +491,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
         events={eventsByDate[selected] ?? []}
+        eventsByDate={eventsByDate}
         onAddEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onSendCoverageForDay={(date) => {

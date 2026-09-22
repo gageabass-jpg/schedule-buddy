@@ -21,6 +21,8 @@ interface Props {
   onEditShift?: (date: string, shift: Shift) => void;
   onDeleteShift?: (date: string, shift: Shift) => void;
   events: SbEvent[];
+  /** All events keyed by date — powers the Life tab's next-60-days list. */
+  eventsByDate: Record<string, SbEvent[]>;
   onAddEvent: () => void;
   onEditEvent: (ev: SbEvent) => void;
   onSendCoverageForDay: (date: string) => void;
@@ -54,7 +56,7 @@ const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
 
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
-  onEditShift, onDeleteShift, events, onAddEvent, onEditEvent, onSendCoverageForDay,
+  onEditShift, onDeleteShift, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay,
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
@@ -88,7 +90,22 @@ export function Inspector({
   // Overview rail tabs (design boards): the header stays tied to the tapped
   // day; the tabs below switch the broader view (Month / Childcare / Life).
   const [railTab, setRailTab] = useState<"month" | "childcare" | "life">("month");
-  const lifeCount = events.filter((e) => !e.healthId).length;
+
+  // Life tab data: every event in the next 60 days, sorted, with a "clash"
+  // flag = the day has an event AND nobody is off (both parents working).
+  const _pad = (n: number) => String(n).padStart(2, "0");
+  const _now = new Date();
+  const _todayIso = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`;
+  const _end = new Date(_now); _end.setDate(_end.getDate() + 60);
+  const _endIso = `${_end.getFullYear()}-${_pad(_end.getMonth() + 1)}-${_pad(_end.getDate())}`;
+  const upcomingLife = Object.values(eventsByDate)
+    .flat()
+    .filter((e) => e.date >= _todayIso && e.date <= _endIso)
+    .sort((a, b) => (a.date === b.date
+      ? (a.startTime || "").localeCompare(b.startTime || "")
+      : a.date.localeCompare(b.date)));
+  const isClashDay = (date: string): boolean => dayKindFromShifts(allShifts[date]) === "both";
+  const lifeClashCount = upcomingLife.filter((e) => isClashDay(e.date)).length;
 
   return (
     <div
@@ -563,97 +580,88 @@ export function Inspector({
       {/* Life tab — events for the selected day */}
       {railTab === "life" && (
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-          <span style={subhead(t)}>Life</span>
-          <button
-            type="button"
-            onClick={onAddEvent}
-            style={{
-              background: "transparent",
-              border: 0,
-              color: palette.G,
-              fontSize: 11.5,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              padding: 0,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            + Add life item
-          </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <span style={subhead(t)}>Life · next 60 days</span>
+          {lifeClashCount > 0 && (
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>
+              {lifeClashCount} clash{lifeClashCount === 1 ? "" : "es"}
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {events.filter((e) => !e.healthId).length === 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {upcomingLife.length === 0 && (
             <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No Life items yet.
+              Nothing in the next 60 days.
             </div>
           )}
-          {events.filter((e) => !e.healthId).map((ev) => {
-            const color = ev.pending ? "#8A4B38" : lifeColor(ev.who);
-            const timeLabel = ev.startTime
-              ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
-              : "All day";
+          {upcomingLife.map((ev) => {
+            const clash = isClashDay(ev.date);
+            const [, em, ed] = ev.date.split("-").map(Number);
+            const eyebrow = `${MONTHS_LONG[em - 1].slice(0, 3).toUpperCase()} ${ed}`;
+            const badge = ev.healthId ? "APPT" : ev.seriesId ? "REPEATS" : null;
             const personName =
               ev.who === "G" ? selfName :
               ev.who === "K" ? partnerName :
-              ev.who === "Daisy" ? "Daisy" : "Family";
+              ev.who === "Daisy" ? (state?.dependents?.daisy?.name || "Daisy") : "Family";
+            const timeLabel = ev.startTime ? compactTime(ev.startTime) : "All day";
+            const k = dayKindFromShifts(allShifts[ev.date]);
+            const cover =
+              k === "both" ? "Nobody is off." :
+              k === "off" ? "Both off." :
+              k === "g" ? `${selfName} works · ${partnerName} off.` :
+              k === "k" ? `${partnerName} works · ${selfName} off.` : "";
+            const desc = ev.notes && ev.notes.trim() ? ev.notes : cover;
             return (
               <button
                 key={ev.id}
                 type="button"
                 onClick={() => onEditEvent(ev)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: rgba(color, dark ? 0.18 : 0.10),
-                  border: `1px solid ${rgba(color, 0.55)}`,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontFamily: "inherit",
-                  color: t.text,
-                  width: "100%",
+                  display: "flex", flexDirection: "column", gap: 4, width: "100%",
+                  textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                  padding: "10px 12px", borderRadius: 10, color: t.text,
+                  background: clash ? rgba("#8A4B38", dark ? 0.14 : 0.10) : t.bgElev,
+                  border: clash ? `1px dashed ${rgba("#8A4B38", 0.55)}` : `0.5px solid ${t.sep}`,
                 }}
               >
-                {/* Avatar with the life leaf badged into its lower-right. */}
-                <div style={{ position: "relative", flexShrink: 0, lineHeight: 0 }}>
-                  <EventAvatar who={ev.who} size={26} palette={palette} dark={dark} />
-                  <img
-                    src="assets/green-leaf.png"
-                    alt=""
-                    aria-hidden="true"
-                    width={13}
-                    height={13}
-                    style={{
-                      position: "absolute",
-                      right: -3,
-                      bottom: -2,
-                      display: "block",
-                      // Halo in the pill's own tint so the leaf reads cleanly
-                      // against whatever the avatar photo happens to be.
-                      borderRadius: "50%",
-                      background: dark ? "#1C1C1E" : "#FFFFFF",
-                      padding: 1,
-                      boxSizing: "content-box",
-                    }}
-                  />
+                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: clash ? "#8A4B38" : t.text3 }}>
+                  {eyebrow}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.01em", color: t.text }}>
                     {ev.title}
-                    {ev.pending && <span style={{ color: "#8A4B38", fontWeight: 700 }}>  (pending)</span>}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: t.text3 }}>
-                    {timeLabel} · {personName}{ev.seriesId ? " · series" : ""}
-                    {ev.pending ? " · awaiting confirm" : ""}
-                  </div>
+                  </span>
+                  {badge && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                      padding: "1px 6px", borderRadius: 999,
+                      background: ev.healthId ? rgba("#0F6E64", 0.14) : t.bgElev2,
+                      color: ev.healthId ? "#0F6E64" : t.text2,
+                    }}>{badge}</span>
+                  )}
+                  {ev.pending && <span style={{ fontSize: 10.5, color: "#8A4B38", fontWeight: 700 }}>(pending)</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.35 }}>
+                  {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
                 </div>
               </button>
             );
           })}
+        </div>
+        <button
+          type="button"
+          onClick={onAddEvent}
+          style={{
+            marginTop: 8, width: "100%", padding: "10px 12px", borderRadius: 10,
+            border: `0.5px solid ${t.sep}`, background: t.bgElev, color: t.text,
+            fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          New life event
+        </button>
+        <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.4, marginTop: 8, padding: "0 2px" }}>
+          A clash means the day matters and nobody is off. Nucleus never moves a shift for you.
         </div>
       </div>
       )}
@@ -682,7 +690,7 @@ export function Inspector({
         tab={railTab}
         onTab={setRailTab}
         childcareCount={coverageNeedsCount}
-        lifeCount={lifeCount}
+        lifeCount={lifeClashCount}
         t={t}
       />
     </div>
