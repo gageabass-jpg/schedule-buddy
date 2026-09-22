@@ -340,7 +340,7 @@ export function MonthGrid({
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 4, minHeight: 0 }}>
+        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep, border: `1px solid ${t.sep}`, borderRadius: 10, overflow: "hidden" }}>
           {weeks.map((week, wi) => {
             // Group adjacent no-childcare days in this row into contiguous runs,
             // each drawn as a single red bar spanning those columns.
@@ -353,7 +353,7 @@ export function MonthGrid({
               else careRuns.push({ start: ci, len: 1, label });
             });
             return (
-            <div key={wi} style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            <div key={wi} style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: t.sep }}>
               {week.map((c, ci) => {
                 const key = fmtDate(c.y, c.mo, c.d);
                 const dayShifts = shifts[key];
@@ -380,8 +380,8 @@ export function MonthGrid({
                       padding: 6,
                       cursor: "pointer",
                       textAlign: "left",
-                      background: kind === "off" ? t.bgElev : colors.tint,
-                      borderRadius: 8,
+                      background: t.bgElev,
+                      borderRadius: isToday || isSel ? 6 : 0,
                       opacity: cellOpacity,
                       transition: "opacity 0.15s",
                       boxShadow: isSel
@@ -505,6 +505,8 @@ export function MonthGrid({
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
+                            // White chip with the person's hue as a left-edge bar
+                            // and Ink text (design boards).
                             return (
                               <div
                                 key={`s${i}`}
@@ -512,17 +514,20 @@ export function MonthGrid({
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 4,
-                                  fontSize: 10.5,
+                                  fontSize: 11,
                                   fontWeight: 600,
                                   letterSpacing: "-0.01em",
-                                  padding: "1px 5px",
+                                  padding: "2px 6px",
                                   borderRadius: 4,
-                                  background: flat ? color : rgba(color, 0.28),
-                                  color: flat ? "#fff" : t.text,
-                                  borderLeft: flat ? "none" : `2px solid ${color}`,
+                                  background: t.bgElev,
+                                  color: t.text,
+                                  border: `1px solid ${t.sep}`,
+                                  borderLeft: `3px solid ${color}`,
+                                  overflow: "hidden",
+                                  whiteSpace: "nowrap",
+                                  textOverflow: "ellipsis",
                                 }}
                               >
-                                <span style={{ opacity: 0.85 }}>{s.who}</span>
                                 <span>{s.label}</span>
                               </div>
                             );
