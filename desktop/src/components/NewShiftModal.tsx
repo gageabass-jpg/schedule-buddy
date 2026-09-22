@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
 import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
 import { compactTime, isCustomType } from "../state";
+import { BRAND_FONT } from "./BrandMark";
 
 interface Props {
   open: boolean;
@@ -104,12 +105,12 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
           fontFamily: "inherit",
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 14 }}>New shift</div>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 14 }}>New shift</div>
 
         <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Person toggle */}
           <Field label="Person" t={t}>
-            <div style={{ display: "flex", gap: 6, padding: 2, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <SegBtn active={target === "self-ot"} onClick={() => setTarget("self-ot")} color={palette.G} t={t} dark={dark}>
                 {selfName}
               </SegBtn>
@@ -223,17 +224,17 @@ function SegBtn({
       onClick={onClick}
       style={{
         flex: 1,
-        padding: "6px 10px",
-        border: 0,
-        borderRadius: 6,
-        background: active ? (dark ? "#3A3A3C" : "#fff") : "transparent",
-        color: active ? color : t.text2,
+        padding: "11px 10px",
+        border: `1px solid ${active ? color : t.sep}`,
+        borderRadius: 10,
+        background: active ? `${color}22` : t.bgElev,
+        color: active ? t.text : t.text2,
         fontSize: 12.5,
         fontWeight: 600,
         cursor: "pointer",
         fontFamily: "inherit",
         letterSpacing: "-0.01em",
-        boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+        boxShadow: "none",
       }}
     >
       {children}
