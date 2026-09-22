@@ -120,20 +120,20 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
 
   return (
     <div>
-      <div style={subhead(t)}>Fatigue index</div>
-
-      {/* Fira Code status line, matching the wall display */}
-      <div
-        style={{
-          fontFamily: "'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace",
-          fontSize: 13,
-          fontWeight: 500,
-          letterSpacing: "-0.01em",
-          color: rested ? "#0F6E64" : "#8A4B38",
-          marginBottom: 8,
-        }}
-      >
-        {rested ? "well rested :)" : "Get some rest."}
+      {/* Header row — label left, status right (design board). */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>Fatigue index</span>
+        <span
+          style={{
+            fontFamily: "'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace",
+            fontSize: 12.5,
+            fontWeight: 500,
+            letterSpacing: "-0.01em",
+            color: rested ? "#0F6E64" : "#8A4B38",
+          }}
+        >
+          {rested ? "well rested :)" : "Get some rest."}
+        </span>
       </div>
 
       {/* Quilt — solid block, no gaps, square cells via 7/4 aspect ratio. */}

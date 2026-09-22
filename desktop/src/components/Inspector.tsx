@@ -4,6 +4,7 @@ import { buildShiftMap, compactTime, type CoverageStatus, type Event as SbEvent,
 import { dayColors, eventColor, lifeColor, personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
+import { BrandMark } from "./BrandMark";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import { computeOverlapCandidates, parentDayRanges, daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
@@ -39,6 +40,8 @@ interface Props {
   coverageNeedsCount?: number;
   onDismissReminder?: (which: "update" | "caregiver") => void;
   onSendCaregiverRequests?: () => void;
+  /** Open nucleusAI — the Childcare card's "Ask" action. */
+  onAsk?: () => void;
   wvuGames: Map<string, WvuGame>;
 }
 
@@ -61,7 +64,7 @@ export function Inspector({
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
-  onDismissReminder, onSendCaregiverRequests, wvuGames,
+  onDismissReminder, onSendCaregiverRequests, onAsk, wvuGames,
 }: Props) {
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
@@ -156,17 +159,17 @@ export function Inspector({
         </div>
       )}
 
-      {/* Selected day card */}
+      {/* Selected day card — plain white Surface, hairline, large Sora title. */}
       <div
         style={{
-          borderRadius: 12,
-          padding: 14,
-          background: kind === "off" ? t.bgElev : rgba(accent, dark ? 0.18 : 0.10),
-          border: `0.5px solid ${kind === "off" ? t.sep : rgba(accent, 0.35)}`,
+          borderRadius: 14,
+          padding: 18,
+          background: t.bgElev,
+          border: `0.5px solid ${t.sep}`,
         }}
       >
         <div style={subhead(t)}>{dayLabel}</div>
-        <div style={{ fontFamily: BRAND_FONT, fontSize: 18, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 2 }}>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 26, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.12 }}>
           {kind === "off"
             ? "Both off"
             : kind === "both"
@@ -212,14 +215,14 @@ export function Inspector({
                   overflow: "hidden",
                 }}
               >
-                <span style={{ width: 3, alignSelf: "stretch", minHeight: 18, borderRadius: 2, background: c, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ width: 3, alignSelf: "stretch", minHeight: 20, borderRadius: 2, background: c, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                 </div>
                 <span
                   style={{
-                    fontSize: 13,
+                    fontSize: 15,
                     color: t.text2,
                     fontVariantNumeric: "tabular-nums",
                     whiteSpace: "nowrap",
@@ -364,180 +367,19 @@ export function Inspector({
         </div>
       )}
 
-      {/* Childcare tab — rest & coverage bars for the week */}
+      {/* Childcare tab — the week's rest windows + what still needs cover. */}
       {railTab === "childcare" && (
-        <WeekRestBars selected={selected} state={state} t={t} />
-      )}
-
-      {/* Childcare tab — coverage for the selected day */}
-      {railTab === "childcare" && (
-      <div>
-        <div style={{ ...subhead(t), marginBottom: 6 }}>This day</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {isChildcareOff && (
-            <div
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                background: rgba("#8A4B38", dark ? 0.14 : 0.1),
-                border: `0.5px solid ${rgba("#8A4B38", 0.5)}`,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 700, color: "#8A4B38" }}>No childcare</span>
-                {" "}— caregiver scheduled off this day.
-              </div>
-              <button
-                type="button"
-                onClick={() => onToggleChildcareOff(selected, false)}
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "6px 12px",
-                  border: `0.5px solid ${t.sep}`,
-                  borderRadius: 7,
-                  background: t.bgElev,
-                  color: t.text,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Childcare available again
-              </button>
-            </div>
-          )}
-
-          {!isChildcareOff && dayCoverage.length === 0 && !isGapDay && daisySchool.length === 0 && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>
-              No Coverage needed.
-            </div>
-          )}
-
-          {!isChildcareOff && isGapDay && (
-            <div
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                background: rgba("#8A4B38", dark ? 0.14 : 0.1),
-                border: `0.5px solid ${rgba("#8A4B38", 0.5)}`,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 700, color: "#8A4B38" }}>Both working</span>
-                {" "}— no caregiver lined up for this day.
-              </div>
-              <button
-                type="button"
-                onClick={() => onSendCoverageForDay(selected)}
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "6px 12px",
-                  border: 0,
-                  borderRadius: 7,
-                  background: palette.G,
-                  color: "#fff",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                Send to caregiver
-              </button>
-            </div>
-          )}
-
-          {dayCoverage.map((req) => {
-            const sc = COVERAGE_STATUS_COLOR[req.status];
-            return (
-              <div
-                key={req.id}
-                style={{
-                  padding: "9px 11px",
-                  borderRadius: 9,
-                  background: t.bgElev,
-                  border: `0.5px solid ${t.sep}`,
-                  borderLeft: `3px solid ${sc}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span
-                    style={{
-                      fontSize: 9.5,
-                      fontWeight: 700,
-                      padding: "2px 7px",
-                      borderRadius: 999,
-                      background: rgba(sc, 0.18),
-                      color: sc,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {COVERAGE_STATUS_LABEL[req.status]}
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums" }}>
-                    {req.startTime} → {req.endTime}{req.endsNextDay ? " +1d" : ""}
-                  </span>
-                </div>
-                {req.arriveBy && (
-                  <div style={{ fontSize: 10.5, color: t.text3 }}>
-                    Arrive by <span style={{ color: t.text2, fontWeight: 600 }}>{req.arriveBy}</span>
-                  </div>
-                )}
-                {req.notes && (
-                  <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4 }}>{req.notes}</div>
-                )}
-                {req.caregiverNote && (
-                  <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4, fontStyle: "italic" }}>
-                    <span style={{ fontStyle: "normal", fontWeight: 600, color: t.text }}>
-                      {req.status === "declined" ? "Caregiver said:" :
-                       req.status === "issue"    ? "Caregiver reported:" :
-                                                    "Caregiver noted:"}
-                    </span>{" "}
-                    {req.caregiverNote}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {!isChildcareOff && (
-            <button
-              type="button"
-              onClick={() => onToggleChildcareOff(selected, true)}
-              title="Mark this day as having no childcare (caregiver off)"
-              style={{
-                alignSelf: "flex-start",
-                marginTop: 2,
-                padding: "5px 10px",
-                border: `0.5px solid ${t.sep}`,
-                borderRadius: 7,
-                background: "transparent",
-                color: t.text2,
-                fontSize: 11.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              Mark no childcare
-            </button>
-          )}
-        </div>
-      </div>
+        <ChildcareCard
+          selected={selected}
+          state={state}
+          t={t}
+          dark={dark}
+          selfName={selfName}
+          partnerName={partnerName}
+          daisyName={daisyName}
+          onRequestCover={onSendCaregiverRequests}
+          onAsk={onAsk}
+        />
       )}
 
       {/* Health-calendar appointments for the selected day (styled distinctly). */}
@@ -568,11 +410,11 @@ export function Inspector({
         </div>
       )}
 
-      {/* Life tab — events for the selected day */}
+      {/* Life tab — the next 60 days of occasions, in one Surface card. */}
       {railTab === "life" && (
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-          <span style={subhead(t)}>Life · next 60 days</span>
+      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+          <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>
               {lifeClashCount} clash{lifeClashCount === 1 ? "" : "es"}
@@ -649,32 +491,27 @@ export function Inspector({
             letterSpacing: "-0.01em",
           }}
         >
-          New life event
+          Add an occasion
         </button>
-        <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.4, marginTop: 8, padding: "0 2px" }}>
+        <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.4, marginTop: 10, padding: "0 2px" }}>
           A clash means the day matters and nobody is off. Nucleus never moves a shift for you.
         </div>
       </div>
       )}
 
-      {/* Month tab — fatigue heatmap + this-month totals */}
+      {/* Month tab — one card: fatigue quilt, then this-month totals. */}
       {railTab === "month" && (
-      <>
-        <FatigueHeatmap
-          shifts={allShifts}
-          state={state}
-          anchorDate={selected}
-          t={t}
-          onSelectDate={onSelectDate}
-        />
-        <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
-        <MonthWeekDeltas selected={selected} state={state} t={t} />
-      </>
-      )}
-
-      {/* Childcare tab — running total of confirmed coverage hours */}
-      {railTab === "childcare" && (
-        <CaregiverCoverageAnalysis state={state} daisyName={daisyName} palette={palette} t={t} />
+        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <FatigueHeatmap
+            shifts={allShifts}
+            state={state}
+            anchorDate={selected}
+            t={t}
+            onSelectDate={onSelectDate}
+          />
+          <div style={{ height: 0.5, background: t.sep }} />
+          <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+        </div>
       )}
 
       {/* Bottom tab bar — Month / Childcare / Life (design boards) */}
@@ -822,28 +659,28 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
   const persons = (["G", "K", "D"] as const).filter((w) => per[w].count > 0);
   const maxPersonH = Math.max(0.01, ...persons.map((w) => per[w].hours));
 
+  const BAR = palette.G; // teal magnitude bar (design board), name carries identity
   return (
     <div>
-      <div style={{ ...subhead(t), marginBottom: 8 }}>This Month · {MONTHS_LONG[m]} {y}</div>
       {/* Stat row — big number over a short caps label (design board). */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, paddingBottom: 12, borderBottom: `0.5px solid ${t.sep}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {stats.map(([k, v]) => (
           <div key={k}>
-            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginTop: 2 }}>{k}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
           </div>
         ))}
       </div>
-      {/* Per-person hours — a colored bar per person (swatch), not a dot. */}
+      {/* Per-person hours — a teal magnitude bar per person, not a dot. */}
       {persons.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 16 }}>
           {persons.map((w) => (
-            <div key={w} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 56, fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
-              <span style={{ flex: 1, height: 10, background: rgba(dotFor[w], 0.16), borderRadius: 5, overflow: "hidden" }}>
-                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: dotFor[w], borderRadius: 5 }} />
+            <div key={w} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ width: 56, fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
+              <span style={{ flex: 1, height: 10, background: t.bgElev2, borderRadius: 5, overflow: "hidden" }}>
+                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 5 }} />
               </span>
-              <span style={{ width: 44, textAlign: "right", fontSize: 12.5, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
+              <span style={{ width: 46, textAlign: "right", fontSize: 13, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
             </div>
           ))}
         </div>
@@ -1349,14 +1186,22 @@ function MonthWeekDeltas({ selected, state, t }: {
   );
 }
 
-// Per-day rest / coverage bars for the current week (design boards' Childcare
-// tab). Uses the app's own overlap-coverage engine: each day's window is the
-// hours a caregiver must be home; a confirmed or pending request marks the day
-// covered, otherwise it "needs cover".
-function WeekRestBars({ selected, state, t }: {
+// Childcare tab card (design board). One Surface card: the week's protected
+// rest windows as per-day bars (Teal-Light = covered, dashed Clay = needs
+// cover), the specific uncovered windows spelled out as consequences, and the
+// two actions (Ask / Request cover). Uses the app's own overlap-coverage engine.
+function ChildcareCard({
+  selected, state, t, dark, selfName, partnerName, daisyName, onRequestCover, onAsk,
+}: {
   selected: string;
   state: HouseholdState | null;
   t: ThemeTokens;
+  dark: boolean;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+  onRequestCover?: () => void;
+  onAsk?: () => void;
 }) {
   if (!state) return null;
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -1376,7 +1221,8 @@ function WeekRestBars({ selected, state, t }: {
     overrides: state.overrides ?? [],
     ot: state.ot ?? [],
   };
-  const cands = computeOverlapCandidates(buildShiftMap(stFilled, iso(fromDt), iso(toDt)), stFilled);
+  const shiftMap = buildShiftMap(stFilled, iso(fromDt), iso(toDt));
+  const cands = computeOverlapCandidates(shiftMap, stFilled);
   const covered = new Set(
     (state.coverageRequests ?? [])
       .filter((r) => r.status === "confirmed" || r.status === "pending")
@@ -1391,6 +1237,10 @@ function WeekRestBars({ selected, state, t }: {
     if (c.endsNextDay || d <= 0) d += 1440;
     return d / 60;
   };
+  const hm = (h: number): string => {
+    const H = Math.floor(h); const M = Math.round((h - H) * 60);
+    return M ? `${H}h${pad(M)}` : `${H}h`;
+  };
   const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const rows = days.map((date) => {
     const dc = cands.filter((c) => c.date === date);
@@ -1399,43 +1249,84 @@ function WeekRestBars({ selected, state, t }: {
   });
   const maxH = Math.max(1, ...rows.map((r) => r.hours));
   const needCover = rows.filter((r) => r.hasWindow && !r.isCovered).length;
+
+  // The specific uncovered windows, spelled out. Consequence, not mechanism.
+  const gaps = days.flatMap((date) => {
+    if (covered.has(date)) return [];
+    const [gy, gm, dd] = date.split("-").map(Number);
+    const dow = new Date(gy, gm - 1, dd).getDay();
+    const workers = (shiftMap[date] ?? []).map((s) => s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName);
+    const worker = workers.length ? Array.from(new Set(workers)).join(" & ") : "";
+    return cands.filter((c) => c.date === date).map((c) => ({
+      key: `${date}-${c.startTime}`,
+      head: `${WD[dow].charAt(0)}${WD[dow].slice(1).toLowerCase()} ${dd} · ${compactTime(c.startTime)} – ${compactTime(c.endTime)}${c.endsNextDay ? " +1d" : ""}`,
+      body: worker
+        ? `${worker} works. Nobody has the kids ${compactTime(c.startTime)}–${compactTime(c.endTime)}.`
+        : `Nobody has the kids ${compactTime(c.startTime)}–${compactTime(c.endTime)}.`,
+    }));
+  });
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={subhead(t)}>Rest &amp; coverage · this week</span>
+    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>Rest &amp; coverage · this week</span>
         {needCover > 0 && (
           <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         {rows.map((r, i) => {
-          const pct = r.hasWindow ? Math.max(10, (r.hours / maxH) * 100) : 0;
+          const pct = r.hasWindow ? Math.max(12, (r.hours / maxH) * 100) : 0;
           return (
-            <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text3 }}>{WD[i]}</span>
               <div style={{ flex: 1, height: 12, borderRadius: 6, background: t.bgElev2, overflow: "hidden", position: "relative" }}>
                 {r.hasWindow && (
                   <div style={{
                     position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 6, boxSizing: "border-box",
-                    background: r.isCovered ? rgba("#0F6E64", 0.55) : rgba("#8A4B38", 0.14),
+                    background: r.isCovered ? "#9ACFC6" : rgba("#8A4B38", 0.10),
                     border: r.isCovered ? "none" : `1px dashed ${rgba("#8A4B38", 0.6)}`,
                   }} />
                 )}
               </div>
-              <span style={{ width: 36, textAlign: "right", fontSize: 10.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.hasWindow && !r.isCovered ? "#8A4B38" : "transparent" }}>
-                {r.hasWindow && !r.isCovered ? `${r.hours % 1 === 0 ? r.hours : r.hours.toFixed(1)}h` : "·"}
+              <span style={{ width: 40, textAlign: "right", fontSize: 10.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.hasWindow && !r.isCovered ? "#8A4B38" : "transparent" }}>
+                {r.hasWindow && !r.isCovered ? hm(r.hours) : "·"}
               </span>
             </div>
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 10, color: t.text3 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 12, height: 8, borderRadius: 3, background: rgba("#0F6E64", 0.55) }} />Covered
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 12, height: 8, borderRadius: 3, border: `1px dashed ${rgba("#8A4B38", 0.6)}` }} />Needs cover
-        </span>
+      {gaps.length > 0 && (
+        <>
+          <div style={{ height: 0.5, background: t.sep }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {gaps.map((g) => (
+              <div key={g.key} style={{ padding: "10px 12px", borderRadius: 10, background: rgba("#8A4B38", dark ? 0.14 : 0.08), border: `1px dashed ${rgba("#8A4B38", 0.5)}` }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>{g.head}</div>
+                <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4, marginTop: 3 }}>{g.body}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          onClick={onAsk}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 9, border: 0, background: "#D8E7E4", color: "#0A4F48", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em" }}
+        >
+          <BrandMark size={14} color="#0A4F48" /> Ask
+        </button>
+        <button
+          type="button"
+          onClick={onRequestCover}
+          style={{ flex: 1, padding: "10px 14px", borderRadius: 9, border: `0.5px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em" }}
+        >
+          Request cover
+        </button>
+      </div>
+      <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.5 }}>
+        A night shift protects 8 hours before it and 8 hours after. A block is covered when {selfName} or {daisyName} is home for all of it.
       </div>
     </div>
   );

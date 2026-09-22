@@ -513,6 +513,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         coverageNeedsCount={new Set(coverageNeeds.map((c) => c.date)).size}
         onDismissReminder={scheduleReminder.dismiss}
         onSendCaregiverRequests={() => setCoverageModalOpen(true)}
+        onAsk={() => setAskClaudeOpen(true)}
       />
       <ScheduleBlockModal
         open={scheduleBlockOpen}

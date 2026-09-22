@@ -192,8 +192,8 @@ export function Sidebar({
         {SCHEDULE_IMPORTS.map((s) => (
           <ListRow
             key={s.id}
-            icon="◧"
             label={s.label}
+            tag={s.target === "dependent-daisy" ? "SCHOOL" : "WORK"}
             onClick={() => onOpenScheduleImport(s.id)}
             t={t}
           />
@@ -286,6 +286,8 @@ interface ListRowProps {
   icon?: React.ReactNode;
   label: string;
   count?: number;
+  /** Small caps chip on the right (e.g. WORK / SCHOOL). */
+  tag?: string;
   active?: boolean;
   color?: string;
   t: ThemeTokens;
@@ -294,7 +296,7 @@ interface ListRowProps {
   title?: string;
 }
 
-function ListRow({ icon, label, count, active, color, t, onClick, onContextMenu, title }: ListRowProps) {
+function ListRow({ icon, label, count, tag, active, color, t, onClick, onContextMenu, title }: ListRowProps) {
   const lightSurface = t.bg === "#F7F6F3" || t.bg === "#F2F2F7" || t.bg === "#ECECEE";
   return (
     <button
@@ -321,11 +323,14 @@ function ListRow({ icon, label, count, active, color, t, onClick, onContextMenu,
       }}
     >
       {color ? (
-        <span style={{ width: 12, height: 12, borderRadius: 3, background: color, flexShrink: 0 }} />
+        <span style={{ width: 3.5, height: 14, borderRadius: 2, background: color, flexShrink: 0 }} />
       ) : icon ? (
         <span style={{ width: 16, display: "inline-flex", justifyContent: "center", color: t.text2 }}>{icon}</span>
       ) : null}
       <span style={{ flex: 1 }}>{label}</span>
+      {tag && (
+        <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: t.text3, padding: "2px 6px", borderRadius: 4, background: t.bgElev2 }}>{tag}</span>
+      )}
       {count != null && (
         <span style={{ fontSize: 11, color: t.text3, fontVariantNumeric: "tabular-nums" }}>{count}</span>
       )}
