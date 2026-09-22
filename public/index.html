@@ -2059,7 +2059,7 @@
     border-radius: 6px;
     padding: 6px 10px;
     background: transparent;
-    border: 1px dashed rgba(48,209,88,0.7);
+    border: 1px dashed rgba(15,110,100,0.7);
     color: var(--text);
     z-index: 3;
     display: flex; align-items: center; gap: 6px;
@@ -2460,7 +2460,7 @@
   .mgr-card-title .t2 { font-size: 12px; color: var(--text-2); }
   .mgr-pending-badge {
     font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-    color: #b26a00; background: rgba(255,159,10,0.2);
+    color: #b26a00; background: rgba(138,75,56,0.2);
     padding: 3px 8px; border-radius: 8px; flex-shrink: 0;
   }
   .mgr-photo {
@@ -2732,10 +2732,10 @@
   /* Mine/theirs background tinting comes from a per-sender data attr set by JS. */
   .chat-bubble.sender-g { background: var(--color-g); }
   .chat-bubble.sender-k { background: var(--color-k); }
-  .chat-bubble.sender-d { background: #30D158; }
+  .chat-bubble.sender-d { background: var(--person-d); }
   .chat-row.theirs .chat-sender.sender-g { color: var(--color-g); }
   .chat-row.theirs .chat-sender.sender-k { color: var(--color-k); }
-  .chat-row.theirs .chat-sender.sender-d { color: #30D158; }
+  .chat-row.theirs .chat-sender.sender-d { color: var(--person-d); }
 
   .chat-composer {
     display: flex;
@@ -3100,9 +3100,9 @@
   .dds-tile-value.muted { color: var(--text-3); }
   .dds-tile-value .u { font-size: 14px; font-weight: 600; color: var(--text-2); margin-left: 3px; }
   /* Severity tints (rest low, childcare state) */
-  .dds-tile.warn { background: color-mix(in srgb, #FF9F0A 15%, var(--panel)); }
+  .dds-tile.warn { background: color-mix(in srgb, #8A4B38 15%, var(--panel)); }
   .dds-tile.warn .dds-tile-label,
-  .dds-tile.warn .dds-tile-value { color: #FF9F0A; }
+  .dds-tile.warn .dds-tile-value { color: #8A4B38; }
   .dds-tile.crit { background: color-mix(in srgb, var(--ot) 13%, var(--panel)); }
   .dds-tile.crit .dds-tile-label,
   .dds-tile.crit .dds-tile-value { color: var(--ot); }
@@ -3115,7 +3115,7 @@
     font-size: 14px; font-weight: 700; flex-shrink: 0;
   }
   .dds-tile.good .dds-badge { background: var(--color-off); }
-  .dds-tile.warn .dds-badge { background: #FF9F0A; }
+  .dds-tile.warn .dds-badge { background: #8A4B38; }
   .dds-tile.crit .dds-badge { background: var(--ot); }
 
   .dds-extra { padding: 0 16px 16px; }
@@ -3123,7 +3123,7 @@
   .dds-appt-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; }
   .dds-appt { display: flex; gap: 12px; align-items: stretch; margin-bottom: 12px; }
   .dds-appt:last-child { margin-bottom: 0; }
-  .dds-appt-bar { width: 4px; border-radius: 4px; background: #34C759; flex-shrink: 0; }
+  .dds-appt-bar { width: 4px; border-radius: 4px; background: var(--ok); flex-shrink: 0; }
   .dds-appt-main { min-width: 0; }
   .dds-appt-time { font-size: 14px; font-weight: 700; color: var(--import-green, #16A34A); }
   .dds-appt-title { font-size: 17px; font-weight: 700; color: var(--text); margin-top: 2px; text-wrap: pretty; }
@@ -3138,9 +3138,9 @@
   .dds-wvu-title { font-size: 15px; font-weight: 700; color: var(--text); }
   .dds-wvu-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
   .dds-ot-btn {
-    width: 100%; background: color-mix(in srgb, #FF9F0A 15%, var(--panel));
-    border: 1px solid color-mix(in srgb, #FF9F0A 35%, transparent);
-    color: #FF9F0A; font-size: 13px; font-weight: 600;
+    width: 100%; background: color-mix(in srgb, #8A4B38 15%, var(--panel));
+    border: 1px solid color-mix(in srgb, #8A4B38 35%, transparent);
+    color: #8A4B38; font-size: 13px; font-weight: 600;
     padding: 10px 12px; border-radius: 12px; cursor: pointer; font-family: var(--font);
   }
 
@@ -3316,19 +3316,19 @@
     display: flex; align-items: center; gap: 11px;
   }
   .mc-insight.bad {
-    background: linear-gradient(135deg, rgba(255,69,58,0.10), rgba(255,159,10,0.08));
-    border: 0.5px solid rgba(255,69,58,0.16);
+    background: linear-gradient(135deg, rgba(138,75,56,0.10), rgba(138,75,56,0.08));
+    border: 0.5px solid rgba(138,75,56,0.16);
   }
   .mc-insight.good {
-    background: linear-gradient(135deg, rgba(48,209,88,0.12), rgba(10,132,255,0.07));
-    border: 0.5px solid rgba(48,209,88,0.18);
+    background: linear-gradient(135deg, rgba(15,110,100,0.12), rgba(15,110,100,0.07));
+    border: 0.5px solid rgba(15,110,100,0.18);
   }
   .mc-insight-icon {
     flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px;
     display: flex; align-items: center; justify-content: center; font-size: 15px;
   }
-  .mc-insight.bad .mc-insight-icon { background: rgba(255,69,58,0.15); }
-  .mc-insight.good .mc-insight-icon { background: rgba(48,209,88,0.16); }
+  .mc-insight.bad .mc-insight-icon { background: rgba(138,75,56,0.15); }
+  .mc-insight.good .mc-insight-icon { background: rgba(15,110,100,0.16); }
   .mc-insight-text { font-size: 12.5px; line-height: 1.35; color: var(--text-2); }
   .mc-insight-text b { color: var(--text); font-weight: 600; }
   .mc-insight-text .bad-v  { color: #D8352A; font-weight: 700; }
@@ -3349,8 +3349,8 @@
     font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums;
   }
   .mc-delta .mc-arrow { font-size: 8px; line-height: 1; }
-  .mc-delta.good { color: #1E9E52; background: rgba(48,209,88,0.15); }
-  .mc-delta.bad  { color: #D8352A; background: rgba(255,69,58,0.13); }
+  .mc-delta.good { color: #1E9E52; background: rgba(15,110,100,0.15); }
+  .mc-delta.bad  { color: #D8352A; background: rgba(138,75,56,0.13); }
   .mc-delta.flat { color: var(--text-dim); background: var(--scrim); }
   .mc-was { font-size: 11px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .mc-spark { width: 116px; height: 34px; display: block; }
@@ -3908,9 +3908,9 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .ot-status.pending  { background: rgba(255,159,10,0.3); color: #ff9f0a; }
-  .ot-status.approved { background: rgba(48,209,88,0.3); color: var(--ok); }
-  .ot-status.denied   { background: rgba(255,69,58,0.3); color: var(--ot); }
+  .ot-status.pending  { background: rgba(138,75,56,0.3); color: #ff9f0a; }
+  .ot-status.approved { background: rgba(15,110,100,0.3); color: var(--ok); }
+  .ot-status.denied   { background: rgba(138,75,56,0.3); color: var(--ot); }
 
   /* Feedback chat */
   .feedback-fab {
@@ -4326,7 +4326,7 @@
     height: 16px;
     padding: 0 4px;
     border-radius: 8px;
-    background: #FF453A;
+    background: var(--ot);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -4457,7 +4457,7 @@
     width: 100%;
     padding: 12px 18px;
     background: transparent;
-    color: #FF453A;
+    color: var(--ot);
     border: 0.5px solid var(--sep);
     border-radius: 14px;
     font-size: 13px;
@@ -4468,7 +4468,7 @@
     transition: filter 0.12s, transform 0.06s ease;
     -webkit-tap-highlight-color: transparent;
   }
-  .profile-danger-btn:hover  { background: rgba(255,69,58,0.08); }
+  .profile-danger-btn:hover  { background: rgba(138,75,56,0.08); }
   .profile-danger-btn:active { transform: scale(0.98); }
 
   /* ===== Profile — iOS grouped-card design, shared by the manager pane
@@ -4506,7 +4506,7 @@
     border: 0; border-radius: 25px; background: var(--color-g); color: #fff;
     font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
     font-family: var(--font); cursor: pointer;
-    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.35);
     -webkit-tap-highlight-color: transparent; transition: opacity 0.1s;
   }
   .pf-primary:active { opacity: 0.75; }
@@ -4871,14 +4871,14 @@
     width: 8px;
     height: 8px;
     border-radius: 4px;
-    background: #30D158;
+    background: var(--ok);
     margin-left: 7px;
     vertical-align: middle;
-    box-shadow: 0 0 0 3px rgba(48,209,88,0.18);
+    box-shadow: 0 0 0 3px rgba(15,110,100,0.18);
   }
   .mc-card2.just-accepted {
-    background: rgba(48,209,88,0.07);
-    box-shadow: inset 0 0 0 1px rgba(48,209,88,0.28);
+    background: rgba(15,110,100,0.07);
+    box-shadow: inset 0 0 0 1px rgba(15,110,100,0.28);
   }
 
   .mc-card {
@@ -4903,10 +4903,10 @@
     font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
     letter-spacing: 0.04em; text-transform: uppercase;
   }
-  .mc-pill.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
-  .mc-pill.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
-  .mc-pill.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
-  .mc-pill.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+  .mc-pill.pending   { background: rgba(20,32,30,0.18); color: #5E5CE6; }
+  .mc-pill.confirmed { background: rgba(15,110,100,0.18); color: #30D158; }
+  .mc-pill.declined  { background: rgba(138,75,56,0.18); color: #FF453A; }
+  .mc-pill.issue     { background: rgba(138,75,56,0.18); color: #FF9F0A; }
   .mc-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 8px; flex-wrap: wrap; }
   .mc-meta b { color: var(--text); font-weight: 600; }
   .mc-notes {
@@ -4992,7 +4992,7 @@
   .mc-card2-body { flex: 1; min-width: 0; }
   .mc-card2-main { display: flex; align-items: stretch; }
   .mc-datebk { flex-shrink: 0; width: 70px; padding: 16px 8px 16px 14px; text-align: center; }
-  .mc-mon { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: #FF3B30; text-transform: uppercase; }
+  .mc-mon { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: var(--ot); text-transform: uppercase; }
   .mc-day { font-size: 36px; font-weight: 800; color: var(--text); line-height: 1; letter-spacing: -1.5px; margin-top: 2px; }
   .mc-detail { flex: 1; min-width: 0; padding: 16px 8px 16px 6px; display: flex; flex-direction: column; justify-content: center; gap: 9px; }
   .mc-times { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--text-2); flex-wrap: wrap; }
@@ -5110,12 +5110,12 @@
     letter-spacing: 0.06em;
     padding: 3px 8px;
     border-radius: 999px;
-    background: rgba(255,159,10,0.18);
-    color: #FF9F0A;
+    background: rgba(138,75,56,0.18);
+    color: #8A4B38;
   }
-  .cg-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
-  .cg-status.declined  { background: rgba(255,69,58,0.18);  color: #FF453A; }
-  .cg-status.issue     { background: rgba(255,159,10,0.22); color: #FF9F0A; }
+  .cg-status.confirmed { background: rgba(15,110,100,0.18); color: var(--ok); }
+  .cg-status.declined  { background: rgba(138,75,56,0.18);  color: var(--ot); }
+  .cg-status.issue     { background: rgba(138,75,56,0.22); color: #8A4B38; }
   .cg-window {
     font-size: 14px;
     font-weight: 600;
@@ -5152,8 +5152,8 @@
     font-family: inherit;
     letter-spacing: -0.01em;
   }
-  .cg-btn-accept  { background: #30D158; color: #fff; }
-  .cg-btn-decline { background: rgba(255,69,58,0.14); color: #FF453A; }
+  .cg-btn-accept  { background: var(--ok); color: #fff; }
+  .cg-btn-decline { background: rgba(138,75,56,0.14); color: var(--ot); }
   .cg-btn-issue   {
     background: transparent;
     color: var(--text-dim);
@@ -5175,13 +5175,13 @@
     gap: 6px;
     padding: 10px;
     border-radius: 10px;
-    background: rgba(94,92,230,0.10);
-    border: 1px dashed rgba(94,92,230,0.55);
+    background: rgba(20,32,30,0.10);
+    border: 1px dashed rgba(20,32,30,0.55);
   }
   .cg-change-title {
     font-size: 10.5px;
     font-weight: 700;
-    color: #5E5CE6;
+    color: var(--person-both);
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -5286,10 +5286,10 @@
   .cg-cal-cell.has-req { cursor: pointer; }
   .cg-cal-cell.has-req:active { transform: scale(0.97); }
   .cg-cal-cell.outside { opacity: 0.5; }
-  .cg-cal-cell.today { box-shadow: inset 0 0 0 1.5px #30D158; }
+  .cg-cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--ok); }
   .cg-cal-cell.selected {
-    background: rgba(48,209,88,0.10);
-    border-color: #30D158;
+    background: rgba(15,110,100,0.10);
+    border-color: var(--ok);
   }
   .cg-cal-date {
     font-size: 12px;
@@ -5297,7 +5297,7 @@
     color: var(--text);
     line-height: 1;
   }
-  .cg-cal-cell.today .cg-cal-date { color: #30D158; }
+  .cg-cal-cell.today .cg-cal-date { color: var(--ok); }
   .cg-cal-chips { display: flex; flex-direction: column; gap: 2px; }
   /* Neutral chip + a coloured SHAPE marker. The old chips were a solid
      status colour with the start time in white on top — the status had no
@@ -5401,10 +5401,10 @@
     padding: 3px 8px;
     border-radius: 999px;
   }
-  .cg-sched-status.pending   { background: rgba(94,92,230,0.18); color: #5E5CE6; }
-  .cg-sched-status.confirmed { background: rgba(48,209,88,0.18); color: #30D158; }
-  .cg-sched-status.declined  { background: rgba(255,69,58,0.18); color: #FF453A; }
-  .cg-sched-status.issue     { background: rgba(255,159,10,0.18); color: #FF9F0A; }
+  .cg-sched-status.pending   { background: rgba(20,32,30,0.18); color: var(--person-both); }
+  .cg-sched-status.confirmed { background: rgba(15,110,100,0.18); color: var(--ok); }
+  .cg-sched-status.declined  { background: rgba(138,75,56,0.18); color: var(--ot); }
+  .cg-sched-status.issue     { background: rgba(138,75,56,0.18); color: #8A4B38; }
 
   /* Caregiver profile pane */
   .cg-profile-hero {
@@ -5416,11 +5416,11 @@
   }
   .cg-profile-avatar {
     width: 72px; height: 72px; border-radius: 50%;
-    background: linear-gradient(135deg, #30D158, #34C7BE);
+    background: linear-gradient(135deg, var(--ok), #0A4F48);
     color: #fff;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
-    box-shadow: 0 6px 18px rgba(48,209,88,0.35);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.35);
   }
   .cg-profile-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
   .cg-profile-email { font-size: 13px; color: var(--text-dim); }
@@ -5438,11 +5438,11 @@
     -webkit-tap-highlight-color: transparent;
     text-align: left;
   }
-  .cg-profile-row.danger { color: #FF453A; }
-  .cg-profile-row.signout { color: var(--ot, #FF9F0A); }
+  .cg-profile-row.danger { color: var(--ot); }
+  .cg-profile-row.signout { color: var(--ot, #8A4B38); }
   .cg-profile-row:active { filter: brightness(0.95); }
   .cg-profile-row.primary {
-    background: linear-gradient(135deg, #30D158, #34C7BE);
+    background: linear-gradient(135deg, var(--ok), #0A4F48);
     color: #fff;
     border: 0;
     display: flex;
@@ -5498,7 +5498,7 @@
   .cg-tab .cg-tab-label {
     font-size: 11px; font-weight: 600; letter-spacing: -0.01em;
   }
-  .cg-tab.active { color: #30D158; }
+  .cg-tab.active { color: var(--ok); }
   .cg-tab .cg-tab-badge {
     position: absolute;
     top: 4px;
@@ -5506,7 +5506,7 @@
     min-width: 16px; height: 16px;
     padding: 0 4px;
     border-radius: 8px;
-    background: #FF453A;
+    background: var(--ot);
     color: #fff;
     font-size: 10px; font-weight: 700;
     display: inline-flex; align-items: center; justify-content: center;
@@ -5605,7 +5605,7 @@
     font-family: var(--font); line-height: 1.4; resize: none; outline: none;
   }
   .cgr-textarea::placeholder { color: var(--text-3); }
-  .cgr-err { font-size: 13px; color: #FF453A; padding: 0 4px 8px; }
+  .cgr-err { font-size: 13px; color: var(--ot); padding: 0 4px 8px; }
   .cgr-actions {
     display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 0;
   }
@@ -5614,7 +5614,7 @@
     background: var(--color-g); color: #fff;
     font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
     font-family: var(--font); cursor: pointer;
-    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.35);
     -webkit-tap-highlight-color: transparent;
   }
   .cgr-submit:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -5701,7 +5701,7 @@
     font-size: 12px; color: var(--text-3); text-align: right;
     padding: 0 4px 18px;
   }
-  .wbp-count.over { color: #FF453A; }
+  .wbp-count.over { color: var(--ot); }
   /* Duration chips — poster picks how long the note stays on the wall. */
   .wbp-durs {
     display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
@@ -5718,7 +5718,7 @@
     background: var(--color-g); border-color: var(--color-g);
     color: #fff; font-weight: 600;
   }
-  .wbp-err { font-size: 13px; color: #FF453A; padding: 0 4px 8px; }
+  .wbp-err { font-size: 13px; color: var(--ot); padding: 0 4px 8px; }
   .wbp-current {
     background: var(--bg-elev2); border-radius: 16px;
     padding: 12px 16px; margin-bottom: 20px;
@@ -5734,7 +5734,7 @@
   .wbp-current-meta { font-size: 12px; color: var(--text-3); margin-top: 5px; }
   .wbp-clear {
     margin-top: 9px; border: 0; background: transparent; padding: 0;
-    color: #FF453A; font-family: var(--font); font-size: 14px;
+    color: var(--ot); font-family: var(--font); font-size: 14px;
     letter-spacing: -0.02em; cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -5746,7 +5746,7 @@
     background: var(--color-g); color: #fff;
     font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
     font-family: var(--font); cursor: pointer;
-    box-shadow: 0 6px 18px rgba(10,132,255,0.35);
+    box-shadow: 0 6px 18px rgba(15,110,100,0.35);
     -webkit-tap-highlight-color: transparent;
   }
   .wbp-submit:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -6376,22 +6376,22 @@
       <div class="ask-suggestions" id="askSuggestions">
         <div class="ask-sug-label">Suggested for this week</div>
         <button type="button" class="ask-sug-card" data-ask-prompt="What does my next 2 weeks look like?">
-          <span class="ask-sug-glyph" style="background:rgba(10,132,255,0.14);color:#0A84FF;">14</span>
+          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.14);color:#0F6E64;">14</span>
           <span class="ask-sug-body"><span class="ask-sug-t">What does my next 2 weeks look like?</span><span class="ask-sug-sub">Shifts, daycare &amp; couple time at a glance</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="I picked up an OT shift this Friday night">
-          <span class="ask-sug-glyph" style="background:rgba(48,209,88,0.16);color:#30D158;">＋</span>
+          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.16);color:#0F6E64;">＋</span>
           <span class="ask-sug-body"><span class="ask-sug-t">I picked up an OT shift this Friday night</span><span class="ask-sug-sub">Adds a shift · checks for conflicts</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Move my Monday shift next week to Wednesday">
-          <span class="ask-sug-glyph" style="background:rgba(191,90,242,0.16);color:#BF5AF2;">⇄</span>
+          <span class="ask-sug-glyph" style="background:rgba(90,102,99,0.16);color:#5A6663;">⇄</span>
           <span class="ask-sug-body"><span class="ask-sug-t">Move my Monday shift next week to Wednesday</span><span class="ask-sug-sub">Swaps a shift to another day</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Kaylene is off the rest of this week">
-          <span class="ask-sug-glyph" style="background:rgba(255,69,58,0.15);color:#FF453A;">–</span>
+          <span class="ask-sug-glyph" style="background:rgba(138,75,56,0.15);color:#8A4B38;">–</span>
           <span class="ask-sug-body"><span class="ask-sug-t">Kaylene is off the rest of this week</span><span class="ask-sug-sub">Clears shifts · flags childcare gaps</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -6429,7 +6429,7 @@
           <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button class="pf-row" id="viewFamilyCodeBtn" type="button">
-          <span class="pf-row-icon" style="background:#30D158">#</span>
+          <span class="pf-row-icon" style="background:#0F6E64">#</span>
           <span class="pf-row-label">View Family Code</span>
           <svg class="pf-chev" width="8" height="14" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -7512,7 +7512,7 @@ function handlePushTap(data) {
       if (card) {
         card.scrollIntoView({ behavior: "smooth", block: "center" });
         card.style.transition = "box-shadow 0.4s ease";
-        card.style.boxShadow = "0 0 0 2px #30D158";
+        card.style.boxShadow = "0 0 0 2px #0F6E64";
         setTimeout(() => { card.style.boxShadow = ""; }, 1600);
       } else {
         window.scrollTo({ top: 0, behavior: "smooth" });
