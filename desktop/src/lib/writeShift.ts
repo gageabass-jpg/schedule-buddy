@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { compactTime, type HouseholdState } from "../state";
+import { compactTime, type HouseholdState, type OTShift, type PartnerShift } from "../state";
 import type { ShiftSource } from "../data";
 import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";
 
@@ -13,10 +13,19 @@ export interface NewShiftInput {
   shiftTypeId: string;
   label?: string;
   coworkers?: string;
+  /** Optional location for the shift (e.g. "Thomas Hospital"). Stored as a
+   *  NESTED field on the shift object, which is safe under the iOS contract
+   *  (only new TOP-LEVEL state.main fields are unsafe). */
+  where?: string;
   /** One-off custom times ("HH:MM"). When given, a matching basic shift type
    *  is reused (or created) and referenced — so the shift works everywhere
    *  that keys off shiftTypeId with no other changes. */
   customTime?: { start: string; end: string };
+  /** Repeat/recurrence: when present and non-empty, one shift entry is pushed
+   *  for EACH date in this list within the SAME state/main write (no per-date
+   *  read+overwrite race). When absent, the single `date` is used, so existing
+   *  callers behave exactly as before. */
+  dates?: string[];
 }
 
 export class WriteShiftError extends Error {
@@ -86,15 +95,35 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
     throw new WriteShiftError("Pick a shift type or enter a custom time.");
   }
 
-  if (target === "self-ot") {
-    next.ot.push({
-      date,
-      shiftTypeId,
-      label,
-      ...(input.coworkers ? { coworkers: input.coworkers } : {}),
-    });
-  } else {
-    next.partner.shifts.push({ date, shiftTypeId, label });
+  // The full date list: an explicit `dates` array (recurrence) or the single
+  // `date`. Deduped and filtered to well-formed values so one bad entry can't
+  // poison the whole write.
+  const rawDates = input.dates && input.dates.length ? input.dates : [date];
+  const dateList = Array.from(
+    new Set(rawDates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))),
+  );
+  if (!dateList.length) {
+    throw new WriteShiftError("Pick a date for the shift.");
+  }
+  const where = input.where?.trim();
+
+  for (const d of dateList) {
+    if (target === "self-ot") {
+      const entry: OTShift = {
+        date: d,
+        shiftTypeId,
+        label,
+        ...(input.coworkers ? { coworkers: input.coworkers } : {}),
+      };
+      // `where` is a nested field not in the strict OTShift type — attach it
+      // via a widened reference so it serializes without a type error.
+      if (where) (entry as OTShift & { where?: string }).where = where;
+      next.ot.push(entry);
+    } else {
+      const entry: PartnerShift = { date: d, shiftTypeId, label };
+      if (where) (entry as PartnerShift & { where?: string }).where = where;
+      next.partner.shifts.push(entry);
+    }
   }
 
   try {
