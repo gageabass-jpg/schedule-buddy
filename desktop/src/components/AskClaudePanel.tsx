@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import { askClaude, type AskMessage } from "../lib/askClaude";
+import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 
 interface Props {
   open: boolean;
@@ -76,7 +77,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
       <div
         role="dialog"
-        aria-label="Ask Nucleus"
+        aria-label="nucleusAI"
         style={{
           position: "fixed",
           top: 0,
@@ -101,18 +102,23 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
             borderBottom: `0.5px solid ${t.sep}`,
           }}
         >
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>
-              ✨ Ask Nucleus
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: BRAND_TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <BrandMark size={18} color="#fff" />
             </div>
-            <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>
-              Schedule changes in plain English. Confirms before writing.
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: BRAND_FONT, fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
+                nucleus<span style={{ opacity: 0.55 }}>AI</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 1 }}>
+                Schedule changes in plain English. Confirms before writing.
+              </div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: "transparent", border: 0, color: t.text2, fontSize: 18, cursor: "pointer", padding: 4, fontFamily: "inherit" }}
+            style={{ background: "transparent", border: 0, color: t.text2, fontSize: 18, cursor: "pointer", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "inherit" }}
             aria-label="Close"
           >✕</button>
         </header>
@@ -221,7 +227,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                 send(draft);
               }
             }}
-            placeholder="Tell Nucleus what to change…"
+            placeholder="Tell nucleusAI what to change…"
             rows={1}
             disabled={busy}
             style={{
@@ -245,9 +251,9 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
             onClick={() => send(draft)}
             disabled={busy || !draft.trim()}
             style={{
-              padding: "0 16px",
-              height: 34,
-              borderRadius: 18,
+              padding: "0 18px",
+              height: 40,
+              borderRadius: 20,
               border: 0,
               background: palette.G,
               color: "#fff",
