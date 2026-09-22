@@ -267,7 +267,7 @@ export function ScheduleImportModal({
           </div>
         )}
 
-        {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           {phase.kind === "review" && (
@@ -391,7 +391,7 @@ function ReviewPhase({
         </div>
       </div>
       {offMonths.length > 0 && (
-        <div style={{ fontSize: 11.5, color: "#FF9F0A", lineHeight: 1.45 }}>
+        <div style={{ fontSize: 11.5, color: "#8A4B38", lineHeight: 1.45 }}>
           ⚠ Some rows fall outside {contextMonth} ({offMonths.join(", ")}). If that's wrong, fix the date column before saving.
         </div>
       )}
@@ -485,7 +485,7 @@ function ReviewPhase({
 
 function ConfidenceDot({ c }: { c: number }) {
   const symbol = c >= 0.8 ? "●" : c >= 0.5 ? "·" : "◦";
-  const color = c >= 0.8 ? "#30D158" : c >= 0.5 ? "#A2845E" : "#FF453A";
+  const color = c >= 0.8 ? "#0F6E64" : c >= 0.5 ? "#D78F77" : "#8A4B38";
   return <span style={{ color, fontSize: 12, fontWeight: 700 }} title={`Confidence: ${c.toFixed(2)}`}>{symbol}</span>;
 }
 

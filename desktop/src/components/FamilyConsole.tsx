@@ -191,7 +191,7 @@ export function FamilyConsole({
                 type="button"
                 onClick={onCopyCode}
                 disabled={!household?.inviteCode}
-                style={{ ...secondaryBtn(t), background: copied ? "#34C759" : "transparent", color: copied ? "#fff" : t.text, borderColor: copied ? "#34C759" : t.sep }}
+                style={{ ...secondaryBtn(t), background: copied ? "#0F6E64" : "transparent", color: copied ? "#fff" : t.text, borderColor: copied ? "#0F6E64" : t.sep }}
               >
                 {copied ? "Copied" : "Copy"}
               </button>
@@ -225,7 +225,7 @@ export function FamilyConsole({
                     try { await navigator.clipboard.writeText(caregiverCode); setCaregiverCopied(true); setTimeout(() => setCaregiverCopied(false), 1400); }
                     catch { /* swallow */ }
                   }}
-                  style={{ ...secondaryBtn(t), background: caregiverCopied ? "#34C759" : "transparent", color: caregiverCopied ? "#fff" : t.text, borderColor: caregiverCopied ? "#34C759" : t.sep }}
+                  style={{ ...secondaryBtn(t), background: caregiverCopied ? "#0F6E64" : "transparent", color: caregiverCopied ? "#fff" : t.text, borderColor: caregiverCopied ? "#0F6E64" : t.sep }}
                 >
                   {caregiverCopied ? "Copied" : "Copy"}
                 </button>
@@ -346,12 +346,12 @@ export function FamilyConsole({
                         padding: "2px 8px",
                         borderRadius: 999,
                         background:
-                          m.role === "admin"      ? `rgba(10,132,255,0.18)`  :
-                          m.role === "supporting" ? `rgba(48,209,88,0.18)`   :
+                          m.role === "admin"      ? `rgba(15,110,100,0.18)`  :
+                          m.role === "supporting" ? `rgba(15,110,100,0.18)`   :
                                                     `rgba(142,142,147,0.18)`,
                         color:
                           m.role === "admin"      ? palette.G  :
-                          m.role === "supporting" ? "#30D158"  :
+                          m.role === "supporting" ? "#0F6E64"  :
                                                     t.text2,
                       }}
                     >
@@ -381,7 +381,7 @@ export function FamilyConsole({
                         style={{
                           background: "transparent",
                           border: 0,
-                          color: "#FF453A",
+                          color: "#8A4B38",
                           fontSize: 16,
                           cursor: isBusy ? "wait" : "pointer",
                           padding: 4,
@@ -411,7 +411,7 @@ export function FamilyConsole({
                     border: `0.5px solid ${t.sep}`,
                   }}
                 >
-                  <InitialDisc letter="D" color="#30D158" />
+                  <InitialDisc letter="D" color="#0F6E64" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>
                       {daisy.name || "Daisy"}
@@ -506,7 +506,7 @@ export function FamilyConsole({
                 width: "100%",
                 padding: "10px 14px",
                 background: "transparent",
-                color: "#FF453A",
+                color: "#8A4B38",
                 border: `0.5px solid ${t.sep}`,
                 borderRadius: 8,
                 fontSize: 13,
@@ -520,7 +520,7 @@ export function FamilyConsole({
           </Section>
           </>)}
 
-          {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
         </div>
       </div>
     </>
@@ -647,7 +647,7 @@ function PaydayRow({
           >{busy ? "Saving…" : "Save"}</button>
         )}
       </div>
-      {err && <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#FF453A" }}>{err}</div>}
+      {err && <div style={{ gridColumn: "1 / -1", fontSize: 11.5, color: "#8A4B38" }}>{err}</div>}
     </div>
   );
 }

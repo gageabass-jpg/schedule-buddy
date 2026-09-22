@@ -32,9 +32,9 @@ interface Props {
 type Filter = "new" | "all";
 
 function statusColor(s: CaregiverRequestStatus): string {
-  if (s === "acknowledged") return "#30D158";
+  if (s === "acknowledged") return "#0F6E64";
   if (s === "dismissed")    return "#8E8E93";
-  return "#5E5CE6";           // new
+  return "#14201E";           // new
 }
 
 function friendlyDate(iso: string): string {
@@ -409,7 +409,7 @@ export function InboxPanel({
                           padding: "5px 12px",
                           border: 0,
                           borderRadius: 6,
-                          background: "#30D158",
+                          background: "#0F6E64",
                           color: "#fff",
                           fontSize: 12,
                           fontWeight: 700,
@@ -433,10 +433,10 @@ export function InboxPanel({
                         title="Reject — removes this pending item from the calendar."
                         style={{
                           padding: "5px 10px",
-                          border: `0.5px solid rgba(255,69,58,0.6)`,
+                          border: `0.5px solid rgba(138,75,56,0.6)`,
                           borderRadius: 6,
                           background: "transparent",
-                          color: "#FF453A",
+                          color: "#8A4B38",
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: busyId === r.id ? "wait" : "pointer",

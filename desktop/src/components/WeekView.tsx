@@ -6,7 +6,7 @@ import { eventInitial } from "./EventAvatar";
 import { parentDaySegments } from "../lib/computeOverlap";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
-const COVERAGE_COLOR = "#159c43";
+const COVERAGE_COLOR = "#0F6E64";
 
 /** Diagonal-hatch fill for resting hours — matches the day timeline. */
 function hatch(color: string): string {
@@ -163,7 +163,7 @@ export function WeekView({
       <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "0 0 8px 52px", flexWrap: "wrap" }}>
         <LegendChip swatch={rgba(palette.G, 0.5)} label="Working" t={t} />
         <LegendChip swatch={hatch(t.text2)} label="Resting" t={t} />
-        <LegendChip swatch={`linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
+        <LegendChip swatch={`linear-gradient(180deg, #56B7A9, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
       </div>
 
       {/* Hour rail + 7 day columns */}
@@ -271,7 +271,7 @@ export function WeekView({
                         style={{
                           // Right-side block, half the width of a shift block.
                           position: "absolute", right: 4, width: "calc(50% - 6px)", top, height: Math.max(height, 12),
-                          borderRadius: 4, background: `linear-gradient(180deg, ${rgba("#2fbe5a", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
+                          borderRadius: 4, background: `linear-gradient(180deg, ${rgba("#56B7A9", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
                           boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.45)}`, pointerEvents: "none",
                         }}
                         title={`Coverage ${r.startTime}–${r.endTime}`}
@@ -345,7 +345,7 @@ export function WeekView({
                 {(eventsByDate[key] ?? []).map((ev) => {
                   const block = blockForEvent(ev);
                   if (!block) return null;
-                  const color = ev.pending ? "#FF9F0A" : eventColor(ev.who, palette);
+                  const color = ev.pending ? "#8A4B38" : eventColor(ev.who, palette);
                   const top = (block.startMin / 60) * PX_PER_HOUR;
                   const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
                   return (

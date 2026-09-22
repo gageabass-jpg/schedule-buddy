@@ -33,10 +33,10 @@ const STATUS_OPTIONS: { key: Filter; label: string }[] = [
  *  both themes; the tint is derived from the fg so light matches the handoff
  *  and dark just deepens it. */
 function statusColor(s: CoverageStatus): string {
-  if (s === "confirmed") return "#1a9e4b";
-  if (s === "declined")  return "#c0392b";
-  if (s === "issue")     return "#c0392b";
-  return "#b6812a"; // pending
+  if (s === "confirmed") return "#0F6E64";
+  if (s === "declined")  return "#8A4B38";
+  if (s === "issue")     return "#8A4B38";
+  return "#8A4B38"; // pending
 }
 function statusBadgeLabel(s: CoverageStatus): string {
   return s === "confirmed" ? "CONFIRMED" : statusLabel(s).toUpperCase();
@@ -61,9 +61,9 @@ function reasonLabel(r: CoverageRequest["reason"]): string {
 }
 /** Type-tag colors: blue for both-working, amber for work+sleep. */
 function reasonColor(r: CoverageRequest["reason"]): string {
-  if (r === "work-and-sleep") return "#c77700";
-  if (r === "both-sleeping")  return "#7b3fe4";
-  return "#0a6cff";
+  if (r === "work-and-sleep") return "#8A4B38";
+  if (r === "both-sleeping")  return "#14201E";
+  return "#0F6E64";
 }
 
 function durationHours(startTime: string, endTime: string, endsNextDay?: boolean): string {
@@ -147,7 +147,7 @@ export function ChildcarePanel({
         style={{
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(640px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
-          background: dark ? t.bgElev : "#f4f4f6", color: t.text,
+          background: dark ? t.bgElev : "#F7F6F3", color: t.text,
           borderRadius: 22, boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
           zIndex: 1101, fontFamily: "inherit", display: "flex", flexDirection: "column",
           // visible (not hidden) so the "New Request" dropdown can spill past
@@ -182,7 +182,7 @@ export function ChildcarePanel({
               )}
             </div>
             <button type="button" onClick={onClose} aria-label="Close"
-              style={{ width: 34, height: 34, borderRadius: "50%", border: 0, background: dark ? "rgba(255,255,255,0.08)" : "#e9e9ee", color: t.text3, fontSize: 16, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+              style={{ width: 34, height: 34, borderRadius: "50%", border: 0, background: dark ? "rgba(255,255,255,0.08)" : "#EFEDE7", color: t.text3, fontSize: 16, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
               ✕
             </button>
           </div>
@@ -247,7 +247,7 @@ export function ChildcarePanel({
                   <div style={{ width: 5, background: sc, flexShrink: 0 }} />
                   {/* Date block */}
                   <div style={{ width: 78, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: "#ff3b30" }}>{monthAbbr}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: "#8A4B38" }}>{monthAbbr}</div>
                     <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-1.5px", color: t.text, lineHeight: 1 }}>{dd}</div>
                   </div>
                   {/* Details */}
@@ -267,7 +267,7 @@ export function ChildcarePanel({
                       {r.arriveBy && <span style={{ fontSize: 10.5, color: t.text3 }}>· arrive by {r.arriveBy}</span>}
                       {r.proposedChange && (
                         <span title={`Waiting on the caregiver to approve ${r.proposedChange.startTime} → ${r.proposedChange.endTime}`}
-                          style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: rgba("#5E5CE6", dark ? 0.24 : 0.14), color: "#5E5CE6", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                          style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: rgba("#14201E", dark ? 0.24 : 0.14), color: "#14201E", letterSpacing: "0.04em", textTransform: "uppercase" }}>
                           change sent · {r.proposedChange.startTime}–{r.proposedChange.endTime}
                         </span>
                       )}
@@ -275,7 +275,7 @@ export function ChildcarePanel({
                     {(() => {
                       const clash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
                       return clash ? (
-                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#c77700", display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38", display: "flex", alignItems: "center", gap: 5 }}>
                           ⚠ {daisyName} has class {schoolLabel(clash)} — may not be able to cover
                         </div>
                       ) : null;
@@ -310,10 +310,10 @@ export function ChildcarePanel({
                   </div>
                   {/* Hours */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 8px", flexShrink: 0 }}>
-                    <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.8px", color: dark ? "#5fd97e" : "#0d7a34", lineHeight: 1 }}>
+                    <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.8px", color: dark ? "#56B7A9" : "#0F6E64", lineHeight: 1 }}>
                       {durationHours(r.startTime, r.endTime, r.endsNextDay)}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.5px", color: dark ? "#7bcf98" : "#137a3a" }}>HOURS</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.5px", color: dark ? "#56B7A9" : "#0F6E64" }}>HOURS</div>
                   </div>
                   {/* Delete */}
                   <div style={{ width: 44, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -364,9 +364,9 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, active: boole
 }
 
 const greenBtn: React.CSSProperties = {
-  padding: "10px 16px", border: 0, borderRadius: 14, background: "#34c759", color: "#fff",
+  padding: "10px 16px", border: 0, borderRadius: 14, background: "#0F6E64", color: "#fff",
   fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-  boxShadow: "0 4px 14px rgba(52,199,89,0.35)",
+  boxShadow: "0 4px 14px rgba(15,110,100,0.35)",
 };
 
 function filterTrigger(t: ThemeTokens, dark: boolean): React.CSSProperties {
@@ -401,7 +401,7 @@ function MenuItem({ label, hint, t, onClick }: { label: string; hint?: string; t
   );
 }
 
-function FilterItem({ label, count, active, t, accent = "#34c759", onClick }: {
+function FilterItem({ label, count, active, t, accent = "#0F6E64", onClick }: {
   label: string; count?: number; active: boolean; t: ThemeTokens; accent?: string; onClick: () => void;
 }) {
   return (
@@ -420,7 +420,7 @@ function FilterItem({ label, count, active, t, accent = "#34c759", onClick }: {
 
 function TrashIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#e5484d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A4B38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <line x1="10" y1="11" x2="10" y2="17" />

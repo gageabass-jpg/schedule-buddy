@@ -74,9 +74,9 @@ export function buildPublicShareSnapshot(state: HouseholdState, householdId: str
     householdId,
     householdName: state.householdName || "Our schedule",
     people: {
-      G: { name: state.selfName || "Gage", hex: "#0A84FF" },
+      G: { name: state.selfName || "Gage", hex: "#0F6E64" },
       K: { name: (state.partner && state.partner.name) || "Kaylene", hex: "#FF375F" },
-      Daisy: { name: (state.dependents?.daisy?.name) || "Daisy", hex: "#34C759" },
+      Daisy: { name: (state.dependents?.daisy?.name) || "Daisy", hex: "#0F6E64" },
     },
     days,
     from: isoOf(from), to: isoOf(to),

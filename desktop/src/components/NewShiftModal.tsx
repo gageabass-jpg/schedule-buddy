@@ -179,7 +179,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
           </Field>
 
           {err && (
-            <div style={{ fontSize: 12, color: "#FF453A", marginTop: 2 }}>{err}</div>
+            <div style={{ fontSize: 12, color: "#8A4B38", marginTop: 2 }}>{err}</div>
           )}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>

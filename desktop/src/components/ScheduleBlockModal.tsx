@@ -19,7 +19,7 @@ interface Props {
   defaultDate?: string;       // YYYY-MM-DD — pre-fills the start/end fields
 }
 
-const STOP_RED = "#FF453A";
+const STOP_RED = "#8A4B38";
 
 export function ScheduleBlockModal({
   open, onClose, palette, t, dark, householdId, state, defaultDate,
@@ -155,7 +155,7 @@ export function ScheduleBlockModal({
             />
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
           <button
             type="button"
@@ -221,7 +221,7 @@ export function ScheduleBlockModal({
                         borderRadius: 7,
                         border: `0.5px solid ${t.sep}`,
                         background: "transparent",
-                        color: "#FF453A",
+                        color: "#8A4B38",
                         fontSize: 12,
                         fontWeight: 600,
                         fontFamily: "inherit",

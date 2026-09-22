@@ -78,7 +78,7 @@ export function CoverageRequestModal({
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   // Design green as a solid accent color, darkened in light / lightened in dark
   // so it clears contrast on both the tinted chip and the white card.
-  const greenText = dark ? "#5fd97e" : "#0d7a34";
+  const greenText = dark ? "#56B7A9" : "#0F6E64";
 
   // Per-parent availability by date — depends only on the schedule, not on the
   // per-row time edits, so it doesn't rebuild on every keystroke.
@@ -128,7 +128,7 @@ export function CoverageRequestModal({
         style={{
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(780px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
-          background: dark ? t.bgElev : "#f4f4f6", color: t.text,
+          background: dark ? t.bgElev : "#F7F6F3", color: t.text,
           borderRadius: 22, boxShadow: "0 30px 80px rgba(0,0,0,0.4)",
           zIndex: 1101, fontFamily: "inherit", display: "flex", flexDirection: "column", overflow: "hidden",
         }}
@@ -142,8 +142,8 @@ export function CoverageRequestModal({
               Upcoming days where both of you are unavailable and no coverage is lined up yet. The start is when the caregiver should arrive. Adjust times or notes, then send the batch.
             </div>
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 14, background: rgba("#34c759", dark ? 0.2 : 0.12), color: greenText, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#34c759" }} />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 14, background: rgba("#0F6E64", dark ? 0.2 : 0.12), color: greenText, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0F6E64" }} />
             {keep.length} of {rows.length} ready
           </div>
         </div>
@@ -182,10 +182,10 @@ export function CoverageRequestModal({
                   style={{ display: "flex", alignItems: "center", gap: 16, minHeight: 88, cursor: "pointer", background: dark ? "rgba(255,255,255,0.04)" : "#fff", borderRadius: 18, padding: "12px 16px 12px 0", boxShadow: dark ? "none" : "0 1px 3px rgba(0,0,0,0.05)", border: dark ? `0.5px solid ${t.sep}` : "none" }}
                 >
                   {/* Accent */}
-                  <div style={{ width: 4, alignSelf: "stretch", margin: "8px 0", borderRadius: 4, background: "linear-gradient(180deg,#5fd97e,#34c759)", boxShadow: `0 0 10px ${rgba("#34c759", 0.55)}`, flexShrink: 0 }} />
+                  <div style={{ width: 4, alignSelf: "stretch", margin: "8px 0", borderRadius: 4, background: "linear-gradient(180deg,#56B7A9,#0F6E64)", boxShadow: `0 0 10px ${rgba("#0F6E64", 0.55)}`, flexShrink: 0 }} />
                   {/* Date */}
                   <div style={{ width: 74, textAlign: "center", flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#ff3b30" }}>{monthAbbr}</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#8A4B38" }}>{monthAbbr}</div>
                     <div style={{ fontSize: 30, fontWeight: 800, color: t.text, lineHeight: 1 }}>{dd}</div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: t.text3 }}>{weekday}</div>
                   </div>
@@ -202,7 +202,7 @@ export function CoverageRequestModal({
                     <HoursPill letter={partnerName[0]?.toUpperCase() || "K"} text={startsLabel(info.partnerStarts)} accent={palette.K} bg={rgba(palette.K, dark ? 0.24 : 0.12)} t={t} />
                     {daisyClash && (
                       <span title="Daisy has class during this window — she may not be able to cover"
-                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#c77700" }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#8A4B38" }}>
                         ⚠ {daisyName} in class
                       </span>
                     )}
@@ -210,13 +210,13 @@ export function CoverageRequestModal({
                   {/* Hrs */}
                   <div style={{ width: 84, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 5, flexShrink: 0 }}>
                     <span style={{ width: 34, textAlign: "right", fontSize: 22, fontWeight: 800, color: greenText }}>{durationHours(r.startTime, r.endTime, r.endsNextDay)}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: dark ? "#7bcf98" : "#137a3a" }}>Hours</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: dark ? "#56B7A9" : "#0F6E64" }}>Hours</span>
                   </div>
                   {/* Approve / deny */}
                   <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 7, flexShrink: 0, marginLeft: 4 }}>
-                    <RoundBtn label="✓" active={!r.skipped} color="#1a9e4b" t={t} dark={dark}
+                    <RoundBtn label="✓" active={!r.skipped} color="#0F6E64" t={t} dark={dark}
                       title="Approve — include in the batch" onClick={() => update(r.rowId, { skipped: false })} />
-                    <RoundBtn label="✕" active={r.skipped} color="#e5484d" t={t} dark={dark}
+                    <RoundBtn label="✕" active={r.skipped} color="#8A4B38" t={t} dark={dark}
                       title="Deny — leave out of the batch" onClick={() => update(r.rowId, { skipped: true })} />
                   </div>
                 </div>
@@ -238,7 +238,7 @@ export function CoverageRequestModal({
           })}
         </div>
 
-        {err && <div style={{ fontSize: 12, color: "#c0392b", padding: "8px 28px 0" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: "#8A4B38", padding: "8px 28px 0" }}>{err}</div>}
 
         {/* Footer */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, padding: "18px 28px 24px", borderTop: `1px solid ${t.sep}` }}>
@@ -247,7 +247,7 @@ export function CoverageRequestModal({
             Cancel
           </button>
           <button type="button" onClick={onSend} disabled={busy || keep.length === 0}
-            style={{ padding: "11px 22px", borderRadius: 14, border: 0, background: "#34c759", color: "#fff", fontSize: 15, fontWeight: 700, cursor: busy || keep.length === 0 ? "not-allowed" : "pointer", opacity: busy || keep.length === 0 ? 0.5 : 1, fontFamily: "inherit", boxShadow: "0 6px 18px rgba(52,199,89,0.35)" }}>
+            style={{ padding: "11px 22px", borderRadius: 14, border: 0, background: "#0F6E64", color: "#fff", fontSize: 15, fontWeight: 700, cursor: busy || keep.length === 0 ? "not-allowed" : "pointer", opacity: busy || keep.length === 0 ? 0.5 : 1, fontFamily: "inherit", boxShadow: "0 6px 18px rgba(15,110,100,0.35)" }}>
             {busy ? "Sending…" : `Send ${keep.length} request${keep.length === 1 ? "" : "s"}`}
           </button>
         </div>
@@ -270,7 +270,7 @@ function TimePill({ value, onChange, display, t, dark }: {
       aria-label={display}
       style={{
         width: 118, textAlign: "center", padding: "9px 0", borderRadius: 11,
-        border: `1px solid ${t.sep}`, background: dark ? "rgba(255,255,255,0.06)" : "#f2f2f5",
+        border: `1px solid ${t.sep}`, background: dark ? "rgba(255,255,255,0.06)" : "#F7F6F3",
         color: t.text, fontSize: 14, fontWeight: 700, fontFamily: "inherit", outline: "none",
         colorScheme: dark ? "dark" : "light",
       }}
@@ -300,7 +300,7 @@ function RoundBtn({ label, active, color, title, onClick, t, dark }: {
       style={{
         width: 30, height: 30, borderRadius: "50%", border: 0, cursor: "pointer", fontFamily: "inherit",
         fontSize: 13, fontWeight: 800, lineHeight: 1,
-        background: active ? rgba(color, dark ? 0.3 : 0.18) : (dark ? "rgba(255,255,255,0.06)" : "#f2f2f5"),
+        background: active ? rgba(color, dark ? 0.3 : 0.18) : (dark ? "rgba(255,255,255,0.06)" : "#F7F6F3"),
         color: color,
         opacity: active ? 1 : 0.6,
       }}>

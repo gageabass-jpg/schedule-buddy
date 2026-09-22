@@ -236,7 +236,7 @@ export function TemplateEditor({ open, onClose, palette, t, dark, householdId, s
             </div>
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>Cancel</button>

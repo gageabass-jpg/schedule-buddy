@@ -196,7 +196,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
         </div>
 
         {err && (
-          <div style={{ padding: "6px 14px", fontSize: 12, color: "#FF453A", borderTop: `0.5px solid ${t.sep}` }}>
+          <div style={{ padding: "6px 14px", fontSize: 12, color: "#8A4B38", borderTop: `0.5px solid ${t.sep}` }}>
             {err}
           </div>
         )}

@@ -45,7 +45,7 @@ export function AgendaView({ palette, t, dark, shifts, state, today, selfName, p
 
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
-  const colorFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#30D158" };
+  const colorFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
 
   const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
   const shiftMeta = (s: Shift): { range: string; hrs: string | null } => {
@@ -82,7 +82,7 @@ export function AgendaView({ palette, t, dark, shifts, state, today, selfName, p
     const whos = new Set(dayShifts.map((s) => s.who));
     const gW = whos.has("G"), kW = whos.has("K");
     const kind = gW && kW ? "both" : gW ? "g" : kW ? "k" : whos.has("D") ? "d" : "off";
-    const railColor = kind === "both" ? "#5E5CE6" : kind === "g" ? palette.G : kind === "k" ? palette.K : kind === "d" ? "#30D158" : t.text3;
+    const railColor = kind === "both" ? "#14201E" : kind === "g" ? palette.G : kind === "k" ? palette.K : kind === "d" ? "#0F6E64" : t.text3;
     const isToday = key === today;
     const isOff = dayShifts.length === 0;
     const title = isOff

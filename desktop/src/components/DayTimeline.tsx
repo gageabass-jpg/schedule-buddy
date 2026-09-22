@@ -30,7 +30,7 @@ interface Props {
 }
 
 const TICKS = ["6a", "9a", "12p", "3p", "6p", "9p", "12a"];
-const DAISY_COLOR = "#FF9F0A";   // amber — Daisy's school time (unavailable to cover)
+const DAISY_COLOR = "#8A4B38";   // amber — Daisy's school time (unavailable to cover)
 
 /** Minutes-past-midnight → "5pm" / "11:30pm" style label. */
 function label(min: number): string {
@@ -73,8 +73,8 @@ export function DayTimeline({
     ? `${dt.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} · DAY TIMELINE`
     : `${dt.toLocaleDateString(undefined, { month: "long", day: "numeric" })} · DAY TIMELINE`;
 
-  const coverageColor = "#159c43";
-  const trackBg = dark ? "rgba(255,255,255,0.06)" : "#ececef";
+  const coverageColor = "#0F6E64";
+  const trackBg = dark ? "rgba(255,255,255,0.06)" : "#EFEDE7";
 
   const lanes: { key: string; name: string; color: string; seg: DaySegments }[] = [
     { key: "g", name: selfName, color: palette.G, seg: self },
@@ -85,7 +85,7 @@ export function DayTimeline({
     <div
       style={{
         margin: "8px 6px 4px",
-        background: dark ? "rgba(255,255,255,0.03)" : "#f7f7fa",
+        background: dark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
         border: `0.5px solid ${t.sep}`,
         borderRadius: 14,
         padding: "16px 18px 12px",
@@ -133,7 +133,7 @@ export function DayTimeline({
         <div style={{ position: "relative", flex: 1, height: 20, background: trackBg, borderRadius: 7 }}>
           {coverage && (() => {
             const p = pos(coverage);
-            return <div style={{ position: "absolute", top: 2, bottom: 2, left: p.left, width: p.width, borderRadius: 6, background: `linear-gradient(90deg, #2fbe5a, ${coverageColor})`, boxShadow: `0 0 10px ${rgba(coverageColor, 0.5)}` }} />;
+            return <div style={{ position: "absolute", top: 2, bottom: 2, left: p.left, width: p.width, borderRadius: 6, background: `linear-gradient(90deg, #56B7A9, ${coverageColor})`, boxShadow: `0 0 10px ${rgba(coverageColor, 0.5)}` }} />;
           })()}
         </div>
         <div style={{ width: 92, fontSize: 12, color: t.text3, textAlign: "right", flexShrink: 0 }}>

@@ -182,7 +182,7 @@ function ListView({
                   {compactTime(typ.start)} → {compactTime(typ.end)}
                   {typ.crossesMidnight && " (next day)"}
                   {typ.sleepHours && typ.sleepHours > 0 ? (
-                    <>{" · "}<span style={{ color: "#5E5CE6" }}>+{typ.sleepHours}h sleep</span></>
+                    <>{" · "}<span style={{ color: "#14201E" }}>+{typ.sleepHours}h sleep</span></>
                   ) : null}
                   {usage && usage.total > 0 && (
                     <>
@@ -216,7 +216,7 @@ function ListView({
         })}
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button type="button" onClick={onClose} style={secondaryBtn(t)}>Done</button>
@@ -353,7 +353,7 @@ function FormView({
             shifts, 6–8 for night shifts.
           </div>
         </Field>
-        {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
           <button type="button" onClick={onBack} style={secondaryBtn(t)} disabled={busy}>Cancel</button>
           <button type="submit" disabled={busy} style={primaryBtn(palette.G, busy)}>

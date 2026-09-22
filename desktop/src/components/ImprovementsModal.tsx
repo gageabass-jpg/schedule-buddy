@@ -123,9 +123,9 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
           }}
         />
 
-        {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
         {saved && !err && (
-          <div style={{ fontSize: 12, color: "#30D158", fontWeight: 600 }}>
+          <div style={{ fontSize: 12, color: "#0F6E64", fontWeight: 600 }}>
             Logged. Thanks — add more or close.
           </div>
         )}

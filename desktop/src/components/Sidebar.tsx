@@ -302,7 +302,7 @@ interface ListRowProps {
 }
 
 function ListRow({ icon, label, count, active, color, t, onClick, onContextMenu, title }: ListRowProps) {
-  const lightSurface = t.bg === "#F2F2F7" || t.bg === "#ECECEE";
+  const lightSurface = t.bg === "#F7F6F3" || t.bg === "#F2F2F7" || t.bg === "#ECECEE";
   return (
     <button
       type="button"

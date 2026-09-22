@@ -40,10 +40,10 @@ interface Props {
 }
 
 const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
-  pending:   "#5E5CE6",
-  confirmed: "#30D158",
-  declined:  "#FF453A",
-  issue:     "#FF9F0A",
+  pending:   "#14201E",
+  confirmed: "#0F6E64",
+  declined:  "#8A4B38",
+  issue:     "#8A4B38",
 };
 const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
   pending:   "Pending",
@@ -106,7 +106,7 @@ export function Inspector({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {reminderUpdate && (
             <AlertCard
-              color="#5E5CE6"
+              color="#14201E"
               title="Update the schedule"
               body="This 4-week schedule is wrapping up — add the next block of shifts."
               onDismiss={onDismissReminder ? () => onDismissReminder("update") : undefined}
@@ -116,7 +116,7 @@ export function Inspector({
           )}
           {reminderCaregiver && (
             <AlertCard
-              color="#30D158"
+              color="#0F6E64"
               title="Send caregiver requests"
               body={
                 coverageNeedsCount === 1
@@ -284,8 +284,8 @@ export function Inspector({
             style={{
               borderRadius: 12,
               padding: 14,
-              background: "rgba(255,69,58,0.10)",
-              border: `0.5px solid rgba(255,69,58,0.45)`,
+              background: "rgba(138,75,56,0.10)",
+              border: `0.5px solid rgba(138,75,56,0.45)`,
               position: "relative",
               overflow: "hidden",
             }}
@@ -295,7 +295,7 @@ export function Inspector({
               style={{
                 position: "absolute",
                 inset: 0,
-                background: "repeating-linear-gradient(135deg, rgba(255,69,58,0.18) 0px, rgba(255,69,58,0.18) 6px, rgba(255,69,58,0) 6px, rgba(255,69,58,0) 14px)",
+                background: "repeating-linear-gradient(135deg, rgba(138,75,56,0.18) 0px, rgba(138,75,56,0.18) 6px, rgba(138,75,56,0) 6px, rgba(138,75,56,0) 14px)",
                 pointerEvents: "none",
               }}
             />
@@ -310,8 +310,8 @@ export function Inspector({
                     marginLeft: "auto",
                     fontSize: 9.5, fontWeight: 700,
                     padding: "2px 7px", borderRadius: 999,
-                    background: "rgba(255,69,58,0.18)",
-                    color: "#FF453A",
+                    background: "rgba(138,75,56,0.18)",
+                    color: "#8A4B38",
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                   }}
@@ -339,9 +339,9 @@ export function Inspector({
                   alignSelf: "flex-start",
                   padding: "5px 11px",
                   borderRadius: 7,
-                  border: `0.5px solid rgba(255,69,58,0.45)`,
+                  border: `0.5px solid rgba(138,75,56,0.45)`,
                   background: "transparent",
-                  color: "#FF453A",
+                  color: "#8A4B38",
                   fontSize: 11.5,
                   fontWeight: 600,
                   fontFamily: "inherit",
@@ -361,7 +361,7 @@ export function Inspector({
         <div style={{ ...subhead(t), marginBottom: 6 }}>Childcare</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {daisySchool.length > 0 && (
-            <div style={{ fontSize: 11.5, color: "#c77700", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
+            <div style={{ fontSize: 11.5, color: "#8A4B38", display: "flex", alignItems: "center", gap: 5, padding: "0 2px" }}>
               Daisy in class {schoolSpanLabel(daisySchool)} — can't cover
             </div>
           )}
@@ -370,15 +370,15 @@ export function Inspector({
               style={{
                 padding: 10,
                 borderRadius: 10,
-                background: rgba("#FF453A", dark ? 0.14 : 0.1),
-                border: `0.5px solid ${rgba("#FF453A", 0.5)}`,
+                background: rgba("#8A4B38", dark ? 0.14 : 0.1),
+                border: `0.5px solid ${rgba("#8A4B38", 0.5)}`,
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
               }}
             >
               <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 700, color: "#FF453A" }}>No childcare</span>
+                <span style={{ fontWeight: 700, color: "#8A4B38" }}>No childcare</span>
                 {" "}— caregiver scheduled off this day.
               </div>
               <button
@@ -414,15 +414,15 @@ export function Inspector({
               style={{
                 padding: 10,
                 borderRadius: 10,
-                background: rgba("#FF9F0A", dark ? 0.14 : 0.1),
-                border: `0.5px solid ${rgba("#FF9F0A", 0.5)}`,
+                background: rgba("#8A4B38", dark ? 0.14 : 0.1),
+                border: `0.5px solid ${rgba("#8A4B38", 0.5)}`,
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
               }}
             >
               <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4 }}>
-                <span style={{ fontWeight: 700, color: "#FF9F0A" }}>Both working</span>
+                <span style={{ fontWeight: 700, color: "#8A4B38" }}>Both working</span>
                 {" "}— no caregiver lined up for this day.
               </div>
               <button
@@ -546,9 +546,9 @@ export function Inspector({
                   textAlign: "left", fontFamily: "inherit",
                 }}
               >
-                <div style={{ width: 4, borderRadius: 4, background: "#34C759", flexShrink: 0 }} />
+                <div style={{ width: 4, borderRadius: 4, background: "#0F6E64", flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: dark ? "#30D158" : "#1e9e4a" }}>{apptTimeRange(ev)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: dark ? "#0F6E64" : "#0F6E64" }}>{apptTimeRange(ev)}</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginTop: 2, letterSpacing: "-0.01em" }}>{ev.title}</div>
                   {ev.notes && <div style={{ fontSize: 12.5, color: t.text2, marginTop: 1 }}>{ev.notes}</div>}
                 </div>
@@ -587,7 +587,7 @@ export function Inspector({
             </div>
           )}
           {events.filter((e) => !e.healthId).map((ev) => {
-            const color = ev.pending ? "#FF9F0A" : lifeColor(ev.who);
+            const color = ev.pending ? "#8A4B38" : lifeColor(ev.who);
             const timeLabel = ev.startTime
               ? `${ev.startTime}${ev.endTime ? ` – ${ev.endTime}` : ""}`
               : "All day";
@@ -641,7 +641,7 @@ export function Inspector({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em" }}>
                     {ev.title}
-                    {ev.pending && <span style={{ color: "#FF9F0A", fontWeight: 700 }}>  (pending)</span>}
+                    {ev.pending && <span style={{ color: "#8A4B38", fontWeight: 700 }}>  (pending)</span>}
                   </div>
                   <div style={{ fontSize: 10.5, color: t.text3 }}>
                     {timeLabel} · {personName}{ev.seriesId ? " · series" : ""}
@@ -755,9 +755,9 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
   const typesArr = [...byType.entries()].map(([name, v]) => ({ name, count: v.count, hours: v.hours })).sort((a, b) => b.hours - a.hours);
   const maxHours = Math.max(0.01, ...typesArr.map((x) => x.hours));
 
-  const PAL = [palette.G, palette.K, "#BF5AF2", "#FF9F0A", "#30D158", "#5E5CE6", "#FF6961", "#40C8E0"];
+  const PAL = [palette.G, palette.K, "#14201E", "#8A4B38", "#0F6E64", "#14201E", "#D78F77", "#0F6E64"];
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
-  const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#30D158" };
+  const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
   const stats: [string, string][] = [
     ["Shifts", String(totalShifts)],
     ["Hours", `${Math.round(totalHours)}h`],
@@ -966,7 +966,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
 // ─────────────────── Game Day dropdown ───────────────────
 
 // WVU brand colors — gold accent for the game-day panel.
-const WVU_GOLD = "#EAAA00";
+const WVU_GOLD = "#8A4B38";
 
 /** Collapsible game-details panel that drops down from the work-status card
  *  on WVU game days. Header shows the matchup at a glance; expanding reveals
@@ -1108,12 +1108,12 @@ function WrenchIcon({ size = 12, color = "currentColor" }: { size?: number; colo
 function StopOctagonInline({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#FF453A" />
+      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#8A4B38" />
     </svg>
   );
 }
 
-function WandIcon({ size = 14, color = "#7FA86A" }: { size?: number; color?: string }) {
+function WandIcon({ size = 14, color = "#56B7A9" }: { size?: number; color?: string }) {
   // Four 4-pointed sparkle stars in a loose cluster, varied sizes:
   //   - Big star, upper-left center (the dominant element)
   //   - Small star, upper-right corner
@@ -1297,7 +1297,7 @@ function totalBlockDays(startIso: string, endIso: string): number {
 function ScheduleBlockOctagon({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#FF453A" />
+      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#8A4B38" />
     </svg>
   );
 }

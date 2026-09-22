@@ -121,7 +121,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
         </button>
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
       {/* Token list */}
       {tokens === null && (
@@ -158,8 +158,8 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
                   style={{
                     fontSize: 9.5, fontWeight: 700,
                     padding: "1px 6px", borderRadius: 999,
-                    background: "rgba(255,69,58,0.18)",
-                    color: "#FF453A",
+                    background: "rgba(138,75,56,0.18)",
+                    color: "#8A4B38",
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                   }}
@@ -193,7 +193,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
                 type="button"
                 onClick={() => onCopy(tok.token)}
                 disabled={busy}
-                style={btnStyle(t, copiedToken === tok.token ? "#34C759" : null)}
+                style={btnStyle(t, copiedToken === tok.token ? "#0F6E64" : null)}
               >
                 {copiedToken === tok.token ? "Copied" : "Copy URL"}
               </button>
@@ -211,7 +211,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
                 type="button"
                 onClick={() => onDelete(tok.token)}
                 disabled={busy}
-                style={{ ...btnStyle(t, null), color: "#FF453A", borderColor: "rgba(255,69,58,0.45)", marginLeft: "auto" }}
+                style={{ ...btnStyle(t, null), color: "#8A4B38", borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}
               >
                 Delete
               </button>

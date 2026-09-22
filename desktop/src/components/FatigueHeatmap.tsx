@@ -17,7 +17,6 @@ interface Props {
 // shift days, neutral warm dark for off days. Today gets an inset cream
 // outline.
 const WEEKS = 4;
-const FATIGUE_OFF_FILL = "#2A201A";
 
 // ───────────────── Fatigue scoring ──────────────────────────────────────
 // Per-day score in [0, 1]. 0 = well rested, 1 = sleep deficit. The score
@@ -81,22 +80,15 @@ function fatigueForDay(date: string, shifts: ShiftMap, state: HouseholdState): n
   return worstScore;
 }
 
-// Sage (#88BB6E) → Amber (#F0B544) → Tomato (#DA6E50). Punchier than the
-// theme accents so they read clearly on a near-black canvas, matching
-// the wall display's palette exactly.
-function colorForScore(score: number, hasShift: boolean): string {
-  if (!hasShift) return FATIGUE_OFF_FILL;
-  if (score <= 0.5) {
-    const u = score / 0.5;
-    const r = Math.round(136 + (240 - 136) * u);
-    const g = Math.round(187 + (181 - 187) * u);
-    const b = Math.round(110 + (68  - 110) * u);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
-  const u = (score - 0.5) / 0.5;
-  const r = Math.round(240 + (218 - 240) * u);
-  const g = Math.round(181 + (110 - 181) * u);
-  const b = Math.round(68  + (80  - 68)  * u);
+// Nucleus diverging scale: Teal (#0F6E64, rested) → Clay (#8A4B38, deficit),
+// no green/amber/red. Off days take a neutral theme fill.
+function colorForScore(score: number, hasShift: boolean, offFill: string): string {
+  if (!hasShift) return offFill;
+  const A = [15, 110, 100];   // Teal
+  const B = [138, 75, 56];    // Clay
+  const r = Math.round(A[0] + (B[0] - A[0]) * score);
+  const g = Math.round(A[1] + (B[1] - A[1]) * score);
+  const b = Math.round(A[2] + (B[2] - A[2]) * score);
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -137,7 +129,7 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
           fontSize: 13,
           fontWeight: 500,
           letterSpacing: "-0.01em",
-          color: rested ? "#88BB6E" : "#DA6E50",
+          color: rested ? "#0F6E64" : "#8A4B38",
           marginBottom: 8,
         }}
       >
@@ -155,17 +147,17 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
           aspectRatio: `7 / ${WEEKS}`,
           borderRadius: 8,
           overflow: "hidden",
-          background: "#0B0907",
+          background: t.bgElev2,
         }}
       >
         {days.map((d) => {
           const isInteractive = !!onSelectDate;
-          const bg = colorForScore(d.score, d.hasShift);
+          const bg = colorForScore(d.score, d.hasShift, t.bgElev2);
           const ringStyle: React.CSSProperties = {};
           if (d.isSelected) {
             ringStyle.boxShadow = `inset 0 0 0 2px ${t.text}`;
           } else if (d.isToday) {
-            ringStyle.boxShadow = "inset 0 0 0 2px rgba(255,245,224,0.85)";
+            ringStyle.boxShadow = "inset 0 0 0 2px #0F6E64";
           }
           return (
             <button
@@ -204,7 +196,7 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
             flex: 1,
             height: 5,
             borderRadius: 3,
-            background: "linear-gradient(90deg, #88BB6E 0%, #F0B544 50%, #DA6E50 100%)",
+            background: "linear-gradient(90deg, #0F6E64 0%, #8A4B38 100%)",
           }}
         />
         <span>Deficit</span>

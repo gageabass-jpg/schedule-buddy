@@ -406,8 +406,8 @@ export function MonthGrid({
                           bottom: 3,
                           height: 3,
                           borderRadius: 2,
-                          background: "#30D158",
-                          boxShadow: "0 0 4px rgba(48,209,88,0.5)",
+                          background: "#0F6E64",
+                          boxShadow: "0 0 4px rgba(15,110,100,0.5)",
                           pointerEvents: "none",
                         }}
                       />
@@ -541,7 +541,7 @@ export function MonthGrid({
                                 fontWeight: 600,
                                 letterSpacing: "-0.01em",
                                 padding: "1px 3px",
-                                color: ev.pending ? "#c77700" : t.text2,
+                                color: ev.pending ? "#8A4B38" : t.text2,
                                 overflow: "hidden",
                                 whiteSpace: "nowrap",
                                 cursor: "pointer",
@@ -549,7 +549,7 @@ export function MonthGrid({
                               title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}${ev.pending ? " (pending)" : ""}`}
                             >
                               {ev.pending ? (
-                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#FF9F0A", flexShrink: 0, boxShadow: "0 0 4px rgba(255,159,10,0.6)" }} />
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#8A4B38", flexShrink: 0, boxShadow: "0 0 4px rgba(138,75,56,0.6)" }} />
                               ) : (
                                 <img
                                   src="assets/green-leaf.png"
@@ -592,9 +592,9 @@ export function MonthGrid({
                       justifyContent: "center",
                       padding: "0 6px",
                       borderRadius: 5,
-                      border: `1px dashed ${rgba("#FF453A", 0.8)}`,
-                      background: dark ? "rgba(255,69,58,0.18)" : "rgba(255,69,58,0.10)",
-                      color: "#FF453A",
+                      border: `1px dashed ${rgba("#8A4B38", 0.8)}`,
+                      background: dark ? "rgba(138,75,56,0.18)" : "rgba(138,75,56,0.10)",
+                      color: "#8A4B38",
                       fontSize: 10.5,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
@@ -618,8 +618,8 @@ export function MonthGrid({
                       width,
                       height: 3,
                       borderRadius: 2,
-                      background: "#FF453A",
-                      boxShadow: "0 0 4px rgba(255,69,58,0.5)",
+                      background: "#8A4B38",
+                      boxShadow: "0 0 4px rgba(138,75,56,0.5)",
                       pointerEvents: "none",
                     }}
                   />,

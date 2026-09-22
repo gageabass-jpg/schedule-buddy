@@ -281,7 +281,7 @@ export function CleanerModal({
             </div>
 
             {info && <div style={{ fontSize: 12, color: t.text2 }}>{info}</div>}
-            {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
           </div>
         )}
 
@@ -328,7 +328,7 @@ export function CleanerModal({
                 <DiffColumn
                   title="Add"
                   count={adds.length}
-                  color="#30D158"
+                  color="#0F6E64"
                   entries={adds}
                   approvals={approvals}
                   onToggle={(k, v) => setApprovals((a) => ({ ...a, [k]: v }))}
@@ -338,7 +338,7 @@ export function CleanerModal({
                 <DiffColumn
                   title="Remove"
                   count={removes.length}
-                  color="#FF453A"
+                  color="#8A4B38"
                   entries={removes}
                   approvals={approvals}
                   onToggle={(k, v) => setApprovals((a) => ({ ...a, [k]: v }))}
@@ -348,7 +348,7 @@ export function CleanerModal({
                 <DiffColumn
                   title="Change"
                   count={changes.length}
-                  color="#FF9F0A"
+                  color="#8A4B38"
                   entries={changes}
                   approvals={approvals}
                   onToggle={(k, v) => setApprovals((a) => ({ ...a, [k]: v }))}
@@ -358,7 +358,7 @@ export function CleanerModal({
               </div>
             )}
 
-            {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>
@@ -439,8 +439,8 @@ export function CleanerModal({
                         style={{
                           fontSize: 9.5, fontWeight: 700,
                           padding: "1px 7px", borderRadius: 999,
-                          background: isPropose ? "rgba(94,92,230,0.18)" : "rgba(255,159,10,0.18)",
-                          color: isPropose ? "#5E5CE6" : "#FF9F0A",
+                          background: isPropose ? "rgba(20,32,30,0.18)" : "rgba(138,75,56,0.18)",
+                          color: isPropose ? "#14201E" : "#8A4B38",
                           letterSpacing: "0.04em", textTransform: "uppercase",
                         }}
                       >
@@ -450,13 +450,13 @@ export function CleanerModal({
                         <button
                           type="button"
                           onClick={() => setRwApprovals((a) => ({ ...a, [e.key]: true }))}
-                          style={miniBtn(approved ? "#30D158" : t.sep, approved)}
+                          style={miniBtn(approved ? "#0F6E64" : t.sep, approved)}
                           title="Approve"
                         >✓</button>
                         <button
                           type="button"
                           onClick={() => setRwApprovals((a) => ({ ...a, [e.key]: false }))}
-                          style={miniBtn(!approved ? "#FF453A" : t.sep, !approved)}
+                          style={miniBtn(!approved ? "#8A4B38" : t.sep, !approved)}
                           title="Deny"
                         >✕</button>
                       </div>
@@ -480,7 +480,7 @@ export function CleanerModal({
               })}
             </div>
 
-            {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>
@@ -638,8 +638,8 @@ function DiffColumn({
                   style={{
                     fontSize: 10, fontWeight: 700,
                     padding: "1px 6px", borderRadius: 4,
-                    background: d.who === "G" ? "rgba(127,168,106,0.18)" : "rgba(232,169,60,0.20)",
-                    color: d.who === "G" ? "#7FA86A" : "#E8A93C",
+                    background: d.who === "G" ? "rgba(127,168,106,0.18)" : "rgba(138,75,56,0.20)",
+                    color: d.who === "G" ? "#56B7A9" : "#D78F77",
                     letterSpacing: "0.04em",
                   }}
                 >
@@ -649,13 +649,13 @@ function DiffColumn({
                   <button
                     type="button"
                     onClick={() => onToggle(k, true)}
-                    style={miniBtn(approved ? "#30D158" : t.sep, approved)}
+                    style={miniBtn(approved ? "#0F6E64" : t.sep, approved)}
                     title="Approve"
                   >✓</button>
                   <button
                     type="button"
                     onClick={() => onToggle(k, false)}
-                    style={miniBtn(!approved ? "#FF453A" : t.sep, !approved)}
+                    style={miniBtn(!approved ? "#8A4B38" : t.sep, !approved)}
                     title="Deny"
                   >✕</button>
                 </div>
@@ -809,7 +809,7 @@ function miniBtn(color: string, active: boolean): React.CSSProperties {
   };
 }
 
-function WandHero({ size = 22, color = "#7FA86A" }: { size?: number; color?: string }) {
+function WandHero({ size = 22, color = "#56B7A9" }: { size?: number; color?: string }) {
   // Same sparkles cluster as Inspector's WandIcon — kept in sync so the
   // Utilities row and the Cleaner modal hero feel like the same mark.
   return (

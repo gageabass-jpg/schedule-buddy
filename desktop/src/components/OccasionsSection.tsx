@@ -22,9 +22,9 @@ const TYPE_LABELS: Record<OccasionType, string> = {
   holiday:     "Holiday",
 };
 const TYPE_COLORS: Record<OccasionType, string> = {
-  birthday:    "#D08B7E",
-  anniversary: "#9B89C9",
-  holiday:     "#7FA86A",
+  birthday:    "#D78F77",
+  anniversary: "#14201E",
+  holiday:     "#56B7A9",
 };
 
 export function OccasionsSection({ householdId, state, t, palette }: Props) {
@@ -136,7 +136,7 @@ export function OccasionsSection({ householdId, state, t, palette }: Props) {
         {busy ? "Saving…" : "Add occasion"}
       </button>
 
-      {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
       {/* Existing list */}
       {sorted.length === 0 ? (
@@ -191,7 +191,7 @@ export function OccasionsSection({ householdId, state, t, palette }: Props) {
                     borderRadius: 7,
                     border: `0.5px solid ${t.sep}`,
                     background: "transparent",
-                    color: "#FF453A",
+                    color: "#8A4B38",
                     fontSize: 12,
                     fontWeight: 600,
                     fontFamily: "inherit",

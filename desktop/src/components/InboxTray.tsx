@@ -126,7 +126,7 @@ export function InboxTray({ palette, t, dark, requests, onOpenFullInbox }: Props
               minWidth: 14,
               height: 14,
               padding: "0 3px",
-              background: "#FF453A",
+              background: "#8A4B38",
               color: "#fff",
               fontSize: 9,
               fontWeight: 700,
@@ -152,7 +152,7 @@ export function InboxTray({ palette, t, dark, requests, onOpenFullInbox }: Props
               width: 8,
               height: 8,
               borderRadius: 4,
-              background: "#5E5CE6",
+              background: "#14201E",
               boxShadow: `0 0 0 1.5px ${t.bg}`,
               pointerEvents: "none",
             }}
@@ -235,9 +235,9 @@ export function InboxTray({ palette, t, dark, requests, onOpenFullInbox }: Props
                     style={{
                       width: 8, height: 8, borderRadius: 4,
                       background:
-                        r.status === "acknowledged" ? "#30D158" :
+                        r.status === "acknowledged" ? "#0F6E64" :
                         r.status === "dismissed"    ? "#8E8E93" :
-                                                      "#5E5CE6",
+                                                      "#14201E",
                       flexShrink: 0,
                     }}
                   />

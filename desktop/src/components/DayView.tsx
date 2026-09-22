@@ -7,7 +7,7 @@ import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
-const COVERAGE_COLOR = "#159c43";
+const COVERAGE_COLOR = "#0F6E64";
 
 /** Diagonal-hatch fill for resting hours — matches the day timeline. */
 function hatch(color: string): string {
@@ -172,7 +172,7 @@ export function DayView({
       <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginTop: -4 }}>
         <LegendChip swatch={rgba(palette.G, 0.5)} label="Working" t={t} />
         <LegendChip swatch={hatch(t.text2)} label="Resting" t={t} />
-        <LegendChip swatch={`linear-gradient(180deg, #2fbe5a, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
+        <LegendChip swatch={`linear-gradient(180deg, #56B7A9, ${COVERAGE_COLOR})`} label="Coverage" t={t} />
       </div>
 
       {/* Timeline */}
@@ -283,7 +283,7 @@ export function DayView({
                     style={{
                       // Right-side block, half the width of a shift block.
                       position: "absolute", right: 8, width: "calc(50% - 10px)", top, height: Math.max(height, 22),
-                      borderRadius: 6, background: `linear-gradient(180deg, ${rgba("#2fbe5a", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
+                      borderRadius: 6, background: `linear-gradient(180deg, ${rgba("#56B7A9", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
                       boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.4)}`, padding: "4px 8px", overflow: "hidden",
                       color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em", pointerEvents: "none",
                     }}
@@ -329,7 +329,7 @@ export function DayView({
               }
               const top = (startAbs / 60) * PX_PER_HOUR;
               const height = ((endAbs - startAbs) / 60) * PX_PER_HOUR;
-              const color = ev.pending ? "#FF9F0A" : eventColor(ev.who, palette);
+              const color = ev.pending ? "#8A4B38" : eventColor(ev.who, palette);
               return (
                 <div
                   key={ev.id}

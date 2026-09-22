@@ -95,9 +95,9 @@ export function CoverageRequestsPanel({
             const time = `${req.startTime} – ${req.endTime}${req.endsNextDay ? " +1d" : ""}`;
             const hours = shiftHours(req.startTime, req.endTime, req.endsNextDay);
             const statusColor =
-              req.status === "confirmed" ? "#30D158" :
-              req.status === "declined"  ? "#FF453A" :
-              req.status === "issue"     ? "#FF9F0A" :
+              req.status === "confirmed" ? "#0F6E64" :
+              req.status === "declined"  ? "#8A4B38" :
+              req.status === "issue"     ? "#8A4B38" :
               palette.G;
             return (
               <div

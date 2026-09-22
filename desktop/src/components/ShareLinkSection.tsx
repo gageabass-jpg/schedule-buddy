@@ -67,7 +67,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
         >
           {busy ? "Working…" : "Create read-only link"}
         </button>
-        {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
         <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.5 }}>
           Anyone with the link sees a read-only calendar — shifts and event titles only.
           No chat, coverage, health, or account info. Revoke any time.
@@ -88,7 +88,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
           border: `0.5px solid ${t.sep}`, wordBreak: "break-all", userSelect: "all",
         }}>{value}</div>
         <button type="button" onClick={() => onCopy(key, value)} disabled={busy}
-          style={btnStyle(t, copied === key ? "#34C759" : null)}>
+          style={btnStyle(t, copied === key ? "#0F6E64" : null)}>
           {copied === key ? "Copied" : "Copy"}
         </button>
       </div>
@@ -98,14 +98,14 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 999, background: "#30D158" }} />
+        <span style={{ width: 8, height: 8, borderRadius: 999, background: "#0F6E64" }} />
         <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Sharing is on</span>
       </div>
 
       {linkBox("web", "Web link", L.web)}
       {linkBox("ics", "Calendar subscription (ICS)", L.ics)}
 
-      {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
       <div style={{ display: "flex", gap: 6 }}>
         <button type="button" disabled={busy}
@@ -113,7 +113,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
           style={btnStyle(t, null)}>Rotate link</button>
         <button type="button" disabled={busy}
           onClick={() => { if (confirm("Turn off sharing and revoke the link?")) run(() => disablePublicShare(householdId!), "turn off sharing"); }}
-          style={{ ...btnStyle(t, null), color: "#FF453A", borderColor: "rgba(255,69,58,0.45)", marginLeft: "auto" }}>
+          style={{ ...btnStyle(t, null), color: "#8A4B38", borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}>
           Turn off &amp; revoke
         </button>
       </div>

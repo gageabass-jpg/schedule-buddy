@@ -130,7 +130,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
           {sourceLabel && (
             <div style={{ fontSize: 11.5, color: t.text3, lineHeight: 1.45 }}>{sourceLabel}</div>
           )}
-          {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>

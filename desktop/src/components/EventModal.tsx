@@ -344,7 +344,7 @@ export function EventModal({
             </div>
           )}
 
-          {err && <div style={{ fontSize: 12, color: "#FF453A" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
             {isEdit && editing?.seriesId && (
@@ -449,7 +449,7 @@ function dangerBtn(t: ThemeTokens, _solid = false): React.CSSProperties {
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     background: "transparent",
-    color: "#FF453A",
+    color: "#8A4B38",
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
