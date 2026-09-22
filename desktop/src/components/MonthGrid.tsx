@@ -106,7 +106,7 @@ export function MonthGrid({
           display: "flex",
           alignItems: "center",
           gap: 12,
-          padding: "10px 18px",
+          padding: "16px 18px",
           borderBottom: `0.5px solid ${t.sep}`,
           background: t.bg,
         }}
@@ -130,14 +130,7 @@ export function MonthGrid({
           <button style={navBtn(t)} type="button" onClick={onNext}>›</button>
         </div>
         <div style={{ flex: 1 }} />
-        <div
-          style={{
-            display: "flex",
-            padding: 2,
-            borderRadius: 6,
-            background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)",
-          }}
-        >
+        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           {(["day", "week", "month", "year", "agenda"] as const).map((v) => {
             const active = calLayout === v;
             return (
@@ -146,17 +139,18 @@ export function MonthGrid({
                 type="button"
                 onClick={() => onSetCalLayout(v)}
                 style={{
-                  padding: "3px 10px",
+                  padding: "6px 9px",
                   border: 0,
-                  borderRadius: 4,
-                  background: active ? (dark ? "#3A3A3C" : "#fff") : "transparent",
-                  color: t.text,
-                  fontSize: 11.5,
-                  fontWeight: 600,
+                  borderRadius: 0,
+                  borderBottom: active ? `2px solid ${palette.G}` : "2px solid transparent",
+                  background: "transparent",
+                  color: active ? t.text : t.text2,
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 500,
                   cursor: "pointer",
-                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
                   fontFamily: "inherit",
                   textTransform: "capitalize",
+                  letterSpacing: "-0.01em",
                 }}
               >
                 {v}
@@ -167,35 +161,35 @@ export function MonthGrid({
         <button
           type="button"
           onClick={onOpenAskClaude}
-          title="Ask Nucleus — natural-language schedule editing"
+          title="Ask nucleusAI — natural-language schedule editing"
+          aria-label="Ask nucleusAI"
           style={{
             display: "inline-flex",
             alignItems: "center",
-            justifyContent: "center",
-            width: 28,
-            height: 28,
-            padding: 4,
-            borderRadius: 7,
-            border: 0,
-            background: "linear-gradient(135deg, #12857A 0%, #0F6E64 50%, #0A4F48 100%)",
+            gap: 6,
+            height: 32,
+            padding: "0 12px",
+            borderRadius: 8,
+            border: `1px solid ${palette.G}`,
+            background: "transparent",
+            color: palette.G,
+            fontSize: 13,
+            fontWeight: 600,
             cursor: "pointer",
-            boxShadow: "0 1px 2px rgba(15,110,100,0.25)",
+            fontFamily: "inherit",
             flexShrink: 0,
           }}
         >
           <img
             src="/assets/nucleus-mark.svg"
-            alt="Nucleus"
+            alt=""
+            aria-hidden="true"
+            width={15}
+            height={15}
             draggable={false}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-              userSelect: "none",
-              pointerEvents: "none",
-            }}
+            style={{ display: "block", userSelect: "none", pointerEvents: "none" }}
           />
+          Ask
         </button>
         {/* Chat Manager — compose an In-Basket message as "Manager".
             Deliberately the same dimensions as the inbox button beside it. */}
@@ -237,20 +231,20 @@ export function MonthGrid({
             alignItems: "center",
             justifyContent: "center",
             gap: 5,
-            height: 26,
-            padding: "0 12px",
-            borderRadius: 6,
+            height: 32,
+            padding: "0 14px",
+            borderRadius: 8,
             border: 0,
             background: palette.G,
             color: "#fff",
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
             whiteSpace: "nowrap",
             lineHeight: 1,
           }}
         >
-          + New shift
+          New shift
         </button>
       </div>
 
