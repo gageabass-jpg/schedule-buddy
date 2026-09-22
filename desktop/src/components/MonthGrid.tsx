@@ -29,6 +29,7 @@ interface Props {
   onOpenAskClaude: () => void;
   onOpenChatManager: () => void;
   viewFilter: ViewFilter;
+  coverageDates?: Set<string>;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
   selfName: string;
@@ -53,7 +54,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   onOpenChatManager,
-  viewFilter, calLayout, onSetCalLayout, selfName, partnerName,
+  viewFilter, coverageDates, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
@@ -361,7 +362,8 @@ export function MonthGrid({
                   (viewFilter === "couple" && kind === "off") ||
                   (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey) ||
                   (viewFilter === "g" && (kind === "g" || kind === "both")) ||
-                  (viewFilter === "k" && (kind === "k" || kind === "both"));
+                  (viewFilter === "k" && (kind === "k" || kind === "both")) ||
+                  (viewFilter === "coverage" && !!coverageDates?.has(key));
                 const cellOpacity = c.other ? 0.4 : matchesFilter ? 1 : 0.3;
                 return (
                   <button

@@ -154,6 +154,14 @@ export function Sidebar({
           onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
           t={t}
         />
+        <ListRow
+          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
+          label="Coverage"
+          count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
+          active={viewFilter === "coverage"}
+          onClick={() => onSetViewFilter(viewFilter === "coverage" ? "all" : "coverage")}
+          t={t}
+        />
       </SidebarSection>
 
       <SidebarSection label="People" t={t}>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
 
-export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k";
+export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k" | "coverage";
 export type CalLayout = "day" | "week" | "month" | "year" | "agenda";
 export type ThemePref = "system" | "light" | "dark";
 
@@ -354,6 +354,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // was computed on — and so this and the modal always resolve the same date.
   const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
   const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
+  const coverageDates = useMemo(() => new Set(coverageNeeds.map((c) => c.date)), [coverageNeeds]);
 
   // The "Update the schedule" card stays calendar-driven (4-week cadence).
   // See functions/src/index.ts::checkScheduleCadence.
@@ -472,6 +473,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onToday={handleToday}
         onNewShift={() => setNewShiftOpen(true)}
         viewFilter={viewFilter}
+        coverageDates={coverageDates}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
