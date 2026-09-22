@@ -56,6 +56,7 @@ import { ChildcarePanel } from "./components/ChildcarePanel";
 import { ChatManagerPanel } from "./components/ChatManagerPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
+import { ShiftDetailPopover } from "./components/ShiftDetailPopover";
 import type { Event as SbEvent, EventWho, CaregiverRequest } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
@@ -142,6 +143,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
+  const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift } | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -490,6 +492,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         partnerName={partnerName}
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
+        onOpenShiftDetail={(date, s) => setShiftDetail({ date, shift: s })}
         events={eventsByDate[selected] ?? []}
         eventsByDate={eventsByDate}
         onAddEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
@@ -668,6 +671,33 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         defaultDate={selected}
         prefill={newRequestPrefill}
       />
+      {shiftDetail && (
+        <ShiftDetailPopover
+          open
+          onClose={() => setShiftDetail(null)}
+          shift={shiftDetail.shift}
+          date={shiftDetail.date}
+          who={shiftDetail.shift.who}
+          t={t}
+          palette={palette}
+          dark={dark}
+          state={state}
+          events={eventsByDate[shiftDetail.date] ?? []}
+          householdName={householdName}
+          selfName={selfName}
+          partnerName={partnerName}
+          isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
+          onAsk={() => setAskClaudeOpen(true)}
+          onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
+          onHandOff={() => {
+            const target = shiftDetail;
+            setShiftDetail(null);
+            setNewRequestPrefill({ date: target.date });
+            setNewRequestOpen(true);
+          }}
+          onDelete={() => { const target = shiftDetail; setShiftDetail(null); void handleDeleteShift(target.date, target.shift); }}
+        />
+      )}
     </div>
   );
 }

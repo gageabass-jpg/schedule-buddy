@@ -20,6 +20,7 @@ interface Props {
   partnerName: string;
   onEditShift?: (date: string, shift: Shift) => void;
   onDeleteShift?: (date: string, shift: Shift) => void;
+  onOpenShiftDetail?: (date: string, shift: Shift) => void;
   events: SbEvent[];
   /** All events keyed by date — powers the Life tab's next-60-days list. */
   eventsByDate: Record<string, SbEvent[]>;
@@ -56,7 +57,7 @@ const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
 
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
-  onEditShift, onDeleteShift, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay,
+  onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay,
   onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner,
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
@@ -198,6 +199,7 @@ export function Inspector({
             return (
               <div
                 key={i}
+                onClick={() => onOpenShiftDetail?.(selected, s)}
                 onDoubleClick={() => hasActions && setRevealedIdx(revealed ? null : i)}
                 title={hasActions ? "Double-click to reveal edit/delete" : undefined}
                 style={{
@@ -205,7 +207,7 @@ export function Inspector({
                   alignItems: "center",
                   gap: 10,
                   padding: "6px 2px",
-                  cursor: hasActions ? "pointer" : "default",
+                  cursor: onOpenShiftDetail || hasActions ? "pointer" : "default",
                   position: "relative",
                   overflow: "hidden",
                 }}
