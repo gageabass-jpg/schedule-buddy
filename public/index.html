@@ -10,12 +10,12 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<!-- Inter for the Claude wordmark pill. Sora is the Nucleus wordmark
-     (always lowercase, weight 600, -0.02em). System font fallback handles
-     offline / first paint. -->
+<!-- Nucleus type system: Sora (display — headings, numbers that matter, button
+     labels) + Source Sans 3 (body, every numeral) + IBM Plex Mono (mono).
+     System stack falls back for offline / first paint. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
     /* Surfaces (dark default, iOS HIG) */
@@ -78,9 +78,11 @@
     --shadow-card: none;
     --shadow-press: 0 4px 16px rgba(15,110,100,0.35);
 
-    /* Type */
-    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+    /* Type — Nucleus system. Body is Source Sans 3; display (headings, key
+       numbers, button labels) is Sora; mono is IBM Plex Mono. */
+    --font: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+    --font-display: "Sora", "Source Sans 3", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Monaco, monospace;
   }
   @media (prefers-color-scheme: light) {
     :root {
@@ -153,11 +155,24 @@
     font-family: var(--font);
     font-size: 14px;
     line-height: 1.5;
+    /* Nucleus: columns of times/hours align. */
+    font-variant-numeric: tabular-nums;
     /* Disable pinch/double-tap zoom on iOS (paired with viewport meta). */
     touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
   }
   html { touch-action: manipulation; }
+  /* Nucleus display type — Sora for headings, the numbers that matter, and
+     button labels. Body stays Source Sans 3 (via --font on body). */
+  h1, h2, h3,
+  .brand-name, .subtitle, .month-nav-label, .day-view-label,
+  .layout-tab, .view-pill,
+  .mc-title, .mc-value, .mc-hnum, .mc-mon, .mc-day,
+  .as-title, .parse-title, .cgr-title, .wbp-title, .ask-title,
+  .pf-title, .profile-name, .cg-cal-detail-date,
+  .analysis-card .num, .comp-hero-num, .dds-tile-value {
+    font-family: var(--font-display);
+  }
   /* iOS status-bar safe-zone backdrop — keeps content readable when scrolled */
   .ios-safe-top {
     position: fixed;
