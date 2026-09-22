@@ -68,7 +68,9 @@ export function themeTokens(dark: boolean): ThemeTokens {
         text2: "#5A6663",       // Ink-Muted
         text3: "#6E6B64",       // Ink-Dim
         scrim: "rgba(20,32,30,0.05)",
-        cardShadow: "0 1px 2px rgba(20,32,30,0.05), 0 4px 16px rgba(20,32,30,0.05)",
+        // Hairlines, not shadows: cards carry a 1px Line border, so elevation
+        // shadow is dropped in light (modals declare their own float shadow).
+        cardShadow: "none",
         tintAlpha: 0.14,
         chipText: "#fff",
       };
