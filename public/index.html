@@ -110,7 +110,10 @@
       --clay: #8A4B38;
       --clay-tint: #EFDFDB;
       --accent-hover: #0A4F48;
-      --shadow-card: 0 1px 2px rgba(20,32,30,0.05), 0 4px 16px rgba(20,32,30,0.05);
+      /* Hairlines, not shadows: cards/sections/nav all carry a 1px Line border,
+         so the elevation shadow is dropped. Modals/sheets keep their own float
+         shadow (declared separately), which is the only thing meant to lift. */
+      --shadow-card: none;
       /* There is no red token — Clay is this system's alarm, Teal its "fine". */
       --import-green: #0F6E64;
       --import-red: #8A4B38;
@@ -1161,8 +1164,8 @@
     gap: 4px;
     padding: 3px;
     margin: 0 0 14px;
-    background: var(--bg-elev);
-    border: 0.5px solid var(--sep);
+    background: var(--bg-elev2);
+    border: 1px solid var(--sep);
     border-radius: 12px;
     box-shadow: var(--shadow-card);
   }
@@ -1183,9 +1186,9 @@
   }
   .layout-tab:hover { background: var(--scrim); }
   .layout-tab.active {
-    background: var(--bg-elev2);
+    background: var(--bg-elev);
     color: var(--text);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    box-shadow: 0 1px 2px rgba(20,32,30,0.08);
   }
   @media (prefers-color-scheme: light) {
     .layout-tab.active { background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.10); }
@@ -1709,7 +1712,8 @@
     min-height: 96px;
     position: relative;
     cursor: default;
-    border: 0;
+    /* Hairline grid — every cell reads as its own tile on the Paper ground. */
+    border: 1px solid var(--sep);
     border-radius: 12px;
     transition: filter 0.12s, box-shadow 0.12s, transform 0.06s ease;
   }
