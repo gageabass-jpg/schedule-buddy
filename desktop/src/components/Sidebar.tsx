@@ -123,7 +123,7 @@ export function Sidebar({
 
       <SidebarSection label="Views" t={t}>
         <ListRow
-          icon="📅"
+          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
           label="All shifts"
           count={viewCounts.all}
           active={viewFilter === "all"}
@@ -199,7 +199,7 @@ export function Sidebar({
 
       <SidebarSection label="Care" t={t}>
         <ListRow
-          icon="🧒"
+          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           label="Childcare coverage"
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           onClick={onOpenChildcare}
@@ -290,7 +290,7 @@ function SidebarSection({ label, t, children }: { label: string; t: ThemeTokens;
 }
 
 interface ListRowProps {
-  icon?: string;
+  icon?: React.ReactNode;
   label: string;
   count?: number;
   active?: boolean;
