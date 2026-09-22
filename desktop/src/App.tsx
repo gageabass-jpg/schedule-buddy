@@ -190,6 +190,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     return () => { unsub?.(); };
   }, []);
 
+  // Tools → Schedule Block (Cmd+Shift+B) and Cleaner. These utilities moved off
+  // the Inspector rail into the native menu bar.
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenScheduleBlock(() => setScheduleBlockOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+  useEffect(() => {
+    const unsub = window.sbm?.onMenuOpenCleaner(() => setCleanerOpen(true));
+    return () => { unsub?.(); };
+  }, []);
+
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
   // Normalized so custom template slots resolve to synthetic shift types every

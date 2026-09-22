@@ -663,41 +663,6 @@ export function Inspector({
         onSelectDate={onSelectDate}
       />
 
-      {/* Utilities — Schedule Block + Cleaner */}
-      <div>
-        <div style={{ ...subhead(t), display: "flex", alignItems: "center", gap: 6 }}>
-          <WrenchIcon size={11} color={t.text3} />
-          <span>Utilities</span>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            background: t.bgElev,
-            border: `0.5px solid ${t.sep}`,
-            borderRadius: 10,
-            overflow: "hidden",
-            marginTop: 4,
-          }}
-        >
-          <UtilityRow
-            icon={<StopOctagonInline size={14} />}
-            label="Schedule Block"
-            hint="Block off a day or date range."
-            onClick={onOpenScheduleBlock}
-            t={t}
-          />
-          <div style={{ height: 0.5, background: t.sep, marginLeft: 38 }} />
-          <UtilityRow
-            icon={<WandIcon size={14} color={palette.G} />}
-            label="Cleaner"
-            hint="Upload a clean schedule. Review add / remove / change."
-            onClick={onOpenCleaner}
-            t={t}
-          />
-        </div>
-      </div>
-
       {/* This Month — totals + shift-type breakdown */}
       <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
 
