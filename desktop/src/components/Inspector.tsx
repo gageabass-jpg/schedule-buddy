@@ -6,7 +6,7 @@ import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
-import { computeOverlapCandidates, daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
+import { computeOverlapCandidates, parentDayRanges, daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
@@ -682,6 +682,7 @@ export function Inspector({
           onSelectDate={onSelectDate}
         />
         <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+        <MonthWeekDeltas selected={selected} state={state} t={t} />
       </>
       )}
 
@@ -1261,6 +1262,123 @@ function apptTimeRange(ev: SbEvent): string {
   const e = hm12(ev.endTime);
   const sPart = s.ap === e.ap ? `${s.h}:${s.mm}` : `${s.h}:${s.mm}${s.ap}`;
   return `${sPart}–${e.h}:${e.mm}${e.ap}`;
+}
+
+// "This week vs 8-week average" deltas for the Month tab (design boards).
+// Splits each of the last 9 weeks into: your work hours, together (both parents
+// home, 6am–midnight), you-solo (you home while your partner works), and
+// uncovered (the coverage engine's real gap hours). Compares this week to the
+// mean of the trailing 8. Together/solo are the parents-only picture, so they
+// can differ slightly from the web app's caregiver-adjusted figures.
+function MonthWeekDeltas({ selected, state, t }: {
+  selected: string;
+  state: HouseholdState | null;
+  t: ThemeTokens;
+}) {
+  if (!state) return null;
+  const AXIS_START = 6 * 60, AXIS_END = 24 * 60, SLOT = 15;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const parseHM = (hhmm: string): number => { const [h, m] = hhmm.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  const inRanges = (min: number, ranges: MinuteRange[]): boolean => ranges.some((r) => min >= r.startMin && min < r.endMin);
+  const [sy, sm, sd] = selected.split("-").map(Number);
+  const thisWeekStart = new Date(sy, sm - 1, sd);
+  thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay()); // Sunday
+  const WEEKS = 9; // this week + 8 trailing
+  const firstStart = new Date(thisWeekStart); firstStart.setDate(thisWeekStart.getDate() - 7 * (WEEKS - 1));
+  const stFilled: HouseholdState = { ...state, template: state.template ?? [], overrides: state.overrides ?? [], ot: state.ot ?? [] };
+  const fromDt = new Date(firstStart); fromDt.setDate(firstStart.getDate() - 1);
+  const toDt = new Date(thisWeekStart); toDt.setDate(thisWeekStart.getDate() + 8);
+  const shiftMap = buildShiftMap(stFilled, iso(fromDt), iso(toDt));
+  const cands = computeOverlapCandidates(shiftMap, stFilled);
+  const winHours = (c: { startTime: string; endTime: string; endsNextDay: boolean }): number => {
+    let d = parseHM(c.endTime) - parseHM(c.startTime);
+    if (c.endsNextDay || d <= 0) d += 1440;
+    return d / 60;
+  };
+  const dur = (typeId: string | undefined): number => {
+    if (!typeId) return 0;
+    const ty = state.shiftTypes.find((x) => x.id === typeId);
+    if (!ty) return 0;
+    let d = parseHM(ty.end) - parseHM(ty.start);
+    if (ty.crossesMidnight || d <= 0) d += 1440;
+    return d / 60;
+  };
+
+  const your: number[] = [], together: number[] = [], solo: number[] = [], uncovered: number[] = [];
+  for (let w = 0; w < WEEKS; w++) {
+    const ws = new Date(firstStart); ws.setDate(firstStart.getDate() + 7 * w);
+    let yourH = 0, togMin = 0, soloMin = 0, uncH = 0;
+    for (let dd = 0; dd < 7; dd++) {
+      const d = new Date(ws); d.setDate(ws.getDate() + dd);
+      const date = iso(d);
+      for (const s of (shiftMap[date] ?? [])) if (s.who === "G") yourH += dur(s.shiftTypeId);
+      const gR = parentDayRanges(date, "G", shiftMap, stFilled);
+      const kR = parentDayRanges(date, "K", shiftMap, stFilled);
+      for (let m = AXIS_START; m < AXIS_END; m += SLOT) {
+        const mid = m + SLOT / 2;
+        const gB = inRanges(mid, gR), kB = inRanges(mid, kR);
+        if (!gB && !kB) togMin += SLOT;          // both home
+        else if (!gB && kB) soloMin += SLOT;     // you home, partner working
+      }
+      for (const c of cands) if (c.date === date) uncH += winHours(c);
+    }
+    your.push(yourH);
+    together.push(togMin / 60);
+    solo.push(soloMin / 60);
+    uncovered.push(uncH);
+  }
+
+  const metrics = [
+    { label: "Your hours", arr: your, goodUp: false },
+    { label: "Together", arr: together, goodUp: true },
+    { label: "You solo", arr: solo, goodUp: false },
+    { label: "Uncovered", arr: uncovered, goodUp: false },
+  ];
+  const fmt = (h: number): string => (h % 1 === 0 ? String(h) : h.toFixed(1));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={subhead(t)}>This week</span>
+        <span style={{ fontSize: 10.5, color: t.text3 }}>vs 8-week average</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {metrics.map((mtr) => {
+          const cur = mtr.arr[mtr.arr.length - 1] ?? 0;
+          const past = mtr.arr.slice(0, -1);
+          const avg = past.length ? past.reduce((a, b) => a + b, 0) / past.length : 0;
+          const delta = cur - avg;
+          const near0 = Math.abs(delta) < 0.05;
+          const good = (delta > 0) === mtr.goodUp;
+          const dColor = near0 ? t.text3 : good ? "#0F6E64" : "#8A4B38";
+          const maxV = Math.max(0.1, ...mtr.arr);
+          return (
+            <div key={mtr.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: t.text2 }}>{mtr.label}</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{fmt(cur)}h</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: dColor, fontVariantNumeric: "tabular-nums" }}>
+                    {near0 ? "±0" : `${delta > 0 ? "▲" : "▼"} ${fmt(Math.abs(delta))}`}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 24 }}>
+                {mtr.arr.map((v, i) => (
+                  <span key={i} style={{
+                    width: 5, borderRadius: 1,
+                    height: Math.max(2, (v / maxV) * 24),
+                    background: i === mtr.arr.length - 1 ? "#0F6E64" : t.bgElev2,
+                  }} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // Per-day rest / coverage bars for the current week (design boards' Childcare
