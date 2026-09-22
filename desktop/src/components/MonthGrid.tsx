@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
@@ -58,6 +59,7 @@ export function MonthGrid({
   viewFilter, coverageDates, onOpenShiftDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames,
 }: Props) {
+  const [hoverTab, setHoverTab] = useState<string | null>(null);
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
   // Sun..Sat range that contains "today", as ISO strings for cheap comparison.
@@ -140,6 +142,8 @@ export function MonthGrid({
                 key={v}
                 type="button"
                 onClick={() => onSetCalLayout(v)}
+                onMouseEnter={() => setHoverTab(v)}
+                onMouseLeave={() => setHoverTab((h) => (h === v ? null : h))}
                 style={{
                   padding: "6px 9px",
                   border: 0,
@@ -147,12 +151,15 @@ export function MonthGrid({
                   borderBottom: active ? `2px solid ${palette.G}` : "2px solid transparent",
                   background: "transparent",
                   color: active ? t.text : t.text2,
-                  fontSize: 13,
+                  fontSize: active ? 15 : 13,
                   fontWeight: active ? 700 : 500,
                   cursor: "pointer",
                   fontFamily: "inherit",
                   textTransform: "capitalize",
                   letterSpacing: "-0.01em",
+                  transformOrigin: "bottom center",
+                  transform: `${active ? "translateY(-2px)" : ""}${hoverTab === v ? " scale(1.08)" : ""}`.trim() || "none",
+                  transition: "transform 0.12s ease, font-size 0.12s ease, color 0.12s ease",
                 }}
               >
                 {v}

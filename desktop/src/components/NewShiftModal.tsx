@@ -172,7 +172,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
           fontFamily: "inherit",
         }}
       >
-        {/* Header: title + subtitle, circular close (44px hit area). */}
+        {/* Header: title + subtitle, hairline-box close (matches secondary controls). */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
@@ -187,22 +187,21 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             aria-label="Close"
             onClick={onClose}
             style={{
-              width: 44,
-              height: 44,
-              marginRight: -10,
-              marginTop: -8,
+              width: 36,
+              height: 36,
+              marginTop: 2,
               flexShrink: 0,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              borderRadius: "50%",
-              border: 0,
-              background: "transparent",
+              borderRadius: 10,
+              border: `0.5px solid ${t.sep}`,
+              background: t.bgElev,
               color: t.text2,
               cursor: "pointer",
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
