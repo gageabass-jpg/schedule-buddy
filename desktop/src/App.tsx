@@ -474,6 +474,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onNewShift={() => setNewShiftOpen(true)}
         viewFilter={viewFilter}
         coverageDates={coverageDates}
+        onOpenShiftDetail={(date, s) => setShiftDetail({ date, shift: s })}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}

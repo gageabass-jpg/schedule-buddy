@@ -1,4 +1,4 @@
-import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type ShiftMap } from "../data";
+import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
@@ -30,6 +30,7 @@ interface Props {
   onOpenChatManager: () => void;
   viewFilter: ViewFilter;
   coverageDates?: Set<string>;
+  onOpenShiftDetail?: (date: string, shift: Shift) => void;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
   selfName: string;
@@ -54,7 +55,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   onOpenChatManager,
-  viewFilter, coverageDates, calLayout, onSetCalLayout, selfName, partnerName,
+  viewFilter, coverageDates, onOpenShiftDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames,
 }: Props) {
   const weeks = buildMonthGrid(viewYear, viewMonth);
@@ -172,7 +173,7 @@ export function MonthGrid({
             padding: "0 12px",
             borderRadius: 8,
             border: `1px solid ${palette.G}`,
-            background: "transparent",
+            background: "#D8E7E4",
             color: palette.G,
             fontSize: 13,
             fontWeight: 600,
@@ -181,15 +182,12 @@ export function MonthGrid({
             flexShrink: 0,
           }}
         >
-          <img
-            src="/assets/nucleus-mark.svg"
-            alt=""
-            aria-hidden="true"
-            width={15}
-            height={15}
-            draggable={false}
-            style={{ display: "block", userSelect: "none", pointerEvents: "none" }}
-          />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "block" }}>
+            <rect x="3" y="3" width="7" height="7" rx="2" />
+            <rect x="14" y="3" width="7" height="7" rx="2" />
+            <rect x="3" y="14" width="7" height="7" rx="2" />
+            <rect x="14" y="14" width="7" height="7" rx="2" />
+          </svg>
           Ask
         </button>
         {/* Chat Manager — compose an In-Basket message as "Manager".
@@ -506,6 +504,8 @@ export function MonthGrid({
                             return (
                               <div
                                 key={`s${i}`}
+                                onClick={onOpenShiftDetail ? (e) => { e.stopPropagation(); onOpenShiftDetail(key, s); } : undefined}
+                                title={onOpenShiftDetail ? "Shift details" : undefined}
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
@@ -522,6 +522,7 @@ export function MonthGrid({
                                   overflow: "hidden",
                                   whiteSpace: "nowrap",
                                   textOverflow: "ellipsis",
+                                  cursor: onOpenShiftDetail ? "pointer" : "default",
                                 }}
                               >
                                 <span>{s.label}</span>
