@@ -799,7 +799,6 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
     return d / 60;
   };
 
-  const byType = new Map<string, { count: number; hours: number }>();
   const per: Record<string, { count: number; hours: number }> = { G: { count: 0, hours: 0 }, K: { count: 0, hours: 0 }, D: { count: 0, hours: 0 } };
   const workDays = new Set<string>();
   let totalShifts = 0, totalHours = 0;
@@ -807,67 +806,50 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
     const key = iso(dd);
     for (const s of (map[key] || [])) {
       const hrs = hoursOf(s.shiftTypeId);
-      const name = (s.shiftTypeId && types[s.shiftTypeId]?.name) || s.label || "Shift";
       totalShifts++; totalHours += hrs; workDays.add(key);
-      const cur = byType.get(name) || { count: 0, hours: 0 };
-      cur.count++; cur.hours += hrs; byType.set(name, cur);
       if (per[s.who]) { per[s.who].count++; per[s.who].hours += hrs; }
     }
   }
   const daysOff = daysInMonth - workDays.size;
-  const typesArr = [...byType.entries()].map(([name, v]) => ({ name, count: v.count, hours: v.hours })).sort((a, b) => b.hours - a.hours);
-  const maxHours = Math.max(0.01, ...typesArr.map((x) => x.hours));
-
-  const PAL = [palette.G, palette.K, "#14201E", "#8A4B38", "#0F6E64", "#14201E", "#D78F77", "#0F6E64"];
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
   const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
   const stats: [string, string][] = [
     ["Shifts", String(totalShifts)],
-    ["Hours", `${Math.round(totalHours)}h`],
-    ["Avg / shift", `${(totalShifts ? totalHours / totalShifts : 0).toFixed(1)}h`],
-    ["Days off", String(daysOff)],
+    ["Hours", String(Math.round(totalHours))],
+    ["Avg", (totalShifts ? totalHours / totalShifts : 0).toFixed(1)],
+    ["Off", String(daysOff)],
   ];
+  const persons = (["G", "K", "D"] as const).filter((w) => per[w].count > 0);
+  const maxPersonH = Math.max(0.01, ...persons.map((w) => per[w].hours));
 
   return (
     <div>
-      <div style={{ ...subhead(t), marginBottom: 6 }}>This Month</div>
-      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{MONTHS_LONG[m]} {y}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          {stats.map(([k, v]) => (
-            <div key={k} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: t.text }}>{v}</div>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
+      <div style={{ ...subhead(t), marginBottom: 8 }}>This Month · {MONTHS_LONG[m]} {y}</div>
+      {/* Stat row — big number over a short caps label (design board). */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, paddingBottom: 12, borderBottom: `0.5px solid ${t.sep}` }}>
+        {stats.map(([k, v]) => (
+          <div key={k}>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginTop: 2 }}>{k}</div>
+          </div>
+        ))}
+      </div>
+      {/* Per-person hours — a colored bar per person (swatch), not a dot. */}
+      {persons.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 12 }}>
+          {persons.map((w) => (
+            <div key={w} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 56, fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
+              <span style={{ flex: 1, height: 10, background: rgba(dotFor[w], 0.16), borderRadius: 5, overflow: "hidden" }}>
+                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: dotFor[w], borderRadius: 5 }} />
+              </span>
+              <span style={{ width: 44, textAlign: "right", fontSize: 12.5, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
             </div>
           ))}
         </div>
-        {(["G", "K", "D"] as const).some((w) => per[w].count > 0) && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
-            {(["G", "K", "D"] as const).filter((w) => per[w].count > 0).map((w) => (
-              <span key={w} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: t.text2 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 3, background: dotFor[w] }} />
-                {nameFor[w]} · <b style={{ color: t.text }}>{per[w].hours.toFixed(1)}h</b> · {per[w].count}
-              </span>
-            ))}
-          </div>
-        )}
-        {typesArr.length ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {typesArr.map((x, i) => (
-              <div key={x.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 3, background: PAL[i % PAL.length], flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: t.text, width: 118, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{x.name}</span>
-                <span style={{ flex: 1, height: 8, background: rgba(PAL[i % PAL.length], 0.16), borderRadius: 4, overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${(x.hours / maxHours * 100).toFixed(1)}%`, background: PAL[i % PAL.length], borderRadius: 4 }} />
-                </span>
-                <span style={{ width: 22, textAlign: "right", fontSize: 12, fontWeight: 700, color: t.text3, flexShrink: 0 }}>{x.count}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: t.text3 }}>No shifts this month.</div>
-        )}
-      </div>
+      ) : (
+        <div style={{ fontSize: 12, color: t.text3, marginTop: 12 }}>No shifts this month.</div>
+      )}
     </div>
   );
 }

@@ -123,7 +123,6 @@ export function Sidebar({
 
       <SidebarSection label="Views" t={t}>
         <ListRow
-          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>}
           label="All shifts"
           count={viewCounts.all}
           active={viewFilter === "all"}
@@ -131,7 +130,6 @@ export function Sidebar({
           t={t}
         />
         <ListRow
-          icon="◐"
           label="This week"
           count={viewCounts.week}
           active={viewFilter === "this-week"}
@@ -139,7 +137,6 @@ export function Sidebar({
           t={t}
         />
         <ListRow
-          icon="↻"
           label="Both working"
           count={viewCounts.both}
           active={viewFilter === "both"}
@@ -147,7 +144,6 @@ export function Sidebar({
           t={t}
         />
         <ListRow
-          icon="✺"
           label="Couple time"
           count={viewCounts.couple}
           active={viewFilter === "couple"}
@@ -155,7 +151,6 @@ export function Sidebar({
           t={t}
         />
         <ListRow
-          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>}
           label="Coverage"
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           active={viewFilter === "coverage"}
@@ -205,16 +200,6 @@ export function Sidebar({
         ))}
       </SidebarSection>
 
-      <SidebarSection label="Care" t={t}>
-        <ListRow
-          icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          label="Childcare coverage"
-          count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
-          onClick={onOpenChildcare}
-          title="View all sent coverage requests and caregiver responses"
-          t={t}
-        />
-      </SidebarSection>
       </div>{/* /scrollable middle */}
 
       <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
@@ -336,10 +321,10 @@ function ListRow({ icon, label, count, active, color, t, onClick, onContextMenu,
       }}
     >
       {color ? (
-        <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0 }} />
-      ) : (
+        <span style={{ width: 12, height: 12, borderRadius: 3, background: color, flexShrink: 0 }} />
+      ) : icon ? (
         <span style={{ width: 16, display: "inline-flex", justifyContent: "center", color: t.text2 }}>{icon}</span>
-      )}
+      ) : null}
       <span style={{ flex: 1 }}>{label}</span>
       {count != null && (
         <span style={{ fontSize: 11, color: t.text3, fontVariantNumeric: "tabular-nums" }}>{count}</span>

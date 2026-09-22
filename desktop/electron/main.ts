@@ -377,7 +377,13 @@ async function createWindow() {
     },
   });
 
-  win.once("ready-to-show", () => win.show());
+  // Always open maximized so the header (wordmark + date bar) has room to sit
+  // on one line — at the default 1440-wide size the top bar wraps on smaller
+  // displays. Maximize before showing so it never flashes at the smaller size.
+  win.once("ready-to-show", () => {
+    win.maximize();
+    win.show();
+  });
 
   const AUTH_HOSTS = [
     "accounts.google.com",
