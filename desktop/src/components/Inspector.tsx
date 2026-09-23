@@ -166,20 +166,11 @@ export function Inspector({
           borderRadius: 8,
           padding: 18,
           background: t.bgElev,
-          border: `0.5px solid ${t.sep}`,
-          position: "relative",
-          overflow: "hidden",
+          border: `1px solid ${t.sep}`,
+          // Fixed 2px Clay top accent — the day card's signature (prototype).
+          borderTop: "2px solid #8A4B38",
         }}
       >
-        {/* Full-bleed hue strip along the top edge — the day's cast, by
-            person colour. One person = solid; both = split teal|clay. */}
-        {shifts && shifts.length > 0 && (
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, display: "flex" }}>
-            {[...new Set(shifts.map((s) => s.who))].map((w) => (
-              <span key={w} style={{ flex: 1, background: personColor(w, palette) }} />
-            ))}
-          </div>
-        )}
         <div style={subhead(t)}>{dayLabel}</div>
         <div style={{ fontFamily: BRAND_FONT, fontSize: 26, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.12 }}>
           {kind === "off"
@@ -190,10 +181,7 @@ export function Inspector({
                 ? `${selfName} works`
                 : `${partnerName} works`}
         </div>
-        {shifts && shifts.length > 0 && (
-          <div style={{ height: 0.5, background: t.sep, marginTop: 14 }} />
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
           {(shifts ?? []).map((s, i) => {
             const c = personColor(s.who, palette);
             const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
@@ -224,7 +212,10 @@ export function Inspector({
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "6px 2px",
+                  padding: "11px 2px",
+                  // Hairline above each row — the under-title rule and the
+                  // between-row rules both come from this (prototype).
+                  borderTop: `0.5px solid ${t.sep}`,
                   cursor: onOpenShiftDetail || hasActions ? "pointer" : "default",
                   position: "relative",
                   overflow: "hidden",
@@ -292,7 +283,7 @@ export function Inspector({
             );
           })}
           {(!shifts || shifts.length === 0) && (
-            <div style={{ fontSize: 12, color: t.text3, padding: 8 }}>Free day. Plan something together.</div>
+            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `0.5px solid ${t.sep}` }}>Free day. Plan something together.</div>
           )}
         </div>
 
