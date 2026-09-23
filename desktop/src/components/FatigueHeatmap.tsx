@@ -136,18 +136,15 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
         </span>
       </div>
 
-      {/* Quilt — solid block, no gaps, square cells via 7/4 aspect ratio. */}
+      {/* Quilt — separated square tiles (design board), not a solid block.
+          Gaps let the paper ground read between tiles so it reads as a
+          quilt of days rather than merged vertical bars. */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          gridTemplateRows: `repeat(${WEEKS}, 1fr)`,
-          gap: 0,
+          gap: 7,
           width: "100%",
-          aspectRatio: `7 / ${WEEKS}`,
-          borderRadius: 8,
-          overflow: "hidden",
-          background: t.bgElev2,
         }}
       >
         {days.map((d) => {
@@ -170,9 +167,9 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
                 border: 0,
                 cursor: isInteractive ? "pointer" : "default",
                 padding: 0,
+                aspectRatio: "1",
+                borderRadius: 6,
                 ...ringStyle,
-                // No rounded corners on cells — the parent grid's
-                // border-radius + overflow:hidden clip the outer shape.
               }}
             />
           );

@@ -178,7 +178,10 @@ export function Inspector({
                 ? `${selfName} works`
                 : `${partnerName} works`}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+        {shifts && shifts.length > 0 && (
+          <div style={{ height: 0.5, background: t.sep, marginTop: 14 }} />
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           {(shifts ?? []).map((s, i) => {
             const c = personColor(s.who, palette);
             const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
@@ -662,25 +665,25 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
   const BAR = palette.G; // teal magnitude bar (design board), name carries identity
   return (
     <div>
-      {/* Stat row — big number over a short caps label (design board). */}
+      {/* Stat row — big Sora number over a short caps label (design board). */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {stats.map(([k, v]) => (
           <div key={k}>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 21, fontWeight: 600, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
           </div>
         ))}
       </div>
-      {/* Per-person hours — a teal magnitude bar per person, not a dot. */}
+      {/* Per-person hours — a thin teal magnitude bar per person, not a dot. */}
       {persons.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
           {persons.map((w) => (
             <div key={w} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 56, fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
-              <span style={{ flex: 1, height: 10, background: t.bgElev2, borderRadius: 5, overflow: "hidden" }}>
-                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 5 }} />
+              <span style={{ width: 56, fontSize: 13, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
+              <span style={{ flex: 1, height: 8, background: t.bgElev2, borderRadius: 4, overflow: "hidden" }}>
+                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 4 }} />
               </span>
-              <span style={{ width: 46, textAlign: "right", fontSize: 13, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
+              <span style={{ width: 46, textAlign: "right", fontFamily: BRAND_FONT, fontSize: 13.5, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
             </div>
           ))}
         </div>
