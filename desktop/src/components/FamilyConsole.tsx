@@ -235,7 +235,7 @@ export function FamilyConsole({
                   style={{
                     textAlign: "left",
                     width: "100%",
-                    padding: "10px 12px",
+                    padding: "8px 12px",
                     borderRadius: 4,
                     border: 0,
                     background: on ? TEAL_TINT : "transparent",
@@ -261,7 +261,7 @@ export function FamilyConsole({
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: "20px 28px",
+            padding: "16px 24px",
             background: t.bgElev,
             minWidth: 0,
           }}
@@ -361,7 +361,7 @@ function GeneralTab(p: {
   const { t } = p;
   const nameDirty = p.draftName !== p.hhName;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28, minHeight: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: "100%" }}>
       {/* HOUSEHOLD */}
       <Section t={t} label="Household">
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -482,7 +482,7 @@ function GeneralTab(p: {
           justifyContent: "space-between",
           gap: 12,
           marginTop: "auto",
-          paddingTop: 20,
+          paddingTop: 16,
           borderTop: `1px solid ${t.sep}`,
           flexWrap: "wrap",
         }}
@@ -521,7 +521,7 @@ function PeopleTab(p: {
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* MEMBERS */}
       <Section t={t} label={`Members (${p.members.length})`}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -717,7 +717,7 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
   const [limit, setLimit] = useState("200");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* AI PROVIDER API */}
       <Section t={t} label="AI provider API" desc="An API is required for nucleusAI to function. The key is encrypted locally (macOS Keychain).">
         <AiProviderCard t={t} />
@@ -806,7 +806,7 @@ function FeedsSubTab({ t }: { t: ThemeTokens }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <Section t={t} label="Feeds" desc="A feed puts school closings, weather and notices on the wall beside the schedule.">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {feeds.map((f) => (
@@ -1009,10 +1009,10 @@ function BillingTab({ t, hhName }: { t: ThemeTokens; hhName: string }) {
 function Section({ label, desc, t, children }: { label: string; desc?: string; t: ThemeTokens; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3, marginBottom: 8 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3, marginBottom: 6 }}>
         {label}
       </div>
-      {desc && <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 12, lineHeight: 1.5 }}>{desc}</div>}
+      {desc && <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10, lineHeight: 1.45 }}>{desc}</div>}
       {children}
     </div>
   );
@@ -1027,7 +1027,7 @@ function SubTabBar({ t, value, onChange, options }: {
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div style={{ display: "flex", gap: 20, borderBottom: `1px solid ${t.sep}`, marginBottom: 20 }}>
+    <div style={{ display: "flex", gap: 20, borderBottom: `1px solid ${t.sep}`, marginBottom: 16 }}>
       {options.map((o) => {
         const on = value === o.value;
         return (
@@ -1193,7 +1193,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     width: "100%",
     boxSizing: "border-box",
-    padding: "10px 12px",
+    padding: "8px 11px",
     border: `1px solid ${t.sep}`,
     borderRadius: 4,
     background: t.bgElev,
@@ -1206,7 +1206,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
 }
 
 const primaryBtn: React.CSSProperties = {
-  height: 38,
+  height: 34,
   padding: "0 16px",
   border: 0,
   borderRadius: 4,
@@ -1222,7 +1222,7 @@ const primaryBtn: React.CSSProperties = {
 
 // Short primary — used for the transient "Copied" confirmation.
 const primaryBtnShort: React.CSSProperties = {
-  height: 38,
+  height: 34,
   padding: "0 16px",
   border: 0,
   borderRadius: 4,
@@ -1238,7 +1238,7 @@ const primaryBtnShort: React.CSSProperties = {
 
 function secondaryBtn(t: ThemeTokens): React.CSSProperties {
   return {
-    height: 38,
+    height: 34,
     padding: "0 16px",
     border: `1px solid ${t.sep}`,
     borderRadius: 4,
@@ -1254,7 +1254,7 @@ function secondaryBtn(t: ThemeTokens): React.CSSProperties {
 }
 
 const destructiveBtn: React.CSSProperties = {
-  height: 38,
+  height: 34,
   padding: "0 16px",
   border: `1px solid ${CLAY}`,
   borderRadius: 4,
@@ -1290,7 +1290,7 @@ function rowCard(t: ThemeTokens): React.CSSProperties {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "12px 14px",
+    padding: "10px 12px",
     border: `1px solid ${t.sep}`,
     borderRadius: 4,
     background: t.bgElev,
@@ -1368,7 +1368,7 @@ function PaydayRow({
         gridTemplateColumns: "auto 1fr 150px auto",
         alignItems: "center",
         gap: 8,
-        padding: "12px 14px",
+        padding: "10px 12px",
         borderRadius: 4,
         border: `1px solid ${t.sep}`,
         background: t.bgElev,
