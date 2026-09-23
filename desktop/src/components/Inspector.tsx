@@ -167,10 +167,14 @@ export function Inspector({
           padding: 18,
           background: t.bgElev,
           border: `0.5px solid ${t.sep}`,
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        {/* Full-bleed hue strip along the top edge — the day's cast, by
+            person colour. One person = solid; both = split teal|clay. */}
         {shifts && shifts.length > 0 && (
-          <div style={{ display: "flex", height: 5, marginBottom: 12, borderRadius: 2.5, overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, display: "flex" }}>
             {[...new Set(shifts.map((s) => s.who))].map((w) => (
               <span key={w} style={{ flex: 1, background: personColor(w, palette) }} />
             ))}
