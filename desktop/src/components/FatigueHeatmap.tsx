@@ -204,10 +204,10 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
 
 function subhead(t: import("../theme").ThemeTokens): React.CSSProperties {
   return {
-    fontSize: 10.5,
-    fontWeight: 700,
+    fontSize: 10,
+    fontWeight: 600,
     color: t.text3,
-    letterSpacing: "0.06em",
+    letterSpacing: "0.1em",
     textTransform: "uppercase",
     marginBottom: 6,
   };

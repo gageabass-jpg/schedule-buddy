@@ -422,7 +422,7 @@ export function Inspector({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#8A4B38" }}>
               {lifeClashCount} clash{lifeClashCount === 1 ? "" : "es"}
             </span>
           )}
@@ -467,7 +467,7 @@ export function Inspector({
                   {eyebrow}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.01em", color: t.text }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em", color: t.text }}>
                     {ev.title}
                   </span>
                   {badge && (
@@ -480,7 +480,7 @@ export function Inspector({
                   )}
                   {ev.pending && <span style={{ fontSize: 10.5, color: "#8A4B38", fontWeight: 700 }}>(pending)</span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.35 }}>
+                <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.35 }}>
                   {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
                 </div>
               </button>
@@ -493,7 +493,7 @@ export function Inspector({
           style={{
             marginTop: 8, width: "100%", padding: "10px 12px", borderRadius: 10,
             border: `0.5px solid ${t.sep}`, background: t.bgElev, color: t.text,
-            fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer",
             letterSpacing: "-0.01em",
           }}
         >
@@ -672,8 +672,8 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
         {stats.map(([k, v]) => (
           <div key={k}>
-            <div style={{ fontFamily: BRAND_FONT, fontSize: 21, fontWeight: 600, letterSpacing: "-0.02em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
+            <div style={{ fontSize: 19, fontWeight: 500, letterSpacing: "-0.01em", color: t.text, fontVariantNumeric: "tabular-nums" }}>{v}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3, marginTop: 3 }}>{k}</div>
           </div>
         ))}
       </div>
@@ -682,11 +682,11 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
           {persons.map((w) => (
             <div key={w} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 56, fontSize: 13, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
+              <span style={{ width: 56, fontSize: 14, fontWeight: 400, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
               <span style={{ flex: 1, height: 8, background: t.bgElev2, borderRadius: 4, overflow: "hidden" }}>
                 <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 4 }} />
               </span>
-              <span style={{ width: 46, textAlign: "right", fontFamily: BRAND_FONT, fontSize: 13.5, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
+              <span style={{ width: 46, textAlign: "right", fontSize: 12, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
             </div>
           ))}
         </div>
@@ -1277,7 +1277,7 @@ function ChildcareCard({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ ...subhead(t), marginBottom: 0 }}>Rest &amp; coverage · this week</span>
         {needCover > 0 && (
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -1308,8 +1308,8 @@ function ChildcareCard({
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {gaps.map((g) => (
               <div key={g.key} style={{ padding: "10px 12px", borderRadius: 10, background: rgba("#8A4B38", dark ? 0.14 : 0.08), border: `1px dashed ${rgba("#8A4B38", 0.5)}` }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: t.text, letterSpacing: "-0.01em" }}>{g.head}</div>
-                <div style={{ fontSize: 11.5, color: t.text2, lineHeight: 1.4, marginTop: 3 }}>{g.body}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>{g.head}</div>
+                <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4, marginTop: 3 }}>{g.body}</div>
               </div>
             ))}
           </div>
@@ -1319,14 +1319,14 @@ function ChildcareCard({
         <button
           type="button"
           onClick={onAsk}
-          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 9, border: 0, background: "#D8E7E4", color: "#0A4F48", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 9, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
           <BrandMark size={14} color="#0A4F48" /> Ask
         </button>
         <button
           type="button"
           onClick={onRequestCover}
-          style={{ flex: 1, padding: "10px 14px", borderRadius: 9, border: `0.5px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em" }}
+          style={{ flex: 1, padding: "10px 14px", borderRadius: 9, border: `0.5px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
           Request cover
         </button>
@@ -1340,10 +1340,10 @@ function ChildcareCard({
 
 function subhead(t: ThemeTokens): React.CSSProperties {
   return {
-    fontSize: 10.5,
-    fontWeight: 700,
+    fontSize: 10,
+    fontWeight: 600,
     color: t.text3,
-    letterSpacing: "0.08em",
+    letterSpacing: "0.1em",
     textTransform: "uppercase",
     marginBottom: 4,
   };
