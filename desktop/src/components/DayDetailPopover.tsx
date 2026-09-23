@@ -78,7 +78,9 @@ export function DayDetailPopover({
     display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
   };
 
-  const lifeEvents = events.filter((e) => !e.healthId);
+  // Everything planned on the day — life events and appointments alike, so
+  // the card never reads "Nothing scheduled." while an event sits on the cell.
+  const dayEvents = events;
 
   // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
@@ -111,7 +113,7 @@ export function DayDetailPopover({
           <div style={rule} />
 
           {/* Shifts on this day — each row drills into the shift popover. */}
-          {dayShifts.length > 0 ? (
+          {dayShifts.length > 0 && (
             <div style={{ padding: "4px 16px 12px" }}>
               {dayShifts.map((s, i) => {
                 const c = personColor(s.who, palette);
@@ -142,14 +144,12 @@ export function DayDetailPopover({
                 );
               })}
             </div>
-          ) : (
-            <div style={{ ...section, fontSize: 13, color: t.text2 }}>Nothing scheduled.</div>
           )}
 
-          {/* Life events + coverage. */}
-          {(lifeEvents.length > 0 || isCoverageGap) && (
+          {/* Life events + appointments + coverage on this day. */}
+          {(dayEvents.length > 0 || isCoverageGap) && (
             <>
-              <div style={rule} />
+              {dayShifts.length > 0 && <div style={rule} />}
               <div style={{ ...section, display: "flex", flexDirection: "column", gap: 8 }}>
                 {isCoverageGap && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -157,16 +157,26 @@ export function DayDetailPopover({
                     <span style={{ fontSize: 13, color: t.text }}>Nobody has the kids.</span>
                   </div>
                 )}
-                {lifeEvents.map((ev) => (
+                {dayEvents.map((ev) => (
                   <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 3, alignSelf: "stretch", minHeight: 16, borderRadius: 2, background: BRAND_TEAL, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span style={{ width: 3, alignSelf: "stretch", minHeight: 16, borderRadius: 2, background: ev.healthId ? CLAY : BRAND_TEAL, flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {(ev.title || "Event").replace(PAREN_RANGE, "").replace(TIME_RANGE, "").trim()}
                     </span>
+                    {ev.startTime && (
+                      <span style={{ fontSize: 13, color: t.text2, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0 }}>
+                        {compactTime(ev.startTime)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             </>
+          )}
+
+          {/* Truly empty day — no shifts, no events, no coverage gap. */}
+          {dayShifts.length === 0 && dayEvents.length === 0 && !isCoverageGap && (
+            <div style={{ ...section, fontSize: 13, color: t.text2 }}>Nothing scheduled.</div>
           )}
 
           <div style={rule} />
