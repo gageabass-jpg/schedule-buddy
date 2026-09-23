@@ -682,6 +682,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           shift={shiftDetail.shift}
           date={shiftDetail.date}
           who={shiftDetail.shift.who}
+          dayShifts={shifts[shiftDetail.date] ?? []}
           t={t}
           palette={palette}
           dark={dark}
