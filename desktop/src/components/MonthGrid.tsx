@@ -33,6 +33,8 @@ interface Props {
   viewFilter: ViewFilter;
   coverageDates?: Set<string>;
   onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
+  /** A click on the day cell itself opens the day-detail popover. */
+  onOpenDayDetail?: (date: string, anchor?: DOMRect) => void;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
   selfName: string;
@@ -57,7 +59,7 @@ export function MonthGrid({
   palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   onOpenChatManager,
-  viewFilter, coverageDates, onOpenShiftDetail, calLayout, onSetCalLayout, selfName, partnerName,
+  viewFilter, coverageDates, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames,
 }: Props) {
   const [hoverTab, setHoverTab] = useState<string | null>(null);
@@ -370,7 +372,10 @@ export function MonthGrid({
                   <button
                     key={ci}
                     type="button"
-                    onClick={() => onSelectDate(key)}
+                    // A cell click opens the day popover only — it deliberately
+                    // does NOT re-point the right panel, so the day card there
+                    // stays put while you browse the month.
+                    onClick={(e) => onOpenDayDetail?.(key, e.currentTarget.getBoundingClientRect())}
                     style={{
                       position: "relative",
                       border: 0,

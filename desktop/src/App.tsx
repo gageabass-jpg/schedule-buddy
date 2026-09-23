@@ -57,6 +57,7 @@ import { ChatManagerPanel } from "./components/ChatManagerPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
 import { ShiftDetailPopover } from "./components/ShiftDetailPopover";
+import { DayDetailPopover } from "./components/DayDetailPopover";
 import type { Event as SbEvent, EventWho, CaregiverRequest } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
@@ -144,6 +145,9 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
   const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift; anchor?: DOMRect | null } | null>(null);
+  const [dayDetail, setDayDetail] = useState<{ date: string; anchor?: DOMRect | null } | null>(null);
+  /** Overrides New Shift's default date when it is opened from a day popover. */
+  const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -474,7 +478,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onNewShift={() => setNewShiftOpen(true)}
         viewFilter={viewFilter}
         coverageDates={coverageDates}
-        onOpenShiftDetail={(date, s, anchor) => setShiftDetail({ date, shift: s, anchor })}
+        onOpenShiftDetail={(date, s, anchor) => { setDayDetail(null); setShiftDetail({ date, shift: s, anchor }); }}
+        onOpenDayDetail={(date, anchor) => { setShiftDetail(null); setDayDetail({ date, anchor }); }}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
@@ -538,13 +543,13 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       />
       <NewShiftModal
         open={newShiftOpen}
-        onClose={() => setNewShiftOpen(false)}
+        onClose={() => { setNewShiftOpen(false); setNewShiftDate(null); }}
         palette={palette}
         t={t}
         dark={dark}
         householdId={householdId}
         state={state}
-        defaultDate={selected}
+        defaultDate={newShiftDate ?? selected}
       />
       <TemplateEditor
         open={templateOpen}
@@ -675,6 +680,25 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         defaultDate={selected}
         prefill={newRequestPrefill}
       />
+      {dayDetail && (
+        <DayDetailPopover
+          onClose={() => setDayDetail(null)}
+          date={dayDetail.date}
+          dayShifts={shifts[dayDetail.date] ?? []}
+          events={eventsByDate[dayDetail.date] ?? []}
+          anchor={dayDetail.anchor}
+          t={t}
+          palette={palette}
+          dark={dark}
+          state={state}
+          selfName={selfName}
+          partnerName={partnerName}
+          isCoverageGap={coverageNeeds.some((c) => c.date === dayDetail.date)}
+          onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}
+          onNewShift={() => { setNewShiftDate(dayDetail.date); setDayDetail(null); setNewShiftOpen(true); }}
+          onAsk={() => { setDayDetail(null); setAskClaudeOpen(true); }}
+        />
+      )}
       {shiftDetail && (
         <ShiftDetailPopover
           open

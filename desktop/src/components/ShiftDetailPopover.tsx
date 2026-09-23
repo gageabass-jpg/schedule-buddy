@@ -3,6 +3,7 @@ import { MONTHS_LONG, type Shift, type Who } from "../data";
 import { compactTime, type Event as SbEvent, type HouseholdState } from "../state";
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
+import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -38,8 +39,6 @@ interface Props {
   onDelete: () => void;
 }
 
-interface Pos { left: number; top: number; side: "left" | "right"; tailTop: number; }
-
 function enteredDate(shift: Shift): Date | null {
   const raw = (shift as { createdAt?: number; enteredAt?: number }).createdAt
     ?? (shift as { createdAt?: number; enteredAt?: number }).enteredAt;
@@ -52,19 +51,6 @@ function fmtEntered(d: Date): string {
 }
 function toMin(s: string): number { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); }
 function durStr(min: number): string { const h = Math.floor(min / 60), m = min % 60; return m ? `${h}h ${m}m` : `${h}h`; }
-
-/** Place the popover beside the chip `a`, flipping sides near the right edge. */
-function computePos(a: DOMRect, pw: number, ph: number): Pos {
-  const gap = 10, margin = 8;
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const side: "left" | "right" = (vw - a.right) >= pw + gap + margin ? "right" : "left";
-  let left = side === "right" ? a.right + gap : a.left - gap - pw;
-  left = Math.max(margin, Math.min(left, vw - pw - margin));
-  const tailCenterY = a.top + a.height / 2;
-  const top = Math.max(margin, Math.min(tailCenterY - ph / 2, vh - ph - margin));
-  const tailTop = Math.max(16, Math.min(tailCenterY - top, ph - 16));
-  return { left, top, side, tailTop };
-}
 
 /**
  * "Shift detail" popover. When given the clicked chip's `anchor` rect it opens
@@ -80,12 +66,12 @@ export function ShiftDetailPopover({
   const cardRef = useRef<HTMLDivElement>(null);
   // Position synchronously from an estimate so the box is visible on the first
   // paint, then refine once the real card size is known.
-  const [pos, setPos] = useState<Pos | null>(() => (open && anchor ? computePos(anchor, 380, 440) : null));
+  const [pos, setPos] = useState<PopoverPos | null>(() => (open && anchor ? computePopoverPos(anchor, 380, 440) : null));
 
   useLayoutEffect(() => {
     if (!open || !anchor) return;
     const card = cardRef.current;
-    if (card) setPos(computePos(anchor, card.offsetWidth, card.offsetHeight));
+    if (card) setPos(computePopoverPos(anchor, card.offsetWidth, card.offsetHeight));
   }, [open, anchor]);
 
   if (!open) return null;
@@ -153,26 +139,11 @@ export function ShiftDetailPopover({
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
-  // Tail — a CSS triangle pointing at the chip. Built without computed keys so
-  // it type-checks against CSSProperties. When the popover sits to the chip's
-  // right the tail is on its LEFT edge pointing left; on a flip it moves right.
-  const tailStyle: CSSProperties = {
-    position: "absolute",
-    top: pos ? pos.tailTop - 8 : 0,
-    width: 0,
-    height: 0,
-    borderTop: "8px solid transparent",
-    borderBottom: "8px solid transparent",
-  };
-  if (pos) {
-    if (pos.side === "right") { tailStyle.left = -7; tailStyle.borderRight = `8px solid ${t.bgElev}`; }
-    else { tailStyle.right = -7; tailStyle.borderLeft = `8px solid ${t.bgElev}`; }
-  }
-
+  // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
       <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
-        {anchored && pos && <div aria-hidden="true" style={tailStyle} />}
+        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
         <div
           ref={cardRef}
           role="dialog"
