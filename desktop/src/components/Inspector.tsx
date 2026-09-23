@@ -159,17 +159,25 @@ export function Inspector({
         </div>
       )}
 
-      {/* Selected day card — plain white Surface, hairline, large Sora title. */}
+      {/* Selected day card — plain white Surface, near-square corners,
+          a per-person hue swatch up top, then a large Sora title. */}
       <div
         style={{
-          borderRadius: 14,
+          borderRadius: 8,
           padding: 18,
           background: t.bgElev,
           border: `0.5px solid ${t.sep}`,
         }}
       >
+        {shifts && shifts.length > 0 && (
+          <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
+            {[...new Set(shifts.map((s) => s.who))].map((w) => (
+              <span key={w} style={{ width: 26, height: 5, borderRadius: 2.5, background: personColor(w, palette) }} />
+            ))}
+          </div>
+        )}
         <div style={subhead(t)}>{dayLabel}</div>
-        <div style={{ fontFamily: BRAND_FONT, fontSize: 26, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.12 }}>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 26, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.12 }}>
           {kind === "off"
             ? "Both off"
             : kind === "both"
@@ -415,7 +423,7 @@ export function Inspector({
 
       {/* Life tab — the next 60 days of occasions, in one Surface card. */}
       {railTab === "life" && (
-      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
@@ -504,7 +512,7 @@ export function Inspector({
 
       {/* Month tab — one card: fatigue quilt, then this-month totals. */}
       {railTab === "month" && (
-        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <FatigueHeatmap
             shifts={allShifts}
             state={state}
@@ -1270,7 +1278,7 @@ function ChildcareCard({
   });
 
   return (
-    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ ...subhead(t), marginBottom: 0 }}>Rest &amp; coverage · this week</span>
         {needCover > 0 && (
