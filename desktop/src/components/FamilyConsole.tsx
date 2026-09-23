@@ -145,33 +145,46 @@ export function FamilyConsole({
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Admin Console"
+      onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
-        background: t.bg,
-        color: t.text,
+        background: "rgba(0,0,0,0.4)",
         zIndex: 1200,
         display: "flex",
-        flexDirection: "column",
-        fontFamily: "inherit",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
       }}
     >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Admin Console"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(1200px, 94vw)",
+          height: "min(860px, 92vh)",
+          background: t.bg,
+          color: t.text,
+          border: `1px solid ${t.sep}`,
+          borderRadius: 10,
+          boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.6)" : "0 24px 64px rgba(20,32,30,0.28)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          fontFamily: "inherit",
+        }}
+      >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          // Extra top space clears the macOS traffic-light buttons (the window
-          // uses titleBarStyle:hiddenInset). The bar is draggable; the close
-          // button opts back out below.
-          padding: "34px 20px 14px",
+          padding: "14px 20px",
           borderBottom: `1px solid ${t.sep}`,
           flexShrink: 0,
-          ...({ WebkitAppRegion: "drag" } as React.CSSProperties),
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -192,7 +205,6 @@ export function FamilyConsole({
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             border: `1px solid ${t.sep}`, borderRadius: 4, background: t.bgElev,
             color: t.text, cursor: "pointer", flexShrink: 0, padding: 0,
-            ...({ WebkitAppRegion: "no-drag" } as React.CSSProperties),
           }}
         >
           <XIcon />
@@ -277,6 +289,7 @@ export function FamilyConsole({
                 themePref={themePref} onSetThemePref={onSetThemePref}
                 onSignOut={() => { void doSignOut(); }}
                 onLeaveHousehold={onLeaveHousehold}
+                householdId={householdId} state={state} palette={palette}
               />
             )}
 
@@ -321,6 +334,7 @@ export function FamilyConsole({
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -342,6 +356,7 @@ function GeneralTab(p: {
   onSendCaregiver: () => void; onCopyCaregiver: () => void; onNewCaregiver: () => void;
   themePref: ThemePref; onSetThemePref: (v: ThemePref) => void;
   onSignOut: () => void; onLeaveHousehold: () => void;
+  householdId: string | null; state: HouseholdState | null; palette: Palette;
 }) {
   const { t } = p;
   const nameDirty = p.draftName !== p.hhName;
@@ -438,6 +453,11 @@ function GeneralTab(p: {
         <div style={{ fontSize: 11.5, color: t.text3, marginTop: 8, lineHeight: 1.5 }}>
           Sends a Supporting-role code to hand off. Email delivery is not wired yet — copy the code and share it.
         </div>
+      </Section>
+
+      {/* SHARING — read-only web + ICS/webcal link (moved here from Feeds). */}
+      <Section t={t} label="Sharing" desc="A read-only web link and a calendar subscription (ICS / webcal). Shifts + event titles only. Revoke any time.">
+        <ShareLinkSection householdId={p.householdId} state={p.state} t={t} palette={p.palette} />
       </Section>
 
       {/* APPEARANCE */}
@@ -680,11 +700,7 @@ function IntegrationsTab(p: { t: ThemeTokens; palette: Palette; householdId: str
         ]}
       />
       {sub === "apps" && <AppsSubTab t={t} />}
-      {sub === "feeds" && (
-        <Section t={t} label="Calendar feeds" desc="Read-only ICS / webcal link — subscribe in Apple or Google Calendar. Shifts + event titles only. Revoke any time.">
-          <ShareLinkSection householdId={p.householdId} state={p.state} t={t} palette={p.palette} />
-        </Section>
-      )}
+      {sub === "feeds" && <FeedsSubTab t={t} />}
     </div>
   );
 }
@@ -767,6 +783,96 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
         </a>
       </div>
     </div>
+  );
+}
+
+interface FeedRow { id: string; name: string; url: string; where: "WALL" | "WALL & CALENDAR"; checked: string; }
+
+// RSS/Atom feeds that surface on the wall beside the schedule. Local/placeholder
+// list (TODO wire to a real feed reader) — reads title + date only, never a shift.
+function FeedsSubTab({ t }: { t: ThemeTokens }) {
+  const [feeds, setFeeds] = useState<FeedRow[]>([
+    { id: "kcs", name: "Kanawha County Schools", url: "kcs.k12.wv.us/feed/closings.xml", where: "WALL & CALENDAR", checked: "checked 6 minutes ago" },
+    { id: "th", name: "Thomas Hospital notices", url: "thomashealth.org/news/rss", where: "WALL", checked: "checked 6 minutes ago" },
+    { id: "wx", name: "Weather alerts · Charleston", url: "alerts.weather.gov/cap/wv.php", where: "WALL", checked: "checked 2 minutes ago" },
+  ]);
+  const [addr, setAddr] = useState("");
+  const [name, setName] = useState("");
+  const [showOn, setShowOn] = useState<FeedRow["where"]>("WALL");
+
+  const feedChip: React.CSSProperties = {
+    fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+    padding: "2px 8px", borderRadius: 4, background: t.bgElev2, color: t.text2, whiteSpace: "nowrap",
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+      <Section t={t} label="Feeds" desc="A feed puts school closings, weather and notices on the wall beside the schedule.">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {feeds.map((f) => (
+            <div key={f.id} style={{ ...rowCard(t), gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 4, border: `1px solid ${t.sep}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.text2, flexShrink: 0 }}>
+                <RssIcon />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                <div style={{ fontSize: 12, color: t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.url}</div>
+              </div>
+              <span style={feedChip}>{f.where}</span>
+              <span style={{ fontSize: 12, color: t.text3, whiteSpace: "nowrap" }}>{f.checked}</span>
+              <button type="button" aria-label={`Edit ${f.name}`} title="Edit" onClick={() => { /* TODO wire feed edit */ }} style={iconBtn(t)}><PencilIcon /></button>
+              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: CLAY }}><TrashIcon /></button>
+            </div>
+          ))}
+          {feeds.length === 0 && <div style={{ fontSize: 12.5, color: t.text3 }}>No feeds yet.</div>}
+        </div>
+      </Section>
+
+      <Section t={t} label="Add a feed" desc="Paste the address of an RSS or Atom feed. Nucleus reads the title and the date, nothing else.">
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <FieldLabel t={t}>Feed address</FieldLabel>
+            <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="https://school.k12.wv.us/rss" style={inputStyle(t)} />
+          </div>
+          <div style={{ width: 180 }}>
+            <FieldLabel t={t}>Name it</FieldLabel>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="School closings" style={inputStyle(t)} />
+          </div>
+          <div style={{ width: 170 }}>
+            <FieldLabel t={t}>Show it on</FieldLabel>
+            <select value={showOn} onChange={(e) => setShowOn(e.target.value as FeedRow["where"])} style={inputStyle(t)}>
+              <option value="WALL">Wall display</option>
+              <option value="WALL & CALENDAR">Wall &amp; calendar</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            style={primaryBtn}
+            onClick={() => {
+              const a = addr.trim(); if (!a) return;
+              setFeeds((fs) => [...fs, { id: `f${Date.now()}`, name: name.trim() || a, url: a.replace(/^https?:\/\//, ""), where: showOn, checked: "not checked yet" }]);
+              setAddr(""); setName("");
+            }}
+          >
+            Add feed
+          </button>
+        </div>
+      </Section>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 16, borderTop: `1px solid ${t.sep}`, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: t.text3 }}>Feeds are read only. Nucleus never posts to them, and nothing from a feed becomes a shift.</span>
+        <span style={{ fontSize: 12, color: t.text3 }}>Checked every 15 minutes</span>
+      </div>
+    </div>
+  );
+}
+
+function RssIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+      <circle cx="5" cy="19" r="1.6" fill="currentColor" />
+    </svg>
   );
 }
 
