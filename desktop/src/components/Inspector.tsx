@@ -170,9 +170,9 @@ export function Inspector({
         }}
       >
         {shifts && shifts.length > 0 && (
-          <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
+          <div style={{ display: "flex", height: 5, marginBottom: 12, borderRadius: 2.5, overflow: "hidden" }}>
             {[...new Set(shifts.map((s) => s.who))].map((w) => (
-              <span key={w} style={{ width: 26, height: 5, borderRadius: 2.5, background: personColor(w, palette) }} />
+              <span key={w} style={{ flex: 1, background: personColor(w, palette) }} />
             ))}
           </div>
         )}
