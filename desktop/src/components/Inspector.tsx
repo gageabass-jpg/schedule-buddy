@@ -115,7 +115,7 @@ export function Inspector({
     <div
       style={{
         background: dark ? "rgba(20,20,22,0.5)" : "rgba(255,255,255,0.6)",
-        borderLeft: `0.5px solid ${t.sep}`,
+        borderLeft: `1px solid ${t.sep}`,
         padding: 14,
         display: "flex",
         flexDirection: "column",
@@ -163,8 +163,8 @@ export function Inspector({
           a per-person hue swatch up top, then a large Sora title. */}
       <div
         style={{
-          borderRadius: 8,
-          padding: 18,
+          borderRadius: 4,
+          padding: 16,
           background: t.bgElev,
           border: `1px solid ${t.sep}`,
           // Fixed 2px Clay top accent — the day card's signature (prototype).
@@ -215,7 +215,7 @@ export function Inspector({
                   padding: "11px 2px",
                   // Hairline above each row — the under-title rule and the
                   // between-row rules both come from this (prototype).
-                  borderTop: `0.5px solid ${t.sep}`,
+                  borderTop: `1px solid ${t.sep}`,
                   cursor: onOpenShiftDetail || hasActions ? "pointer" : "default",
                   position: "relative",
                   overflow: "hidden",
@@ -283,7 +283,7 @@ export function Inspector({
             );
           })}
           {(!shifts || shifts.length === 0) && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `0.5px solid ${t.sep}` }}>Free day. Plan something together.</div>
+            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `1px solid ${t.sep}` }}>Free day. Plan something together.</div>
           )}
         </div>
 
@@ -299,7 +299,7 @@ export function Inspector({
           <div style={{ ...subhead(t), marginBottom: 6 }}>Schedule Block</div>
           <div
             style={{
-              borderRadius: 12,
+              borderRadius: 4,
               padding: 14,
               background: "rgba(138,75,56,0.10)",
               border: `0.5px solid rgba(138,75,56,0.45)`,
@@ -418,7 +418,7 @@ export function Inspector({
 
       {/* Life tab — the next 60 days of occasions, in one Surface card. */}
       {railTab === "life" && (
-      <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16 }}>
+      <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
@@ -458,9 +458,9 @@ export function Inspector({
                 style={{
                   display: "flex", flexDirection: "column", gap: 4, width: "100%",
                   textAlign: "left", cursor: "pointer", fontFamily: "inherit",
-                  padding: "10px 12px", borderRadius: 10, color: t.text,
-                  background: clash ? rgba("#8A4B38", dark ? 0.14 : 0.10) : t.bgElev,
-                  border: clash ? `1px dashed ${rgba("#8A4B38", 0.55)}` : `0.5px solid ${t.sep}`,
+                  padding: "9px 11px", borderRadius: 4, color: t.text,
+                  background: clash ? (dark ? rgba("#8A4B38", 0.14) : "#EFDFDB") : t.bgElev,
+                  border: clash ? `1px dashed ${rgba("#8A4B38", 0.55)}` : `1px solid ${t.sep}`,
                 }}
               >
                 <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: clash ? "#8A4B38" : t.text3 }}>
@@ -491,8 +491,8 @@ export function Inspector({
           type="button"
           onClick={onAddEvent}
           style={{
-            marginTop: 8, width: "100%", padding: "10px 12px", borderRadius: 10,
-            border: `0.5px solid ${t.sep}`, background: t.bgElev, color: t.text,
+            marginTop: 8, width: "100%", padding: "10px 12px", borderRadius: 4,
+            border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
             fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer",
             letterSpacing: "-0.01em",
           }}
@@ -507,7 +507,7 @@ export function Inspector({
 
       {/* Month tab — one card: fatigue quilt, then this-month totals. */}
       {railTab === "month" && (
-        <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <FatigueHeatmap
             shifts={allShifts}
             state={state}
@@ -555,9 +555,9 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
         display: "flex",
         gap: 4,
         padding: 4,
-        borderRadius: 12,
+        borderRadius: 4,
         background: t.bgElev2,
-        border: `0.5px solid ${t.sep}`,
+        border: `1px solid ${t.sep}`,
       }}
     >
       {tabs.map((x) => {
@@ -574,7 +574,7 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
               justifyContent: "center",
               gap: 6,
               padding: "7px 4px",
-              borderRadius: 9,
+              borderRadius: 4,
               border: 0,
               cursor: "pointer",
               fontFamily: "inherit",
@@ -822,7 +822,7 @@ function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
       ) : (
         <div
           onClick={() => setView((v) => (v + 1) % VIEWS.length)}
-          style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
+          style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
         >
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
             {stats.map(([k, v]) => (
@@ -868,7 +868,7 @@ function GameDayDropdown({ game, t, dark }: { game: WvuGame; t: ThemeTokens; dar
     <div
       style={{
         marginTop: 12,
-        borderRadius: 10,
+        borderRadius: 4,
         overflow: "hidden",
         background: rgba(WVU_GOLD, dark ? 0.13 : 0.1),
         border: `0.5px solid ${rgba(WVU_GOLD, 0.5)}`,
@@ -1033,7 +1033,7 @@ function iconBtnStyle(t: ThemeTokens): React.CSSProperties {
   return {
     width: 24,
     height: 24,
-    border: `0.5px solid ${t.sep}`,
+    border: `1px solid ${t.sep}`,
     background: "transparent",
     color: t.text2,
     borderRadius: 6,
@@ -1273,7 +1273,7 @@ function ChildcareCard({
   });
 
   return (
-    <div style={{ background: t.bgElev, border: `0.5px solid ${t.sep}`, borderRadius: 8, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ ...subhead(t), marginBottom: 0 }}>Rest &amp; coverage · this week</span>
         {needCover > 0 && (
@@ -1307,7 +1307,7 @@ function ChildcareCard({
           <div style={{ height: 0.5, background: t.sep }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {gaps.map((g) => (
-              <div key={g.key} style={{ padding: "10px 12px", borderRadius: 10, background: rgba("#8A4B38", dark ? 0.14 : 0.08), border: `1px dashed ${rgba("#8A4B38", 0.5)}` }}>
+              <div key={g.key} style={{ padding: "9px 11px", borderRadius: 4, background: dark ? rgba("#8A4B38", 0.14) : "#EFDFDB", border: `1px dashed ${rgba("#8A4B38", 0.5)}` }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>{g.head}</div>
                 <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4, marginTop: 3 }}>{g.body}</div>
               </div>
@@ -1319,14 +1319,14 @@ function ChildcareCard({
         <button
           type="button"
           onClick={onAsk}
-          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 9, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 4, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
           <BrandMark size={14} color="#0A4F48" /> Ask
         </button>
         <button
           type="button"
           onClick={onRequestCover}
-          style={{ flex: 1, padding: "10px 14px", borderRadius: 9, border: `0.5px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+          style={{ flex: 1, padding: "10px 14px", borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
           Request cover
         </button>
@@ -1368,7 +1368,7 @@ function AlertCard({
     <div
       style={{
         padding: 10,
-        borderRadius: 10,
+        borderRadius: 4,
         background: rgba(color, dark ? 0.14 : 0.1),
         border: `0.5px solid ${rgba(color, 0.5)}`,
         display: "flex",
