@@ -171,8 +171,8 @@ export function Inspector({
           borderTop: "2px solid #8A4B38",
         }}
       >
-        <div style={subhead(t)}>{dayLabel}</div>
-        <div style={{ fontFamily: BRAND_FONT, fontSize: 26, fontWeight: 700, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.12 }}>
+        <div style={{ ...subhead(t), fontSize: 10 }}>{dayLabel}</div>
+        <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
           {kind === "off"
             ? "Both off"
             : kind === "both"
@@ -228,7 +228,7 @@ export function Inspector({
                 </div>
                 <span
                   style={{
-                    fontSize: 15,
+                    fontSize: 14,
                     color: t.text2,
                     fontVariantNumeric: "tabular-nums",
                     whiteSpace: "nowrap",
