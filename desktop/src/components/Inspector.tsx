@@ -174,7 +174,7 @@ export function Inspector({
         {/* Full-bleed hue strip along the top edge — the day's cast, by
             person colour. One person = solid; both = split teal|clay. */}
         {shifts && shifts.length > 0 && (
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, display: "flex" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, display: "flex" }}>
             {[...new Set(shifts.map((s) => s.who))].map((w) => (
               <span key={w} style={{ flex: 1, background: personColor(w, palette) }} />
             ))}
@@ -230,8 +230,8 @@ export function Inspector({
                   overflow: "hidden",
                 }}
               >
-                <span style={{ width: 3, alignSelf: "stretch", minHeight: 20, borderRadius: 2, background: c, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ width: 4, alignSelf: "stretch", minHeight: 22, borderRadius: 2, background: c, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                 </div>
@@ -245,7 +245,7 @@ export function Inspector({
                   }}
                   title={pillText}
                 >
-                  {stype ? `${compactTime(stype.start)}–${compactTime(stype.end)}` : s.label}
+                  {stype ? `${compactTime(stype.start)} – ${compactTime(stype.end)}` : s.label}
                 </span>
                 {hasActions && (
                   // Slide-out tray. Hidden (translated off the right edge)
