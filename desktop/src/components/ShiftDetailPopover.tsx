@@ -153,27 +153,26 @@ export function ShiftDetailPopover({
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
+  // Tail — a CSS triangle pointing at the chip. Built without computed keys so
+  // it type-checks against CSSProperties. When the popover sits to the chip's
+  // right the tail is on its LEFT edge pointing left; on a flip it moves right.
+  const tailStyle: CSSProperties = {
+    position: "absolute",
+    top: pos ? pos.tailTop - 8 : 0,
+    width: 0,
+    height: 0,
+    borderTop: "8px solid transparent",
+    borderBottom: "8px solid transparent",
+  };
+  if (pos) {
+    if (pos.side === "right") { tailStyle.left = -7; tailStyle.borderRight = `8px solid ${t.bgElev}`; }
+    else { tailStyle.right = -7; tailStyle.borderLeft = `8px solid ${t.bgElev}`; }
+  }
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000 }}>
       <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
-        {/* Tail — a CSS triangle that points at the chip. When the popover sits
-            to the chip's right (side "right") the tail is on the popover's LEFT
-            edge pointing left; near the right edge it flips to the right edge. */}
-        {anchored && pos && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: pos.tailTop - 8,
-              [pos.side === "right" ? "left" : "right"]: -7,
-              width: 0,
-              height: 0,
-              borderTop: "8px solid transparent",
-              borderBottom: "8px solid transparent",
-              [pos.side === "right" ? "borderRight" : "borderLeft"]: `8px solid ${t.bgElev}`,
-            }}
-          />
-        )}
+        {anchored && pos && <div aria-hidden="true" style={tailStyle} />}
         <div
           ref={cardRef}
           role="dialog"
