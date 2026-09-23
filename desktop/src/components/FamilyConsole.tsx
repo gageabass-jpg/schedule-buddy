@@ -165,9 +165,13 @@ export function FamilyConsole({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 20px",
+          // Extra top space clears the macOS traffic-light buttons (the window
+          // uses titleBarStyle:hiddenInset). The bar is draggable; the close
+          // button opts back out below.
+          padding: "34px 20px 14px",
           borderBottom: `1px solid ${t.sep}`,
           flexShrink: 0,
+          ...({ WebkitAppRegion: "drag" } as React.CSSProperties),
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -188,6 +192,7 @@ export function FamilyConsole({
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             border: `1px solid ${t.sep}`, borderRadius: 4, background: t.bgElev,
             color: t.text, cursor: "pointer", flexShrink: 0, padding: 0,
+            ...({ WebkitAppRegion: "no-drag" } as React.CSSProperties),
           }}
         >
           <XIcon />
@@ -341,7 +346,7 @@ function GeneralTab(p: {
   const { t } = p;
   const nameDirty = p.draftName !== p.hhName;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 28, minHeight: "100%" }}>
       {/* HOUSEHOLD */}
       <Section t={t} label="Household">
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -456,6 +461,7 @@ function GeneralTab(p: {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          marginTop: "auto",
           paddingTop: 20,
           borderTop: `1px solid ${t.sep}`,
           flexWrap: "wrap",
