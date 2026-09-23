@@ -142,8 +142,8 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: 7,
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          gap: 4,
           width: "100%",
         }}
       >
@@ -168,7 +168,7 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
                 cursor: isInteractive ? "pointer" : "default",
                 padding: 0,
                 aspectRatio: "1",
-                borderRadius: 6,
+                borderRadius: 3,
                 ...ringStyle,
               }}
             />

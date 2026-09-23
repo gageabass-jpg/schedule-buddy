@@ -4,6 +4,7 @@ import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
+import { BrandMark } from "./BrandMark";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
@@ -176,25 +177,20 @@ export function MonthGrid({
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
-            height: 32,
+            height: 34,
             padding: "0 12px",
-            borderRadius: 8,
+            borderRadius: 4,
             border: `1px solid ${palette.G}`,
             background: "#D8E7E4",
             color: palette.G,
-            fontSize: 13,
+            fontFamily: BRAND_FONT,
+            fontSize: 12,
             fontWeight: 600,
             cursor: "pointer",
-            fontFamily: "inherit",
             flexShrink: 0,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ display: "block" }}>
-            <rect x="3" y="3" width="7" height="7" rx="2" />
-            <rect x="14" y="3" width="7" height="7" rx="2" />
-            <rect x="3" y="14" width="7" height="7" rx="2" />
-            <rect x="14" y="14" width="7" height="7" rx="2" />
-          </svg>
+          <BrandMark size={15} color={palette.G} />
           Ask
         </button>
         {/* Chat Manager — compose an In-Basket message as "Manager".

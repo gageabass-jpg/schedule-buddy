@@ -515,8 +515,10 @@ export function Inspector({
             t={t}
             onSelectDate={onSelectDate}
           />
-          <div style={{ height: 0.5, background: t.sep }} />
+          <div style={{ height: 1, background: t.sep }} />
           <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
+          <div style={{ height: 1, background: t.sep }} />
+          <MonthWeekDeltas selected={selected} state={state} t={t} />
         </div>
       )}
 
@@ -683,8 +685,8 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
           {persons.map((w) => (
             <div key={w} style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 56, fontSize: 14, fontWeight: 400, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{nameFor[w]}</span>
-              <span style={{ flex: 1, height: 8, background: t.bgElev2, borderRadius: 4, overflow: "hidden" }}>
-                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 4 }} />
+              <span style={{ flex: 1, height: 8, background: t.bgElev2, borderRadius: 2, overflow: "hidden" }}>
+                <span style={{ display: "block", height: "100%", width: `${(per[w].hours / maxPersonH * 100).toFixed(1)}%`, background: BAR, borderRadius: 2 }} />
               </span>
               <span style={{ width: 46, textAlign: "right", fontSize: 12, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{per[w].hours.toFixed(1)}</span>
             </div>
@@ -1150,9 +1152,9 @@ function MonthWeekDeltas({ selected, state, t }: {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={subhead(t)}>This week</span>
-        <span style={{ fontSize: 10.5, color: t.text3 }}>vs 8-week average</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>This week</span>
+        <span style={{ fontSize: 11, color: t.text2 }}>vs 8-week average</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {metrics.map((mtr) => {
@@ -1162,25 +1164,28 @@ function MonthWeekDeltas({ selected, state, t }: {
           const delta = cur - avg;
           const near0 = Math.abs(delta) < 0.05;
           const good = (delta > 0) === mtr.goodUp;
-          const dColor = near0 ? t.text3 : good ? "#0F6E64" : "#8A4B38";
+          const bad = !good && !near0;
           const maxV = Math.max(0.1, ...mtr.arr);
           return (
-            <div key={mtr.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: t.text2 }}>{mtr.label}</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: t.text, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{fmt(cur)}h</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: dColor, fontVariantNumeric: "tabular-nums" }}>
-                    {near0 ? "±0" : `${delta > 0 ? "▲" : "▼"} ${fmt(Math.abs(delta))}`}
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 24 }}>
+            <div key={mtr.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mtr.label}</span>
+              <span style={{ fontSize: 15, color: t.text, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{fmt(cur)}h</span>
+              {/* Delta pill — Clay-Tint when the move is bad, quiet Track otherwise. */}
+              <span style={{
+                fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+                padding: "2px 7px", borderRadius: 3, flexShrink: 0,
+                background: bad ? "#EFDFDB" : t.bgElev2,
+                color: bad ? "#8A4B38" : t.text2,
+              }}>
+                {near0 ? "±0" : `${delta > 0 ? "▲" : "▼"} ${fmt(Math.abs(delta))}`}
+              </span>
+              {/* Trailing 9-week sparkline; the current week is the coloured bar. */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 20, width: 56, flexShrink: 0, justifyContent: "flex-end" }}>
                 {mtr.arr.map((v, i) => (
                   <span key={i} style={{
-                    width: 5, borderRadius: 1,
-                    height: Math.max(2, (v / maxV) * 24),
-                    background: i === mtr.arr.length - 1 ? "#0F6E64" : t.bgElev2,
+                    width: 4, borderRadius: 1,
+                    height: Math.max(2, (v / maxV) * 20),
+                    background: i === mtr.arr.length - 1 ? (bad ? "#8A4B38" : "#0F6E64") : t.bgElev2,
                   }} />
                 ))}
               </div>
