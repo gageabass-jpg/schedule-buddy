@@ -143,7 +143,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
-  const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift } | null>(null);
+  const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift; anchor?: DOMRect | null } | null>(null);
 
   const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
@@ -474,7 +474,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onNewShift={() => setNewShiftOpen(true)}
         viewFilter={viewFilter}
         coverageDates={coverageDates}
-        onOpenShiftDetail={(date, s) => setShiftDetail({ date, shift: s })}
+        onOpenShiftDetail={(date, s, anchor) => setShiftDetail({ date, shift: s, anchor })}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
@@ -495,7 +495,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         partnerName={partnerName}
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
-        onOpenShiftDetail={(date, s) => setShiftDetail({ date, shift: s })}
+        onOpenShiftDetail={(date, s, anchor) => setShiftDetail({ date, shift: s, anchor })}
         events={eventsByDate[selected] ?? []}
         eventsByDate={eventsByDate}
         onAddEvent={() => { setEventEditTarget(null); setEventModalOpen(true); }}
@@ -683,6 +683,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           date={shiftDetail.date}
           who={shiftDetail.shift.who}
           dayShifts={shifts[shiftDetail.date] ?? []}
+          anchor={shiftDetail.anchor}
           t={t}
           palette={palette}
           dark={dark}

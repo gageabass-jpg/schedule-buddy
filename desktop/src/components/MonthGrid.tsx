@@ -32,7 +32,7 @@ interface Props {
   onOpenChatManager: () => void;
   viewFilter: ViewFilter;
   coverageDates?: Set<string>;
-  onOpenShiftDetail?: (date: string, shift: Shift) => void;
+  onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
   selfName: string;
@@ -507,7 +507,7 @@ export function MonthGrid({
                             return (
                               <div
                                 key={`s${i}`}
-                                onClick={onOpenShiftDetail ? (e) => { e.stopPropagation(); onOpenShiftDetail(key, s); } : undefined}
+                                onClick={onOpenShiftDetail ? (e) => { e.stopPropagation(); onOpenShiftDetail(key, s, e.currentTarget.getBoundingClientRect()); } : undefined}
                                 title={onOpenShiftDetail ? "Shift details" : undefined}
                                 style={{
                                   display: "flex",

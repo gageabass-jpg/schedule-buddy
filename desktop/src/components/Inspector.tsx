@@ -21,7 +21,7 @@ interface Props {
   partnerName: string;
   onEditShift?: (date: string, shift: Shift) => void;
   onDeleteShift?: (date: string, shift: Shift) => void;
-  onOpenShiftDetail?: (date: string, shift: Shift) => void;
+  onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
   events: SbEvent[];
   /** All events keyed by date — powers the Life tab's next-60-days list. */
   eventsByDate: Record<string, SbEvent[]>;
@@ -205,7 +205,7 @@ export function Inspector({
             return (
               <div
                 key={i}
-                onClick={() => onOpenShiftDetail?.(selected, s)}
+                onClick={(e) => onOpenShiftDetail?.(selected, s, e.currentTarget.getBoundingClientRect())}
                 onDoubleClick={() => hasActions && setRevealedIdx(revealed ? null : i)}
                 title={hasActions ? "Double-click to reveal edit/delete" : undefined}
                 style={{

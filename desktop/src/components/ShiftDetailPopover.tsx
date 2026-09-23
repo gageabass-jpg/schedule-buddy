@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { MONTHS_LONG, type Shift, type Who } from "../data";
 import { compactTime, type Event as SbEvent, type HouseholdState } from "../state";
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
@@ -10,7 +10,6 @@ const CLAY = "#8A4B38";
 const WEEKDAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS_SHORT = MONTHS_LONG.map((m) => m.slice(0, 3));
 
-// Strip a trailing "start-end" or "(0930-1800)" range from a shift-type name.
 const TIME_RANGE = /\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*[-–]\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*$/i;
 const PAREN_RANGE = /\s*\(\s*\d{3,4}\s*[-–]\s*\d{3,4}\s*\)\s*$/;
 
@@ -22,22 +21,24 @@ interface Props {
   who: Who;
   /** Every shift on `date`, so "meanwhile" can name who is home. */
   dayShifts: Shift[];
+  /** On-screen rect of the clicked chip; anchors the popover + tail. */
+  anchor?: DOMRect | null;
   t: ThemeTokens;
   palette: Palette;
   dark: boolean;
   state: HouseholdState | null;
-  /** The selected day's events (already scoped to `date`). */
   events: SbEvent[];
   householdName: string;
   selfName: string;
   partnerName: string;
-  /** Whether `date` is a both-working coverage gap (nobody home). */
   isCoverageGap: boolean;
   onEdit: () => void;
   onHandOff: () => void;
   onAsk: () => void;
   onDelete: () => void;
 }
+
+interface Pos { left: number; top: number; side: "left" | "right"; tailTop: number; }
 
 function enteredDate(shift: Shift): Date | null {
   const raw = (shift as { createdAt?: number; enteredAt?: number }).createdAt
@@ -53,15 +54,35 @@ function toMin(s: string): number { const [h, m] = (s || "").split(":").map(Numb
 function durStr(min: number): string { const h = Math.floor(min / 60), m = min % 60; return m ? `${h}h ${m}m` : `${h}h`; }
 
 /**
- * Read-first "Shift detail" popover: a card that shows a single shift — who
- * owns it, when, where, and what is happening at home meanwhile — plus the
- * quick actions. The card floats over a dim backdrop; clicking away closes it.
+ * "Shift detail" popover. When given the clicked chip's `anchor` rect it opens
+ * beside the chip with a tail pointing at it — flipping to the chip's left (and
+ * moving the tail to the popover's right edge) when there isn't room on the
+ * right, e.g. the Saturday column. With no anchor it falls back to a centered card.
  */
 export function ShiftDetailPopover({
-  open, onClose, shift, date, who, dayShifts, t, palette, dark, state, events,
+  open, onClose, shift, date, who, dayShifts, anchor, t, palette, dark, state, events,
   householdName, selfName, partnerName, isCoverageGap,
   onEdit, onHandOff, onAsk, onDelete,
 }: Props) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<Pos | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !anchor) { setPos(null); return; }
+    const card = cardRef.current;
+    const pw = card?.offsetWidth ?? 380;
+    const ph = card?.offsetHeight ?? 420;
+    const gap = 10, margin = 8;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const side: "left" | "right" = (vw - anchor.right) >= pw + gap + margin ? "right" : "left";
+    let left = side === "right" ? anchor.right + gap : anchor.left - gap - pw;
+    left = Math.max(margin, Math.min(left, vw - pw - margin));
+    const tailCenterY = anchor.top + anchor.height / 2;
+    const top = Math.max(margin, Math.min(tailCenterY - ph / 2, vh - ph - margin));
+    const tailTop = Math.max(16, Math.min(tailCenterY - top, ph - 16));
+    setPos({ left, top, side, tailTop });
+  }, [open, anchor]);
+
   if (!open) return null;
 
   const personCol = personColor(who, palette);
@@ -73,7 +94,6 @@ export function ShiftDetailPopover({
 
   const stype = state?.shiftTypes.find((x) => x.id === shift.shiftTypeId);
 
-  // Big line — the full time range; duration + ends-next-day feed the subtitle.
   let bigLine: string;
   let durationMin = 0;
   let crossesMidnight = false;
@@ -95,7 +115,6 @@ export function ShiftDetailPopover({
   const note = (shift as { note?: string }).note;
   const entered = enteredDate(shift);
 
-  // Meanwhile at home — who is off / home while this shift runs.
   const other: Who | null = who === "K" ? "G" : who === "G" ? "K" : null;
   const otherName = other === "G" ? selfName : other === "K" ? partnerName : "";
   const otherWorks = other ? dayShifts.some((s) => s.who === other) : false;
@@ -123,93 +142,120 @@ export function ShiftDetailPopover({
   const section: CSSProperties = { padding: "16px 18px" };
   const rule: CSSProperties = { height: 1, background: t.sep };
 
+  const width = "min(380px, calc(100vw - 32px))";
+  const anchored = !!anchor;
+  const wrapperStyle: CSSProperties = anchored
+    ? (pos
+        ? { position: "fixed", left: pos.left, top: pos.top, width, overflow: "visible", zIndex: 1001 }
+        : { position: "fixed", left: 0, top: 0, width, overflow: "visible", visibility: "hidden", zIndex: 1001 })
+    : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000 }}>
-      <div
-        role="dialog"
-        aria-label="Shift detail"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-          width: "min(380px, calc(100vw - 32px))", maxHeight: "calc(100vh - 32px)", overflowY: "auto",
-          background: t.bgElev, border: `1px solid ${t.sep}`,
-          // The day card's signature Clay top accent, echoed here.
-          borderTop: `2px solid ${CLAY}`, borderRadius: 4,
-          boxShadow: dark ? "0 18px 48px rgba(0,0,0,0.6)" : "0 18px 48px rgba(20,32,30,0.22)",
-          color: t.text,
-        }}
-      >
-        {/* Header + headline. */}
-        <div style={section}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 3, height: 16, borderRadius: 2, background: personCol, flexShrink: 0 }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{personName}</span>
-            {entered && (
-              <span style={{
-                marginLeft: "auto", padding: "3px 8px", borderRadius: 4, background: t.bgElev2, color: t.text2,
-                fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap",
-              }}>
-                Entered {fmtEntered(entered)}
-              </span>
-            )}
-          </div>
-          <div style={{ fontFamily: BRAND_FONT, fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 10, color: t.text }}>
-            {bigLine}
-          </div>
-          <div style={{ fontSize: 13, color: t.text2, marginTop: 4 }}>{subtitle} · {householdName}</div>
-        </div>
-
-        <div style={rule} />
-
-        {/* Detail rows. */}
-        <div style={{ ...section, display: "flex", flexDirection: "column", gap: 10 }}>
-          <DetailRow label="WHERE" value={where || "—"} t={t} />
-          <DetailRow label="TYPE" value={typeName} t={t} />
-          <DetailRow label="NOTE" value={note || "—"} t={t} />
-        </div>
-
-        <div style={rule} />
-
-        {/* Meanwhile at home. */}
-        <div style={section}>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: t.text3 }}>MEANWHILE AT HOME</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-            <MeanwhileRow text={homeText} tick={homeTick} strong t={t} />
-            <MeanwhileRow text={row2Text} tick={row2Tick} t={t} />
-          </div>
-        </div>
-
-        <div style={rule} />
-
-        {/* Footer actions. */}
-        <div style={{ ...section, display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            onClick={onAsk}
+      <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
+        {/* Tail — a CSS triangle that points at the chip. When the popover sits
+            to the chip's right (side "right") the tail is on the popover's LEFT
+            edge pointing left; near the right edge it flips to the right edge. */}
+        {anchored && pos && (
+          <div
+            aria-hidden="true"
             style={{
-              height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${BRAND_TEAL}`,
-              background: "#D8E7E4", color: BRAND_TEAL, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
-              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+              position: "absolute",
+              top: pos.tailTop - 8,
+              [pos.side === "right" ? "left" : "right"]: -7,
+              width: 0,
+              height: 0,
+              borderTop: "8px solid transparent",
+              borderBottom: "8px solid transparent",
+              [pos.side === "right" ? "borderRight" : "borderLeft"]: `8px solid ${t.bgElev}`,
             }}
-          >
-            <BrandMark size={15} color={BRAND_TEAL} />
-            Ask
-          </button>
-          <button type="button" onClick={onEdit} style={hairlineBtn}>Edit</button>
-          <button type="button" onClick={onHandOff} style={hairlineBtn}>Hand it off</button>
-          <button
-            type="button"
-            aria-label="Delete shift"
-            onClick={onDelete}
-            style={{ ...hairlineBtn, marginLeft: "auto", padding: 0, width: 34, minWidth: 34 }}
-          >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"
-                stroke={CLAY} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          />
+        )}
+        <div
+          ref={cardRef}
+          role="dialog"
+          aria-label="Shift detail"
+          style={{
+            position: "relative",
+            maxHeight: "calc(100vh - 32px)", overflowY: "auto",
+            background: t.bgElev, border: `1px solid ${t.sep}`,
+            borderTop: `2px solid ${CLAY}`, borderRadius: 4,
+            boxShadow: dark ? "0 18px 48px rgba(0,0,0,0.6)" : "0 18px 48px rgba(20,32,30,0.22)",
+            color: t.text,
+          }}
+        >
+          {/* Header + headline. */}
+          <div style={section}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 3, height: 16, borderRadius: 2, background: personCol, flexShrink: 0 }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{personName}</span>
+              {entered && (
+                <span style={{
+                  marginLeft: "auto", padding: "3px 8px", borderRadius: 4, background: t.bgElev2, color: t.text2,
+                  fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap",
+                }}>
+                  Entered {fmtEntered(entered)}
+                </span>
+              )}
+            </div>
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 10, color: t.text }}>
+              {bigLine}
+            </div>
+            <div style={{ fontSize: 13, color: t.text2, marginTop: 4 }}>{subtitle} · {householdName}</div>
+          </div>
+
+          <div style={rule} />
+
+          {/* Detail rows. */}
+          <div style={{ ...section, display: "flex", flexDirection: "column", gap: 10 }}>
+            <DetailRow label="WHERE" value={where || "—"} t={t} />
+            <DetailRow label="TYPE" value={typeName} t={t} />
+            <DetailRow label="NOTE" value={note || "—"} t={t} />
+          </div>
+
+          <div style={rule} />
+
+          {/* Meanwhile at home. */}
+          <div style={section}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: t.text3 }}>MEANWHILE AT HOME</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              <MeanwhileRow text={homeText} tick={homeTick} strong t={t} />
+              <MeanwhileRow text={row2Text} tick={row2Tick} t={t} />
+            </div>
+          </div>
+
+          <div style={rule} />
+
+          {/* Footer actions. */}
+          <div style={{ ...section, display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={onAsk}
+              style={{
+                height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${BRAND_TEAL}`,
+                background: "#D8E7E4", color: BRAND_TEAL, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+              }}
+            >
+              <BrandMark size={15} color={BRAND_TEAL} />
+              Ask
+            </button>
+            <button type="button" onClick={onEdit} style={hairlineBtn}>Edit</button>
+            <button type="button" onClick={onHandOff} style={hairlineBtn}>Hand it off</button>
+            <button
+              type="button"
+              aria-label="Delete shift"
+              onClick={onDelete}
+              style={{ ...hairlineBtn, marginLeft: "auto", padding: 0, width: 34, minWidth: 34 }}
+            >
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"
+                  stroke={CLAY} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
