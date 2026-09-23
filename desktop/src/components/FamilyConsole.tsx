@@ -719,7 +719,7 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
       {/* AI PROVIDER API */}
-      <Section t={t} label="AI provider API" desc="Used to parse schedule photos with Claude Vision. The key is encrypted locally (macOS Keychain).">
+      <Section t={t} label="AI provider API" desc="An API is required for nucleusAI to function. The key is encrypted locally (macOS Keychain).">
         <AiProviderCard t={t} />
       </Section>
 
