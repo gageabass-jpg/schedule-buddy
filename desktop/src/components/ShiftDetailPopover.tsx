@@ -53,6 +53,19 @@ function fmtEntered(d: Date): string {
 function toMin(s: string): number { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); }
 function durStr(min: number): string { const h = Math.floor(min / 60), m = min % 60; return m ? `${h}h ${m}m` : `${h}h`; }
 
+/** Place the popover beside the chip `a`, flipping sides near the right edge. */
+function computePos(a: DOMRect, pw: number, ph: number): Pos {
+  const gap = 10, margin = 8;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const side: "left" | "right" = (vw - a.right) >= pw + gap + margin ? "right" : "left";
+  let left = side === "right" ? a.right + gap : a.left - gap - pw;
+  left = Math.max(margin, Math.min(left, vw - pw - margin));
+  const tailCenterY = a.top + a.height / 2;
+  const top = Math.max(margin, Math.min(tailCenterY - ph / 2, vh - ph - margin));
+  const tailTop = Math.max(16, Math.min(tailCenterY - top, ph - 16));
+  return { left, top, side, tailTop };
+}
+
 /**
  * "Shift detail" popover. When given the clicked chip's `anchor` rect it opens
  * beside the chip with a tail pointing at it — flipping to the chip's left (and
@@ -65,22 +78,14 @@ export function ShiftDetailPopover({
   onEdit, onHandOff, onAsk, onDelete,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<Pos | null>(null);
+  // Position synchronously from an estimate so the box is visible on the first
+  // paint, then refine once the real card size is known.
+  const [pos, setPos] = useState<Pos | null>(() => (open && anchor ? computePos(anchor, 380, 440) : null));
 
   useLayoutEffect(() => {
-    if (!open || !anchor) { setPos(null); return; }
+    if (!open || !anchor) return;
     const card = cardRef.current;
-    const pw = card?.offsetWidth ?? 380;
-    const ph = card?.offsetHeight ?? 420;
-    const gap = 10, margin = 8;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const side: "left" | "right" = (vw - anchor.right) >= pw + gap + margin ? "right" : "left";
-    let left = side === "right" ? anchor.right + gap : anchor.left - gap - pw;
-    left = Math.max(margin, Math.min(left, vw - pw - margin));
-    const tailCenterY = anchor.top + anchor.height / 2;
-    const top = Math.max(margin, Math.min(tailCenterY - ph / 2, vh - ph - margin));
-    const tailTop = Math.max(16, Math.min(tailCenterY - top, ph - 16));
-    setPos({ left, top, side, tailTop });
+    if (card) setPos(computePos(anchor, card.offsetWidth, card.offsetHeight));
   }, [open, anchor]);
 
   if (!open) return null;
@@ -143,11 +148,9 @@ export function ShiftDetailPopover({
   const rule: CSSProperties = { height: 1, background: t.sep };
 
   const width = "min(380px, calc(100vw - 32px))";
-  const anchored = !!anchor;
+  const anchored = !!anchor && !!pos;
   const wrapperStyle: CSSProperties = anchored
-    ? (pos
-        ? { position: "fixed", left: pos.left, top: pos.top, width, overflow: "visible", zIndex: 1001 }
-        : { position: "fixed", left: 0, top: 0, width, overflow: "visible", visibility: "hidden", zIndex: 1001 })
+    ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
   return (
