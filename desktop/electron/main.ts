@@ -253,12 +253,19 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
     `Today's date is ${req.today}. The user is currently viewing ${req.contextMonth} in the calendar.`,
     `If the image shows month/day labels without an explicit year, assume the dates are in ${req.contextMonth} (or rolling forward into the next month if the calendar continues past it). NEVER default to a prior year.`,
     ``,
+    `The image may be a whole-unit roster: one row per staff member, one column per date, with section bands like DAYSHIFT / Evening Shift / MIDNIGHT. If so:`,
+    `- Find the row whose leftmost cell is ${req.personLabel} (it may carry a suffix such as an initial or "(SF)"). Extract ONLY that row. Ignore every other person's row.`,
+    `- The header gives the date range the columns cover (e.g. "Aug. 30 - Sept. 26, 2026"); the numbers along the top are days of the month. Walk the range left to right to work out each column's full date, rolling the month over where the numbers restart at 1.`,
+    `- A blank cell for that person means no shift that day — do NOT emit a row for it.`,
+    `- A cell shaded or highlighted still counts if it has a time written in it; the colour is the unit's own marking, not a cancellation.`,
+    ``,
     `Available shift types in the user's catalog:`,
     typesList || "  (none — every shiftTypeId must be null)",
     ``,
     `Return ONLY a valid JSON object (no prose, no markdown fences) of the form:`,
     `{`,
     `  "monthCovered": "YYYY-MM" or null,`,
+    `  "countedDays": <integer>,`,
     `  "rows": [`,
     `    { "date": "YYYY-MM-DD", "shiftTypeId": "<one of: ${validIds}> or null", "label": "7p" or "school" or "", "confidence": 0.0..1.0 }`,
     `  ]`,
@@ -266,6 +273,7 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
     ``,
     `Rules:`,
     `- One row per dated entry visible in the image.`,
+    `- "countedDays" is a SEPARATE count, made before you write the rows: how many dated squares in the image have something written in them. Count them, then extract. If it disagrees with the number of rows you return, return both honestly anyway — the user is shown the discrepancy so they can check the photo.`,
     `- shiftTypeId MUST be one of the literal ids listed above, or null. NEVER invent an id, NEVER reformat one, NEVER use a name in place of an id. If no listed type matches the visible shift's start time, use null and the user will map it manually.`,
     `- "label" should be the compact time shown in the image (e.g. "3p", "7p", "11p", "8a") for hospital schedules, or "school" / "no school" / "half day" for school calendars.`,
     `- "confidence" 1.0 means the date and label are unambiguous; 0.5 means the label is partially obscured; 0.2 means you're guessing.`,
@@ -280,7 +288,7 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
 
   const body = {
     model: "claude-sonnet-4-6",
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages: [
       {
         role: "user",
@@ -316,25 +324,37 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
     return { ok: false, error: `Anthropic API ${resp.status}: ${detail}` };
   }
 
-  let payload: { content?: Array<{ type: string; text?: string }> } | null = null;
+  let payload: { content?: Array<{ type: string; text?: string }>; stop_reason?: string } | null = null;
   try { payload = await resp.json(); } catch {
     return { ok: false, error: "Anthropic returned a non-JSON response." };
   }
   const textParts = (payload?.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "");
   const text = textParts.join("\n").trim();
   if (!text) return { ok: false, error: "Empty response from Anthropic." };
+  if (payload?.stop_reason === "max_tokens") {
+    return {
+      ok: false,
+      error: "The schedule was too long to read in one pass — the reply was cut off. Try a photo of fewer weeks.",
+    };
+  }
 
-  // Strip any markdown fencing if present.
-  const cleaned = text
+  // Strip any markdown fencing, then take the outermost {...}: models
+  // occasionally wrap the object in a sentence despite being told not to.
+  const fenceless = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/i, "")
     .trim();
+  const open = fenceless.indexOf("{");
+  const close = fenceless.lastIndexOf("}");
+  const cleaned = open >= 0 && close > open ? fenceless.slice(open, close + 1) : fenceless;
 
-  let parsed: { rows?: unknown; monthCovered?: unknown };
+  let parsed: { rows?: unknown; monthCovered?: unknown; countedDays?: unknown };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    return { ok: false, error: "Couldn't parse the model's JSON output." };
+    // Show what actually came back — "couldn't parse" alone is undiagnosable.
+    const snippet = fenceless.slice(0, 220).replace(/\s+/g, " ");
+    return { ok: false, error: `Couldn't parse the model's JSON output. It began: "${snippet}…"` };
   }
 
   const rows: ParsedShiftRow[] = [];
@@ -357,6 +377,10 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
     ok: true,
     rows,
     monthCovered: typeof parsed.monthCovered === "string" ? parsed.monthCovered : undefined,
+    countedDays:
+      typeof parsed.countedDays === "number" && Number.isFinite(parsed.countedDays)
+        ? Math.max(0, Math.round(parsed.countedDays))
+        : undefined,
   };
 });
 

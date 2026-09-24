@@ -22,6 +22,9 @@ export interface ParseScheduleResult {
   ok: boolean;
   rows?: ParsedShiftRow[];
   monthCovered?: string;
+  /** How many dated squares the reader counted, before extracting rows — a
+   *  cross-check against rows.length so a missed day is visible. */
+  countedDays?: number;
   error?: string;
 }
 

@@ -31,10 +31,13 @@ interface Props {
 
 type Phase =
   | { kind: "upload" }
-  | { kind: "parsing" }
-  | { kind: "review"; rows: EditableRow[]; monthCovered?: string }
+  | { kind: "parsing"; step: ParseStep }
+  | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number }
   | { kind: "saving" }
   | { kind: "saved"; count: number };
+
+/** Where the read has got to — drives the checklist on the parsing screen. */
+type ParseStep = "reading" | "rows" | "matching";
 
 interface EditableRow extends ParsedShiftRow {
   /** Local row id for React keys + skip-toggle. */
@@ -62,7 +65,7 @@ export function ScheduleImportModal({
   const [activeId, setActiveId] = useState<string | null>(scheduleId);
   const def = activeId ? findScheduleImport(activeId) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
-  const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string } | null>(null);
+  const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string; name: string; size: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [hasKey, setHasKey] = useState<boolean>(false);
 
@@ -93,6 +96,10 @@ export function ScheduleImportModal({
         dataUrl: `data:${mediaType};base64,${base64}`,
         base64,
         mediaType,
+        // The original file's name/size — what the parsing screen shows. The
+        // encoded size differs after downscaling, so keep the user's own.
+        name: file.name || "photo",
+        size: file.size,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Couldn't process this image.";
@@ -126,7 +133,9 @@ export function ScheduleImportModal({
       return;
     }
     setErr(null);
-    setPhase({ kind: "parsing" });
+    // "reading" covers the encode we have already done; the request is the
+    // "rows" step; the shift-type reconciliation below is "matching".
+    setPhase({ kind: "parsing", step: "rows" });
     const result = await window.sbm.parseSchedule({
       imageBase64: image.base64,
       imageMediaType: image.mediaType,
@@ -141,6 +150,7 @@ export function ScheduleImportModal({
       setPhase({ kind: "upload" });
       return;
     }
+    setPhase({ kind: "parsing", step: "matching" });
     // Force any shiftTypeId Claude returned that doesn't match the current
     // catalog back to null so the user is prompted to map it before save.
     const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
@@ -150,7 +160,7 @@ export function ScheduleImportModal({
       rid: `r${i}`,
       skipped: false,
     }));
-    setPhase({ kind: "review", rows: editable, monthCovered: result.monthCovered });
+    setPhase({ kind: "review", rows: editable, monthCovered: result.monthCovered, countedDays: result.countedDays });
   };
 
   const onSave = async () => {
@@ -201,10 +211,29 @@ export function ScheduleImportModal({
       ? phase.rows.filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId)).length
       : 0;
 
+  const monthLabel = (ym: string): string => {
+    const [yy, mm] = ym.split("-").map(Number);
+    return `${MONTHS_LONG[(mm || 1) - 1]} ${yy}`;
+  };
+
+  const headTitle =
+    phase.kind === "parsing" ? "Reading the photo"
+      : phase.kind === "review" ? "Review your Shifts"
+        : phase.kind === "saving" ? "Adding to the schedule"
+          : phase.kind === "saved" ? "Added to the schedule"
+            : "Read a schedule from a photo";
+
+  const headSub =
+    phase.kind === "parsing"
+      ? `${def.personLabel} ${def.target === "dependent-daisy" ? "school" : "nights"} · ${monthLabel(contextMonth)}`
+      : phase.kind === "review"
+        ? `${def.personLabel}  |  ${scheduleKindLabel(def.target)} · ${phase.rows.length} shift${phase.rows.length === 1 ? "" : "s"} extracted`
+        : `${def.personLabel}  |  ${scheduleKindLabel(def.target)}`;
+
   const footerNote =
     phase.kind === "upload" ? "Nucleus reads it, then you check every shift before anything is saved."
-      : phase.kind === "review" ? "Nothing is written until you press Add."
-        : phase.kind === "parsing" ? "Reading the photo…"
+      : phase.kind === "review" ? "A skipped row is not saved."
+        : phase.kind === "parsing" ? "Nothing is saved yet. You check every row next."
           : phase.kind === "saving" ? "Saving…"
             : "";
 
@@ -220,7 +249,7 @@ export function ScheduleImportModal({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(660px, calc(100vw - 32px))",
+          width: phase.kind === "review" ? "min(960px, calc(100vw - 32px))" : "min(660px, calc(100vw - 32px))",
           maxHeight: "calc(100vh - 64px)",
           background: t.bgElev,
           color: t.text,
@@ -243,13 +272,11 @@ export function ScheduleImportModal({
         >
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 20, letterSpacing: "-0.02em", lineHeight: 1.15, color: t.text }}>
-              Read a schedule from a photo
+              {headTitle}
             </div>
             {/* The sidebar row that opened this already picked the person, so
                 the schedule is named here rather than re-chosen with tabs. */}
-            <div style={{ marginTop: 6, fontSize: 14, color: t.text2 }}>
-              {def.personLabel} <span style={{ color: t.text3 }}>|</span> {scheduleKindLabel(def.target)}
-            </div>
+            <div style={{ marginTop: 6, fontSize: 14, color: t.text2 }}>{headSub}</div>
           </div>
           <button
             type="button"
@@ -265,12 +292,6 @@ export function ScheduleImportModal({
           </button>
         </div>
 
-        {phase.kind === "review" && (
-          <div style={{ flexShrink: 0, padding: "14px 22px 0" }}>
-            <ReviewHeading rows={phase.rows} shiftTypes={shiftTypes} t={t} />
-          </div>
-        )}
-
         {/* Body */}
         {phase.kind === "upload" && (
           <UploadPhase
@@ -282,30 +303,20 @@ export function ScheduleImportModal({
         )}
 
         {phase.kind === "parsing" && (
-          <div style={{ padding: "48px 16px", textAlign: "center", color: t.text2, fontSize: 13 }}>
-            Reading {def.personLabel}'s schedule…
-          </div>
+          <ParsingPhase t={t} dark={dark} image={image} step={phase.step} />
         )}
 
         {phase.kind === "review" && (
-          <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 4px", display: "flex", flexDirection: "column", gap: 9 }}>
-            {phase.rows.map((r) => (
-              <DayCard
-                key={r.rid}
-                row={r}
-                who={who}
-                palette={palette}
-                shiftTypes={shiftTypes}
-                t={t}
-                onUpdate={updateRow}
-              />
-            ))}
-            {phase.rows.length === 0 && (
-              <div style={{ padding: "28px 8px", textAlign: "center", color: t.text3, fontSize: 13 }}>
-                No days found. The photo may not show a recognizable schedule.
-              </div>
-            )}
-          </div>
+          <ReviewPhase
+            rows={phase.rows}
+            shiftTypes={shiftTypes}
+            t={t}
+            dark={dark}
+            contextMonth={contextMonth}
+            countedDays={phase.countedDays}
+            image={image}
+            onUpdate={updateRow}
+          />
         )}
 
         {phase.kind === "saving" && (
@@ -350,7 +361,7 @@ export function ScheduleImportModal({
             <>
               <button type="button" onClick={onClose} style={ghostBtn(t)}>Cancel</button>
               <button type="button" onClick={onSave} disabled={addCount === 0} style={primaryBtn(addCount === 0, t)}>
-                Add {addCount} to schedule
+                Save {addCount} shift{addCount === 1 ? "" : "s"}
               </button>
             </>
           )}
@@ -366,148 +377,303 @@ export function ScheduleImportModal({
   );
 }
 
-// ── Review heading ("Found N days · M need a look") ──────────────────────────
+// ── Review phase ─────────────────────────────────────────────────────────────
 
-function ReviewHeading({
-  rows, shiftTypes, t,
+type RowFlag = "ready" | "needs-type" | "wrong-month" | "not-a-time";
+
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+function count(n: number): string {
+  return n <= 10 ? NUMBER_WORDS[n] : String(n);
+}
+
+const FLAG_LABEL: Record<Exclude<RowFlag, "ready">, string> = {
+  "needs-type": "NEEDS A TYPE",
+  "wrong-month": "WRONG MONTH?",
+  "not-a-time": "NOT A TIME",
+};
+
+/** Does the label read like a time the parser could have meant? */
+const TIME_TOKEN = String.raw`\d{1,4}(?::\d{2})?\s*(?:[ap]\.?m?\.?)?`;
+const TIME_LIKE = new RegExp(`^\\s*${TIME_TOKEN}\\s*(?:(?:-|–|—|to)\\s*${TIME_TOKEN})?\\s*$`, "i");
+const WORD_LIKE = /^(school|no school|half day|class|off|pto|vacation)$/i;
+
+/**
+ * What is wrong with a row, if anything. Every one of these is a check run on
+ * the text we got back — none is the reader's own opinion, which is why the
+ * screen says so above the table.
+ */
+function flagFor(row: EditableRow, validIds: Set<string>, contextMonth: string): RowFlag {
+  if (!row.date.startsWith(contextMonth)) return "wrong-month";
+  if (!row.shiftTypeId || !validIds.has(row.shiftTypeId)) return "needs-type";
+  const label = (row.label || "").trim();
+  if (label && !TIME_LIKE.test(label) && !WORD_LIKE.test(label)) return "not-a-time";
+  return "ready";
+}
+
+function ReviewPhase({
+  rows, shiftTypes, t, dark, contextMonth, countedDays, image, onUpdate,
 }: {
   rows: EditableRow[];
-  shiftTypes: Array<{ id: string }>;
-  t: ThemeTokens;
-}) {
-  const validIds = new Set(shiftTypes.map((s) => s.id));
-  const needLook = rows.filter(
-    (r) => !r.skipped && (!(r.shiftTypeId && validIds.has(r.shiftTypeId)) || r.confidence < 0.5),
-  ).length;
-  return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-      <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 17, color: t.text }}>
-        Found {rows.length} day{rows.length === 1 ? "" : "s"}
-      </span>
-      {needLook > 0 && (
-        <span style={{ fontSize: 13, color: CLAY }}>{needLook} need a look</span>
-      )}
-    </div>
-  );
-}
-
-// ── One reviewed day ─────────────────────────────────────────────────────────
-
-function DayCard({
-  row, who, palette, shiftTypes, t, onUpdate,
-}: {
-  row: EditableRow;
-  who: "G" | "K" | "D";
-  palette: Palette;
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
   t: ThemeTokens;
+  dark: boolean;
+  contextMonth: string;
+  countedDays?: number;
+  image: { dataUrl: string } | null;
   onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
 }) {
-  const [y, m, d] = row.date.split("-").map(Number);
-  const dow = Number.isFinite(y) ? new Date(y, m - 1, d).getDay() : 0;
-  const month3 = (MONTHS_LONG[m - 1] ?? "").slice(0, 3).toUpperCase();
-  const wd = (WEEKDAYS_3[dow] ?? "").toUpperCase();
+  const [expanded, setExpanded] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
+  const paper = dark ? "rgba(255,255,255,0.03)" : "#F7F6F3";
+  const validIds = new Set(shiftTypes.map((s) => s.id));
 
-  const stype = row.shiftTypeId ? shiftTypes.find((s) => s.id === row.shiftTypeId) : undefined;
-  const mapped = !!stype;
-  const skipped = row.skipped;
-  const rule = skipped ? t.text3 : personColor(who, palette);
+  const flags = rows.map((r) => (r.skipped ? "ready" : flagFor(r, validIds, contextMonth)) as RowFlag);
+  const readyCount = flags.filter((f, i) => f === "ready" && !rows[i].skipped).length;
+  const needTypeCount = flags.filter((f) => f === "needs-type").length;
+  const offMonth = rows.filter((r) => !r.date.startsWith(contextMonth));
+  const offMonthName = offMonth.length
+    ? MONTHS_LONG[(Number(offMonth[0].date.split("-")[1]) || 1) - 1]
+    : "";
 
-  // A row wants attention if it has no shift type yet, or Nucleus was unsure.
-  const needLook = !skipped && (!mapped || row.confidence < 0.5);
-  const note = skipped
-    ? "Won't be added."
-    : !mapped
-      ? "Pick a shift type."
-      : row.confidence < 0.5
-        ? "Low confidence — worth a check."
-        : null;
-  const noteColor = !skipped && !mapped ? CLAY : t.text2;
+  const firstProblem = rows.find((_, i) => flags[i] !== "ready");
+  const shown = expanded ? rows : rows.slice(0, 10);
+  const hidden = rows.length - shown.length;
 
-  return (
-    <div
+  const chip = (n: number, text: string, tone: "ok" | "warn") => (
+    <span
       style={{
-        border: `1px solid ${needLook ? CLAY : t.sep}`,
-        borderRadius: 8,
-        background: skipped ? t.bg : t.bgElev,
-        overflow: "hidden",
-        opacity: skipped ? 0.85 : 1,
+        display: "inline-flex", alignItems: "baseline", gap: 7, height: 34, padding: "0 14px", borderRadius: 4,
+        background: tone === "ok" ? TEAL_TINT : CLAY_TINT,
+        color: tone === "ok" ? BRAND_TEAL : CLAY,
+        whiteSpace: "nowrap",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px" }}>
-        <span style={{ width: 3, alignSelf: "stretch", minHeight: 34, borderRadius: 2, flexShrink: 0, background: rule }} />
-        <span style={{ width: 40, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: t.text2 }}>{month3}</span>
-          <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 22, lineHeight: 1.05, color: skipped ? t.text3 : t.text }}>
-            {Number.isFinite(d) ? d : "—"}
-          </span>
-          <span style={{ fontSize: 9, letterSpacing: "0.08em", color: t.text2 }}>{wd}</span>
-        </span>
+      <span style={{ fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 700 }}>{n}</span>
+      <span style={{ fontSize: 13.5 }}>{text}</span>
+    </span>
+  );
 
-        {mapped && !skipped ? (
-          <span style={{ flexGrow: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 15, color: t.text }}>
-            {compactTime(stype!.start)}
-            <span style={{ color: t.text2 }}>→</span>
-            {compactTime(stype!.end)}
-          </span>
-        ) : skipped ? (
-          <span style={{ flexGrow: 1, minWidth: 0, fontSize: 15, textDecoration: "line-through", color: SKIP_STRIKE }}>
-            {mapped ? `${compactTime(stype!.start)} → ${compactTime(stype!.end)}` : (row.label || "—")}
-          </span>
-        ) : (
-          <select
-            value={row.shiftTypeId ?? ""}
-            onChange={(e) => onUpdate(row.rid, { shiftTypeId: e.target.value || null })}
-            style={{
-              flexGrow: 1, minWidth: 0, height: 34, padding: "0 8px",
-              border: `1px solid ${t.sep}`, borderRadius: 6, background: t.bg, color: t.text,
-              fontFamily: "inherit", fontSize: 13, cursor: "pointer",
-              colorScheme: t.bg === "#000" ? "dark" : "light",
-            }}
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto" }}>
+      {/* Tallies + a jump to the first thing that needs a decision. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 22px 0", flexWrap: "wrap" }}>
+        {chip(readyCount, "ready to save", "ok")}
+        {needTypeCount > 0 && chip(needTypeCount, "need a shift type", "warn")}
+        {offMonth.length > 0 && chip(offMonth.length, `fall in ${offMonthName}`, "warn")}
+        {firstProblem && (
+          <button
+            type="button"
+            onClick={() => document.getElementById(`imp-${firstProblem.rid}`)?.scrollIntoView({ block: "center", behavior: "smooth" })}
+            style={{ ...linkBtn(BRAND_TEAL), marginLeft: "auto", textDecoration: "underline" }}
           >
-            <option value="">{row.label ? `${row.label} — pick a type` : "Pick a shift type"}</option>
-            {shiftTypes.map((s) => (
-              <option key={s.id} value={s.id}>{s.name} ({compactTime(s.start)})</option>
-            ))}
-          </select>
+            Go to the first problem
+          </button>
         )}
-
-        <button
-          type="button"
-          aria-label="Keep this day"
-          onClick={() => onUpdate(row.rid, { skipped: false })}
-          style={{
-            width: 40, height: 40, flexShrink: 0, borderRadius: 6, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            border: skipped ? `1px solid ${t.sep}` : `1px solid ${BRAND_TEAL}`,
-            background: skipped ? t.bgElev : BRAND_TEAL,
-          }}
-        >
-          <CheckIcon color={skipped ? t.text3 : "#FFFFFF"} />
-        </button>
-        <button
-          type="button"
-          aria-label="Drop this day"
-          onClick={() => onUpdate(row.rid, { skipped: true })}
-          style={{
-            width: 40, height: 40, flexShrink: 0, borderRadius: 6, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${CLAY}`,
-            background: skipped ? CLAY_TINT : "transparent",
-          }}
-        >
-          <TrashIcon color={CLAY} />
-        </button>
       </div>
 
-      {note && (
-        <div style={{ padding: "0 12px 10px 27px", fontSize: 11, lineHeight: 1.45, color: noteColor }}>
-          {note}
+      {/* Whole-import warnings. */}
+      <div style={{ padding: "12px 22px 0", display: "flex", flexDirection: "column", gap: 1 }}>
+        {offMonth.length > 0 && (
+          <Banner t={t}>
+            You picked {MONTHS_LONG[(Number(contextMonth.split("-")[1]) || 1) - 1]}, and {count(offMonth.length)}{" "}
+            {offMonth.length === 1 ? "row came" : "rows came"} back in {offMonthName}. That usually means the photo shows the
+            end of the last month. Fix the date or skip {offMonth.length === 1 ? "that row" : "those rows"}.
+          </Banner>
+        )}
+        {countedDays !== undefined && countedDays !== rows.length && (
+          <Banner t={t} action={image ? { label: showPhoto ? "Hide the photo" : "Open the photo", onClick: () => setShowPhoto((v) => !v) } : undefined}>
+            The reader counted <b>{countedDays}</b> dated squares on the photo and gave back {rows.length} rows.{" "}
+            {countedDays > rows.length ? "One may be missing." : "One may be doubled."}
+          </Banner>
+        )}
+      </div>
+
+      {showPhoto && image && (
+        <div style={{ padding: "12px 22px 0" }}>
+          <img src={image.dataUrl} alt="The photo that was read" style={{ maxWidth: "100%", borderRadius: 6, border: `1px solid ${t.sep}` }} />
         </div>
+      )}
+
+      <div style={{ padding: "12px 22px 0", fontSize: 13, color: t.text2 }}>
+        Each flag below is a check Nucleus ran on the text, not a guess by the reader.
+      </div>
+
+      {/* The rows. */}
+      <div style={{ padding: "12px 22px 8px" }}>
+        <div
+          style={{
+            display: "grid", gridTemplateColumns: "116px 1fr 124px 132px 34px", gap: 10,
+            padding: "0 0 8px", marginLeft: 3, borderBottom: `1px solid ${t.sep}`,
+            fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", color: t.text3,
+          }}
+        >
+          <span>DATE</span><span>SHIFT TYPE</span><span>WHAT IT SAID</span><span>STATUS</span><span />
+        </div>
+
+        {shown.map((r, i) => (
+          <ReviewRow
+            key={r.rid}
+            row={r}
+            flag={flags[rows.indexOf(r)]}
+            shiftTypes={shiftTypes}
+            t={t}
+            paper={paper}
+            first={i === 0}
+            onUpdate={onUpdate}
+          />
+        ))}
+
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            style={{
+              width: "100%", marginTop: 10, background: "transparent", border: 0, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12, color: t.text3, fontSize: 12.5, fontFamily: "inherit",
+            }}
+          >
+            <span style={{ flex: 1, height: 1, background: t.sep }} />
+            {hidden} more row{hidden === 1 ? "" : "s"}
+            <span style={{ flex: 1, height: 1, background: t.sep }} />
+          </button>
+        )}
+
+        {rows.length === 0 && (
+          <div style={{ padding: "28px 8px", textAlign: "center", color: t.text3, fontSize: 13 }}>
+            No days found. The photo may not show a recognizable schedule.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Banner({ t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: CLAY_TINT, color: CLAY }}>
+      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+        <path d="M12 4.5L21 19.5H3L12 4.5z" stroke={CLAY} strokeWidth={1.7} strokeLinejoin="round" />
+        <path d="M12 10v4M12 16.4v.2" stroke={CLAY} strokeWidth={1.7} strokeLinecap="round" />
+      </svg>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.45 }}>{children}</span>
+      {action && (
+        <button
+          type="button"
+          onClick={action.onClick}
+          style={{
+            flexShrink: 0, height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${CLAY}`,
+            background: "transparent", color: CLAY, fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+          }}
+        >
+          {action.label}
+        </button>
       )}
     </div>
   );
 }
+
+function ReviewRow({
+  row, flag, shiftTypes, t, paper, first, onUpdate,
+}: {
+  row: EditableRow;
+  flag: RowFlag;
+  shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  t: ThemeTokens;
+  paper: string;
+  first: boolean;
+  onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
+}) {
+  const problem = !row.skipped && flag !== "ready";
+  const needsType = !row.skipped && flag === "needs-type";
+  return (
+    <div
+      id={`imp-${row.rid}`}
+      style={{
+        display: "grid", gridTemplateColumns: "116px 1fr 124px 132px 34px", gap: 10, alignItems: "start",
+        padding: "10px 0 10px 10px", marginLeft: -10,
+        borderTop: first ? "none" : `1px solid ${t.sep}`,
+        background: problem ? paper : "transparent",
+        borderLeft: problem ? `3px solid ${CLAY}` : "3px solid transparent",
+        opacity: row.skipped ? 0.45 : 1,
+      }}
+    >
+      <div>
+        <input
+          type="date"
+          value={row.date}
+          onChange={(e) => onUpdate(row.rid, { date: e.target.value })}
+          style={{
+            width: "100%", height: 38, padding: "0 8px", borderRadius: 4, boxSizing: "border-box",
+            border: `1px solid ${flag === "wrong-month" ? CLAY : t.sep}`,
+            background: t.bgElev, color: flag === "wrong-month" ? CLAY : t.text,
+            fontFamily: "inherit", fontSize: 13.5,
+            colorScheme: t.bg === "#000" ? "dark" : "light",
+          }}
+        />
+        {flag === "wrong-month" && (
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: CLAY, marginTop: 4 }}>
+            IN {MONTHS_LONG[(Number(row.date.split("-")[1]) || 1) - 1].toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      <select
+        value={row.shiftTypeId ?? ""}
+        onChange={(e) => onUpdate(row.rid, { shiftTypeId: e.target.value || null })}
+        style={{
+          width: "100%", height: 38, padding: "0 8px", borderRadius: 4, boxSizing: "border-box",
+          border: needsType ? `1px dashed ${CLAY}` : `1px solid ${t.sep}`,
+          background: t.bgElev, color: needsType ? CLAY : t.text,
+          fontFamily: "inherit", fontSize: 13.5,
+        }}
+      >
+        <option value="">Pick a shift type</option>
+        {shiftTypes.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name} · {compactTime(s.start)} – {compactTime(s.end)}
+          </option>
+        ))}
+      </select>
+
+      <div style={{ minWidth: 0, minHeight: 38, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ fontSize: 13.5, color: flag === "not-a-time" ? CLAY : t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {row.label || "—"}
+        </div>
+        <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", color: t.text3, marginTop: 3 }}>READ FROM PHOTO</div>
+      </div>
+
+      <div style={{ minHeight: 38, display: "flex", alignItems: "center" }}>
+        {row.skipped ? (
+          <span style={{ fontSize: 12.5, color: t.text3, textDecoration: "line-through" }}>skipped</span>
+        ) : flag === "ready" ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: BRAND_TEAL }}>
+            <CheckIcon color={BRAND_TEAL} /> ready
+          </span>
+        ) : (
+          <span
+            style={{
+              display: "inline-block", padding: "4px 8px", borderRadius: 3, border: `1px solid ${CLAY}`,
+              color: CLAY, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap",
+            }}
+          >
+            {FLAG_LABEL[flag]}
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        aria-label={row.skipped ? "Keep this row" : "Skip this row"}
+        title={row.skipped ? "Keep this row" : "Skip this row"}
+        onClick={() => onUpdate(row.rid, { skipped: !row.skipped })}
+        style={{ width: 30, height: 38, padding: 0, border: 0, background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+      >
+        <TrashIcon color={row.skipped ? BRAND_TEAL : t.text3} />
+      </button>
+    </div>
+  );
+}
+
 
 // ── Upload phase ─────────────────────────────────────────────────────────────
 
@@ -608,6 +774,106 @@ function UploadPhase({
 
       <div style={{ fontSize: 12.5, color: t.text3 }}>JPG, PNG or HEIC, up to 10 MB.</div>
     </div>
+  );
+}
+
+/** Bytes as the user thinks of them — "2.4 MB". */
+function fileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/**
+ * "Reading the photo" — the wait. The three steps are real transitions, not a
+ * timer: the photo is already encoded when we arrive here, the request is in
+ * flight during "rows", and "matching" is the shift-type reconciliation we do
+ * locally on the reply. There is no row count until the reply lands, so the
+ * bar reports which step we are on rather than a fake percentage.
+ */
+function ParsingPhase({
+  t, dark, image, step,
+}: {
+  t: ThemeTokens;
+  dark: boolean;
+  image: { dataUrl: string; name: string; size: number; mediaType: string } | null;
+  step: ParseStep;
+}) {
+  const paper = dark ? "rgba(255,255,255,0.03)" : "#F7F6F3";
+  const order: ParseStep[] = ["reading", "rows", "matching"];
+  const at = order.indexOf(step);
+  const pct = [18, 55, 88][at] ?? 18;
+  const steps: Array<[ParseStep, string]> = [
+    ["reading", "Photo read"],
+    ["rows", "Finding the rows"],
+    ["matching", "Matching your shift types"],
+  ];
+
+  return (
+    <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "18px 22px 8px", display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* What is being read. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: 14, border: `1px solid ${t.sep}`, borderRadius: 6 }}>
+        <div
+          style={{
+            width: 84, height: 84, flexShrink: 0, borderRadius: 4, background: paper,
+            display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+          }}
+        >
+          {image ? (
+            <img src={image.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <CameraIcon color={t.text3} />
+          )}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {image?.name ?? "photo"}
+          </div>
+          <div style={{ fontSize: 13, color: t.text2, marginTop: 4 }}>
+            {image ? `${fileSize(image.size)} · ${image.mediaType.replace("image/", "").toUpperCase()}` : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* Progress. */}
+      <div>
+        <div style={{ height: 8, borderRadius: 4, background: dark ? "rgba(255,255,255,0.08)" : "#E7E5DF", overflow: "hidden" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: BRAND_TEAL, borderRadius: 4, transition: "width 0.4s ease" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginTop: 10 }}>
+          <span style={{ fontSize: 13, color: t.text2 }}>Most photos take about ten seconds.</span>
+        </div>
+      </div>
+
+      {/* The checklist. */}
+      <div style={{ background: paper, border: `1px solid ${t.sep}`, borderRadius: 6, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {steps.map(([key, label], i) => {
+          const done = i < at;
+          const now = i === at;
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <StepDot done={done} now={now} t={t} />
+              <span style={{ fontSize: 14, fontWeight: now ? 600 : 400, color: done || now ? t.text : t.text3 }}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepDot({ done, now, t }: { done: boolean; now: boolean; t: ThemeTokens }) {
+  if (done) {
+    return (
+      <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true" style={{ flexShrink: 0 }}>
+        <circle cx={10} cy={10} r={9} fill={BRAND_TEAL} />
+        <path d="M5.8 10.3l2.7 2.7 5.5-5.6" stroke="#FFFFFF" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx={10} cy={10} r={8} fill="none" stroke={now ? BRAND_TEAL : t.sep} strokeWidth={now ? 2.4 : 1.6} />
+    </svg>
   );
 }
 
