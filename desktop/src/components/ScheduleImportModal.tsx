@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
+import { personColor } from "../theme";
 import type { HouseholdState } from "../state";
 import { compactTime } from "../state";
-import { findScheduleImport } from "../scheduleImports";
+import {
+  SCHEDULE_IMPORTS,
+  findScheduleImport,
+  type ImportTarget,
+} from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
+import { MONTHS_LONG, WEEKDAYS_3 } from "../data";
 import type { ParsedShiftRow } from "../global";
+import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
+
+const CLAY = "#8A4B38";
+const TEAL_TINT = "#D8E7E4";
+const CLAY_TINT = "#EFDFDB";
+const SKIP_STRIKE = "#A9B3B0";
 
 interface Props {
   scheduleId: string | null;
@@ -35,19 +47,28 @@ interface EditableRow extends ParsedShiftRow {
   skipped: boolean;
 }
 
+/** Person whose colour rule the cards carry, from the import target. */
+function whoFor(target: ImportTarget): "G" | "K" | "D" {
+  return target === "self-ot" ? "G" : target === "partner" ? "K" : "D";
+}
+
 export function ScheduleImportModal({
   scheduleId, onClose, onNeedApiKey, palette, t, dark, householdId, state,
   today, contextMonth,
 }: Props) {
-  const def = scheduleId ? findScheduleImport(scheduleId) : undefined;
+  // The modal opens on one person's row but carries the prototype's person
+  // tabs; switching a tab re-targets the import to that person.
+  const [activeId, setActiveId] = useState<string | null>(scheduleId);
+  const def = activeId ? findScheduleImport(activeId) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
   const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [hasKey, setHasKey] = useState<boolean>(false);
 
-  // Reset whenever a different schedule is opened.
+  // Reset whenever the modal is (re)opened on a different schedule.
   useEffect(() => {
     if (!scheduleId) return;
+    setActiveId(scheduleId);
     setPhase({ kind: "upload" });
     setImage(null);
     setErr(null);
@@ -55,6 +76,15 @@ export function ScheduleImportModal({
   }, [scheduleId]);
 
   if (!scheduleId || !def) return null;
+
+  // Switch the active person tab — a fresh upload for that person.
+  const onPickPerson = (id: string) => {
+    if (id === activeId) return;
+    setActiveId(id);
+    setPhase({ kind: "upload" });
+    setImage(null);
+    setErr(null);
+  };
 
   const onPickFile = async (file: File) => {
     setErr(null);
@@ -121,9 +151,6 @@ export function ScheduleImportModal({
     }
     // Force any shiftTypeId Claude returned that doesn't match the current
     // catalog back to null so the user is prompted to map it before save.
-    // Without this, an unrecognized id would pass straight through to
-    // Firestore and the shift would never render (buildShiftMap silently
-    // drops OT entries whose shiftTypeId can't be resolved).
     const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
     const editable: EditableRow[] = result.rows.map((r, i) => ({
       ...r,
@@ -145,7 +172,7 @@ export function ScheduleImportModal({
       .filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId))
       .map((r) => ({ date: r.date, shiftTypeId: r.shiftTypeId as string, label: r.label }));
     if (rows.length === 0) {
-      setErr("Nothing to save — every row is skipped or missing a valid shift type.");
+      setErr("Nothing to add — every day is skipped or still needs a shift type.");
       return;
     }
     setErr(null);
@@ -173,396 +200,448 @@ export function ScheduleImportModal({
   };
 
   const shiftTypes = state?.shiftTypes ?? [];
+  const who = whoFor(def.target);
+
+  // Footer count — days that will actually be written.
+  const validIds = new Set(shiftTypes.map((s) => s.id));
+  const addCount =
+    phase.kind === "review"
+      ? phase.rows.filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId)).length
+      : 0;
+
+  const showTabs = phase.kind !== "saved";
 
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
-      />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Import ${def.label}`}
+        aria-label="Read from a photo"
         style={{
           position: "fixed",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(720px, calc(100vw - 32px))",
+          width: "min(560px, calc(100vw - 32px))",
           maxHeight: "calc(100vh - 64px)",
           background: t.bgElev,
           color: t.text,
-          borderRadius: 16,
-          padding: "20px 22px 16px",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
+          border: `1px solid ${t.sep}`,
+          borderRadius: 12,
+          boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.6)" : "0 24px 64px rgba(20,32,30,0.28)",
           zIndex: 1101,
           fontFamily: "inherit",
           display: "flex",
           flexDirection: "column",
-          gap: 12,
           overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{def.label}</div>
-            <div style={{ fontSize: 12, color: t.text2, marginTop: 4, lineHeight: 1.45 }}>
-              Drop a photo of {def.personLabel}'s schedule. Nucleus reads it, you review, then save.
-            </div>
-          </div>
-          {!hasKey && phase.kind === "upload" && (
-            <button type="button" onClick={onNeedApiKey} style={linkBtn(palette.G)}>
-              Add API key →
-            </button>
-          )}
+        {/* Header */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px" }}>
+          <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 16, letterSpacing: "-0.01em", color: t.text }}>
+            Read from a photo
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 30, height: 30, flexShrink: 0, padding: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              border: `1px solid ${t.sep}`, borderRadius: 4, background: t.bgElev, color: t.text, cursor: "pointer",
+            }}
+          >
+            <XIcon />
+          </button>
         </div>
 
+        {/* Person tabs + review heading */}
+        {showTabs && (
+          <div style={{ flexShrink: 0, padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", border: `1px solid ${t.sep}`, borderRadius: 6, overflow: "hidden", background: t.bgElev }}>
+              {SCHEDULE_IMPORTS.map((s, i) => {
+                const on = s.id === activeId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onPickPerson(s.id)}
+                    style={{
+                      flexGrow: 1, flexBasis: 0, minWidth: 0, height: 40,
+                      border: 0, borderLeft: i === 0 ? 0 : `1px solid ${t.sep}`,
+                      background: on ? TEAL_TINT : t.bgElev,
+                      color: on ? BRAND_TEAL : t.text2,
+                      fontFamily: "inherit", fontSize: 13, fontWeight: on ? 600 : 500,
+                      cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {s.personLabel}
+                  </button>
+                );
+              })}
+            </div>
+
+            {phase.kind === "review" && <ReviewHeading rows={phase.rows} shiftTypes={shiftTypes} t={t} />}
+          </div>
+        )}
+
+        {/* Body */}
         {phase.kind === "upload" && (
           <UploadPhase
-            t={t}
-            dark={dark}
-            palette={palette}
-            image={image}
-            hasKey={hasKey}
-            onDrop={onDrop}
-            onPickFile={onPickFile}
-            onParse={onParse}
-            onClear={() => setImage(null)}
+            t={t} dark={dark} palette={palette} who={who} def={def}
+            image={image} hasKey={hasKey}
+            onDrop={onDrop} onPickFile={onPickFile} onClear={() => setImage(null)}
+            onNeedApiKey={onNeedApiKey}
           />
         )}
 
         {phase.kind === "parsing" && (
-          <div style={{ padding: 40, textAlign: "center", color: t.text2, fontSize: 13 }}>
-            Asking Nucleus to read the schedule…
+          <div style={{ padding: "48px 16px", textAlign: "center", color: t.text2, fontSize: 13 }}>
+            Reading {def.personLabel}'s schedule…
           </div>
         )}
 
         {phase.kind === "review" && (
-          <ReviewPhase
-            t={t}
-            dark={dark}
-            rows={phase.rows}
-            monthCovered={phase.monthCovered}
-            shiftTypes={shiftTypes}
-            contextMonth={contextMonth}
-            onUpdate={updateRow}
-          />
+          <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 4px", display: "flex", flexDirection: "column", gap: 9 }}>
+            {phase.rows.map((r) => (
+              <DayCard
+                key={r.rid}
+                row={r}
+                who={who}
+                palette={palette}
+                shiftTypes={shiftTypes}
+                t={t}
+                onUpdate={updateRow}
+              />
+            ))}
+            {phase.rows.length === 0 && (
+              <div style={{ padding: "28px 8px", textAlign: "center", color: t.text3, fontSize: 13 }}>
+                No days found. The photo may not show a recognizable schedule.
+              </div>
+            )}
+          </div>
         )}
 
         {phase.kind === "saving" && (
-          <div style={{ padding: 40, textAlign: "center", color: t.text2, fontSize: 13 }}>
-            Saving to the household schedule…
+          <div style={{ padding: "48px 16px", textAlign: "center", color: t.text2, fontSize: 13 }}>
+            Adding to the schedule…
           </div>
         )}
 
         {phase.kind === "saved" && (
-          <div style={{ padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: t.text }}>
-              Imported {phase.count} shift{phase.count === 1 ? "" : "s"}.
+          <div style={{ padding: "32px 24px", textAlign: "center" }}>
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 17, fontWeight: 600, color: t.text }}>
+              Added {phase.count} day{phase.count === 1 ? "" : "s"}.
             </div>
-            <div style={{ fontSize: 12, color: t.text2, marginTop: 6 }}>
-              They're live on the schedule now and synced to iOS.
+            <div style={{ fontSize: 12.5, color: t.text2, marginTop: 6, lineHeight: 1.45 }}>
+              They're on the schedule now and synced to iOS.
             </div>
           </div>
         )}
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && (
+          <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: CLAY, lineHeight: 1.45 }}>{err}</div>
+        )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          {phase.kind === "review" && (
-            <button type="button" onClick={onSave} style={primaryBtn(palette.G, false)}>
-              Save to schedule
+        {/* Footer */}
+        <div style={{ flexShrink: 0, padding: "12px 16px 16px", borderTop: `1px solid ${t.sep}`, display: "flex", flexDirection: "column", gap: 9 }}>
+          {phase.kind === "upload" && (
+            <button
+              type="button"
+              onClick={onParse}
+              disabled={!image || !hasKey}
+              style={footerBtn(!image || !hasKey)}
+            >
+              {hasKey ? "Read the schedule" : "Add an API key first"}
             </button>
           )}
-          <button type="button" onClick={onClose} style={secondaryBtn(t)}>
-            {phase.kind === "saved" ? "Done" : "Cancel"}
-          </button>
+          {phase.kind === "review" && (
+            <>
+              <button type="button" onClick={onSave} disabled={addCount === 0} style={footerBtn(addCount === 0)}>
+                Add {addCount} to schedule
+              </button>
+              <span style={{ textAlign: "center", fontSize: 11, color: t.text3 }}>
+                Nothing is written until you tap this.
+              </span>
+            </>
+          )}
+          {phase.kind === "saved" && (
+            <button type="button" onClick={onClose} style={footerBtn(false)}>Done</button>
+          )}
+          {(phase.kind === "parsing" || phase.kind === "saving") && (
+            <button type="button" onClick={onClose} style={secondaryBtn(t)}>Cancel</button>
+          )}
         </div>
       </div>
     </>
   );
 }
 
+// ── Review heading ("Found N days · M need a look") ──────────────────────────
+
+function ReviewHeading({
+  rows, shiftTypes, t,
+}: {
+  rows: EditableRow[];
+  shiftTypes: Array<{ id: string }>;
+  t: ThemeTokens;
+}) {
+  const validIds = new Set(shiftTypes.map((s) => s.id));
+  const needLook = rows.filter(
+    (r) => !r.skipped && (!(r.shiftTypeId && validIds.has(r.shiftTypeId)) || r.confidence < 0.5),
+  ).length;
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+      <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 17, color: t.text }}>
+        Found {rows.length} day{rows.length === 1 ? "" : "s"}
+      </span>
+      {needLook > 0 && (
+        <span style={{ fontSize: 13, color: CLAY }}>{needLook} need a look</span>
+      )}
+    </div>
+  );
+}
+
+// ── One reviewed day ─────────────────────────────────────────────────────────
+
+function DayCard({
+  row, who, palette, shiftTypes, t, onUpdate,
+}: {
+  row: EditableRow;
+  who: "G" | "K" | "D";
+  palette: Palette;
+  shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
+  t: ThemeTokens;
+  onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
+}) {
+  const [y, m, d] = row.date.split("-").map(Number);
+  const dow = Number.isFinite(y) ? new Date(y, m - 1, d).getDay() : 0;
+  const month3 = (MONTHS_LONG[m - 1] ?? "").slice(0, 3).toUpperCase();
+  const wd = (WEEKDAYS_3[dow] ?? "").toUpperCase();
+
+  const stype = row.shiftTypeId ? shiftTypes.find((s) => s.id === row.shiftTypeId) : undefined;
+  const mapped = !!stype;
+  const skipped = row.skipped;
+  const rule = skipped ? t.text3 : personColor(who, palette);
+
+  // A row wants attention if it has no shift type yet, or Nucleus was unsure.
+  const needLook = !skipped && (!mapped || row.confidence < 0.5);
+  const note = skipped
+    ? "Won't be added."
+    : !mapped
+      ? "Pick a shift type."
+      : row.confidence < 0.5
+        ? "Low confidence — worth a check."
+        : null;
+  const noteColor = !skipped && !mapped ? CLAY : t.text2;
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${needLook ? CLAY : t.sep}`,
+        borderRadius: 8,
+        background: skipped ? t.bg : t.bgElev,
+        overflow: "hidden",
+        opacity: skipped ? 0.85 : 1,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px" }}>
+        <span style={{ width: 3, alignSelf: "stretch", minHeight: 34, borderRadius: 2, flexShrink: 0, background: rule }} />
+        <span style={{ width: 40, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+          <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: t.text2 }}>{month3}</span>
+          <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 22, lineHeight: 1.05, color: skipped ? t.text3 : t.text }}>
+            {Number.isFinite(d) ? d : "—"}
+          </span>
+          <span style={{ fontSize: 9, letterSpacing: "0.08em", color: t.text2 }}>{wd}</span>
+        </span>
+
+        {mapped && !skipped ? (
+          <span style={{ flexGrow: 1, minWidth: 0, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 15, color: t.text }}>
+            {compactTime(stype!.start)}
+            <span style={{ color: t.text2 }}>→</span>
+            {compactTime(stype!.end)}
+          </span>
+        ) : skipped ? (
+          <span style={{ flexGrow: 1, minWidth: 0, fontSize: 15, textDecoration: "line-through", color: SKIP_STRIKE }}>
+            {mapped ? `${compactTime(stype!.start)} → ${compactTime(stype!.end)}` : (row.label || "—")}
+          </span>
+        ) : (
+          <select
+            value={row.shiftTypeId ?? ""}
+            onChange={(e) => onUpdate(row.rid, { shiftTypeId: e.target.value || null })}
+            style={{
+              flexGrow: 1, minWidth: 0, height: 34, padding: "0 8px",
+              border: `1px solid ${t.sep}`, borderRadius: 6, background: t.bg, color: t.text,
+              fontFamily: "inherit", fontSize: 13, cursor: "pointer",
+              colorScheme: t.bg === "#000" ? "dark" : "light",
+            }}
+          >
+            <option value="">{row.label ? `${row.label} — pick a type` : "Pick a shift type"}</option>
+            {shiftTypes.map((s) => (
+              <option key={s.id} value={s.id}>{s.name} ({compactTime(s.start)})</option>
+            ))}
+          </select>
+        )}
+
+        <button
+          type="button"
+          aria-label="Keep this day"
+          onClick={() => onUpdate(row.rid, { skipped: false })}
+          style={{
+            width: 40, height: 40, flexShrink: 0, borderRadius: 6, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            border: skipped ? `1px solid ${t.sep}` : `1px solid ${BRAND_TEAL}`,
+            background: skipped ? t.bgElev : BRAND_TEAL,
+          }}
+        >
+          <CheckIcon color={skipped ? t.text3 : "#FFFFFF"} />
+        </button>
+        <button
+          type="button"
+          aria-label="Drop this day"
+          onClick={() => onUpdate(row.rid, { skipped: true })}
+          style={{
+            width: 40, height: 40, flexShrink: 0, borderRadius: 6, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            border: `1px solid ${CLAY}`,
+            background: skipped ? CLAY_TINT : "transparent",
+          }}
+        >
+          <TrashIcon color={CLAY} />
+        </button>
+      </div>
+
+      {note && (
+        <div style={{ padding: "0 12px 10px 27px", fontSize: 11, lineHeight: 1.45, color: noteColor }}>
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Upload phase ─────────────────────────────────────────────────────────────
+
 function UploadPhase({
-  t, dark, palette, image, hasKey, onDrop, onPickFile, onParse, onClear,
+  t, dark, palette, who, def, image, hasKey, onDrop, onPickFile, onClear, onNeedApiKey,
 }: {
   t: ThemeTokens;
   dark: boolean;
   palette: Palette;
+  who: "G" | "K" | "D";
+  def: { personLabel: string };
   image: { dataUrl: string } | null;
   hasKey: boolean;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onPickFile: (f: File) => void;
-  onParse: () => void;
   onClear: () => void;
+  onNeedApiKey: () => void;
 }) {
   return (
-    <>
+    <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 4px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 12.5, color: t.text2, lineHeight: 1.45 }}>
+        Drop a photo of {def.personLabel}'s schedule. Nucleus reads it, you review, then add it.
+      </div>
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
         style={{
-          flex: 1,
-          minHeight: 220,
+          minHeight: 200,
           border: `1px dashed ${t.sep}`,
-          borderRadius: 12,
+          borderRadius: 8,
           padding: 16,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+          background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
         }}
       >
         {image ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <img src={image.dataUrl} alt="" style={{ maxWidth: 360, maxHeight: 240, borderRadius: 8 }} />
-            <button type="button" onClick={onClear} style={linkBtn(t.text2)}>Clear photo</button>
+            <img src={image.dataUrl} alt="" style={{ maxWidth: 360, maxHeight: 240, borderRadius: 8, border: `1px solid ${t.sep}` }} />
+            <button type="button" onClick={onClear} style={linkBtn(t.text2)}>Choose a different photo</button>
           </div>
         ) : (
           <div style={{ textAlign: "center", color: t.text2 }}>
+            <span style={{ width: 3, height: 26, borderRadius: 2, background: personColor(who, palette), display: "inline-block", marginBottom: 8 }} />
             <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Drop a schedule photo here</div>
             <div style={{ fontSize: 11.5, marginTop: 4 }}>or</div>
             <label
               style={{
-                display: "inline-block",
-                marginTop: 6,
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: `0.5px solid ${t.sep}`,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
+                display: "inline-block", marginTop: 8, padding: "7px 14px", borderRadius: 6,
+                border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
+                fontSize: 12.5, fontWeight: 600, cursor: "pointer",
               }}
             >
               Browse files
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) onPickFile(f);
-                }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickFile(f); }}
                 style={{ display: "none" }}
               />
             </label>
           </div>
         )}
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          type="button"
-          onClick={onParse}
-          disabled={!image || !hasKey}
-          style={primaryBtn(palette.G, !image || !hasKey)}
-        >
-          Parse with Nucleus
+      {!hasKey && (
+        <button type="button" onClick={onNeedApiKey} style={{ ...linkBtn(BRAND_TEAL), alignSelf: "flex-start" }}>
+          Add an API key to read photos →
         </button>
-      </div>
-    </>
-  );
-}
-
-function ReviewPhase({
-  t, dark, rows, monthCovered, shiftTypes, contextMonth, onUpdate,
-}: {
-  t: ThemeTokens;
-  dark: boolean;
-  rows: EditableRow[];
-  monthCovered?: string;
-  shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
-  contextMonth: string;
-  onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
-}) {
-  const kept = rows.filter((r) => !r.skipped && r.shiftTypeId).length;
-  // Surface every distinct YYYY-MM Claude returned so a wrong-year run is obvious.
-  const months = Array.from(new Set(rows.map((r) => r.date.slice(0, 7)))).sort();
-  const offMonths = months.filter((m) => m !== contextMonth);
-  return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
-        <div style={{ fontSize: 12, color: t.text2 }}>
-          Months: {months.length ? months.join(", ") : "—"}
-          {monthCovered && monthCovered !== months[0] && <> · Nucleus said {monthCovered}</>}
-          {" · "}{kept} of {rows.length} ready to save
-        </div>
-        <div style={{ fontSize: 11, color: t.text3 }}>
-          • high  · ok  ◦ low confidence
-        </div>
-      </div>
-      {offMonths.length > 0 && (
-        <div style={{ fontSize: 11.5, color: "#8A4B38", lineHeight: 1.45 }}>
-          ⚠ Some rows fall outside {contextMonth} ({offMonths.join(", ")}). If that's wrong, fix the date column before saving.
-        </div>
       )}
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          border: `0.5px solid ${t.sep}`,
-          borderRadius: 8,
-          padding: 0,
-          minHeight: 200,
-        }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-          <thead>
-            <tr style={{ background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }}>
-              <Th>Date</Th>
-              <Th>Shift type</Th>
-              <Th>Label</Th>
-              <Th>Conf</Th>
-              <Th></Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.rid} style={{ opacity: r.skipped ? 0.4 : 1 }}>
-                <Td t={t}>
-                  <input
-                    type="date"
-                    value={r.date}
-                    onChange={(e) => onUpdate(r.rid, { date: e.target.value })}
-                    style={tdInput(t)}
-                  />
-                </Td>
-                <Td t={t}>
-                  <select
-                    value={r.shiftTypeId ?? ""}
-                    onChange={(e) => onUpdate(r.rid, { shiftTypeId: e.target.value || null })}
-                    style={tdInput(t)}
-                  >
-                    <option value="">— pick —</option>
-                    {shiftTypes.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({compactTime(s.start)})
-                      </option>
-                    ))}
-                  </select>
-                </Td>
-                <Td t={t}>
-                  <input
-                    type="text"
-                    value={r.label}
-                    onChange={(e) => onUpdate(r.rid, { label: e.target.value })}
-                    style={tdInput(t)}
-                  />
-                </Td>
-                <Td t={t}>
-                  <ConfidenceDot c={r.confidence} />
-                </Td>
-                <Td t={t}>
-                  <button
-                    type="button"
-                    onClick={() => onUpdate(r.rid, { skipped: !r.skipped })}
-                    style={{
-                      border: 0,
-                      background: "transparent",
-                      color: t.text3,
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    {r.skipped ? "Include" : "Skip"}
-                  </button>
-                </Td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ padding: 20, color: t.text3, fontSize: 12, textAlign: "center" }}>
-                  No rows. The image may not contain a recognizable schedule.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
+    </div>
   );
 }
 
-function ConfidenceDot({ c }: { c: number }) {
-  const symbol = c >= 0.8 ? "●" : c >= 0.5 ? "·" : "◦";
-  const color = c >= 0.8 ? "#0F6E64" : c >= 0.5 ? "#D78F77" : "#8A4B38";
-  return <span style={{ color, fontSize: 12, fontWeight: 700 }} title={`Confidence: ${c.toFixed(2)}`}>{symbol}</span>;
-}
+// ── Icons ────────────────────────────────────────────────────────────────────
 
-function Th({ children }: { children?: React.ReactNode }) {
+function XIcon() {
   return (
-    <th style={{
-      textAlign: "left",
-      padding: "8px 10px",
-      fontSize: 10.5,
-      fontWeight: 700,
-      letterSpacing: "0.06em",
-      textTransform: "uppercase",
-      color: "rgba(235,235,245,0.5)",
-    }}>{children}</th>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+function CheckIcon({ color }: { color: string }) {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l5 5 9-11" />
+    </svg>
+  );
+}
+function TrashIcon({ color }: { color: string }) {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+    </svg>
   );
 }
 
-function Td({ children, t }: { children: React.ReactNode; t: ThemeTokens }) {
-  return <td style={{ padding: "6px 10px", borderTop: `0.5px solid ${t.sep}` }}>{children}</td>;
-}
+// ── Buttons ──────────────────────────────────────────────────────────────────
 
-function tdInput(t: ThemeTokens): React.CSSProperties {
+function footerBtn(disabled: boolean): React.CSSProperties {
   return {
-    padding: "4px 6px",
-    background: t.bg,
-    border: `0.5px solid ${t.sep}`,
-    borderRadius: 5,
-    color: t.text,
-    fontSize: 12,
-    fontFamily: "inherit",
-    outline: "none",
-    width: "100%",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
-  };
-}
-
-function primaryBtn(color: string, disabled: boolean): React.CSSProperties {
-  return {
-    padding: "8px 14px",
-    border: 0,
-    borderRadius: 8,
-    background: color,
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.5 : 1,
-    fontFamily: "inherit",
-    letterSpacing: "-0.01em",
+    width: "100%", height: 46, boxSizing: "border-box",
+    borderRadius: 8, border: "none", background: BRAND_TEAL, color: "#FFFFFF",
+    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 15,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
   };
 }
 
 function secondaryBtn(t: ThemeTokens): React.CSSProperties {
   return {
-    padding: "8px 14px",
-    border: `0.5px solid ${t.sep}`,
-    borderRadius: 8,
-    background: "transparent",
-    color: t.text,
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "-0.01em",
+    width: "100%", height: 46, boxSizing: "border-box",
+    borderRadius: 8, border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
+    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 14, cursor: "pointer",
   };
 }
 
 function linkBtn(color: string): React.CSSProperties {
   return {
-    background: "transparent",
-    border: 0,
-    color,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    padding: 0,
+    background: "transparent", border: 0, color, fontSize: 12.5, fontWeight: 600,
+    cursor: "pointer", fontFamily: "inherit", padding: 0,
   };
 }
 

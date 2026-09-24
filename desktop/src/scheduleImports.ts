@@ -22,7 +22,7 @@ export interface ScheduleImportDef {
 export const SCHEDULE_IMPORTS: ScheduleImportDef[] = [
   {
     id: "gage-nights",
-    label: "Gage Nights Sch",
+    label: "Gage",
     target: "self-ot",
     personLabel: "Gage",
     parserHint:
@@ -30,7 +30,7 @@ export const SCHEDULE_IMPORTS: ScheduleImportDef[] = [
   },
   {
     id: "kaylene-nights",
-    label: "Kaylene Nights Sch",
+    label: "Kaylene",
     target: "partner",
     personLabel: "Kaylene",
     parserHint:
@@ -38,7 +38,7 @@ export const SCHEDULE_IMPORTS: ScheduleImportDef[] = [
   },
   {
     id: "daisy-school",
-    label: "Daisy Class Sch",
+    label: "Daisy",
     target: "dependent-daisy",
     personLabel: "Daisy",
     parserHint:
