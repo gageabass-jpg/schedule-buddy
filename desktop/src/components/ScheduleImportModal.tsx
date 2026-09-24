@@ -170,11 +170,13 @@ export function ScheduleImportModal({
       return;
     }
     const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
-    const rows: ImportRow[] = phase.rows
-      .filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId))
-      .map((r) => ({ date: r.date, shiftTypeId: r.shiftTypeId as string, label: r.label }));
+    const rows: ImportRow[] = readyRows.map((r) => ({
+      date: r.date,
+      shiftTypeId: r.shiftTypeId as string,
+      label: r.label,
+    }));
     if (rows.length === 0) {
-      setErr("Nothing to add — every day is skipped or still needs a shift type.");
+      setErr("Nothing to add — every row is skipped, needs a shift type, or still has a flag to clear.");
       return;
     }
     setErr(null);
@@ -206,10 +208,11 @@ export function ScheduleImportModal({
 
   // Footer count — days that will actually be written.
   const validIds = new Set(shiftTypes.map((s) => s.id));
-  const addCount =
+  const readyRows: EditableRow[] =
     phase.kind === "review"
-      ? phase.rows.filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId)).length
-      : 0;
+      ? phase.rows.filter((r) => !r.skipped && !!r.shiftTypeId && validIds.has(r.shiftTypeId))
+      : [];
+  const addCount = readyRows.length;
 
   const monthLabel = (ym: string): string => {
     const [yy, mm] = ym.split("-").map(Number);
@@ -428,7 +431,9 @@ function ReviewPhase({
   const validIds = new Set(shiftTypes.map((s) => s.id));
 
   const flags = rows.map((r) => (r.skipped ? "ready" : flagFor(r, validIds, contextMonth)) as RowFlag);
-  const readyCount = flags.filter((f, i) => f === "ready" && !rows[i].skipped).length;
+  // "Ready to save" means it has a type — the same test the Save button uses.
+  // The month and label flags stay on the row as warnings to look at.
+  const readyCount = rows.filter((r) => !r.skipped && !!r.shiftTypeId && validIds.has(r.shiftTypeId)).length;
   const needTypeCount = flags.filter((f) => f === "needs-type").length;
   const offMonth = rows.filter((r) => !r.date.startsWith(contextMonth));
   const offMonthName = offMonth.length
@@ -439,17 +444,22 @@ function ReviewPhase({
   const shown = expanded ? rows : rows.slice(0, 10);
   const hidden = rows.length - shown.length;
 
+  // The number and the label share a baseline, and that baseline group is
+  // centred in the pill — aligning to the baseline alone pins the line to the
+  // top of a fixed-height box.
   const chip = (n: number, text: string, tone: "ok" | "warn") => (
     <span
       style={{
-        display: "inline-flex", alignItems: "baseline", gap: 7, height: 34, padding: "0 14px", borderRadius: 4,
+        display: "inline-flex", alignItems: "center", height: 32, padding: "0 14px", borderRadius: 4,
         background: tone === "ok" ? TEAL_TINT : CLAY_TINT,
         color: tone === "ok" ? BRAND_TEAL : CLAY,
         whiteSpace: "nowrap",
       }}
     >
-      <span style={{ fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 700 }}>{n}</span>
-      <span style={{ fontSize: 13.5 }}>{text}</span>
+      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 7, lineHeight: 1 }}>
+        <span style={{ fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 700 }}>{n}</span>
+        <span style={{ fontSize: 13.5 }}>{text}</span>
+      </span>
     </span>
   );
 
