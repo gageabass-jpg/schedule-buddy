@@ -1,10 +1,13 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { compactTime, type HouseholdState, type OTShift, type PartnerShift } from "../state";
+import { compactTime, type HouseholdState, type OTShift, type PartnerShift, type DependentShift } from "../state";
 import type { ShiftSource } from "../data";
 import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";
 
-export type ShiftTarget = "self-ot" | "partner";
+// "dependent-daisy" writes a childcare block on Daisy's timeline
+// (state.dependents.daisy.shifts) — a nested field, safe under the iOS
+// contract — rather than a work shift on the G/K grids.
+export type ShiftTarget = "self-ot" | "partner" | "dependent-daisy";
 
 export interface NewShiftInput {
   householdId: string;
@@ -65,7 +68,18 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
     ot: [...(current.ot ?? [])],
     partner: { ...current.partner, shifts: [...(current.partner?.shifts ?? [])] },
     shiftTypes: [...(current.shiftTypes ?? [])],
+    dependents: { ...(current.dependents ?? {}) },
   };
+
+  // Daisy's childcare blocks live on her own timeline; copy that array up
+  // front so the per-date loop can push into it.
+  if (target === "dependent-daisy") {
+    const existing = current.dependents?.daisy;
+    next.dependents = {
+      ...next.dependents,
+      daisy: { name: existing?.name || "Daisy", shifts: [...(existing?.shifts ?? [])] },
+    };
+  }
 
   // Resolve the shift type. A custom time reuses a matching basic type or
   // mints a new one, in this same write, so the entry can reference it by id.
@@ -119,10 +133,15 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
       // via a widened reference so it serializes without a type error.
       if (where) (entry as OTShift & { where?: string }).where = where;
       next.ot.push(entry);
-    } else {
+    } else if (target === "partner") {
       const entry: PartnerShift = { date: d, shiftTypeId, label };
       if (where) (entry as PartnerShift & { where?: string }).where = where;
       next.partner.shifts.push(entry);
+    } else {
+      // dependent-daisy — a childcare block on Daisy's timeline.
+      const entry: DependentShift = { date: d, shiftTypeId, label };
+      if (where) (entry as DependentShift & { where?: string }).where = where;
+      next.dependents!.daisy!.shifts.push(entry);
     }
   }
 

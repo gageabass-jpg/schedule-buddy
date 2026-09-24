@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Palette, ThemeTokens } from "../theme";
+import { personColor, type Palette, type ThemeTokens } from "../theme";
 import type { HouseholdState } from "../state";
 import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
 import { compactTime, isCustomType } from "../state";
@@ -7,8 +7,8 @@ import { BRAND_FONT } from "./BrandMark";
 
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
-const TEAL = "#0F6E64";       // primary / Gage
-const TEAL_TINT = "#D8E7E4";  // selected repeat segment fill
+const TEAL = "#0F6E64";       // primary / selection
+const TEAL_TINT = "#D8E7E4";  // selected fill (segments, cards, childcare note)
 const CLAY = "#8A4B38";       // attention / error text
 
 type RepeatMode = "none" | "weekly" | "biweekly" | "custom";
@@ -89,6 +89,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
   const dateLabel = fmtLongDate(date);
   const selfName = state?.selfName?.trim() || "Gage";
   const partnerName = state?.partner?.name?.trim() || "Kaylene";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || "Daisy";
 
   // The dates a submit will write, from the Repeats choice.
   const occurrenceDates = (): string[] => {
@@ -140,16 +141,13 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     }
   };
 
+  const isDaisy = target === "dependent-daisy";
+
   return (
     <>
       <div
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          zIndex: 1100,
-        }}
+        style={{ position: "fixed", inset: 0, background: "rgba(20,32,30,0.52)", zIndex: 1100 }}
       />
       <div
         role="dialog"
@@ -160,25 +158,27 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(460px, calc(100vw - 32px))",
+          width: "min(600px, calc(100vw - 32px))",
           maxHeight: "calc(100vh - 48px)",
-          overflowY: "auto",
           background: t.bgElev,
           color: t.text,
-          borderRadius: 16,
-          padding: "20px 22px 18px",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
+          border: `1px solid ${t.sep}`,
+          borderRadius: 6,
+          boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.6)" : "0 24px 64px rgba(20,32,30,0.28)",
           zIndex: 1101,
           fontFamily: "inherit",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        {/* Header: title + subtitle, hairline-box close (matches secondary controls). */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
+        {/* Header — title + subtitle, hairline-box close. */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "20px 22px 16px", borderBottom: `1px solid ${t.sep}` }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em", color: t.text }}>
               New shift
             </div>
-            <div style={{ fontSize: 12.5, color: t.text2, marginTop: 3, letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: 13, color: t.text2 }}>
               {dateLabel ? `${dateLabel} · ${householdLabel}` : householdLabel}
             </div>
           </div>
@@ -187,126 +187,147 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             aria-label="Close"
             onClick={onClose}
             style={{
-              width: 36,
-              height: 36,
-              marginTop: 2,
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 10,
-              border: `0.5px solid ${t.sep}`,
-              background: t.bgElev,
-              color: t.text2,
-              cursor: "pointer",
+              width: 30, height: 30, flexShrink: 0, padding: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text2, cursor: "pointer",
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* WHO WORKS IT — Gage / Kaylene person cards. */}
-          <div>
-            <SectionLabel t={t}>Who works it</SectionLabel>
-            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-              <PersonCard name={selfName} color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
-              <PersonCard name={partnerName} color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />
-            </div>
-          </div>
-
-          {/* DATE + TEMPLATE */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <Field label="Date" t={t}>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle(t)} />
-            </Field>
-            <Field label="Template" t={t}>
-              <select value={shiftTypeId} onChange={(e) => pickType(e.target.value)} style={selectStyle(t)}>
-                {types.length === 0 && <option value="">No templates — set a time</option>}
-                {types.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {compactTime(s.start)} to {compactTime(s.end)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          {/* STARTS + ENDS + LENGTH */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <Field label="Starts" t={t}>
-              <input type="time" value={startT} onChange={(e) => setStartT(e.target.value)} style={inputStyle(t)} />
-            </Field>
-            <Field label="Ends" t={t}>
-              <input type="time" value={endT} onChange={(e) => setEndT(e.target.value)} style={inputStyle(t)} />
-            </Field>
-            <Field label="Length" t={t}>
-              <div style={{ ...inputStyle(t), background: t.bgElev2, color: t.text2, display: "flex", alignItems: "center", whiteSpace: "nowrap", cursor: "default" }}>
-                {lengthLabel}
+        <form onSubmit={onSubmit} style={{ display: "contents" }}>
+          {/* Body */}
+          <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+            {/* WHO WORKS IT */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <FieldLabel t={t}>Who works it</FieldLabel>
+              <div style={{ display: "flex", gap: 8 }}>
+                <PersonCard name={selfName} initial="G" color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
+                <PersonCard name={partnerName} initial="K" color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />
+                <PersonCard name={daisyName} initial="D" color={personColor("D", palette)} active={isDaisy} onClick={() => setTarget("dependent-daisy")} t={t} />
               </div>
-            </Field>
-          </div>
-
-          {/* REPEATS — segmented control on a Track. */}
-          <div>
-            <SectionLabel t={t}>Repeats</SectionLabel>
-            <div style={{ display: "flex", gap: 4, marginTop: 8, padding: 4, background: t.bgElev2, borderRadius: 12 }}>
-              {REPEAT_OPTS.map((opt) => (
-                <RepeatSeg key={opt.id} active={repeat === opt.id} onClick={() => setRepeat(opt.id)} t={t}>
-                  {opt.label}
-                </RepeatSeg>
-              ))}
             </div>
-            {repeat === "custom" && (
-              <div style={{ marginTop: 12, display: "flex" }}>
-                <Field label={`Repeat weekly × ${Math.max(2, Math.min(12, Math.round(repeatN || 2)))}`} t={t}>
-                  <input
-                    type="number"
-                    min={2}
-                    max={12}
-                    value={repeatN}
-                    onChange={(e) => setRepeatN(Math.max(2, Math.min(12, Number(e.target.value) || 2)))}
-                    style={{ ...inputStyle(t), width: 96, flex: "0 0 auto" }}
-                  />
-                </Field>
+
+            {/* DATE + TEMPLATE */}
+            <div style={{ display: "flex", gap: 14 }}>
+              <Field label="Date" t={t}>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle(t)} />
+              </Field>
+              <Field label="Template" t={t}>
+                <select value={shiftTypeId} onChange={(e) => pickType(e.target.value)} style={selectStyle(t)}>
+                  {types.length === 0 && <option value="">No templates — set a time</option>}
+                  {types.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} · {compactTime(s.start)} – {compactTime(s.end)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            {/* STARTS + ENDS + LENGTH */}
+            <div style={{ display: "flex", gap: 14 }}>
+              <Field label="Starts" t={t}>
+                <input type="time" value={startT} onChange={(e) => setStartT(e.target.value)} style={inputStyle(t)} />
+              </Field>
+              <Field label="Ends" t={t}>
+                <input type="time" value={endT} onChange={(e) => setEndT(e.target.value)} style={inputStyle(t)} />
+              </Field>
+              <div style={{ width: 116, flexShrink: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+                <FieldLabel t={t}>Length</FieldLabel>
+                <div style={{ height: 40, display: "flex", alignItems: "center", fontSize: 14, color: t.text2, whiteSpace: "nowrap" }}>
+                  {lengthLabel}
+                </div>
+              </div>
+            </div>
+
+            {/* REPEATS — bordered segmented control. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <FieldLabel t={t}>Repeats</FieldLabel>
+              <div style={{ display: "flex", border: `1px solid ${t.sep}`, borderRadius: 4, overflow: "hidden", background: t.sep, gap: 1 }}>
+                {REPEAT_OPTS.map((opt) => {
+                  const on = repeat === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setRepeat(opt.id)}
+                      style={{
+                        flexGrow: 1, minWidth: 0, height: 36, border: "none", cursor: "pointer",
+                        background: on ? TEAL_TINT : t.bgElev,
+                        color: on ? t.text : t.text2,
+                        fontFamily: "inherit", fontSize: 13, fontWeight: on ? 600 : 400,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 4px",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {repeat === "custom" && (
+                <div style={{ display: "flex" }}>
+                  <Field label={`Repeat weekly × ${Math.max(2, Math.min(12, Math.round(repeatN || 2)))}`} t={t}>
+                    <input
+                      type="number"
+                      min={2}
+                      max={12}
+                      value={repeatN}
+                      onChange={(e) => setRepeatN(Math.max(2, Math.min(12, Number(e.target.value) || 2)))}
+                      style={{ ...inputStyle(t), width: 96, flex: "0 0 auto" }}
+                    />
+                  </Field>
+                </div>
+              )}
+              {repeat !== "none" && (
+                <div style={{ fontSize: 12, color: t.text3 }}>
+                  Adds {occ.length} shift{occ.length === 1 ? "" : "s"} — every {repeat === "biweekly" ? "other week" : "week"} through {fmtShort(occ[occ.length - 1])}.
+                </div>
+              )}
+            </div>
+
+            {/* WHERE + NOTE */}
+            <div style={{ display: "flex", gap: 14 }}>
+              <Field label="Where" t={t}>
+                <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Thomas Hospital" style={inputStyle(t)} />
+              </Field>
+              <Field label="Note (optional)" t={t}>
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the household should know" style={inputStyle(t)} />
+              </Field>
+            </div>
+
+            {/* Childcare block — shown when Daisy is who works it. */}
+            {isDaisy && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 14px", background: TEAL_TINT, border: `1px solid ${TEAL}`, borderRadius: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: TEAL }}>Childcare block</span>
+                <span style={{ fontSize: 12, lineHeight: 1.5, color: TEAL }}>
+                  This puts {daisyName} on the calendar covering the kids for this time. It's not a work shift.
+                </span>
               </div>
             )}
-            {repeat !== "none" && (
-              <div style={{ fontSize: 11.5, color: t.text3, marginTop: 8, letterSpacing: "-0.01em" }}>
-                Adds {occ.length} shift{occ.length === 1 ? "" : "s"} — every {repeat === "biweekly" ? "other week" : "week"} through {fmtShort(occ[occ.length - 1])}.
-              </div>
-            )}
+
+            {err && <div style={{ fontSize: 12, color: CLAY }}>{err}</div>}
           </div>
 
-          {/* WHERE + NOTE */}
-          <div style={{ display: "flex", gap: 12 }}>
-            <Field label="Where" t={t}>
-              <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Thomas Hospital" style={inputStyle(t)} />
-            </Field>
-            <Field label="Note (optional)" t={t}>
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the household should know" style={inputStyle(t)} />
-            </Field>
-          </div>
-
-          {err && <div style={{ fontSize: 12, color: CLAY }}>{err}</div>}
-
-          {/* Footer — hairline rule, reassurance text, actions. */}
+          {/* Footer — Paper bar, reassurance text, actions. */}
           <div
             style={{
+              flexShrink: 0,
+              padding: "16px 22px",
               borderTop: `1px solid ${t.sep}`,
-              marginTop: 2,
-              paddingTop: 14,
+              background: t.bg,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              gap: 12,
+              gap: 16,
               flexWrap: "wrap",
             }}
           >
-            <div style={{ fontSize: 11.5, color: t.text3, letterSpacing: "-0.01em", flex: "1 1 170px", minWidth: 0 }}>
-              Nothing is sent to anyone until you press Add shift.
+            <div style={{ fontSize: 13, color: t.text2, flex: "1 1 180px", minWidth: 0 }}>
+              Nothing is sent to anyone until you press <strong style={{ color: t.text, fontWeight: 600 }}>Add shift</strong>.
             </div>
             <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
               <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>
@@ -323,9 +344,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
   );
 }
 
-function SectionLabel({ t, children }: { t: ThemeTokens; children: React.ReactNode }) {
+function FieldLabel({ t, children }: { t: ThemeTokens; children: React.ReactNode }) {
   return (
-    <span style={{ display: "block", fontSize: 10.5, fontWeight: 700, color: t.text3, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+    <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
       {children}
     </span>
   );
@@ -333,71 +354,67 @@ function SectionLabel({ t, children }: { t: ThemeTokens; children: React.ReactNo
 
 function Field({ label, t, children }: { label: string; t: ThemeTokens; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 5, flex: "1 1 0", minWidth: 0 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: t.text3, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        {label}
-      </span>
+    <label style={{ display: "flex", flexDirection: "column", gap: 7, flexGrow: 1, flexBasis: 0, minWidth: 0 }}>
+      <FieldLabel t={t}>{label}</FieldLabel>
       {children}
     </label>
   );
 }
 
 function PersonCard({
-  name, color, active, onClick, t,
+  name, initial, color, active, onClick, t,
 }: {
   name: string;
+  initial: string;
   color: string;
   active: boolean;
   onClick: () => void;
   t: ThemeTokens;
 }) {
-  const initial = (name.trim()[0] || "?").toUpperCase();
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       style={{
-        flex: 1,
+        flexGrow: 1,
+        flexBasis: 0,
         minWidth: 0,
         display: "flex",
         alignItems: "center",
-        gap: 10,
-        padding: "11px 12px",
+        gap: 9,
+        padding: "8px 10px",
         textAlign: "left",
-        border: `1px solid ${active ? color : t.sep}`,
-        borderRadius: 12,
-        background: active ? `${color}22` : t.bgElev,
+        border: `1px solid ${active ? TEAL : t.sep}`,
+        borderRadius: 4,
+        background: active ? TEAL_TINT : t.bgElev,
         cursor: "pointer",
-        boxShadow: "none",
         fontFamily: "inherit",
       }}
     >
       <span
         style={{
-          width: 34,
-          height: 34,
+          width: 30,
+          height: 30,
           flexShrink: 0,
-          borderRadius: "50%",
+          borderRadius: 8,
           background: color,
           color: "#fff",
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 14,
-          fontWeight: 700,
-          letterSpacing: "-0.01em",
+          fontSize: 12,
+          fontWeight: 600,
         }}
       >
         {initial}
       </span>
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
         <span
           style={{
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: t.text,
-            letterSpacing: "-0.01em",
+            fontSize: 14,
+            fontWeight: active ? 600 : 400,
+            color: active ? "#14201E" : t.text,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -405,46 +422,10 @@ function PersonCard({
         >
           {name}
         </span>
-        <span style={{ fontSize: 11, color: active ? color : t.text3, letterSpacing: "-0.01em", fontWeight: 500 }}>
+        <span style={{ fontSize: 11, color: active ? "#14201E" : t.text2 }}>
           {active ? "Selected" : "Tap to pick"}
         </span>
       </span>
-    </button>
-  );
-}
-
-function RepeatSeg({
-  active, onClick, t, children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  t: ThemeTokens;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: 44,
-        padding: "6px 4px",
-        border: 0,
-        borderRadius: 9,
-        background: active ? TEAL_TINT : "transparent",
-        color: active ? TEAL : t.text2,
-        fontSize: 11.5,
-        fontWeight: 600,
-        lineHeight: 1.15,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        letterSpacing: "-0.01em",
-        boxShadow: "none",
-        textAlign: "center",
-      }}
-    >
-      {children}
     </button>
   );
 }
@@ -488,15 +469,15 @@ function fmtShort(iso: string): string {
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     width: "100%",
+    height: 40,
     boxSizing: "border-box",
-    padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
-    border: `0.5px solid ${t.sep}`,
-    borderRadius: 8,
+    padding: "0 12px",
+    background: t.bgElev,
+    border: `1px solid ${t.sep}`,
+    borderRadius: 4,
     color: t.text,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "inherit",
-    letterSpacing: "-0.01em",
     outline: "none",
     colorScheme: t.bg === "#000" ? "dark" : "light",
   };
@@ -510,10 +491,10 @@ function selectStyle(t: ThemeTokens): React.CSSProperties {
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {
     ...inputStyle(t),
+    paddingRight: 36,
     appearance: "none",
     WebkitAppearance: "none",
     MozAppearance: "none",
-    paddingRight: 36,
     backgroundImage: chevron,
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 14px center",
@@ -523,31 +504,31 @@ function selectStyle(t: ThemeTokens): React.CSSProperties {
 
 function primaryBtn(color: string, disabled: boolean): React.CSSProperties {
   return {
-    padding: "9px 16px",
+    height: 38,
+    padding: "0 14px",
     border: 0,
-    borderRadius: 8,
+    borderRadius: 4,
     background: color,
     color: "#fff",
+    fontFamily: BRAND_FONT,
     fontSize: 13,
     fontWeight: 600,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.5 : 1,
-    fontFamily: "inherit",
-    letterSpacing: "-0.01em",
   };
 }
 
 function secondaryBtn(t: ThemeTokens): React.CSSProperties {
   return {
-    padding: "9px 16px",
-    border: `0.5px solid ${t.sep}`,
-    borderRadius: 8,
+    height: 38,
+    padding: "0 14px",
+    border: `1px solid ${t.sep}`,
+    borderRadius: 4,
     background: t.bgElev,
     color: t.text,
+    fontFamily: BRAND_FONT,
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "-0.01em",
   };
 }
