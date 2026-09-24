@@ -22,6 +22,8 @@ export interface Shift {
   source?: ShiftSource;
   /** When source.kind is override/ot, the shiftTypeId so editors can prefill. */
   shiftTypeId?: string;
+  /** Free text from the stored entry — e.g. who else is on that shift. */
+  note?: string;
 }
 export type ShiftMap = Record<string, Shift[]>;
 

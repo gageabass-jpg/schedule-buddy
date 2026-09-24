@@ -569,6 +569,7 @@ export function buildShiftMap(
       label,
       source: { kind: "ot", index },
       shiftTypeId: o.shiftTypeId,
+      ...(o.note || o.coworkers ? { note: o.note || o.coworkers } : {}),
     });
   });
 
@@ -595,6 +596,7 @@ export function buildShiftMap(
       label,
       source: { kind: "partner", index },
       shiftTypeId: p.shiftTypeId,
+      ...(p.note ? { note: p.note } : {}),
     });
   });
 
@@ -615,7 +617,7 @@ export function buildShiftMap(
   for (const s of state.dependents?.daisy?.shifts ?? []) {
     if (!s.date) continue;
     const label = s.shiftTypeId ? chipLabel(types, s.shiftTypeId) : (s.label || null);
-    if (label) push(out, s.date, { who: "D", label, shiftTypeId: s.shiftTypeId });
+    if (label) push(out, s.date, { who: "D", label, shiftTypeId: s.shiftTypeId, ...(s.note ? { note: s.note } : {}) });
   }
 
   return out;
