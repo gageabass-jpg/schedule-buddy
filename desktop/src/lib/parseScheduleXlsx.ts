@@ -65,7 +65,7 @@ function readClock(token: string): number | null {
  * meridiem, so the end is rolled forward by twelve hours until the shift is
  * at least two hours long — a 6-to-2:30 shift is never half an hour.
  */
-export function parseTimeRange(text: string): { start: string; end: string } | null {
+export function parseTimeRange(text: string): { start: string; end: string; matched: string } | null {
   const range = /(\d{1,4}(?::\d{2})?\s*[ap]?)\s*(?:-|–|—|to)\s*(\d{1,4}(?::\d{2})?\s*[ap]?)/i.exec(text);
   if (!range) return null;
   const startMin = readClock(range[1]);
@@ -80,6 +80,7 @@ export function parseTimeRange(text: string): { start: string; end: string } | n
   return {
     start: `${pad(Math.floor(startMin / 60))}:${pad(startMin % 60)}`,
     end: `${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}`,
+    matched: range[0],
   };
 }
 
@@ -149,8 +150,10 @@ export function parseScheduleXlsx(
       if (!text || OFF_MARKERS.has(text.toLowerCase())) continue;
       countedDays++;
       const times = parseTimeRange(text);
-      // Keep the times only — the rest of the cell names coworkers.
-      const label = times ? text.split(/\s/)[0] : text;
+      // The times become the label; whatever else is in the cell is a note —
+      // usually who else is on ("Lacey", "Terra/Lacey"), sometimes a marker.
+      const label = times ? times.matched.trim() : text;
+      const note = times ? text.replace(times.matched, "").replace(/\s+/g, " ").trim() : "";
       const match = times
         ? shiftTypes.find((s) => s.start === times.start && s.end === times.end)
         : undefined;
@@ -159,6 +162,7 @@ export function parseScheduleXlsx(
         shiftTypeId: match?.id ?? null,
         label,
         confidence: times ? 1 : 0.4,
+        ...(note ? { note } : {}),
       });
     }
 

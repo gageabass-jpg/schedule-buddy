@@ -16,6 +16,8 @@ export interface ParsedShiftRow {
   shiftTypeId: string | null;
   label: string;
   confidence: number;
+  /** Anything in the cell that wasn't the time — coworkers, "tmh", "+". */
+  note?: string;
 }
 
 export interface ParseScheduleResult {

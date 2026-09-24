@@ -25,6 +25,8 @@ export interface ImportRow {
   date: string;            // YYYY-MM-DD
   shiftTypeId: string;
   label: string;
+  /** Whatever else the source cell said — carried onto the saved shift. */
+  note?: string;
 }
 
 export interface WriteImportInput {
@@ -85,7 +87,10 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
     case "self-ot": {
       next.ot = next.ot.filter((o) => !dates.has(o.date));
       for (const r of rows) {
-        const entry: OTShift = { date: r.date, shiftTypeId: r.shiftTypeId, label: r.label };
+        const entry: OTShift = {
+          date: r.date, shiftTypeId: r.shiftTypeId, label: r.label,
+          ...(r.note ? { note: r.note, coworkers: r.note } : {}),
+        };
         next.ot.push(entry);
       }
       break;
@@ -93,7 +98,10 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
     case "partner": {
       next.partner.shifts = next.partner.shifts.filter((s) => !dates.has(s.date));
       for (const r of rows) {
-        const entry: PartnerShift = { date: r.date, shiftTypeId: r.shiftTypeId, label: r.label };
+        const entry: PartnerShift = {
+          date: r.date, shiftTypeId: r.shiftTypeId, label: r.label,
+          ...(r.note ? { note: r.note } : {}),
+        };
         next.partner.shifts.push(entry);
       }
       break;
@@ -105,6 +113,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
         date: r.date,
         shiftTypeId: r.shiftTypeId,
         label: r.label,
+        ...(r.note ? { note: r.note } : {}),
       }));
       next.dependents = {
         ...next.dependents,

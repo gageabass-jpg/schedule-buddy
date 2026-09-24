@@ -36,6 +36,8 @@ export interface OTShift {
   shiftTypeId: string;
   label: string;
   coworkers?: string;
+  /** Free text carried over from an import — e.g. who else is on. */
+  note?: string;
 }
 
 export interface OTOpportunity {
@@ -54,6 +56,8 @@ export interface PartnerShift {
   date: string;
   shiftTypeId: string;
   label: string;
+  /** Free text carried over from an import — e.g. who else is on. */
+  note?: string;
 }
 
 export interface CaregiverBlackout {
@@ -67,6 +71,8 @@ export interface DependentShift {
   date: string;        // YYYY-MM-DD
   shiftTypeId?: string;   // optional, if school has named blocks
   label: string;       // free text — e.g. "school", "half day", "field trip"
+  /** Free text carried over from an import. */
+  note?: string;
 }
 
 export interface DependentBlock {

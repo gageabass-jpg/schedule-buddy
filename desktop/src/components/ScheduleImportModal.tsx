@@ -33,7 +33,7 @@ interface Props {
 type Phase =
   | { kind: "upload" }
   | { kind: "parsing"; step: ParseStep }
-  | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number }
+  | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number; source: "photo" | "sheet" }
   | { kind: "saving" }
   | { kind: "saved"; count: number };
 
@@ -162,6 +162,7 @@ export function ScheduleImportModal({
         rows: editable,
         monthCovered: sheet.result.monthCovered,
         countedDays: sheet.result.countedDays,
+        source: "sheet",
       });
       return;
     }
@@ -202,7 +203,7 @@ export function ScheduleImportModal({
       rid: `r${i}`,
       skipped: false,
     }));
-    setPhase({ kind: "review", rows: editable, monthCovered: result.monthCovered, countedDays: result.countedDays });
+    setPhase({ kind: "review", rows: editable, monthCovered: result.monthCovered, countedDays: result.countedDays, source: "photo" });
   };
 
   const onSave = async () => {
@@ -216,6 +217,7 @@ export function ScheduleImportModal({
       date: r.date,
       shiftTypeId: r.shiftTypeId as string,
       label: r.label,
+      ...(r.note ? { note: r.note } : {}),
     }));
     if (rows.length === 0) {
       setErr("Nothing to add — every row is skipped, needs a shift type, or still has a flag to clear.");
@@ -234,7 +236,13 @@ export function ScheduleImportModal({
       setPhase({ kind: "saved", count: rows.length });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the import.");
-      setPhase({ kind: "review", rows: phase.rows, monthCovered: phase.monthCovered });
+      setPhase({
+        kind: "review",
+        rows: phase.rows,
+        monthCovered: phase.monthCovered,
+        countedDays: phase.countedDays,
+        source: phase.source,
+      });
     }
   };
 
@@ -362,6 +370,7 @@ export function ScheduleImportModal({
             dark={dark}
             contextMonth={contextMonth}
             countedDays={phase.countedDays}
+            source={phase.source}
             image={image}
             onUpdate={updateRow}
           />
@@ -459,7 +468,7 @@ function flagFor(row: EditableRow, validIds: Set<string>, contextMonth: string):
 }
 
 function ReviewPhase({
-  rows, shiftTypes, t, dark, contextMonth, countedDays, image, onUpdate,
+  rows, shiftTypes, t, dark, contextMonth, countedDays, source, image, onUpdate,
 }: {
   rows: EditableRow[];
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
@@ -467,6 +476,7 @@ function ReviewPhase({
   dark: boolean;
   contextMonth: string;
   countedDays?: number;
+  source: "photo" | "sheet";
   image: { dataUrl: string } | null;
   onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
 }) {
@@ -573,6 +583,7 @@ function ReviewPhase({
             shiftTypes={shiftTypes}
             t={t}
             paper={paper}
+            source={source}
             first={i === 0}
             onUpdate={onUpdate}
           />
@@ -628,13 +639,14 @@ function Banner({ t, children, action }: { t: ThemeTokens; children: React.React
 }
 
 function ReviewRow({
-  row, flag, shiftTypes, t, paper, first, onUpdate,
+  row, flag, shiftTypes, t, paper, source, first, onUpdate,
 }: {
   row: EditableRow;
   flag: RowFlag;
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
   t: ThemeTokens;
   paper: string;
+  source: "photo" | "sheet";
   first: boolean;
   onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
 }) {
@@ -694,7 +706,15 @@ function ReviewRow({
         <div style={{ fontSize: 13.5, color: flag === "not-a-time" ? CLAY : t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {row.label || "—"}
         </div>
-        <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", color: t.text3, marginTop: 3 }}>READ FROM PHOTO</div>
+        {row.note ? (
+          <div title={row.note} style={{ fontSize: 12, color: t.text2, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {row.note}
+          </div>
+        ) : (
+          <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", color: t.text3, marginTop: 3 }}>
+            {source === "sheet" ? "READ FROM SHEET" : "READ FROM PHOTO"}
+          </div>
+        )}
       </div>
 
       <div style={{ minHeight: 38, display: "flex", alignItems: "center" }}>
