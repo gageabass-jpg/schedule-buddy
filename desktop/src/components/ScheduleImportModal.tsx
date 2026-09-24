@@ -3,11 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import { personColor } from "../theme";
 import type { HouseholdState } from "../state";
 import { compactTime } from "../state";
-import {
-  SCHEDULE_IMPORTS,
-  findScheduleImport,
-  type ImportTarget,
-} from "../scheduleImports";
+import { findScheduleImport, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
 import { MONTHS_LONG, WEEKDAYS_3 } from "../data";
 import type { ParsedShiftRow } from "../global";
@@ -47,6 +43,11 @@ interface EditableRow extends ParsedShiftRow {
   skipped: boolean;
 }
 
+/** "Work Schedule" / "School Schedule" — the subtitle beside the person. */
+function scheduleKindLabel(target: ImportTarget): string {
+  return target === "dependent-daisy" ? "School Schedule" : "Work Schedule";
+}
+
 /** Person whose colour rule the cards carry, from the import target. */
 function whoFor(target: ImportTarget): "G" | "K" | "D" {
   return target === "self-ot" ? "G" : target === "partner" ? "K" : "D";
@@ -56,8 +57,8 @@ export function ScheduleImportModal({
   scheduleId, onClose, onNeedApiKey, palette, t, dark, householdId, state,
   today, contextMonth,
 }: Props) {
-  // The modal opens on one person's row but carries the prototype's person
-  // tabs; switching a tab re-targets the import to that person.
+  // The sidebar row that opened the modal fixes which schedule is being
+  // imported — the person is named in the header, not re-chosen in here.
   const [activeId, setActiveId] = useState<string | null>(scheduleId);
   const def = activeId ? findScheduleImport(activeId) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
@@ -76,15 +77,6 @@ export function ScheduleImportModal({
   }, [scheduleId]);
 
   if (!scheduleId || !def) return null;
-
-  // Switch the active person tab — a fresh upload for that person.
-  const onPickPerson = (id: string) => {
-    if (id === activeId) return;
-    setActiveId(id);
-    setPhase({ kind: "upload" });
-    setImage(null);
-    setErr(null);
-  };
 
   const onPickFile = async (file: File) => {
     setErr(null);
@@ -209,7 +201,12 @@ export function ScheduleImportModal({
       ? phase.rows.filter((r) => !r.skipped && r.shiftTypeId && validIds.has(r.shiftTypeId)).length
       : 0;
 
-  const showTabs = phase.kind !== "saved";
+  const footerNote =
+    phase.kind === "upload" ? "Nucleus reads it, then you check every shift before anything is saved."
+      : phase.kind === "review" ? "Nothing is written until you press Add."
+        : phase.kind === "parsing" ? "Reading the photo…"
+          : phase.kind === "saving" ? "Saving…"
+            : "";
 
   return (
     <>
@@ -223,12 +220,12 @@ export function ScheduleImportModal({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(560px, calc(100vw - 32px))",
+          width: "min(660px, calc(100vw - 32px))",
           maxHeight: "calc(100vh - 64px)",
           background: t.bgElev,
           color: t.text,
           border: `1px solid ${t.sep}`,
-          borderRadius: 12,
+          borderRadius: 10,
           boxShadow: dark ? "0 24px 64px rgba(0,0,0,0.6)" : "0 24px 64px rgba(20,32,30,0.28)",
           zIndex: 1101,
           fontFamily: "inherit",
@@ -237,17 +234,29 @@ export function ScheduleImportModal({
           overflow: "hidden",
         }}
       >
-        {/* Header */}
-        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 12px" }}>
-          <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 16, letterSpacing: "-0.01em", color: t.text }}>
-            Read from a photo
-          </span>
+        {/* Header — the title, then which schedule this is, over a rule. */}
+        <div
+          style={{
+            flexShrink: 0, padding: "20px 22px 16px", borderBottom: `1px solid ${t.sep}`,
+            display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 20, letterSpacing: "-0.02em", lineHeight: 1.15, color: t.text }}>
+              Read a schedule from a photo
+            </div>
+            {/* The sidebar row that opened this already picked the person, so
+                the schedule is named here rather than re-chosen with tabs. */}
+            <div style={{ marginTop: 6, fontSize: 14, color: t.text2 }}>
+              {def.personLabel} <span style={{ color: t.text3 }}>|</span> {scheduleKindLabel(def.target)}
+            </div>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             style={{
-              width: 30, height: 30, flexShrink: 0, padding: 0,
+              width: 38, height: 38, flexShrink: 0, padding: 0,
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               border: `1px solid ${t.sep}`, borderRadius: 4, background: t.bgElev, color: t.text, cursor: "pointer",
             }}
@@ -256,40 +265,16 @@ export function ScheduleImportModal({
           </button>
         </div>
 
-        {/* Person tabs + review heading */}
-        {showTabs && (
-          <div style={{ flexShrink: 0, padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", border: `1px solid ${t.sep}`, borderRadius: 6, overflow: "hidden", background: t.bgElev }}>
-              {SCHEDULE_IMPORTS.map((s, i) => {
-                const on = s.id === activeId;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => onPickPerson(s.id)}
-                    style={{
-                      flexGrow: 1, flexBasis: 0, minWidth: 0, height: 40,
-                      border: 0, borderLeft: i === 0 ? 0 : `1px solid ${t.sep}`,
-                      background: on ? TEAL_TINT : t.bgElev,
-                      color: on ? BRAND_TEAL : t.text2,
-                      fontFamily: "inherit", fontSize: 13, fontWeight: on ? 600 : 500,
-                      cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}
-                  >
-                    {s.personLabel}
-                  </button>
-                );
-              })}
-            </div>
-
-            {phase.kind === "review" && <ReviewHeading rows={phase.rows} shiftTypes={shiftTypes} t={t} />}
+        {phase.kind === "review" && (
+          <div style={{ flexShrink: 0, padding: "14px 22px 0" }}>
+            <ReviewHeading rows={phase.rows} shiftTypes={shiftTypes} t={t} />
           </div>
         )}
 
         {/* Body */}
         {phase.kind === "upload" && (
           <UploadPhase
-            t={t} dark={dark} palette={palette} who={who} def={def}
+            t={t} dark={dark}
             image={image} hasKey={hasKey}
             onDrop={onDrop} onPickFile={onPickFile} onClear={() => setImage(null)}
             onNeedApiKey={onNeedApiKey}
@@ -344,33 +329,36 @@ export function ScheduleImportModal({
           <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: CLAY, lineHeight: 1.45 }}>{err}</div>
         )}
 
-        {/* Footer */}
-        <div style={{ flexShrink: 0, padding: "12px 16px 16px", borderTop: `1px solid ${t.sep}`, display: "flex", flexDirection: "column", gap: 9 }}>
+        {/* Footer — the reassurance on the left, the actions on the right. */}
+        <div
+          style={{
+            flexShrink: 0, padding: "14px 22px", borderTop: `1px solid ${t.sep}`,
+            background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3",
+            display: "flex", alignItems: "center", gap: 12,
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: t.text2, lineHeight: 1.4 }}>{footerNote}</span>
           {phase.kind === "upload" && (
-            <button
-              type="button"
-              onClick={onParse}
-              disabled={!image || !hasKey}
-              style={footerBtn(!image || !hasKey)}
-            >
-              {hasKey ? "Read the schedule" : "Add an API key first"}
-            </button>
+            <>
+              <button type="button" onClick={onClose} style={ghostBtn(t)}>Cancel</button>
+              <button type="button" onClick={onParse} disabled={!image || !hasKey} style={primaryBtn(!image || !hasKey, t)}>
+                Extract
+              </button>
+            </>
           )}
           {phase.kind === "review" && (
             <>
-              <button type="button" onClick={onSave} disabled={addCount === 0} style={footerBtn(addCount === 0)}>
+              <button type="button" onClick={onClose} style={ghostBtn(t)}>Cancel</button>
+              <button type="button" onClick={onSave} disabled={addCount === 0} style={primaryBtn(addCount === 0, t)}>
                 Add {addCount} to schedule
               </button>
-              <span style={{ textAlign: "center", fontSize: 11, color: t.text3 }}>
-                Nothing is written until you tap this.
-              </span>
             </>
           )}
           {phase.kind === "saved" && (
-            <button type="button" onClick={onClose} style={footerBtn(false)}>Done</button>
+            <button type="button" onClick={onClose} style={primaryBtn(false, t)}>Done</button>
           )}
           {(phase.kind === "parsing" || phase.kind === "saving") && (
-            <button type="button" onClick={onClose} style={secondaryBtn(t)}>Cancel</button>
+            <button type="button" onClick={onClose} style={ghostBtn(t)}>Cancel</button>
           )}
         </div>
       </div>
@@ -524,13 +512,10 @@ function DayCard({
 // ── Upload phase ─────────────────────────────────────────────────────────────
 
 function UploadPhase({
-  t, dark, palette, who, def, image, hasKey, onDrop, onPickFile, onClear, onNeedApiKey,
+  t, dark, image, hasKey, onDrop, onPickFile, onClear, onNeedApiKey,
 }: {
   t: ThemeTokens;
   dark: boolean;
-  palette: Palette;
-  who: "G" | "K" | "D";
-  def: { personLabel: string };
   image: { dataUrl: string } | null;
   hasKey: boolean;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -538,40 +523,75 @@ function UploadPhase({
   onClear: () => void;
   onNeedApiKey: () => void;
 }) {
+  const paper = dark ? "rgba(255,255,255,0.03)" : "#F7F6F3";
   return (
-    <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 4px", display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 12.5, color: t.text2, lineHeight: 1.45 }}>
-        Drop a photo of {def.personLabel}'s schedule. Nucleus reads it, you review, then add it.
-      </div>
+    <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "18px 22px 8px", display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Reading a photo needs the Anthropic key, which lives in the Mac
+          keychain — say so up front rather than failing at Extract. */}
+      {!hasKey && (
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 14,
+            padding: "14px 16px", borderRadius: 6,
+            border: `1px dashed ${CLAY}`, background: CLAY_TINT,
+          }}
+        >
+          <KeyIcon />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: CLAY }}>No API key yet</div>
+            <div style={{ fontSize: 12.5, color: CLAY, marginTop: 2, lineHeight: 1.4 }}>
+              Reading a photo requires one. It is stored on this Mac only.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onNeedApiKey}
+            style={{
+              flexShrink: 0, height: 40, padding: "0 16px", borderRadius: 4,
+              border: `1px solid ${CLAY}`, background: "transparent", color: CLAY,
+              fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Add a key
+          </button>
+        </div>
+      )}
+
       <div
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
         style={{
-          minHeight: 200,
+          minHeight: 260,
           border: `1px dashed ${t.sep}`,
-          borderRadius: 8,
-          padding: 16,
+          borderRadius: 6,
+          padding: 20,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: dark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+          background: paper,
         }}
       >
         {image ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <img src={image.dataUrl} alt="" style={{ maxWidth: 360, maxHeight: 240, borderRadius: 8, border: `1px solid ${t.sep}` }} />
+            <img src={image.dataUrl} alt="" style={{ maxWidth: 400, maxHeight: 260, borderRadius: 6, border: `1px solid ${t.sep}` }} />
             <button type="button" onClick={onClear} style={linkBtn(t.text2)}>Choose a different photo</button>
           </div>
         ) : (
-          <div style={{ textAlign: "center", color: t.text2 }}>
-            <span style={{ width: 3, height: 26, borderRadius: 2, background: personColor(who, palette), display: "inline-block", marginBottom: 8 }} />
-            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>Drop a schedule photo here</div>
-            <div style={{ fontSize: 11.5, marginTop: 4 }}>or</div>
+          <div style={{ textAlign: "center" }}>
+            <CameraIcon color={t.text3} />
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 16.5, fontWeight: 600, color: t.text, marginTop: 12, letterSpacing: "-0.01em" }}>
+              Drop a photo of the posted schedule
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "16px auto 0", maxWidth: 240 }}>
+              <span style={{ flex: 1, height: 1, background: t.sep }} />
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.14em", color: t.text3 }}>OR</span>
+              <span style={{ flex: 1, height: 1, background: t.sep }} />
+            </div>
             <label
               style={{
-                display: "inline-block", marginTop: 8, padding: "7px 14px", borderRadius: 6,
+                display: "inline-block", marginTop: 16, padding: "10px 18px", borderRadius: 4,
                 border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
-                fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                fontFamily: BRAND_FONT, fontSize: 13.5, fontWeight: 600, cursor: "pointer",
               }}
             >
               Browse files
@@ -585,16 +605,32 @@ function UploadPhase({
           </div>
         )}
       </div>
-      {!hasKey && (
-        <button type="button" onClick={onNeedApiKey} style={{ ...linkBtn(BRAND_TEAL), alignSelf: "flex-start" }}>
-          Add an API key to read photos →
-        </button>
-      )}
+
+      <div style={{ fontSize: 12.5, color: t.text3 }}>JPG, PNG or HEIC, up to 10 MB.</div>
     </div>
   );
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
+
+function KeyIcon() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx={8} cy={12} r={3.2} stroke={CLAY} strokeWidth={1.7} />
+      <path d="M11.2 12H20M17 12v3M14 12v2" stroke={CLAY} strokeWidth={1.7} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CameraIcon({ color }: { color: string }) {
+  return (
+    <svg width={46} height={46} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x={2.6} y={6.4} width={18.8} height={13} rx={2.4} stroke={color} strokeWidth={1.4} />
+      <path d="M8.6 6.4l1.3-2.1h4.2l1.3 2.1" stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
+      <circle cx={12} cy={12.9} r={3.6} stroke={color} strokeWidth={1.4} />
+    </svg>
+  );
+}
 
 function XIcon() {
   return (
@@ -620,21 +656,22 @@ function TrashIcon({ color }: { color: string }) {
 
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
-function footerBtn(disabled: boolean): React.CSSProperties {
+function ghostBtn(t: ThemeTokens): React.CSSProperties {
   return {
-    width: "100%", height: 46, boxSizing: "border-box",
-    borderRadius: 8, border: "none", background: BRAND_TEAL, color: "#FFFFFF",
-    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 15,
-    display: "inline-flex", alignItems: "center", justifyContent: "center",
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
+    height: 44, padding: "0 20px", boxSizing: "border-box", flexShrink: 0,
+    borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
+    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 13, cursor: "pointer",
   };
 }
 
-function secondaryBtn(t: ThemeTokens): React.CSSProperties {
+function primaryBtn(disabled: boolean, t: ThemeTokens): React.CSSProperties {
   return {
-    width: "100%", height: 46, boxSizing: "border-box",
-    borderRadius: 8, border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
-    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 14, cursor: "pointer",
+    height: 44, padding: "0 22px", boxSizing: "border-box", flexShrink: 0,
+    borderRadius: 4, border: `1px solid ${disabled ? t.sep : BRAND_TEAL}`,
+    background: disabled ? t.bgElev2 : BRAND_TEAL,
+    color: disabled ? t.text3 : "#FFFFFF",
+    fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 13,
+    cursor: disabled ? "not-allowed" : "pointer",
   };
 }
 
