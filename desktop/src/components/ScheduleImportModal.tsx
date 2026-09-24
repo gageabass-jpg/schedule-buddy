@@ -5,6 +5,7 @@ import type { HouseholdState } from "../state";
 import { compactTime } from "../state";
 import { findScheduleImport, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
+import { parseScheduleXlsx, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { MONTHS_LONG, WEEKDAYS_3 } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
@@ -66,6 +67,8 @@ export function ScheduleImportModal({
   const def = activeId ? findScheduleImport(activeId) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
   const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string; name: string; size: number } | null>(null);
+  /** A spreadsheet export, read locally — no model and no API key involved. */
+  const [sheet, setSheet] = useState<{ name: string; size: number; result: XlsxParseResult } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [hasKey, setHasKey] = useState<boolean>(false);
 
@@ -75,6 +78,7 @@ export function ScheduleImportModal({
     setActiveId(scheduleId);
     setPhase({ kind: "upload" });
     setImage(null);
+    setSheet(null);
     setErr(null);
     window.sbm?.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
   }, [scheduleId]);
@@ -83,6 +87,28 @@ export function ScheduleImportModal({
 
   const onPickFile = async (file: File) => {
     setErr(null);
+    if (isSpreadsheet(file)) {
+      try {
+        const buf = await file.arrayBuffer();
+        const result = parseScheduleXlsx(buf, def.personLabel, state?.shiftTypes ?? []);
+        if (result.error) {
+          const who = result.peopleFound.length
+            ? ` The sheet lists: ${result.peopleFound.slice(0, 6).join(", ")}${result.peopleFound.length > 6 ? "…" : ""}.`
+            : "";
+          setErr(result.error + who);
+          return;
+        }
+        if (result.rows.length === 0) {
+          setErr(`Found ${def.personLabel}'s row, but no shifts in it.`);
+          return;
+        }
+        setImage(null);
+        setSheet({ name: file.name || "schedule.xlsx", size: file.size, result });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Couldn't read that spreadsheet.");
+      }
+      return;
+    }
     try {
       // Always re-encode through canvas so we (a) normalize HEIC/BMP/etc. to
       // JPEG and (b) downscale + recompress until we're under Anthropic's
@@ -115,14 +141,30 @@ export function ScheduleImportModal({
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
+    if (file && (file.type.startsWith("image/") || isSpreadsheet(file))) {
       void onPickFile(file);
     } else {
-      setErr("Drop an image file.");
+      setErr("Drop a photo or an .xlsx schedule export.");
     }
   };
 
   const onParse = async () => {
+    if (sheet) {
+      const validIds = new Set((state?.shiftTypes ?? []).map((x) => x.id));
+      const editable: EditableRow[] = sheet.result.rows.map((r, i) => ({
+        ...r,
+        shiftTypeId: r.shiftTypeId && validIds.has(r.shiftTypeId) ? r.shiftTypeId : null,
+        rid: `x${i}`,
+        skipped: false,
+      }));
+      setPhase({
+        kind: "review",
+        rows: editable,
+        monthCovered: sheet.result.monthCovered,
+        countedDays: sheet.result.countedDays,
+      });
+      return;
+    }
     if (!image) return;
     if (!window.sbm) {
       setErr("Vision parsing only works inside the Nucleus Manager app.");
@@ -233,6 +275,8 @@ export function ScheduleImportModal({
         ? `${def.personLabel}  |  ${scheduleKindLabel(def.target)} · ${phase.rows.length} shift${phase.rows.length === 1 ? "" : "s"} extracted`
         : `${def.personLabel}  |  ${scheduleKindLabel(def.target)}`;
 
+  const canExtract = !!sheet || (!!image && hasKey);
+
   const footerNote =
     phase.kind === "upload" ? "Nucleus reads it, then you check every shift before anything is saved."
       : phase.kind === "review" ? "A skipped row is not saved."
@@ -299,8 +343,9 @@ export function ScheduleImportModal({
         {phase.kind === "upload" && (
           <UploadPhase
             t={t} dark={dark}
-            image={image} hasKey={hasKey}
-            onDrop={onDrop} onPickFile={onPickFile} onClear={() => setImage(null)}
+            image={image} sheet={sheet} hasKey={hasKey}
+            onDrop={onDrop} onPickFile={onPickFile}
+            onClear={() => { setImage(null); setSheet(null); }}
             onNeedApiKey={onNeedApiKey}
           />
         )}
@@ -355,7 +400,7 @@ export function ScheduleImportModal({
           {phase.kind === "upload" && (
             <>
               <button type="button" onClick={onClose} style={ghostBtn(t)}>Cancel</button>
-              <button type="button" onClick={onParse} disabled={!image || !hasKey} style={primaryBtn(!image || !hasKey, t)}>
+              <button type="button" onClick={onParse} disabled={!canExtract} style={primaryBtn(!canExtract, t)}>
                 Extract
               </button>
             </>
@@ -687,12 +732,19 @@ function ReviewRow({
 
 // ── Upload phase ─────────────────────────────────────────────────────────────
 
+/** Spreadsheet exports we can read without a model. */
+export function isSpreadsheet(file: File): boolean {
+  return /\.(xlsx|xlsm)$/i.test(file.name) ||
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+}
+
 function UploadPhase({
-  t, dark, image, hasKey, onDrop, onPickFile, onClear, onNeedApiKey,
+  t, dark, image, sheet, hasKey, onDrop, onPickFile, onClear, onNeedApiKey,
 }: {
   t: ThemeTokens;
   dark: boolean;
   image: { dataUrl: string } | null;
+  sheet: { name: string; size: number; result: { rows: unknown[]; countedDays: number } } | null;
   hasKey: boolean;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onPickFile: (f: File) => void;
@@ -704,7 +756,7 @@ function UploadPhase({
     <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", padding: "18px 22px 8px", display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Reading a photo needs the Anthropic key, which lives in the Mac
           keychain — say so up front rather than failing at Extract. */}
-      {!hasKey && (
+      {!hasKey && !sheet && (
         <div
           style={{
             display: "flex", alignItems: "center", gap: 14,
@@ -747,7 +799,16 @@ function UploadPhase({
           background: paper,
         }}
       >
-        {image ? (
+        {sheet ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
+            <SheetIcon color={BRAND_TEAL} />
+            <div style={{ fontFamily: BRAND_FONT, fontSize: 16, fontWeight: 600, color: t.text, marginTop: 4 }}>{sheet.name}</div>
+            <div style={{ fontSize: 13, color: t.text2 }}>
+              {sheet.result.rows.length} shift{sheet.result.rows.length === 1 ? "" : "s"} found · read without a model
+            </div>
+            <button type="button" onClick={onClear} style={linkBtn(t.text2)}>Choose a different file</button>
+          </div>
+        ) : image ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
             <img src={image.dataUrl} alt="" style={{ maxWidth: 400, maxHeight: 260, borderRadius: 6, border: `1px solid ${t.sep}` }} />
             <button type="button" onClick={onClear} style={linkBtn(t.text2)}>Choose a different photo</button>
@@ -756,7 +817,7 @@ function UploadPhase({
           <div style={{ textAlign: "center" }}>
             <CameraIcon color={t.text3} />
             <div style={{ fontFamily: BRAND_FONT, fontSize: 16.5, fontWeight: 600, color: t.text, marginTop: 12, letterSpacing: "-0.01em" }}>
-              Drop a photo of the posted schedule
+              Drop a photo or a spreadsheet export
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "16px auto 0", maxWidth: 240 }}>
               <span style={{ flex: 1, height: 1, background: t.sep }} />
@@ -773,7 +834,7 @@ function UploadPhase({
               Browse files
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.xlsx,.xlsm"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickFile(f); }}
                 style={{ display: "none" }}
               />
@@ -782,7 +843,9 @@ function UploadPhase({
         )}
       </div>
 
-      <div style={{ fontSize: 12.5, color: t.text3 }}>JPG, PNG or HEIC, up to 10 MB.</div>
+      <div style={{ fontSize: 12.5, color: t.text3 }}>
+        JPG, PNG or HEIC, up to 10 MB — or an .xlsx export, which is read here without a model.
+      </div>
     </div>
   );
 }
@@ -904,6 +967,15 @@ function CameraIcon({ color }: { color: string }) {
       <rect x={2.6} y={6.4} width={18.8} height={13} rx={2.4} stroke={color} strokeWidth={1.4} />
       <path d="M8.6 6.4l1.3-2.1h4.2l1.3 2.1" stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
       <circle cx={12} cy={12.9} r={3.6} stroke={color} strokeWidth={1.4} />
+    </svg>
+  );
+}
+
+function SheetIcon({ color }: { color: string }) {
+  return (
+    <svg width={42} height={42} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x={3.4} y={3.4} width={17.2} height={17.2} rx={2.2} stroke={color} strokeWidth={1.4} />
+      <path d="M3.6 9.2h16.8M3.6 14.8h16.8M9.2 3.6v17M14.8 3.6v17" stroke={color} strokeWidth={1.1} />
     </svg>
   );
 }
