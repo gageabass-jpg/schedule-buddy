@@ -4,7 +4,7 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { DependentBlock } from "../state";
 import type { ThemePref } from "../App";
-import { setHouseholdName } from "../lib/writeHouseholdMeta";
+import { setHouseholdName, setEmployer } from "../lib/writeHouseholdMeta";
 import { setPaydaySchedule } from "../lib/writePaydays";
 import type { PaydaySchedule } from "../state";
 import { createInviteCode } from "../lib/createInviteCode";
@@ -68,6 +68,11 @@ export function FamilyConsole({
   const [caregiverCopied, setCaregiverCopied] = useState(false);
   const [caregiverBusy, setCaregiverBusy] = useState(false);
 
+  // Who each person works for — a shift shows this as its "where" unless the
+  // shift names its own location.
+  const [employers, setEmployers] = useState<{ G: string; K: string; D: string }>({ G: "", K: "", D: "" });
+  const [employerBusy, setEmployerBusy] = useState<"G" | "K" | "D" | null>(null);
+
   const [removingUid, setRemovingUid] = useState<string | null>(null);
   const [tab, setTab] = useState<NavKey>("general");
 
@@ -81,7 +86,12 @@ export function FamilyConsole({
     setCaregiverCode(null);
     setCaregiverCopied(false);
     setCaregiverEmail("");
-  }, [open, state?.householdName, household]);
+    setEmployers({
+      G: state?.employers?.G ?? "",
+      K: state?.employers?.K ?? "",
+      D: state?.employers?.D ?? "",
+    });
+  }, [open, state?.householdName, state?.employers, household]);
 
   if (!open) return null;
 
@@ -94,6 +104,15 @@ export function FamilyConsole({
     try { await setHouseholdName(householdId, draftName); }
     catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
     finally { setBusy(false); }
+  };
+
+  const onSaveEmployer = async (who: "G" | "K" | "D") => {
+    if (!householdId) { setErr("No household linked."); return; }
+    setErr(null);
+    setEmployerBusy(who);
+    try { await setEmployer(householdId, who, employers[who]); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
+    finally { setEmployerBusy(null); }
   };
 
   const onCopyCode = async () => {
@@ -274,6 +293,12 @@ export function FamilyConsole({
                 draftName={draftName} setDraftName={setDraftName}
                 tz={tz} setTz={setTz}
                 busy={busy} onSaveName={onSaveName}
+                selfName={state?.selfName?.trim() || "Gage"}
+                partnerName={state?.partner?.name?.trim() || "Kaylene"}
+                daisyName={state?.dependents?.daisy?.name?.trim() || "Daisy"}
+                employers={employers} setEmployers={setEmployers}
+                savedEmployers={state?.employers ?? {}}
+                employerBusy={employerBusy} onSaveEmployer={onSaveEmployer}
                 inviteCode={household?.inviteCode ?? null}
                 copied={copied} onCopyCode={onCopyCode}
                 caregiverEmail={caregiverEmail} setCaregiverEmail={setCaregiverEmail}
@@ -349,6 +374,12 @@ function GeneralTab(p: {
   draftName: string; setDraftName: (v: string) => void;
   tz: string; setTz: (v: string) => void;
   busy: boolean; onSaveName: () => void;
+  selfName: string; partnerName: string; daisyName: string;
+  employers: { G: string; K: string; D: string };
+  setEmployers: (v: { G: string; K: string; D: string }) => void;
+  savedEmployers: { G?: string; K?: string; D?: string };
+  employerBusy: "G" | "K" | "D" | null;
+  onSaveEmployer: (who: "G" | "K" | "D") => void;
   inviteCode: string | null;
   copied: boolean; onCopyCode: () => void;
   caregiverEmail: string; setCaregiverEmail: (v: string) => void;
@@ -397,6 +428,47 @@ function GeneralTab(p: {
           </div>
         </div>
       </Section>
+
+      {/* EMPLOYERS — a shift shows these as its "where". */}
+      <Section t={t} label="Employers">
+        <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 12, lineHeight: 1.45 }}>
+          Shown as a shift's location when the shift doesn't name one itself, so changing a job
+          updates every shift rather than leaving the old employer on past dates.
+        </div>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {([
+            ["G", p.selfName, "Thomas Hospital"],
+            ["K", p.partnerName, "Sterile Processing"],
+            ["D", p.daisyName, "School or college"],
+          ] as Array<["G" | "K" | "D", string, string]>).map(([who, label, placeholder]) => {
+            const dirty = (p.employers[who] ?? "") !== (p.savedEmployers[who] ?? "");
+            const saving = p.employerBusy === who;
+            return (
+              <div key={who} style={{ flex: 1, minWidth: 240 }}>
+                <FieldLabel t={t}>{label}</FieldLabel>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    value={p.employers[who]}
+                    onChange={(e) => p.setEmployers({ ...p.employers, [who]: e.target.value })}
+                    placeholder={placeholder}
+                    style={inputStyle(t)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => p.onSaveEmployer(who)}
+                    disabled={saving || !dirty}
+                    style={{ ...primaryBtn, opacity: saving || !dirty ? 0.5 : 1, cursor: saving || !dirty ? "not-allowed" : "pointer" }}
+                  >
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
 
       {/* INVITE CODE */}
       <Section t={t} label="Invite code" desc="Share with a new member to link their Mac or phone.">

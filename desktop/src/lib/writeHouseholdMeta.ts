@@ -28,3 +28,29 @@ export async function setHouseholdName(householdId: string, name: string): Promi
   try { await setDoc(ref, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the household name.", e); }
 }
+
+/**
+ * Set who a person works for. Shown as a shift's "where" whenever the shift
+ * doesn't name its own location, so one edit updates every shift rather than
+ * stamping the employer onto each saved entry.
+ */
+export async function setEmployer(
+  householdId: string,
+  who: "G" | "K" | "D",
+  employer: string,
+): Promise<void> {
+  const trimmed = employer.trim();
+  const ref = doc(db, "households", householdId, "state", "main");
+  let snap;
+  try { snap = await getDoc(ref); }
+  catch (e) { throw new WriteHouseholdMetaError("Couldn't read the household.", e); }
+  if (!snap.exists()) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
+  const current = snap.data() as HouseholdState;
+  const employers = { ...(current.employers ?? {}) };
+  if (trimmed) employers[who] = trimmed;
+  else delete employers[who];
+  const next: HouseholdState = { ...current, employers };
+  if (Object.keys(employers).length === 0) delete next.employers;
+  try { await setDoc(ref, next); }
+  catch (e) { throw new WriteHouseholdMetaError("Couldn't save the employer.", e); }
+}

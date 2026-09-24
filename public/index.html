@@ -10449,6 +10449,10 @@ function mergeStateFromFirestore(data) {
         ? { anchor: data.paydays.K.anchor, freq: data.paydays.K.freq === "weekly" ? "weekly" : "biweekly" }
         : undefined,
     } : undefined,
+    // Per-person employer, shown as a shift's "where" when the shift itself
+    // doesn't name a location. Set in the desktop manager's Console.
+    employers: (data.employers && typeof data.employers === "object" && !Array.isArray(data.employers))
+      ? data.employers : undefined,
     // Optional last day the recurring weekly template applies (inclusive,
     // "YYYY-MM-DD"). Set in the desktop manager's weekly-template editor.
     templateEndDate: typeof data.templateEndDate === "string" ? data.templateEndDate : undefined,

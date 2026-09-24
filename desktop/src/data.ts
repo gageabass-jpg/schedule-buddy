@@ -24,6 +24,8 @@ export interface Shift {
   shiftTypeId?: string;
   /** Free text from the stored entry — e.g. who else is on that shift. */
   note?: string;
+  /** Where this shift is worked. Falls back to the person's employer. */
+  where?: string;
 }
 export type ShiftMap = Record<string, Shift[]>;
 

@@ -291,6 +291,10 @@ export interface HouseholdState {
   events?: Event[];
   /** Display name for the household (e.g. "Bass Household"). */
   householdName?: string;
+  /** Who each person works for. Used as a shift's "where" when the shift
+   *  doesn't name its own location, so changing jobs updates every shift
+   *  rather than leaving the old employer on past dates. Allowlisted on iOS. */
+  employers?: { G?: string; K?: string; D?: string };
   /** Read-only public share (guest link + ICS feed). `shareToken` keys the
    *  sanitized publicShares/{token} mirror; `shareEnabled` gates publishing.
    *  Round-tripped by iOS too. */
@@ -540,6 +544,10 @@ export function buildShiftMap(
 ): ShiftMap {
   const out: ShiftMap = {};
   const types = shiftTypeMap(state);
+  const employerFor = (who: "G" | "K" | "D"): string | undefined =>
+    state.employers?.[who]?.trim() || undefined;
+  const whereOf = (entry: unknown, who: "G" | "K" | "D"): string | undefined =>
+    (entry as { where?: string })?.where?.trim() || employerFor(who);
 
   // Iterate every day in the window.
   const [fy, fm, fd] = windowFrom.split("-").map(Number);
@@ -557,6 +565,7 @@ export function buildShiftMap(
         label,
         source: resolved.source,
         shiftTypeId: resolved.shiftTypeId,
+        ...(employerFor("G") ? { where: employerFor("G") } : {}),
       });
     }
   }
@@ -570,6 +579,7 @@ export function buildShiftMap(
       source: { kind: "ot", index },
       shiftTypeId: o.shiftTypeId,
       ...(o.note || o.coworkers ? { note: o.note || o.coworkers } : {}),
+      ...(whereOf(o, "G") ? { where: whereOf(o, "G") } : {}),
     });
   });
 
@@ -583,7 +593,7 @@ export function buildShiftMap(
       const id = templateShiftId(kTmpl, key, dow);
       const label = chipLabel(types, id);
       if (label && id) {
-        push(out, key, { who: "K", label, source: { kind: "template" }, shiftTypeId: id });
+        push(out, key, { who: "K", label, source: { kind: "template" }, shiftTypeId: id, ...(employerFor("K") ? { where: employerFor("K") } : {}) });
       }
     }
   }
@@ -597,6 +607,7 @@ export function buildShiftMap(
       source: { kind: "partner", index },
       shiftTypeId: p.shiftTypeId,
       ...(p.note ? { note: p.note } : {}),
+      ...(whereOf(p, "K") ? { where: whereOf(p, "K") } : {}),
     });
   });
 
@@ -611,13 +622,20 @@ export function buildShiftMap(
       const key = fmtDate(cur.getFullYear(), cur.getMonth(), cur.getDate());
       const id = templateShiftId(dTmpl, key, cur.getDay());
       const label = chipLabel(types, id);
-      if (label && id) push(out, key, { who: "D", label, shiftTypeId: id });
+      if (label && id) push(out, key, {
+        who: "D", label, shiftTypeId: id,
+        ...(employerFor("D") ? { where: employerFor("D") } : {}),
+      });
     }
   }
   for (const s of state.dependents?.daisy?.shifts ?? []) {
     if (!s.date) continue;
     const label = s.shiftTypeId ? chipLabel(types, s.shiftTypeId) : (s.label || null);
-    if (label) push(out, s.date, { who: "D", label, shiftTypeId: s.shiftTypeId, ...(s.note ? { note: s.note } : {}) });
+    if (label) push(out, s.date, {
+      who: "D", label, shiftTypeId: s.shiftTypeId,
+      ...(s.note ? { note: s.note } : {}),
+      ...(whereOf(s, "D") ? { where: whereOf(s, "D") } : {}),
+    });
   }
 
   return out;
