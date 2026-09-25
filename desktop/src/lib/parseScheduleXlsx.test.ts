@@ -27,6 +27,13 @@ describe("parseTimeRange", () => {
     expect(parseTimeRange("6-230 Lacey")?.matched.trim()).toBe("6-230");
   });
 
+  it("reads the labels the review table offers to make a type from", () => {
+    // "10a-730p" is what the photo said on the row that couldn't be saved.
+    expect(parseTimeRange("10a-730p")).toMatchObject({ start: "10:00", end: "19:30" });
+    expect(parseTimeRange("10a-5p")).toMatchObject({ start: "10:00", end: "17:00" });
+    expect(parseTimeRange("7p-730a")).toMatchObject({ start: "19:00", end: "07:30" });
+  });
+
   it("returns null when there is no range at all", () => {
     expect(parseTimeRange("V")).toBeNull();
     expect(parseTimeRange("holiday")).toBeNull();

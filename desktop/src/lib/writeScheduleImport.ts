@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import type {
+  ShiftType,
   HouseholdState,
   OTShift,
   PartnerShift,
@@ -35,6 +36,9 @@ export interface WriteImportInput {
   target: ImportTarget;
   rows: ImportRow[];
   monthCovered?: string;
+  /** Types the review table asked to create, from hours the photo showed that
+   *  nothing in the catalog matched. Added before the rows are validated. */
+  newShiftTypes?: ShiftType[];
 }
 
 function newId(): string {
@@ -62,9 +66,17 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
   }
   const current = snap.data() as HouseholdState;
 
+  // Types the user asked for go in first, so rows pointing at them validate.
+  // Anything already in the catalog with the same hours is reused rather than
+  // duplicated — re-importing shouldn't grow the list every time.
+  const catalog: ShiftType[] = [...(current.shiftTypes ?? [])];
+  for (const t of input.newShiftTypes ?? []) {
+    if (!catalog.some((x) => x.start === t.start && x.end === t.end)) catalog.push(t);
+  }
+
   // Defensive: refuse rows whose shiftTypeId isn't in the catalog. Otherwise
   // buildShiftMap will silently drop them and they'd never render.
-  const validIds = new Set((current.shiftTypes ?? []).map((s) => s.id));
+  const validIds = new Set(catalog.map((s) => s.id));
   const bad = rows.filter((r) => !validIds.has(r.shiftTypeId));
   if (bad.length > 0) {
     const list = bad.slice(0, 3).map((r) => `${r.date} → ${r.shiftTypeId}`).join(", ");
@@ -77,6 +89,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
 
   const next: HouseholdState = {
     ...current,
+    shiftTypes: catalog,
     ot: [...(current.ot ?? [])],
     partner: { ...current.partner, shifts: [...(current.partner?.shifts ?? [])] },
     dependents: { ...(current.dependents ?? {}) },

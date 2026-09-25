@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
-import type { HouseholdState } from "../state";
-import { compactTime } from "../state";
+import type { HouseholdState, ShiftType } from "../state";
+import { compactTime, isCustomType } from "../state";
 import { findScheduleImport, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
-import { parseScheduleXlsx, type XlsxParseResult } from "../lib/parseScheduleXlsx";
+import { parseScheduleXlsx, parseTimeRange, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { normalizeImage } from "../lib/normalizeImage";
 import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
@@ -35,6 +35,25 @@ type Phase =
   | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number; source: "photo" | "sheet" }
   | { kind: "saving" }
   | { kind: "saved"; count: number };
+
+/**
+ * Chosen in a row's type dropdown to mean "make a type out of what the photo
+ * said". Nothing is created until Save, and one type is made per distinct pair
+ * of hours however many rows asked for it.
+ */
+const NEW_TYPE = "__new__";
+
+/** A fresh catalog id. Module scope: it is impure, and nothing about it
+ *  belongs in a component's render. */
+function newTypeId(): string {
+  return `st_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** The hours a row's own label implies, if it reads as a time range. */
+function hoursFromLabel(label: string): { start: string; end: string } | null {
+  const t = parseTimeRange(label || "");
+  return t ? { start: t.start, end: t.end } : null;
+}
 
 /** Where the read has got to — drives the checklist on the parsing screen. */
 type ParseStep = "reading" | "rows" | "matching";
@@ -205,12 +224,40 @@ export function ScheduleImportModal({
       setErr("No household linked.");
       return;
     }
-    const rows: ImportRow[] = readyRows.map((r) => ({
-      date: r.date,
-      shiftTypeId: r.shiftTypeId as string,
-      label: r.label,
-      ...(r.note ? { note: r.note } : {}),
-    }));
+    // Rows asking for a new type are grouped by their hours, so five days of
+    // "10a-730p" make one type rather than five.
+    const newShiftTypes: ShiftType[] = [];
+    const idForHours = new Map<string, string>();
+    for (const r of readyRows) {
+      if (r.shiftTypeId !== NEW_TYPE) continue;
+      const hours = hoursFromLabel(r.label);
+      if (!hours) continue;
+      const key = `${hours.start}-${hours.end}`;
+      if (idForHours.has(key)) continue;
+      const existing = shiftTypes.find((t) => t.start === hours.start && t.end === hours.end);
+      if (existing) { idForHours.set(key, existing.id); continue; }
+      const id = newTypeId();
+      idForHours.set(key, id);
+      newShiftTypes.push({
+        id,
+        // Named after what the photo said, so it's recognisable in the catalog.
+        name: (r.label || `${compactTime(hours.start)}-${compactTime(hours.end)}`).trim(),
+        start: hours.start,
+        end: hours.end,
+        crossesMidnight: hours.end <= hours.start,
+      });
+    }
+
+    const rows: ImportRow[] = readyRows.map((r) => {
+      const hours = r.shiftTypeId === NEW_TYPE ? hoursFromLabel(r.label) : null;
+      const resolved = hours ? idForHours.get(`${hours.start}-${hours.end}`) : r.shiftTypeId;
+      return {
+        date: r.date,
+        shiftTypeId: resolved as string,
+        label: r.label,
+        ...(r.note ? { note: r.note } : {}),
+      };
+    });
     if (rows.length === 0) {
       setErr("Nothing to add — every row is skipped, needs a shift type, or still has a flag to clear.");
       return;
@@ -224,6 +271,7 @@ export function ScheduleImportModal({
         target: def.target,
         rows,
         monthCovered: phase.monthCovered,
+        newShiftTypes,
       });
       setPhase({ kind: "saved", count: rows.length });
     } catch (e) {
@@ -245,13 +293,15 @@ export function ScheduleImportModal({
     });
   };
 
-  const shiftTypes = state?.shiftTypes ?? [];
+  // Custom template slots resolve to synthetic __cst_ types that live only in
+  // memory, so offering one here guarantees the save fails against Firestore.
+  const shiftTypes = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
 
   // Footer count — days that will actually be written.
   const validIds = new Set(shiftTypes.map((s) => s.id));
   const readyRows: EditableRow[] =
     phase.kind === "review"
-      ? phase.rows.filter((r) => !r.skipped && !!r.shiftTypeId && validIds.has(r.shiftTypeId))
+      ? phase.rows.filter((r) => !r.skipped && !!r.shiftTypeId && (r.shiftTypeId === NEW_TYPE || validIds.has(r.shiftTypeId)))
       : [];
   const addCount = readyRows.length;
 
@@ -452,7 +502,7 @@ const WORD_LIKE = /^(school|no school|half day|class|off|pto|vacation)$/i;
  */
 function flagFor(row: EditableRow, validIds: Set<string>, contextMonth: string): RowFlag {
   if (!row.date.startsWith(contextMonth)) return "wrong-month";
-  if (!row.shiftTypeId || !validIds.has(row.shiftTypeId)) return "needs-type";
+  if (row.shiftTypeId !== NEW_TYPE && (!row.shiftTypeId || !validIds.has(row.shiftTypeId))) return "needs-type";
   const label = (row.label || "").trim();
   if (label && !TIME_LIKE.test(label) && !WORD_LIKE.test(label)) return "not-a-time";
   return "ready";
@@ -479,7 +529,7 @@ function ReviewPhase({
   const flags = rows.map((r) => (r.skipped ? "ready" : flagFor(r, validIds, contextMonth)) as RowFlag);
   // "Ready to save" means it has a type — the same test the Save button uses.
   // The month and label flags stay on the row as warnings to look at.
-  const readyCount = rows.filter((r) => !r.skipped && !!r.shiftTypeId && validIds.has(r.shiftTypeId)).length;
+  const readyCount = rows.filter((r) => !r.skipped && !!r.shiftTypeId && (r.shiftTypeId === NEW_TYPE || validIds.has(r.shiftTypeId))).length;
   const needTypeCount = flags.filter((f) => f === "needs-type").length;
   const offMonth = rows.filter((r) => !r.date.startsWith(contextMonth));
   const offMonthName = offMonth.length
@@ -643,6 +693,7 @@ function ReviewRow({
 }) {
   const problem = !row.skipped && flag !== "ready";
   const needsType = !row.skipped && flag === "needs-type";
+  const newHours = hoursFromLabel(row.label);
   return (
     <div
       id={`imp-${row.rid}`}
@@ -686,6 +737,11 @@ function ReviewRow({
         }}
       >
         <option value="">Pick a shift type</option>
+        {newHours && (
+          <option value={NEW_TYPE}>
+            ＋ New type · {compactTime(newHours.start)} – {compactTime(newHours.end)}
+          </option>
+        )}
         {shiftTypes.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name} · {compactTime(s.start)} – {compactTime(s.end)}
