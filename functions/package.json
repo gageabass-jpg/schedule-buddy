@@ -1,7 +1,7 @@
 {
   "name": "nucleus-functions",
   "version": "0.1.0",
-  "description": "Cloud Functions for Nucleus — pushes when coverage requests change.",
+  "description": "Cloud Functions for Nucleus \u2014 pushes when coverage requests change.",
   "main": "lib/index.js",
   "engines": {
     "node": "20"
@@ -9,9 +9,11 @@
   "type": "commonjs",
   "scripts": {
     "build": "tsc",
-    "lint": "tsc --noEmit",
+    "lint": "npm run sync:shared && tsc --noEmit",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "prebuild": "npm run sync:shared"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

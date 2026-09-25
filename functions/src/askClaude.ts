@@ -20,75 +20,19 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
-// ───────────────── Types lifted from the desktop HouseholdState ──────────
-// (Keeping the function self-contained — no shared types package yet.)
+// ───────────────── The shared domain ─────────────────────────────────────
+// These types and the week-resolution logic are the same modules the Mac app
+// renders from (shared/, copied in at build time). The function used to keep
+// its own copy of both; when they drifted, nucleusAI answered confidently
+// with a schedule the calendar disagreed with.
 
-interface ShiftType {
-  id: string; name: string; start: string; end: string;
-  crossesMidnight?: boolean; sleepHours?: number;
-}
-interface OTShift {
-  date: string; shiftTypeId: string; label: string; coworkers?: string;
-}
-interface Override {
-  date: string; shiftTypeId: string | null; label: string;
-}
-interface PartnerShift {
-  date: string; shiftTypeId: string; label: string;
-}
-interface SbEvent {
-  id: string; date: string; startTime?: string; endTime?: string;
-  title: string; who: "G" | "K" | "Daisy" | "family"; notes?: string;
-}
-interface HouseholdState {
-  shiftTypes: ShiftType[];
-  template: Array<string | null>;
-  alt?: { enabled: boolean; refSat?: string; sat?: string; sun?: string };
-  templateEndDate?: string;   // last date the recurring template applies (paused going forward)
-  ot?: OTShift[];
-  overrides?: Override[];
-  partner?: { name: string; shifts: PartnerShift[] };
-  events?: SbEvent[];
-  childcareOff?: ChildcareOffDay[];
-  range?: { from: string; to: string };
-  selfName?: string;
-}
-
-// Resolve Gage's (self) shift on a date: an override wins; otherwise the
-// weekly template applies, but only on/before templateEndDate (the template is
-// paused going forward). Mirrors wallState.ts::templateShiftFor.
-function templateShiftFor(
-  dateIso: string,
-  template: Array<string | null> | undefined,
-  alt?: HouseholdState["alt"],
-): string | null {
-  if (!template || template.length !== 7) return null;
-  const [y, m, d] = dateIso.split("-").map(Number);
-  const dow = new Date(y!, m! - 1, d!).getDay();
-  if (alt?.enabled && alt.refSat && (dow === 0 || dow === 6)) {
-    const [ry, rm, rd] = alt.refSat.split("-").map(Number);
-    const weeksFromRef = Math.round((Date.UTC(y!, m! - 1, d!) - Date.UTC(ry!, rm! - 1, rd!)) / (7 * 86_400_000));
-    const onWorkingWeekend = weeksFromRef % 2 === 0;
-    if (dow === 6) return onWorkingWeekend ? (alt.sat ?? null) : null;
-    return onWorkingWeekend ? (alt.sun ?? null) : null;
-  }
-  return template[dow] ?? null;
-}
-
-/** Gage's resolved shift for a date + where it came from. */
-function resolveSelfShift(state: HouseholdState, date: string): { shiftTypeId: string | null; source: "override" | "template" | "none" } {
-  const ov = (state.overrides ?? []).find((o) => o.date === date);
-  if (ov) return { shiftTypeId: ov.shiftTypeId, source: "override" };
-  const templateActive = !state.templateEndDate || date <= state.templateEndDate;
-  if (templateActive) {
-    const t = templateShiftFor(date, state.template, state.alt);
-    if (t) return { shiftTypeId: t, source: "template" };
-  }
-  return { shiftTypeId: null, source: "none" };
-}
-interface ChildcareOffDay {
-  date: string; label?: string;
-}
+import {
+  buildShiftMap, selfShiftId,
+  type HouseholdState, type OTShift, type PartnerShift, type Override,
+  type ShiftType, type Event as SbEvent, type ChildcareOffDay,
+} from "./shared/state";
+import { dayKindFromShifts, type ShiftMap } from "./shared/schedule";
+import { computeOverlapCandidates, parentDaySegments } from "./shared/computeOverlap";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
@@ -96,7 +40,10 @@ const MODEL = "claude-opus-4-8";
 
 /** Tools that only read. Read-only mode is handed these and nothing else, so
  *  the model cannot write even if it decides to. */
-const READ_ONLY_TOOL_NAMES = new Set(["list_shift_types", "summarize_period"]);
+const READ_ONLY_TOOL_NAMES = new Set([
+  "list_shift_types", "summarize_period", "coverage_gaps", "rest_windows",
+  "list_events", "list_coverage_requests", "get_household", "get_schedule_rules",
+]);
 
 const TOOLS: Anthropic.Messages.Tool[] = [
   {
@@ -120,6 +67,71 @@ const TOOLS: Anthropic.Messages.Tool[] = [
       },
       required: ["from", "to"],
     },
+  },
+  {
+    name: "coverage_gaps",
+    description:
+      "The windows in a date range when nobody is home for the kids, computed " +
+      "by the same engine the Childcare tab draws. Use for \"who has Monday " +
+      "morning?\" or to check whether a change leaves a hole.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Start date YYYY-MM-DD" },
+        to:   { type: "string", description: "End date YYYY-MM-DD" },
+      },
+      required: ["from", "to"],
+    },
+  },
+  {
+    name: "rest_windows",
+    description:
+      "The rest a person's shifts protect in a date range — the hours before " +
+      "and after a night — and which of them nobody is home to cover. Use for " +
+      "\"is Kaylene getting any rest?\" or \"what does this do to her week?\".",
+    input_schema: {
+      type: "object",
+      properties: {
+        who:  { type: "string", enum: ["G", "K", "D"], description: "G = self, K = partner, D = dependent" },
+        from: { type: "string" },
+        to:   { type: "string" },
+      },
+      required: ["who", "from", "to"],
+    },
+  },
+  {
+    name: "list_events",
+    description:
+      "Personal events and appointments in a date range, with who they belong " +
+      "to and whether anybody is off that day.",
+    input_schema: {
+      type: "object",
+      properties: { from: { type: "string" }, to: { type: "string" } },
+      required: ["from", "to"],
+    },
+  },
+  {
+    name: "list_coverage_requests",
+    description:
+      "Childcare cover asked of caregivers, and where each one stands " +
+      "(pending, confirmed, declined). Use before offering to ask again.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_household",
+    description:
+      "Who is in the household: names, who works where, pay cadence, the time " +
+      "zone, and which schedules can be imported. Use to answer questions " +
+      "about people rather than dates.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_schedule_rules",
+    description:
+      "The recurring rules behind the calendar: each person's weekly template " +
+      "and its window, whether the old shared template is still applying, and " +
+      "any schedule blocks. Use when asked why a day looks the way it does.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "add_override",
@@ -319,6 +331,107 @@ async function execTool(
         sleepHours: s.sleepHours ?? 0,
       }));
 
+    // ── Derived views ─────────────────────────────────────────────────────
+    // These run the same engine the Childcare tab draws from, so an answer
+    // here and the calendar cannot disagree.
+
+    case "coverage_gaps": {
+      const from = String(input.from), to = String(input.to);
+      const shifts = buildShiftMap(state, from, to);
+      const gaps = computeOverlapCandidates(shifts, state)
+        .filter((c) => c.date >= from && c.date <= to);
+      const requested = new Set(
+        (state.coverageRequests ?? [])
+          .filter((r) => r.status === "confirmed" || r.status === "pending")
+          .map((r) => r.date),
+      );
+      return {
+        from, to,
+        gaps: gaps.map((c) => ({
+          date: c.date,
+          from: c.startTime,
+          to: c.endTime,
+          endsNextDay: c.endsNextDay,
+          label: c.label,
+          why: c.reason,
+          coverAlreadyRequested: requested.has(c.date),
+        })),
+        note: gaps.length === 0 ? "Nobody is left without cover in this range." : undefined,
+      };
+    }
+
+    case "rest_windows": {
+      const who = String(input.who) as "G" | "K" | "D";
+      const from = String(input.from), to = String(input.to);
+      // "D" has no protected rest — only the two parents work shifts.
+      if (who === "D") return { who, from, to, days: [], note: "Rest windows are tracked for the two parents." };
+      const shifts = buildShiftMap(state, from, to);
+      const gaps = computeOverlapCandidates(shifts, state);
+      const days = datesInRange(from, to).map((date) => {
+        const { work, sleep } = parentDaySegments(date, who, shifts, state);
+        const asClock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        return {
+          date,
+          working: work.map((r) => ({ from: asClock(r.startMin), to: asClock(r.endMin) })),
+          protectedRest: sleep.map((r) => ({ from: asClock(r.startMin), to: asClock(r.endMin) })),
+          uncovered: gaps.filter((c) => c.date === date).map((c) => c.label),
+        };
+      }).filter((d) => d.working.length > 0 || d.protectedRest.length > 0 || d.uncovered.length > 0);
+      return { who, from, to, days };
+    }
+
+    // ── The rest of the document ──────────────────────────────────────────
+
+    case "list_events": {
+      const from = String(input.from), to = String(input.to);
+      const shifts = buildShiftMap(state, from, to);
+      return (state.events ?? [])
+        .filter((e) => e.date >= from && e.date <= to)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((e) => ({
+          id: e.id, date: e.date, title: e.title, who: e.who,
+          startTime: e.startTime ?? null, endTime: e.endTime ?? null,
+          notes: e.notes ?? null,
+          isAppointment: !!e.healthId,
+          repeats: !!e.seriesId,
+          dayKind: dayKindFromShifts(shifts[e.date]),
+        }));
+    }
+
+    case "list_coverage_requests":
+      return (state.coverageRequests ?? []).map((r) => ({
+        date: r.date, status: r.status,
+        startTime: r.startTime ?? null, endTime: r.endTime ?? null,
+        notes: r.notes ?? null,
+        caregiver: r.caregiverUid ?? null,
+      }));
+
+    case "get_household":
+      return {
+        householdName: state.householdName ?? null,
+        self: { name: state.selfName ?? "Gage", employer: state.employers?.G ?? null },
+        partner: { name: state.partner?.name ?? "Kaylene", employer: state.employers?.K ?? null },
+        dependent: {
+          name: state.dependents?.daisy?.name ?? "Daisy",
+          employer: state.employers?.D ?? null,
+          hasOwnSchedule: (state.dependents?.daisy?.shifts ?? []).length > 0,
+        },
+        timeZone: state.timeZone ?? null,
+        paydays: state.paydays ?? null,
+      };
+
+    case "get_schedule_rules":
+      return {
+        weeklyTemplates: state.weeklyTemplates ?? null,
+        sharedTemplateStillApplies: !state.templateEndDate,
+        sharedTemplateEndedAfter: state.templateEndDate ?? null,
+        altWeekend: state.alt ?? null,
+        scheduleBlocks: (state.scheduleBlocks ?? []).map((b) => ({
+          from: b.startDate, to: b.endDate, label: b.label ?? null, notes: b.notes ?? null,
+        })),
+        childcareOffDays: (state.childcareOff ?? []).map((c) => c.date),
+      };
+
     case "summarize_period": {
       const from = String(input.from);
       const to = String(input.to);
@@ -331,14 +444,14 @@ async function execTool(
       // (Gage's shift + whether it's a one-off override or from his template),
       // instead of guessing from raw arrays.
       const days = datesInRange(from, to).map((date) => {
-        const self = resolveSelfShift(state, date);
+        const self = selfShiftId(state, date);
         const k = partner.find((p) => p.date === date);
         const o = ot.find((x) => x.date === date);
         return {
           date,
           gage: self.shiftTypeId
-            ? { shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source }
-            : (self.source === "override" ? "off (override set)" : "off"),
+            ? { shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source.kind }
+            : (self.source.kind === "override" ? "off (override set)" : "off"),
           kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId } : "off",
           ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId } : null,
           events: events.filter((e) => e.date === date).map((e) => e.title),
@@ -549,7 +662,13 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- To MOVE Gage's shift from one day to another, do BOTH steps in the same confirmed action: (1) remove/cancel it on the OLD day (per the rule above), and (2) add_override action="work" on the NEW day using the same shift type it had. A move is never just an add — if you only add, the old shift is still there.\n` +
       `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n\n` +
       `Behavior:\n` +
-      `- For read-only questions, call list_shift_types or summarize_period as needed and answer concisely.\n` +
+      `- For read-only questions, call the tool that actually knows the answer and answer concisely:\n` +
+      `  summarize_period for what's scheduled; coverage_gaps for who has the kids and when nobody does;\n` +
+      `  rest_windows for whether someone is getting rest between shifts; list_events for appointments;\n` +
+      `  list_coverage_requests for whether cover was already asked for; get_household for names, employers,\n` +
+      `  pay cadence and time zone; get_schedule_rules for the recurring templates and blocks behind a day.\n` +
+      `- coverage_gaps and rest_windows run the same engine the app's Childcare tab draws, so quote them\n` +
+      `  rather than working coverage out yourself from shifts — your arithmetic will disagree with the screen.\n` +
       `- For changes, first describe what you'll do in plain English and ASK for confirmation. ` +
       `Only call write tools (add_override, add_ot, add_partner_shift, add_event, remove_*) after the user confirms.\n` +
       `- Always state dates in human-friendly form (e.g. "Friday June 19") in your replies.\n` +
