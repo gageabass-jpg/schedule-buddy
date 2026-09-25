@@ -423,7 +423,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         color: t.text,
       }}
     >
-      <TopBar t={t} dark={dark} onRefresh={handleRefresh} refreshing={refreshing} />
+      <TopBar />
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px 1fr 320px" }}>
       <Sidebar
         palette={palette}

@@ -391,8 +391,8 @@ async function createWindow() {
     minWidth: 1100,
     minHeight: 700,
     titleBarStyle: "hiddenInset",
-    // Center the traffic lights vertically in the 44px top bar (TopBar.tsx).
-    trafficLightPosition: { x: 19, y: 15 },
+    // Center the traffic lights vertically in the 28px top bar (TopBar.tsx).
+    trafficLightPosition: { x: 19, y: 7 },
     backgroundColor: "#0F0F12",
     show: false,
     webPreferences: {

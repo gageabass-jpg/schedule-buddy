@@ -4,7 +4,7 @@ import type { ViewFilter } from "../App";
 import type { Palette, ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
-import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
+import { BrandMark, BRAND_FONT, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./BrandMark";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
@@ -55,6 +55,38 @@ export function Sidebar({
         position: "relative",
       }}
     >
+      {/* Nucleus Manager lockup: mark leading, "nucleus" 600 + "manager" 400.
+          This is the one place the lockup appears; clicking it re-syncs. */}
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={refreshing}
+        title="Refresh — re-sync schedule data"
+        aria-label="Refresh schedule data"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "2px 6px",
+          background: "transparent",
+          border: 0,
+          borderRadius: 8,
+          cursor: refreshing ? "default" : "pointer",
+          fontFamily: "inherit",
+          textAlign: "left",
+          width: "100%",
+        }}
+      >
+        <BrandMark
+          size={22}
+          color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL}
+          style={{ flexShrink: 0, animation: refreshing ? "sbmSpin 0.6s linear" : undefined }}
+        />
+        <span style={{ fontSize: 15, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: BRAND_FONT, whiteSpace: "nowrap" }}>
+          <span style={{ fontWeight: 600, color: t.text }}>nucleus</span>
+          <span style={{ fontWeight: 400, color: t.text2 }}> manager</span>
+        </span>
+      </button>
 
       <div
         style={{
