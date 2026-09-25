@@ -113,9 +113,7 @@ export function MonthGrid({
           display: "flex",
           alignItems: "center",
           gap: 12,
-          // Top inset matches the sidebar's wordmark line (which is pushed
-          // down by the traffic-light drag strip), so both headers align.
-          padding: "44px 18px 16px",
+          padding: "16px 18px",
           borderBottom: `0.5px solid ${t.sep}`,
           background: t.bg,
         }}

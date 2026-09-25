@@ -116,9 +116,7 @@ export function Inspector({
       style={{
         background: dark ? "rgba(20,20,22,0.5)" : "rgba(255,255,255,0.6)",
         borderLeft: `1px solid ${t.sep}`,
-        // Top inset lines this panel's header up with the calendar toolbar
-        // and the sidebar wordmark (all sit below the titlebar band).
-        padding: "32px 14px 14px",
+        padding: 14,
         display: "flex",
         flexDirection: "column",
         gap: 12,

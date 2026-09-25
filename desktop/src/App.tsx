@@ -34,6 +34,7 @@ import { buildShiftMap, expandCustomTemplateTypes, type Event, type HouseholdSta
 
 export type EventMap = Record<string, Event[]>;
 import { Sidebar } from "./components/Sidebar";
+import { TopBar } from "./components/TopBar";
 import { MonthGrid } from "./components/MonthGrid";
 import { Inspector } from "./components/Inspector";
 import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
@@ -415,13 +416,15 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "240px 1fr 320px",
+        display: "flex",
+        flexDirection: "column",
         height: "100vh",
         background: t.bg,
         color: t.text,
       }}
     >
+      <TopBar t={t} dark={dark} onRefresh={handleRefresh} refreshing={refreshing} />
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px 1fr 320px" }}>
       <Sidebar
         palette={palette}
         t={t}
@@ -520,6 +523,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSendCaregiverRequests={() => setCoverageModalOpen(true)}
         onAsk={() => setAskClaudeOpen(true)}
       />
+      </div>{/* /column grid */}
       <ScheduleBlockModal
         open={scheduleBlockOpen}
         onClose={() => setScheduleBlockOpen(false)}
