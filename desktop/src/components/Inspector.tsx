@@ -7,7 +7,10 @@ import { EventAvatar } from "./EventAvatar";
 import { BrandMark } from "./BrandMark";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
-import { computeOverlapCandidates, parentDayRanges, daisyDayRanges, daisyCoverageConflict, type MinuteRange } from "../lib/computeOverlap";
+import {
+  computeOverlapCandidates, parentDayRanges, parentDaySegments, daisyDayRanges, daisyCoverageConflict,
+  hmToMin, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
+} from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
@@ -456,52 +459,58 @@ export function Inspector({
                 type="button"
                 onClick={() => onEditEvent(ev)}
                 style={{
-                  display: "flex", flexDirection: "column", gap: 4, width: "100%",
-                  textAlign: "left", cursor: "pointer", fontFamily: "inherit",
-                  padding: "9px 11px", borderRadius: 4, color: t.text,
+                  display: "grid", gridTemplateColumns: "56px 1fr", gap: 12, width: "100%",
+                  alignItems: "start", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                  padding: "12px 14px", borderRadius: 4, color: t.text,
                   background: clash ? (dark ? rgba("#8A4B38", 0.14) : "#EFDFDB") : t.bgElev,
                   border: clash ? `1px dashed ${rgba("#8A4B38", 0.55)}` : `1px solid ${t.sep}`,
                 }}
               >
-                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", color: clash ? "#8A4B38" : t.text3 }}>
+                {/* The date owns a column of its own, so the titles line up
+                    down the list however long a date reads. */}
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: clash ? "#8A4B38" : t.text3, paddingTop: 2 }}>
                   {eyebrow}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em", color: t.text }}>
-                    {ev.title}
-                  </span>
-                  {badge && (
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
-                      padding: "1px 6px", borderRadius: 999,
-                      background: ev.healthId ? rgba("#0F6E64", 0.14) : t.bgElev2,
-                      color: ev.healthId ? "#0F6E64" : t.text2,
-                    }}>{badge}</span>
-                  )}
-                  {ev.pending && <span style={{ fontSize: 10.5, color: "#8A4B38", fontWeight: 700 }}>(pending)</span>}
-                </div>
-                <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.35 }}>
-                  {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em", color: clash ? "#8A4B38" : t.text }}>
+                      {ev.title}
+                    </span>
+                    {badge && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                        padding: "2px 7px", borderRadius: 3,
+                        background: clash ? t.bgElev : (ev.healthId ? rgba("#0F6E64", 0.14) : t.bgElev2),
+                        border: clash ? `1px solid ${rgba("#8A4B38", 0.35)}` : "none",
+                        color: clash ? "#8A4B38" : (ev.healthId ? "#0F6E64" : t.text2),
+                      }}>{badge}</span>
+                    )}
+                    {ev.pending && <span style={{ fontSize: 10.5, color: "#8A4B38", fontWeight: 700 }}>(pending)</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: clash ? "#8A4B38" : t.text2, lineHeight: 1.4, marginTop: 5 }}>
+                    {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
+                  </div>
                 </div>
               </button>
             );
           })}
         </div>
+        <div style={{ height: 1, background: t.sep, marginTop: 14 }} />
+        <div style={{ fontSize: 12, color: t.text3, lineHeight: 1.45, marginTop: 12, padding: "0 2px" }}>
+          A clash means the day matters and nobody is off. Nucleus never moves a shift for you.
+        </div>
         <button
           type="button"
           onClick={onAddEvent}
           style={{
-            marginTop: 8, width: "100%", padding: "10px 12px", borderRadius: 4,
+            marginTop: 12, width: "100%", padding: "12px 12px", borderRadius: 4,
             border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
-            fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            fontFamily: BRAND_FONT, fontSize: 14, fontWeight: 600, cursor: "pointer",
             letterSpacing: "-0.01em",
           }}
         >
-          Add an occasion
+          Add an Event
         </button>
-        <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.4, marginTop: 10, padding: "0 2px" }}>
-          A clash means the day matters and nobody is off. Nucleus never moves a shift for you.
-        </div>
       </div>
       )}
 
@@ -1253,59 +1262,121 @@ function ChildcareCard({
     return M ? `${H}h${pad(M)}` : `${H}h`;
   };
   const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+  // Where a range sits on the 6am–midnight axis, as percentages.
+  const place = (startMin: number, endMin: number) => {
+    const a = Math.max(startMin, TIMELINE_START_MIN);
+    const b = Math.min(endMin, TIMELINE_START_MIN + TIMELINE_SPAN_MIN);
+    if (b <= a) return null;
+    return {
+      left: ((a - TIMELINE_START_MIN) / TIMELINE_SPAN_MIN) * 100,
+      width: ((b - a) / TIMELINE_SPAN_MIN) * 100,
+    };
+  };
+
   const rows = days.map((date) => {
-    const dc = cands.filter((c) => c.date === date);
-    const hours = dc.reduce((s, c) => s + winHours(c), 0);
-    return { date, hours, hasWindow: dc.length > 0, isCovered: dc.length > 0 && covered.has(date) };
+    // The partner's protected rest — the thing the week is really about.
+    const rest = parentDaySegments(date, "K", shiftMap, stFilled).sleep;
+    // The part of it nobody is home for. A day with a coverage request out
+    // counts as handled, so it stops reading as a gap.
+    const dc = covered.has(date) ? [] : cands.filter((c) => c.date === date);
+    const gapRanges = dc.map((c) => ({
+      startMin: hmToMin(c.startTime),
+      endMin: hmToMin(c.endTime, c.endsNextDay),
+    }));
+    const uncoveredMin = gapRanges.reduce((sum, g) => {
+      const a = Math.max(g.startMin, TIMELINE_START_MIN);
+      const b = Math.min(g.endMin, TIMELINE_START_MIN + TIMELINE_SPAN_MIN);
+      return sum + Math.max(0, b - a);
+    }, 0);
+    return {
+      date,
+      restBars: rest.map((r) => place(r.startMin, r.endMin)).filter(Boolean) as Array<{ left: number; width: number }>,
+      gapBars: gapRanges.map((g) => place(g.startMin, g.endMin)).filter(Boolean) as Array<{ left: number; width: number }>,
+      uncoveredHours: uncoveredMin / 60,
+    };
   });
-  const maxH = Math.max(1, ...rows.map((r) => r.hours));
-  const needCover = rows.filter((r) => r.hasWindow && !r.isCovered).length;
+  const needCover = rows.filter((r) => r.gapBars.length > 0).length;
 
   // The specific uncovered windows, spelled out. Consequence, not mechanism.
+  // Each uncovered window, said as a consequence: why she's resting, and what
+  // the two people who could cover are doing instead.
+  const typeOf = (id?: string) => state.shiftTypes.find((x) => x.id === id);
   const gaps = days.flatMap((date) => {
     if (covered.has(date)) return [];
     const [gy, gm, dd] = date.split("-").map(Number);
     const dow = new Date(gy, gm - 1, dd).getDay();
-    const workers = (shiftMap[date] ?? []).map((s) => s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName);
-    const worker = workers.length ? Array.from(new Set(workers)).join(" & ") : "";
-    return cands.filter((c) => c.date === date).map((c) => ({
-      key: `${date}-${c.startTime}`,
-      head: `${WD[dow].charAt(0)}${WD[dow].slice(1).toLowerCase()} ${dd} · ${compactTime(c.startTime)} – ${compactTime(c.endTime)}${c.endsNextDay ? " +1d" : ""}`,
-      body: worker
-        ? `${worker} works. Nobody has the kids ${compactTime(c.startTime)}–${compactTime(c.endTime)}.`
-        : `Nobody has the kids ${compactTime(c.startTime)}–${compactTime(c.endTime)}.`,
-    }));
+    const prev = new Date(gy, gm - 1, dd - 1);
+    const dayShifts = shiftMap[date] ?? [];
+    const partnerToday = dayShifts.find((x) => x.who === "K");
+    const partnerYesterday = (shiftMap[iso(prev)] ?? []).find((x) => x.who === "K");
+    const selfToday = dayShifts.find((x) => x.who === "G");
+    const daisyToday = dayShifts.find((x) => x.who === "D");
+
+    return cands.filter((c) => c.date === date).map((c) => {
+      const gapStart = hmToMin(c.startTime);
+      const parts: string[] = [];
+      // Resting after last night's shift, or ahead of tonight's?
+      const partnerStart = partnerToday ? hmToMin(typeOf(partnerToday.shiftTypeId)?.start ?? "00:00") : null;
+      if (partnerStart !== null && gapStart < partnerStart) {
+        parts.push(`${partnerName} rests before her night.`);
+      } else if (partnerYesterday) {
+        parts.push(`${partnerName} recovers from ${WD[(dow + 6) % 7].charAt(0)}${WD[(dow + 6) % 7].slice(1).toLowerCase()} night.`);
+      } else {
+        parts.push(`${partnerName} is resting.`);
+      }
+      if (selfToday) {
+        const st = typeOf(selfToday.shiftTypeId);
+        parts.push(st ? `You work ${compactTime(st.start)}.` : "You work.");
+      }
+      if (daisyToday) {
+        const dt = typeOf(daisyToday.shiftTypeId);
+        parts.push(dt ? `${daisyName} has class until ${compactTime(dt.end)}.` : `${daisyName} has class.`);
+      }
+      if (!selfToday && !daisyToday) parts.push("Nobody else is home.");
+
+      return {
+        key: `${date}-${c.startTime}`,
+        head: `${WD[dow].charAt(0)}${WD[dow].slice(1).toLowerCase()} ${dd} · ${compactTime(c.startTime)} – ${compactTime(c.endTime)}${c.endsNextDay ? " +1d" : ""}`,
+        body: parts.join(" "),
+      };
+    });
   });
 
   return (
     <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ ...subhead(t), marginBottom: 0 }}>Rest &amp; coverage · this week</span>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>{partnerName}&rsquo;s rest this week</span>
         {needCover > 0 && (
           <span style={{ fontSize: 13, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        {rows.map((r, i) => {
-          const pct = r.hasWindow ? Math.max(12, (r.hours / maxH) * 100) : 0;
-          return (
-            <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text3 }}>{WD[i]}</span>
-              <div style={{ flex: 1, height: 12, borderRadius: 6, background: t.bgElev2, overflow: "hidden", position: "relative" }}>
-                {r.hasWindow && (
-                  <div style={{
-                    position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, borderRadius: 6, boxSizing: "border-box",
-                    background: r.isCovered ? "#9ACFC6" : rgba("#8A4B38", 0.10),
-                    border: r.isCovered ? "none" : `1px dashed ${rgba("#8A4B38", 0.6)}`,
-                  }} />
-                )}
-              </div>
-              <span style={{ width: 40, textAlign: "right", fontSize: 10.5, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.hasWindow && !r.isCovered ? "#8A4B38" : "transparent" }}>
-                {r.hasWindow && !r.isCovered ? hm(r.hours) : "·"}
-              </span>
+        {rows.map((r, i) => (
+          <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text3 }}>{WD[i]}</span>
+            {/* The track is the waking day, 6am to midnight; a block sits where
+                it actually falls, so the shape of the week is readable. */}
+            <div style={{ flex: 1, height: 17, borderRadius: 2, background: t.bgElev2, position: "relative", overflow: "hidden" }}>
+              {r.restBars.map((b, k) => (
+                <div key={`r${k}`} style={{
+                  position: "absolute", top: 2, bottom: 2, left: `${b.left}%`, width: `${b.width}%`,
+                  borderRadius: 2, background: "#D8E7E4", border: "1px solid #9ACFC6", boxSizing: "border-box",
+                }} />
+              ))}
+              {r.gapBars.map((b, k) => (
+                <div key={`g${k}`} style={{
+                  position: "absolute", top: 2, bottom: 2, left: `${b.left}%`, width: `${b.width}%`,
+                  borderRadius: 2, background: dark ? rgba("#8A4B38", 0.18) : "#EFDFDB",
+                  border: `1px dashed ${rgba("#8A4B38", 0.7)}`, boxSizing: "border-box",
+                }} />
+              ))}
             </div>
-          );
-        })}
+            <span style={{ width: 34, textAlign: "right", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.uncoveredHours > 0 ? "#8A4B38" : "transparent" }}>
+              {r.uncoveredHours > 0 ? hm(r.uncoveredHours) : "·"}
+            </span>
+          </div>
+        ))}
       </div>
       {gaps.length > 0 && (
         <>
