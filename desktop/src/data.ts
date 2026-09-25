@@ -1,35 +1,10 @@
-import type { DayKind } from "./theme";
+// Desktop-only calendar helpers. The schedule vocabulary itself — Shift,
+// ShiftMap, Who, DayKind, fmtDate, dayKindFromShifts, the month names — lives
+// in shared/ so the Cloud Functions reason about it identically.
+export * from "../../shared/schedule";
 
-export type Who = "G" | "K" | "D";
+import { type ShiftMap, type Who } from "../../shared/schedule";
 
-/**
- * Where a rendered shift chip came from in the underlying state. Used to
- * power edit/delete: discrete entries (override/ot/partner) can be mutated
- * directly; recurring ones (template/alt-weekend) need an override to
- * change a single date.
- */
-export type ShiftSource =
-  | { kind: "template" }
-  | { kind: "alt-weekend" }
-  | { kind: "override" }
-  | { kind: "ot"; index: number }
-  | { kind: "partner"; index: number };
-
-export interface Shift {
-  who: Who;
-  label: string;
-  /** Provenance from state/main. Undefined for demo data. */
-  source?: ShiftSource;
-  /** When source.kind is override/ot, the shiftTypeId so editors can prefill. */
-  shiftTypeId?: string;
-  /** Free text from the stored entry — e.g. who else is on that shift. */
-  note?: string;
-  /** Where this shift is worked. Falls back to the person's employer. */
-  where?: string;
-}
-export type ShiftMap = Record<string, Shift[]>;
-
-// Inferred from the original screenshots (Apr 5 — ~Jun 27 2026)
 const RAW: Array<[string, Array<[Who, string]>]> = [
   // April
   ["2026-04-08", [["G", "3p"], ["K", "7p"]]],
@@ -92,21 +67,8 @@ const RAW: Array<[string, Array<[Who, string]>]> = [
 ];
 
 export const DEMO_SHIFTS: ShiftMap = Object.fromEntries(
-  RAW.map(([date, list]) => [date, list.map(([who, label]) => ({ who, label }))])
+  RAW.map(([date, list]) => [date, list.map(([who, label]) => ({ who, label }))]),
 );
-
-export function fmtDate(y: number, mo: number, d: number): string {
-  return `${y}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-export function dayKindFromShifts(shifts: Shift[] | undefined): DayKind {
-  if (!shifts || shifts.length === 0) return "off";
-  const hasG = shifts.some((s) => s.who === "G");
-  const hasK = shifts.some((s) => s.who === "K");
-  if (hasG && hasK) return "both";
-  if (hasG) return "g";
-  return "k";
-}
 
 export interface MonthCell { y: number; mo: number; d: number; other: boolean; }
 
@@ -130,9 +92,3 @@ export function buildMonthGrid(y: number, mo: number): MonthCell[][] {
   return weeks;
 }
 
-export const MONTHS_LONG = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-export const WEEKDAYS_3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-export const DAYS_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
