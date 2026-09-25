@@ -122,6 +122,10 @@ export function parseScheduleXlsx(
     return { rows: [], countedDays: 0, peopleFound: [], error: "Couldn't open that spreadsheet." };
   }
 
+  // Remembered across sheets so a "couldn't find them" error can still say
+  // whose rows the file does contain.
+  const seenPeople: string[] = [];
+
   for (const sheetName of wb.SheetNames) {
     const grid = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
       header: 1, raw: true, blankrows: true, defval: null,
@@ -148,6 +152,7 @@ export function parseScheduleXlsx(
       people.push(first);
       if (personIdx < 0 && isPersonRow(first, personLabel)) personIdx = i;
     }
+    for (const name of people) if (!seenPeople.includes(name)) seenPeople.push(name);
     if (personIdx < 0) continue;
 
     const rows: ParsedShiftRow[] = [];
@@ -185,7 +190,7 @@ export function parseScheduleXlsx(
   return {
     rows: [],
     countedDays: 0,
-    peopleFound: [],
+    peopleFound: seenPeople,
     error: `Couldn't find a row for ${personLabel} in that spreadsheet.`,
   };
 }

@@ -29,6 +29,29 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Lint and unit tests for the Mac manager. The hosting deploy doesn't ship
+  # this code, but it's where the schedule logic lives, so a break here should
+  # still fail the PR.
+  desktop-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+      - name: Typecheck
+        working-directory: desktop
+        run: npx tsc -p tsconfig.json --noEmit && npx tsc -p tsconfig.electron.json --noEmit
+      - name: Lint
+        working-directory: desktop
+        run: npm run lint
+      - name: Unit tests
+        working-directory: desktop
+        run: npm test
+
   # PRs get an isolated preview deploy so changes can be reviewed live.
   preview:
     if: github.event_name == 'pull_request'

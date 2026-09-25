@@ -1,11 +1,14 @@
 {
   "name": "nucleus-manager",
   "version": "0.1.0",
-  "description": "Nucleus Manager — desktop companion to the iOS Nucleus app",
+  "description": "Nucleus Manager \u2014 desktop companion to the iOS Nucleus app",
   "author": "Gage Bass",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "sync:wvu": "node --input-type=commonjs -e \"const fs=require('fs');fs.copyFileSync('../public/wvu-football.json','public/wvu-football.json');fs.copyFileSync('../public/assets/wvu.png','public/assets/wvu.png');console.log('synced WVU schedule + logo from ../public')\"",
     "dev": "concurrently -k -s first -n vite,electron \"vite\" \"wait-on tcp:5173 && tsc -p tsconfig.electron.json && cross-env NODE_ENV=development electron .\"",
     "prebuild:web": "npm run sync:wvu",
@@ -22,6 +25,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
@@ -29,14 +33,20 @@
     "cross-env": "^7.0.3",
     "electron": "^42.0.1",
     "electron-builder": "^25.1.8",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.70.1",
     "vite": "^6.0.3",
+    "vitest": "^5.0.1",
     "wait-on": "^8.0.1"
   },
   "build": {
     "appId": "com.gagebass.schedulebuddy.manager",
     "productName": "Nucleus Manager",
-    "copyright": "Copyright © 2026 Gage Bass",
+    "copyright": "Copyright \u00a9 2026 Gage Bass",
     "directories": {
       "buildResources": "build",
       "output": "release"
