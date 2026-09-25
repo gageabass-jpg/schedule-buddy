@@ -500,7 +500,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         eventsByDate={eventsByDate}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenAskClaude={() => setAskClaudeOpen(true)}
-        onOpenChatManager={() => setChatManagerOpen(true)}
         wvuGames={wvuGames}
       />
       <Inspector
@@ -634,6 +633,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         state={state}
         themePref={themePref}
         onSetThemePref={onSetThemePref}
+        onOpenChatManager={() => { setFamilyConsoleOpen(false); setChatManagerOpen(true); }}
       />
       <CoverageRequestModal
         open={coverageModalOpen}

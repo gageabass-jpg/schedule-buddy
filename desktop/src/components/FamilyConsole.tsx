@@ -59,11 +59,13 @@ interface Props {
   state: HouseholdState | null;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
+  /** Opens the Chat Manager panel (closes the console first). */
+  onOpenChatManager: () => void;
 }
 
 export function FamilyConsole({
   open, onClose, palette, t, dark, householdId, household, state,
-  themePref, onSetThemePref,
+  themePref, onSetThemePref, onOpenChatManager,
 }: Props) {
   const [draftName, setDraftName] = useState("");
   const [tz, setTz] = useState(DEFAULT_TZ);
@@ -357,7 +359,7 @@ export function FamilyConsole({
             )}
 
             {tab === "wall" && (
-              <WallTab t={t} palette={palette} householdId={householdId} state={state} />
+              <WallTab t={t} palette={palette} householdId={householdId} state={state} onOpenChatManager={onOpenChatManager} />
             )}
 
             {tab === "integrations" && (
@@ -726,7 +728,7 @@ function PeopleTab(p: {
 // WALL DISPLAY
 // ════════════════════════════════════════════════════════════════════════════
 
-function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null }) {
+function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null; onOpenChatManager: () => void }) {
   const { t } = p;
   const [sub, setSub] = useState<"display" | "photos" | "occasions">("display");
   return (
@@ -742,9 +744,14 @@ function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | nu
         ]}
       />
       {sub === "display" && (
-        <Section t={t} label="Wall display" desc="The wall shows today and tomorrow in large type, then the photos rotate in. The page auto-refreshes every 30s.">
-          <WallDisplaySection householdId={p.householdId} t={t} palette={p.palette} />
-        </Section>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <Section t={t} label="Wall display" desc="The wall shows today and tomorrow in large type, then the photos rotate in. The page auto-refreshes every 30s.">
+            <WallDisplaySection householdId={p.householdId} t={t} palette={p.palette} />
+          </Section>
+          <Section t={t} label="Chat Manager" desc="Post a message to the wall display's in-basket as Manager.">
+            <button type="button" onClick={p.onOpenChatManager} style={secondaryBtn(t)}>Open Chat Manager</button>
+          </Section>
+        </div>
       )}
       {sub === "photos" && (
         <Section t={t} label="Photos" desc="Family photos that rotate in between dashboard views. Resized + compressed on upload.">
