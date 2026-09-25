@@ -27,7 +27,7 @@ const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 // with a schedule the calendar disagreed with.
 
 import {
-  buildShiftMap, selfShiftId,
+  buildShiftMap, selfShiftId, expandCustomTemplateTypes,
   type HouseholdState, type OTShift, type PartnerShift, type Override,
   type ShiftType, type Event as SbEvent, type ChildcareOffDay,
 } from "./shared/state";
@@ -103,7 +103,9 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     name: "list_events",
     description:
       "Personal events and appointments in a date range, with who they belong " +
-      "to and whether anybody is off that day.",
+      "to and whether anybody is off that day. This is only life events and " +
+      "appointments — work shifts and the dependent's school days are not " +
+      "here; use summarize_period for those.",
     input_schema: {
       type: "object",
       properties: { from: { type: "string" }, to: { type: "string" } },
@@ -226,6 +228,32 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     },
   },
   {
+    name: "add_school_day",
+    description:
+      "Put a school or class day on the dependent's own timeline (Daisy). Use " +
+      "when the user says she has class, a half day, or a one-off campus day. " +
+      "Pass shiftTypeId when the hours match a catalog type, otherwise just a " +
+      "label like \"class\" or \"half day\".",
+    input_schema: {
+      type: "object",
+      properties: {
+        date:        { type: "string", description: "YYYY-MM-DD" },
+        label:       { type: "string", description: "e.g. \"class\", \"half day\", \"no school\"" },
+        shiftTypeId: { type: "string", description: "Optional — only if a catalog type matches her hours." },
+      },
+      required: ["date", "label"],
+    },
+  },
+  {
+    name: "remove_school_day",
+    description: "Take the dependent's school day off a specific date.",
+    input_schema: {
+      type: "object",
+      properties: { date: { type: "string" } },
+      required: ["date"],
+    },
+  },
+  {
     name: "block_childcare",
     description:
       "Mark a date RANGE as having NO childcare available because the " +
@@ -321,6 +349,14 @@ async function execTool(
     .collection("state").doc("main");
   const snap = await ref.get();
   const state = (snap.data() ?? {}) as HouseholdState;
+  // A template slot can hold an inline custom time rather than a catalog id.
+  // The app expands those into synthetic shift types before it renders; without
+  // the same step the day has no resolvable type and silently disappears —
+  // which is how Daisy's 10a-2p class week became invisible here.
+  //
+  // Reads use this view. Writes keep using `state`, because the synthetic
+  // types must never be saved back into the catalog.
+  const view = expandCustomTemplateTypes(state);
 
   switch (name) {
     case "list_shift_types":
@@ -337,8 +373,8 @@ async function execTool(
 
     case "coverage_gaps": {
       const from = String(input.from), to = String(input.to);
-      const shifts = buildShiftMap(state, from, to);
-      const gaps = computeOverlapCandidates(shifts, state)
+      const shifts = buildShiftMap(view, from, to);
+      const gaps = computeOverlapCandidates(shifts, view)
         .filter((c) => c.date >= from && c.date <= to);
       const requested = new Set(
         (state.coverageRequests ?? [])
@@ -365,10 +401,10 @@ async function execTool(
       const from = String(input.from), to = String(input.to);
       // "D" has no protected rest — only the two parents work shifts.
       if (who === "D") return { who, from, to, days: [], note: "Rest windows are tracked for the two parents." };
-      const shifts = buildShiftMap(state, from, to);
-      const gaps = computeOverlapCandidates(shifts, state);
+      const shifts = buildShiftMap(view, from, to);
+      const gaps = computeOverlapCandidates(shifts, view);
       const days = datesInRange(from, to).map((date) => {
-        const { work, sleep } = parentDaySegments(date, who, shifts, state);
+        const { work, sleep } = parentDaySegments(date, who, shifts, view);
         const asClock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
         return {
           date,
@@ -384,7 +420,7 @@ async function execTool(
 
     case "list_events": {
       const from = String(input.from), to = String(input.to);
-      const shifts = buildShiftMap(state, from, to);
+      const shifts = buildShiftMap(view, from, to);
       return (state.events ?? [])
         .filter((e) => e.date >= from && e.date <= to)
         .sort((a, b) => a.date.localeCompare(b.date))
@@ -439,12 +475,18 @@ async function execTool(
       const partner = (state.partner?.shifts ?? []).filter((p) => p.date >= from && p.date <= to);
       const events = (state.events ?? []).filter((e) => e.date >= from && e.date <= to);
       const childcareOff = (state.childcareOff ?? []).filter((c) => c.date >= from && c.date <= to);
-      const stName = (id: string | null) => (id ? ((state.shiftTypes ?? []).find((s) => s.id === id)?.name ?? id) : null);
+      // The view's catalog, so a synthetic custom-time type resolves to a name
+      // ("10a-2p") instead of leaking its raw __cst_ id into the answer.
+      const stName = (id: string | null) => (id ? ((view.shiftTypes ?? []).find((s) => s.id === id)?.name ?? id) : null);
       // Resolved per-day schedule so the model can SEE what's actually scheduled
       // (Gage's shift + whether it's a one-off override or from his template),
       // instead of guessing from raw arrays.
+      // Daisy's days come from her weekly class template as well as one-off
+      // entries, so read her off the same map the calendar draws rather than
+      // the raw array — the template days are invisible in the array.
+      const rendered = buildShiftMap(view, from, to);
       const days = datesInRange(from, to).map((date) => {
-        const self = selfShiftId(state, date);
+        const self = selfShiftId(view, date);
         const k = partner.find((p) => p.date === date);
         const o = ot.find((x) => x.date === date);
         return {
@@ -454,6 +496,15 @@ async function execTool(
             : (self.source.kind === "override" ? "off (override set)" : "off"),
           kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId } : "off",
           ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId } : null,
+          daisy: (() => {
+            const hers = (rendered[date] ?? []).filter((x) => x.who === "D");
+            if (hers.length === 0) return "no class listed";
+            return hers.map((x) => ({
+              school: x.shiftTypeId ? stName(x.shiftTypeId) : (x.label || "class"),
+              label: x.label,
+              recurring: x.source === undefined,
+            }));
+          })(),
           events: events.filter((e) => e.date === date).map((e) => e.title),
           noChildcare: childcareOff.some((c) => c.date === date),
         };
@@ -540,6 +591,44 @@ async function execTool(
       const events = [...(state.events ?? []), ev];
       await ref.set({ ...state, events });
       return { ok: true, event: ev };
+    }
+
+    case "add_school_day": {
+      const date = String(input.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pass date as YYYY-MM-DD." };
+      const label = String(input.label ?? "class").trim() || "class";
+      const shiftTypeId = input.shiftTypeId ? String(input.shiftTypeId) : undefined;
+      if (shiftTypeId && !(state.shiftTypes ?? []).some((t) => t.id === shiftTypeId)) {
+        return { error: `No shift type with id ${shiftTypeId}. Call list_shift_types, or leave it out and pass a label.` };
+      }
+      const existing = state.dependents?.daisy;
+      // Replace any entry already on that date rather than stacking a second.
+      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+      const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}) };
+      await ref.set({
+        ...state,
+        dependents: {
+          ...(state.dependents ?? {}),
+          daisy: { name: existing?.name || "Daisy", shifts: [...kept, entry] },
+        },
+      });
+      return { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length };
+    }
+
+    case "remove_school_day": {
+      const date = String(input.date);
+      const existing = state.dependents?.daisy;
+      const before = (existing?.shifts ?? []).length;
+      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+      if (kept.length === before) return { ok: true, date, removed: 0, note: "Nothing was listed on that date." };
+      await ref.set({
+        ...state,
+        dependents: {
+          ...(state.dependents ?? {}),
+          daisy: { name: existing?.name || "Daisy", shifts: kept },
+        },
+      });
+      return { ok: true, date, removed: before - kept.length };
     }
 
     case "block_childcare": {
@@ -663,7 +752,9 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n\n` +
       `Behavior:\n` +
       `- For read-only questions, call the tool that actually knows the answer and answer concisely:\n` +
-      `  summarize_period for what's scheduled; coverage_gaps for who has the kids and when nobody does;\n` +
+      `  summarize_period for what's scheduled on given dates — INCLUDING the dependent's school and class\n` +
+      `  days, which live on her schedule and are NOT events, so list_events will never show them;\n` +
+      `  coverage_gaps for who has the kids and when nobody does;\n` +
       `  rest_windows for whether someone is getting rest between shifts; list_events for appointments;\n` +
       `  list_coverage_requests for whether cover was already asked for; get_household for names, employers,\n` +
       `  pay cadence and time zone; get_schedule_rules for the recurring templates and blocks behind a day.\n` +
