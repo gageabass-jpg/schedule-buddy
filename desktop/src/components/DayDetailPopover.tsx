@@ -139,6 +139,12 @@ export function DayDetailPopover({
                     <span style={{ width: 4, alignSelf: "stretch", minHeight: 20, borderRadius: 2, background: c, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {name}
+                      {/* Whatever the source said beyond the hours — usually who
+                          else is on. Bracketed because the note is typically a
+                          name too, and "Kaylene Lacey" reads as one person. */}
+                      {s.note && (
+                        <span style={{ fontWeight: 400, color: t.text3, marginLeft: 7 }}>[{s.note}]</span>
+                      )}
                     </div>
                     <span style={{ fontSize: 13, color: t.text2, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0 }}>
                       {timeText}

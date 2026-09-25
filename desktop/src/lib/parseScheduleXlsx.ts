@@ -84,6 +84,15 @@ export function parseTimeRange(text: string): { start: string; end: string; matc
   };
 }
 
+/**
+ * The sheet runs names together — "LaceyAlexx" for what it writes elsewhere
+ * as "Lacey/Emily". Split where a capital follows a lower-case letter so both
+ * spellings read the same.
+ */
+function splitRunTogetherNames(note: string): string {
+  return note.replace(/([a-z])([A-Z])/g, "$1/$2");
+}
+
 function cellText(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (v instanceof Date) return "";
@@ -153,7 +162,9 @@ export function parseScheduleXlsx(
       // The times become the label; whatever else is in the cell is a note —
       // usually who else is on ("Lacey", "Terra/Lacey"), sometimes a marker.
       const label = times ? times.matched.trim() : text;
-      const note = times ? text.replace(times.matched, "").replace(/\s+/g, " ").trim() : "";
+      const note = times
+        ? splitRunTogetherNames(text.replace(times.matched, "").replace(/\s+/g, " ").trim())
+        : "";
       const match = times
         ? shiftTypes.find((s) => s.start === times.start && s.end === times.end)
         : undefined;
