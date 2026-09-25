@@ -473,6 +473,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onOpenImprovements={() => setImprovementsOpen(true)}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
         onSendCoverage={() => setCoverageModalOpen(true)}
+        onOpenCoverageRequests={() => setCoverageRequestsOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
         viewFilter={viewFilter}

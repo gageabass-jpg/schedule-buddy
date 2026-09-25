@@ -31,6 +31,7 @@ interface SidebarProps {
   onEditSchedule: (id: string) => void;
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
+  onOpenCoverageRequests: () => void;
   onOpenChildcare: () => void;
   pendingCoverageCount: number;
 }
@@ -39,7 +40,7 @@ export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements: _onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
-  onOpenFamilyConsole, onSendCoverage, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
+  onOpenFamilyConsole, onSendCoverage, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   const [flip, setFlip] = useState(false);
   return (
@@ -145,6 +146,8 @@ export function Sidebar({
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           active={viewFilter === "coverage"}
           onClick={() => onSetViewFilter(viewFilter === "coverage" ? "all" : "coverage")}
+          onContextMenu={(e) => { e.preventDefault(); onOpenCoverageRequests(); }}
+          title="Right-click to see the coverage requests list"
           t={t}
         />
       </SidebarSection>
