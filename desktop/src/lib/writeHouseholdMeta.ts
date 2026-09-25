@@ -30,6 +30,25 @@ export async function setHouseholdName(householdId: string, name: string): Promi
 }
 
 /**
+ * Set the household's time zone (an IANA id like "America/New_York"). Stored
+ * top-level on state/main; iOS round-trips it via its read allowlist.
+ */
+export async function setTimeZone(householdId: string, tz: string): Promise<void> {
+  const trimmed = tz.trim();
+  const ref = doc(db, "households", householdId, "state", "main");
+  let snap;
+  try { snap = await getDoc(ref); }
+  catch (e) { throw new WriteHouseholdMetaError("Couldn't read the household.", e); }
+  if (!snap.exists()) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
+  const current = snap.data() as HouseholdState;
+  const next: HouseholdState = { ...current };
+  if (trimmed) next.timeZone = trimmed;
+  else delete next.timeZone;
+  try { await setDoc(ref, next); }
+  catch (e) { throw new WriteHouseholdMetaError("Couldn't save the time zone.", e); }
+}
+
+/**
  * Set who a person works for. Shown as a shift's "where" whenever the shift
  * doesn't name its own location, so one edit updates every shift rather than
  * stamping the employer onto each saved entry.

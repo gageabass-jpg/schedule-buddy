@@ -10453,6 +10453,9 @@ function mergeStateFromFirestore(data) {
     // doesn't name a location. Set in the desktop manager's Console.
     employers: (data.employers && typeof data.employers === "object" && !Array.isArray(data.employers))
       ? data.employers : undefined,
+    // Household time zone (IANA id), set in the desktop manager's Console.
+    // Preserved on round-trip; iOS doesn't re-render times from it yet.
+    timeZone: typeof data.timeZone === "string" ? data.timeZone : undefined,
     // Optional last day the recurring weekly template applies (inclusive,
     // "YYYY-MM-DD"). Set in the desktop manager's weekly-template editor.
     templateEndDate: typeof data.templateEndDate === "string" ? data.templateEndDate : undefined,

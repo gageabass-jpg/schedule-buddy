@@ -4,7 +4,7 @@ import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { DependentBlock } from "../state";
 import type { ThemePref } from "../App";
-import { setHouseholdName, setEmployer } from "../lib/writeHouseholdMeta";
+import { setHouseholdName, setEmployer, setTimeZone } from "../lib/writeHouseholdMeta";
 import { setPaydaySchedule } from "../lib/writePaydays";
 import type { PaydaySchedule } from "../state";
 import { createInviteCode } from "../lib/createInviteCode";
@@ -23,6 +23,18 @@ const TEAL_TINT = "#D8E7E4";
 const CLAY = "#8A4B38";
 const CLAY_TINT = "#EFDFDB";
 const APP_VERSION = "0.1.0";
+
+// Household time zone options (IANA id + friendly label). Default is Eastern.
+const DEFAULT_TZ = "America/New_York";
+const TIME_ZONES: Array<{ id: string; label: string }> = [
+  { id: "America/New_York", label: "Eastern · New York" },
+  { id: "America/Chicago", label: "Central · Chicago" },
+  { id: "America/Denver", label: "Mountain · Denver" },
+  { id: "America/Phoenix", label: "Mountain (no DST) · Phoenix" },
+  { id: "America/Los_Angeles", label: "Pacific · Los Angeles" },
+  { id: "America/Anchorage", label: "Alaska · Anchorage" },
+  { id: "Pacific/Honolulu", label: "Hawaii · Honolulu" },
+];
 const API_KEYS_URL = "https://console.anthropic.com/settings/keys";
 
 type NavKey = "general" | "people" | "wall" | "integrations" | "notifications" | "billing";
@@ -54,7 +66,7 @@ export function FamilyConsole({
   themePref, onSetThemePref,
 }: Props) {
   const [draftName, setDraftName] = useState("");
-  const [tz, setTz] = useState("Eastern · Charleston, WV");
+  const [tz, setTz] = useState(DEFAULT_TZ);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -81,6 +93,7 @@ export function FamilyConsole({
   useEffect(() => {
     if (!open) return;
     setDraftName(state?.householdName ?? defaultHouseholdName(household));
+    setTz(state?.timeZone ?? DEFAULT_TZ);
     setErr(null);
     setCopied(false);
     setCaregiverCode(null);
@@ -91,7 +104,7 @@ export function FamilyConsole({
       K: state?.employers?.K ?? "",
       D: state?.employers?.D ?? "",
     });
-  }, [open, state?.householdName, state?.employers, household]);
+  }, [open, state?.householdName, state?.employers, state?.timeZone, household]);
 
   if (!open) return null;
 
@@ -418,13 +431,7 @@ function GeneralTab(p: {
           </div>
           <div style={{ flex: 1, minWidth: 220 }}>
             <FieldLabel t={t}>Time zone</FieldLabel>
-            <input
-              type="text"
-              value={p.tz}
-              onChange={(e) => p.setTz(e.target.value)}
-              placeholder="Eastern · Charleston, WV"
-              style={inputStyle(t)}
-            />
+            <TimeZoneField t={t} tz={p.tz} setTz={p.setTz} householdId={p.householdId} savedTz={p.state?.timeZone ?? DEFAULT_TZ} />
           </div>
         </div>
       </Section>
@@ -871,6 +878,18 @@ function FeedsSubTab({ t }: { t: ThemeTokens }) {
   const [addr, setAddr] = useState("");
   const [name, setName] = useState("");
   const [showOn, setShowOn] = useState<FeedRow["where"]>("WALL");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Re-check every feed. (Real polling isn't wired yet, so this just stamps
+  // each row as freshly checked; when a reader is added it triggers that.)
+  const onRefreshFeeds = () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setTimeout(() => {
+      setFeeds((fs) => fs.map((f) => ({ ...f, checked: "checked just now" })));
+      setRefreshing(false);
+    }, 600);
+  };
 
   const feedChip: React.CSSProperties = {
     fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
@@ -879,7 +898,23 @@ function FeedsSubTab({ t }: { t: ThemeTokens }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Section t={t} label="Feeds" desc="A feed puts school closings, weather and notices on the wall beside the schedule.">
+      <Section
+        t={t}
+        label="Feeds"
+        desc="A feed puts school closings, weather and notices on the wall beside the schedule."
+        action={
+          <button
+            type="button"
+            onClick={onRefreshFeeds}
+            disabled={refreshing}
+            aria-label="Re-check all feeds"
+            title="Re-check all feeds"
+            style={{ ...iconBtn(t), cursor: refreshing ? "default" : "pointer" }}
+          >
+            <RefreshIcon spinning={refreshing} />
+          </button>
+        }
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {feeds.map((f) => (
             <div key={f.id} style={{ ...rowCard(t), gap: 12 }}>
@@ -944,6 +979,19 @@ function RssIcon() {
     <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
       <circle cx="5" cy="19" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      style={{ animation: spinning ? "sbmSpin 0.6s linear infinite" : undefined }}
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v5h-5" />
     </svg>
   );
 }
@@ -1078,11 +1126,50 @@ function BillingTab({ t, hhName }: { t: ThemeTokens; hhName: string }) {
 // SHARED PIECES
 // ════════════════════════════════════════════════════════════════════════════
 
-function Section({ label, desc, t, children }: { label: string; desc?: string; t: ThemeTokens; children: React.ReactNode }) {
+function TimeZoneField({ t, tz, setTz, householdId, savedTz }: {
+  t: ThemeTokens; tz: string; setTz: (v: string) => void; householdId: string | null; savedTz: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const dirty = tz !== savedTz;
+  const onSave = async () => {
+    if (!householdId) { setErr("No household linked."); return; }
+    setErr(null);
+    setBusy(true);
+    try { await setTimeZone(householdId, tz); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
+    finally { setBusy(false); }
+  };
+  const known = TIME_ZONES.some((z) => z.id === tz);
   return (
     <div>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3, marginBottom: 6 }}>
-        {label}
+      <div style={{ display: "flex", gap: 8 }}>
+        <select value={tz} onChange={(e) => setTz(e.target.value)} style={{ ...inputStyle(t), cursor: "pointer" }}>
+          {TIME_ZONES.map((z) => <option key={z.id} value={z.id}>{z.label}</option>)}
+          {!known && <option value={tz}>{tz}</option>}
+        </select>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={busy || !dirty}
+          style={{ ...primaryBtn, opacity: busy || !dirty ? 0.5 : 1, cursor: busy || !dirty ? "not-allowed" : "pointer" }}
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </div>
+      {err && <div style={{ fontSize: 12, color: CLAY, marginTop: 6 }}>{err}</div>}
+    </div>
+  );
+}
+
+function Section({ label, desc, t, action, children }: { label: string; desc?: string; t: ThemeTokens; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6, minHeight: action ? 28 : undefined }}>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: t.text3 }}>
+          {label}
+        </div>
+        {action}
       </div>
       {desc && <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10, lineHeight: 1.45 }}>{desc}</div>}
       {children}
@@ -1264,8 +1351,9 @@ function CalendarIcon() {
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     width: "100%",
+    height: 32,
     boxSizing: "border-box",
-    padding: "8px 11px",
+    padding: "0 11px",
     border: `1px solid ${t.sep}`,
     borderRadius: 4,
     background: t.bgElev,

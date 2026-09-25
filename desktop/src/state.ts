@@ -295,6 +295,9 @@ export interface HouseholdState {
    *  doesn't name its own location, so changing jobs updates every shift
    *  rather than leaving the old employer on past dates. Allowlisted on iOS. */
   employers?: { G?: string; K?: string; D?: string };
+  /** Household time zone as an IANA id (e.g. "America/New_York"). Allowlisted
+   *  on iOS. */
+  timeZone?: string;
   /** Read-only public share (guest link + ICS feed). `shareToken` keys the
    *  sanitized publicShares/{token} mirror; `shareEnabled` gates publishing.
    *  Round-tripped by iOS too. */
