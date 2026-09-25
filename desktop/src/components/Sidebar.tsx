@@ -45,7 +45,9 @@ export function Sidebar({
       style={{
         background: dark ? "rgba(28,28,30,0.6)" : "rgba(246,246,248,0.7)",
         borderRight: `0.5px solid ${t.sep}`,
-        padding: "12px 10px",
+        // Top pad matches the calendar toolbar so the wordmark lines up with
+        // the "September 2026" title (both below the teal titlebar).
+        padding: "16px 10px 12px",
         display: "flex",
         flexDirection: "column",
         gap: 12,
@@ -67,7 +69,8 @@ export function Sidebar({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: "2px 6px",
+          height: 32,
+          padding: "0 6px",
           background: "transparent",
           border: 0,
           borderRadius: 8,
