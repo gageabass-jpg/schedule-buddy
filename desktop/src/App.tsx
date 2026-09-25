@@ -47,6 +47,10 @@ import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
 import { ShiftTypesEditor } from "./components/ShiftTypesEditor";
 import { ScheduleImportModal } from "./components/ScheduleImportModal";
+import { ToastHost } from "./components/ToastHost";
+import { findScheduleImport } from "./scheduleImports";
+import type { TemplatePerson } from "./lib/writeTemplate";
+import { useScheduleChangeToasts } from "./hooks/useScheduleChangeToasts";
 import { ApiKeySettings } from "./components/ApiKeySettings";
 import { EventModal } from "./components/EventModal";
 import { FamilyConsole } from "./components/FamilyConsole";
@@ -122,6 +126,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const [viewMonth, setViewMonth] = useState<number>(tM - 1);
   const [newShiftOpen, setNewShiftOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  /** Whose week the template editor opens on. */
+  const [templatePerson, setTemplatePerson] = useState<TemplatePerson>("G");
   const [shiftTypesOpen, setShiftTypesOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EditShiftTarget | null>(null);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
@@ -228,6 +234,19 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   const rawState: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
   const state: HouseholdState | null = rawState ? expandCustomTemplateTypes(rawState) : null;
+
+  // A notice whenever the schedule changes — including changes someone else
+  // made, which arrive here as a new snapshot.
+  useScheduleChangeToasts(state, {
+    goToDate: (iso) => {
+      const [y, m] = iso.split("-").map(Number);
+      setViewYear(y);
+      setViewMonth((m || 1) - 1);
+      setSelected(iso);
+    },
+    showCoverage: () => setViewFilter("coverage"),
+  });
+
 
   const pendingCoverageCount = (state?.coverageRequests ?? []).filter((r) => r.status === "pending").length;
 
@@ -460,6 +479,11 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
         onOpenScheduleImport={(id) => setImportScheduleId(id)}
+        onEditSchedule={(id) => {
+          const def = findScheduleImport(id);
+          setTemplatePerson(def?.target === "partner" ? "K" : def?.target === "dependent-daisy" ? "daisy" : "G");
+          setTemplateOpen(true);
+        }}
         onToggleThisWeek={() => {
           if (viewFilter === "this-week") {
             setViewFilter("all");
@@ -568,6 +592,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       />
       <TemplateEditor
         open={templateOpen}
+        initialPerson={templatePerson}
         onClose={() => setTemplateOpen(false)}
         palette={palette}
         t={t}
@@ -716,6 +741,9 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           onAsk={() => { setDayDetail(null); setAskClaudeOpen(true); }}
         />
       )}
+      {/* Transient notices, bottom-left beside the 240px sidebar. */}
+      <ToastHost t={t} dark={dark} sidebarWidth={240} />
+
       {shiftDetail && (
         <ShiftDetailPopover
           open

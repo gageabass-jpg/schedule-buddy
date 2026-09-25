@@ -7,6 +7,8 @@ import { DAYS_LONG } from "../data";
 
 interface Props {
   open: boolean;
+  /** Which person's week to show first — set when opened from their row. */
+  initialPerson?: TemplatePerson;
   onClose: () => void;
   palette: Palette;
   t: ThemeTokens;
@@ -55,11 +57,11 @@ function dayToSlot(d: DraftDay): TemplateSlot {
   return d.presetId || null;
 }
 
-export function TemplateEditor({ open, onClose, palette, t, dark, householdId, state }: Props) {
+export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark, householdId, state }: Props) {
   const presets = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
   const defaultPreset = presets[0]?.id ?? "";
 
-  const [person, setPerson] = useState<TemplatePerson>("G");
+  const [person, setPerson] = useState<TemplatePerson>(initialPerson ?? "G");
   const [drafts, setDrafts] = useState<Record<TemplatePerson, PersonDraft>>(() => ({
     G: loadDraft(state, "G", defaultPreset),
     K: loadDraft(state, "K", defaultPreset),
@@ -78,7 +80,7 @@ export function TemplateEditor({ open, onClose, palette, t, dark, householdId, s
       K: loadDraft(state, "K", defaultPreset),
       daisy: loadDraft(state, "daisy", defaultPreset),
     });
-    setPerson("G");
+    setPerson(initialPerson ?? "G");
     setErr(null);
   }
 

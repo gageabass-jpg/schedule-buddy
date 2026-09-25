@@ -27,6 +27,8 @@ interface SidebarProps {
   onSetViewFilter: (f: ViewFilter) => void;
   onToggleThisWeek: () => void;
   onOpenScheduleImport: (id: string) => void;
+  /** Right-click (two-finger click) a schedule row to edit that person's week. */
+  onEditSchedule: (id: string) => void;
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
   onOpenChildcare: () => void;
@@ -36,7 +38,7 @@ interface SidebarProps {
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements: _onOpenImprovements,
-  viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
+  viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
   onOpenFamilyConsole, onSendCoverage, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   const [flip, setFlip] = useState(false);
@@ -183,6 +185,8 @@ export function Sidebar({
             label={s.label}
             tag={s.target === "dependent-daisy" ? "SCHOOL" : "WORK"}
             onClick={() => onOpenScheduleImport(s.id)}
+            onContextMenu={(e) => { e.preventDefault(); onEditSchedule(s.id); }}
+            title={`Click to import ${s.personLabel}'s schedule · right-click to edit their week`}
             t={t}
           />
         ))}

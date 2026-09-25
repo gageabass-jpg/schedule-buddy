@@ -6,6 +6,7 @@ import { findScheduleImport, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
 import { parseScheduleXlsx, parseTimeRange, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { normalizeImage } from "../lib/normalizeImage";
+import { muteChangeNotices, notify } from "../lib/toast";
 import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
@@ -273,6 +274,11 @@ export function ScheduleImportModal({
         monthCovered: phase.monthCovered,
         newShiftTypes,
       });
+      // Say it here, in the words of the thing the user just did, and keep
+      // the generic "N shifts added" notice quiet when the write echoes back.
+      muteChangeNotices();
+      notify(
+        `You just uploaded ${rows.length} shift${rows.length === 1 ? "" : "s"} — you should see them populate now.`      );
       setPhase({ kind: "saved", count: rows.length });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the import.");
