@@ -145,6 +145,18 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
+
+  // ⌘K opens nucleusAI — the shortcut the panel advertises in its footer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setAskClaudeOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift; anchor?: DOMRect | null } | null>(null);
   const [dayDetail, setDayDetail] = useState<{ date: string; anchor?: DOMRect | null } | null>(null);
   /** Overrides New Shift's default date when it is opened from a day popover. */

@@ -11,18 +11,31 @@ export interface AskMessage {
   content: unknown;
 }
 
+export type AskMode = "read" | "write";
+
 export interface AskResponse {
   reply: string;
   messages: AskMessage[];
+  /** Which model answered — shown in the panel beside the mode control. */
+  model?: string;
+  mode?: AskMode;
 }
 
 const fns = getFunctions(firebaseApp, "us-central1");
-const callAsk = httpsCallable<{ message: string; history?: AskMessage[] }, AskResponse>(
-  fns,
-  "askClaude",
-);
+const callAsk = httpsCallable<
+  { message: string; history?: AskMessage[]; mode?: AskMode },
+  AskResponse
+>(fns, "askClaude");
 
-export async function askClaude(message: string, history: AskMessage[] = []): Promise<AskResponse> {
-  const result = await callAsk({ message, history });
+/**
+ * `mode: "read"` asks the function to withhold every write tool, so the
+ * assistant can answer but cannot change the schedule.
+ */
+export async function askClaude(
+  message: string,
+  history: AskMessage[] = [],
+  mode: AskMode = "write",
+): Promise<AskResponse> {
+  const result = await callAsk({ message, history, mode });
   return result.data;
 }

@@ -92,6 +92,12 @@ interface ChildcareOffDay {
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
+const MODEL = "claude-opus-4-8";
+
+/** Tools that only read. Read-only mode is handed these and nothing else, so
+ *  the model cannot write even if it decides to. */
+const READ_ONLY_TOOL_NAMES = new Set(["list_shift_types", "summarize_period"]);
+
 const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "list_shift_types",
@@ -460,6 +466,8 @@ async function execTool(
 
 interface AskRequest {
   message?: string;
+  /** "read" withholds every write tool; anything else behaves as before. */
+  mode?: "read" | "write";
   history?: Array<{
     role: "user" | "assistant";
     content: string | Anthropic.Messages.ContentBlockParam[];
@@ -468,6 +476,10 @@ interface AskRequest {
 
 interface AskResponse {
   reply: string;
+  /** Which model answered, surfaced in the panel beside the mode control. */
+  model?: string;
+  /** Echoed back so the UI can show what the turn actually ran as. */
+  mode?: "read" | "write";
   /** Full updated conversation so the client can pass it back on the next turn. */
   messages: Array<{
     role: "user" | "assistant";
@@ -483,6 +495,11 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
 
     const message = (request.data.message ?? "").trim();
     if (!message) throw new HttpsError("invalid-argument", "Empty message.");
+
+    // "read" withholds every write tool. The system prompt also says so, but
+    // the tool list is what actually enforces it.
+    const readOnly = request.data.mode === "read";
+    const activeTools = readOnly ? TOOLS.filter((t) => READ_ONLY_TOOL_NAMES.has(t.name)) : TOOLS;
 
     // 1. Resolve the caller to their household.
     const db = getFirestore();
@@ -541,7 +558,13 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- Plain prose only. Never use markdown.\n` +
       `- No asterisks for emphasis, no double-asterisks for bold, no underscores for italic.\n` +
       `- No # headers, no - bullet lists, no numbered lists, no \`code\` backticks.\n` +
-      `- Write the way you would speak to a family member in iMessage.`;
+      `- Write the way you would speak to a family member in iMessage.` +
+      (readOnly
+        ? `\n\nYou are in READ-ONLY mode: you can look at the schedule but you cannot change it. ` +
+          `No write tool is available to you. If the user asks for a change, say plainly that you're ` +
+          `in read-only mode and they can switch you to make changes, then describe what the change ` +
+          `would be so they can decide.`
+        : "");
 
     // 3. Tool-use loop.
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
@@ -555,10 +578,10 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     const MAX_ROUNDS = 6;   // generous cap for tool chains
     for (let i = 0; i < MAX_ROUNDS; i++) {
       const resp = await client.messages.create({
-        model: "claude-opus-4-8",
+        model: MODEL,
         max_tokens: 1500,
         system: systemPrompt,
-        tools: TOOLS,
+        tools: activeTools,
         messages,
       });
       logger.info("askClaude turn", { stopReason: resp.stop_reason, contentBlocks: resp.content.length });
@@ -610,6 +633,8 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
 
     return {
       reply: finalText || "(no reply)",
+      model: MODEL,
+      mode: readOnly ? "read" : "write",
       messages: messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content as string | Anthropic.Messages.ContentBlockParam[],
