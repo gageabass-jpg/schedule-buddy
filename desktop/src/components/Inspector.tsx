@@ -1211,18 +1211,31 @@ function AlertCard({
         <button
           type="button"
           onClick={onAction}
+          // Squarer than the old pill, and it lifts and glows on hover — this
+          // is the one action on the card, so it should feel like a button
+          // rather than a tag.
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.04)";
+            e.currentTarget.style.boxShadow = `0 4px 18px ${rgba(color, 0.55)}`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = `0 1px 3px ${rgba(color, 0.3)}`;
+          }}
           style={{
             alignSelf: "flex-start",
-            padding: "6px 12px",
+            padding: "10px 16px",
             border: 0,
-            borderRadius: 7,
+            borderRadius: 4,
             background: color,
             color: "#fff",
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
-            fontFamily: "inherit",
+            fontFamily: BRAND_FONT,
             letterSpacing: "-0.01em",
+            boxShadow: `0 1px 3px ${rgba(color, 0.3)}`,
+            transition: "transform 0.14s ease, box-shadow 0.14s ease",
           }}
         >
           {actionLabel}
