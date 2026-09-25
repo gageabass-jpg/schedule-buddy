@@ -22,7 +22,7 @@ interface Props {
 const STOP_RED = "#8A4B38";
 
 export function ScheduleBlockModal({
-  open, onClose, palette, t, dark, householdId, state, defaultDate,
+  open, onClose, palette: _palette, t, dark, householdId, state, defaultDate,
 }: Props) {
   const [startDate, setStartDate] = useState(defaultDate ?? isoToday());
   const [endDate, setEndDate]     = useState(defaultDate ?? isoToday());

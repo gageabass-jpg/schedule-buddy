@@ -59,7 +59,7 @@ import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
 import { ShiftDetailPopover } from "./components/ShiftDetailPopover";
 import { DayDetailPopover } from "./components/DayDetailPopover";
-import type { Event as SbEvent, EventWho, CaregiverRequest } from "./state";
+import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
 
@@ -98,6 +98,7 @@ interface ManagerAppProps {
 }
 
 function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
+  const palette = getPalette(PALETTE);
   const auth = useAuth();
   const user = auth.status === "signed-in" ? auth.user : null;
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -162,7 +163,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   /** Overrides New Shift's default date when it is opened from a day popover. */
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
 
-  const palette = getPalette(PALETTE);
   const t = themeTokens(dark);
 
   useEffect(() => {
@@ -751,7 +751,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
 
 function Splash({ title, message, showSignOut, dark = true }: { title?: string; message: string; showSignOut?: boolean; dark?: boolean }) {
   const t = themeTokens(dark);
-  const palette = getPalette(PALETTE);
   return (
     <div
       style={{

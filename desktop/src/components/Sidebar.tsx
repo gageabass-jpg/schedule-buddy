@@ -35,9 +35,9 @@ interface SidebarProps {
 
 export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
-  householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements,
+  householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements: _onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport,
-  onOpenFamilyConsole, onSendCoverage, onOpenChildcare, pendingCoverageCount,
+  onOpenFamilyConsole, onSendCoverage, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   const [flip, setFlip] = useState(false);
   return (

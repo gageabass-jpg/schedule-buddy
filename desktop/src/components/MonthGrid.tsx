@@ -3,13 +3,12 @@ import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, typ
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
-import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
+import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
-import { eventInitial } from "./EventAvatar";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
 interface Props {
@@ -55,7 +54,7 @@ const CARE_COL = "((100% - 24px) / 7)";
 const CARE_STEP = `(${CARE_COL} + 4px)`;
 
 export function MonthGrid({
-  palette, t, dark, flat, shifts, state, viewYear, viewMonth, selected, today,
+  palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   viewFilter, coverageDates, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames,

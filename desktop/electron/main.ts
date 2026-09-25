@@ -324,7 +324,7 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
     return { ok: false, error: `Anthropic API ${resp.status}: ${detail}` };
   }
 
-  let payload: { content?: Array<{ type: string; text?: string }>; stop_reason?: string } | null = null;
+  let payload: { content?: Array<{ type: string; text?: string }>; stop_reason?: string } | null;
   try { payload = await resp.json(); } catch {
     return { ok: false, error: "Anthropic returned a non-JSON response." };
   }

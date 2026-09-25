@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
-import { personColor } from "../theme";
 import type { HouseholdState } from "../state";
 import { compactTime } from "../state";
 import { findScheduleImport, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
 import { parseScheduleXlsx, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { normalizeImage } from "../lib/normalizeImage";
-import { MONTHS_LONG, WEEKDAYS_3 } from "../data";
+import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 
 const CLAY = "#8A4B38";
 const TEAL_TINT = "#D8E7E4";
 const CLAY_TINT = "#EFDFDB";
-const SKIP_STRIKE = "#A9B3B0";
 
 interface Props {
   scheduleId: string | null;
@@ -53,13 +51,8 @@ function scheduleKindLabel(target: ImportTarget): string {
   return target === "dependent-daisy" ? "School Schedule" : "Work Schedule";
 }
 
-/** Person whose colour rule the cards carry, from the import target. */
-function whoFor(target: ImportTarget): "G" | "K" | "D" {
-  return target === "self-ot" ? "G" : target === "partner" ? "K" : "D";
-}
-
 export function ScheduleImportModal({
-  scheduleId, onClose, onNeedApiKey, palette, t, dark, householdId, state,
+  scheduleId, onClose, onNeedApiKey, palette: _palette, t, dark, householdId, state,
   today, contextMonth,
 }: Props) {
   // The sidebar row that opened the modal fixes which schedule is being
@@ -197,7 +190,6 @@ export function ScheduleImportModal({
     setPhase({ kind: "parsing", step: "matching" });
     // Force any shiftTypeId Claude returned that doesn't match the current
     // catalog back to null so the user is prompted to map it before save.
-    const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
     const editable: EditableRow[] = result.rows.map((r, i) => ({
       ...r,
       shiftTypeId: r.shiftTypeId && validIds.has(r.shiftTypeId) ? r.shiftTypeId : null,
@@ -213,7 +205,6 @@ export function ScheduleImportModal({
       setErr("No household linked.");
       return;
     }
-    const validIds = new Set((state?.shiftTypes ?? []).map((s) => s.id));
     const rows: ImportRow[] = readyRows.map((r) => ({
       date: r.date,
       shiftTypeId: r.shiftTypeId as string,
@@ -255,7 +246,6 @@ export function ScheduleImportModal({
   };
 
   const shiftTypes = state?.shiftTypes ?? [];
-  const who = whoFor(def.target);
 
   // Footer count — days that will actually be written.
   const validIds = new Set(shiftTypes.map((s) => s.id));
@@ -615,7 +605,7 @@ function ReviewPhase({
   );
 }
 
-function Banner({ t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
+function Banner({ t: _t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: CLAY_TINT, color: CLAY }}>
       <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>

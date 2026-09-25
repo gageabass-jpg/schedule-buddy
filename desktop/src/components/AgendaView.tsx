@@ -36,7 +36,7 @@ function iso(d: Date): string {
 function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function weekStart(d: Date): string { return iso(addDays(d, -d.getDay())); }
 
-export function AgendaView({ palette, t, dark, shifts, state, today, selfName, partnerName, eventsByDate, onSelectDate, onEditEvent }: Props) {
+export function AgendaView({ palette, t, dark: _dark, shifts, state, today, selfName, partnerName, eventsByDate, onSelectDate, onEditEvent }: Props) {
   const types = useMemo(() => {
     const m: Record<string, ShiftType> = {};
     for (const st of state?.shiftTypes || []) m[st.id] = st;

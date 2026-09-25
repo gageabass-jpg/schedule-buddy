@@ -4,7 +4,7 @@
 // Paydays aren't managed here — they're auto-computed from each
 // person's payday schedule (managed in the Paydays section).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState, OccasionEntry, OccasionType } from "../state";
 import { addOccasion, removeOccasion } from "../lib/writeOccasions";

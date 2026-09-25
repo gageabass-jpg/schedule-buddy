@@ -290,7 +290,7 @@ function HoursPill({ letter, text, accent, bg, t }: { letter: string; text: stri
   );
 }
 
-function RoundBtn({ label, active, color, title, onClick, t, dark }: {
+function RoundBtn({ label, active, color, title, onClick, t: _t, dark }: {
   label: string; active: boolean; color: string; title: string; onClick: () => void; t: ThemeTokens; dark: boolean;
 }) {
   // The glyph always carries its color (green ✓ / red ✕) so the affordance

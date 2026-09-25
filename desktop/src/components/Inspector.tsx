@@ -1,14 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
-import { buildShiftMap, compactTime, type CoverageStatus, type Event as SbEvent, type HouseholdState } from "../state";
-import { dayColors, eventColor, lifeColor, personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
-import { PhotoAv } from "./PhotoAv";
-import { EventAvatar } from "./EventAvatar";
+import { buildShiftMap, compactTime, type Event as SbEvent, type HouseholdState } from "../state";
+import { personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import {
-  computeOverlapCandidates, parentDayRanges, parentDaySegments, daisyDayRanges, daisyCoverageConflict,
+  computeOverlapCandidates, parentDayRanges, parentDaySegments,
   hmToMin, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
 } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
@@ -48,24 +46,12 @@ interface Props {
   wvuGames: Map<string, WvuGame>;
 }
 
-const COVERAGE_STATUS_COLOR: Record<CoverageStatus, string> = {
-  pending:   "#14201E",
-  confirmed: "#0F6E64",
-  declined:  "#8A4B38",
-  issue:     "#8A4B38",
-};
-const COVERAGE_STATUS_LABEL: Record<CoverageStatus, string> = {
-  pending:   "Pending",
-  confirmed: "Confirmed",
-  declined:  "Declined",
-  issue:     "Issue",
-};
 
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
-  onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay,
-  onToggleChildcareOff, onSelectDate,
-  onOpenScheduleBlock, onOpenCleaner,
+  onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay: _onSendCoverageForDay,
+  onToggleChildcareOff: _onToggleChildcareOff, onSelectDate,
+  onOpenScheduleBlock, onOpenCleaner: _onOpenCleaner,
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
   onDismissReminder, onSendCaregiverRequests, onAsk, wvuGames,
 }: Props) {
@@ -73,8 +59,6 @@ export function Inspector({
   const shifts = allShifts[selected];
   const wvuGame = wvuGames.get(selected);
   const kind = dayKindFromShifts(shifts);
-  const colors = dayColors(kind, palette, dark);
-  const accent = colors.accent;
 
   // Which shift row has its edit/delete buttons revealed. Double-click
   // the row to toggle. Single-click reading-only state stays calm.
@@ -82,17 +66,13 @@ export function Inspector({
   const dayLabel = `${WEEKDAYS_3[new Date(y, m - 1, d).getDay()]} · ${MONTHS_LONG[m - 1]} ${d}`;
 
   // Coverage requests on the selected day.
-  const dayCoverage = (state?.coverageRequests ?? []).filter((r) => r.date === selected);
   // A "gap" worth flagging = both partners working with no caregiver request yet.
-  const isGapDay = kind === "both" && dayCoverage.length === 0;
   // Has this day been explicitly marked "no childcare" (caregiver off)?
-  const isChildcareOff = (state?.childcareOff ?? []).some((c) => c.date === selected);
   // Schedule block covering this day (vacation, travel, etc.) — surfaces a
   // red striped notice card right under the Selected Day header.
   const dayBlock = blockForDate(state?.scheduleBlocks, selected);
   // Daisy's (caregiver) school time on the selected day — when she can't cover.
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
-  const daisySchool = state ? daisyDayRanges(state, selected) : [];
 
   // Overview rail tabs (design boards): the header stays tied to the tapped
   // day; the tabs below switch the broader view (Month / Childcare / Life).
@@ -666,7 +646,6 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
   }
   const daysOff = daysInMonth - workDays.size;
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
-  const dotFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
   const stats: [string, string][] = [
     ["Shifts", String(totalShifts)],
     ["Hours", String(Math.round(totalHours))],
@@ -709,158 +688,7 @@ function MonthTotals({ state, palette, t, selfName, partnerName, daisyName }: {
 }
 
 // Caregiver pay model — flat $400 a month ($200 twice a month).
-const CAREGIVER_MONTHLY_PAY = 400;
 
-/** Bottom-of-Inspector readout of the caregiver's confirmed coverage: total
- *  hours, flat-pay cost model, effective $/hr per month, blended rate, cadence,
- *  and date range. Computed from state.coverageRequests (status confirmed). */
-function CaregiverCoverageAnalysis({ state, daisyName, palette, t }: {
-  state: HouseholdState | null;
-  daisyName: string;
-  palette: Palette;
-  t: ThemeTokens;
-}) {
-  const reqs = state?.coverageRequests ?? [];
-  const toMin = (s: string) => { const [h, m] = (s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); };
-  const dur = (r: { startTime: string; endTime: string; endsNextDay?: boolean }) => {
-    let d = toMin(r.endTime) - toMin(r.startTime);
-    if (r.endsNextDay || d <= 0) d += 1440;   // overnight window
-    return d;
-  };
-  const confirmed = reqs.filter((r) => r.status === "confirmed" && r.date && r.startTime && r.endTime);
-  const totalH = confirmed.reduce((s, r) => s + dur(r), 0) / 60;
-
-  const hoursByMonth = new Map<string, number>();
-  confirmed.forEach((r) => { const k = r.date.slice(0, 7); hoursByMonth.set(k, (hoursByMonth.get(k) ?? 0) + dur(r) / 60); });
-  const monthKeys = [...hoursByMonth.keys()].sort();
-  const dates = confirmed.map((r) => r.date).sort();
-  // Flat $400/month, paid consistently (including through her time off).
-  const rows = monthKeys.map((k) => {
-    const hours = hoursByMonth.get(k) ?? 0;
-    return { k, hours, cost: CAREGIVER_MONTHLY_PAY, rate: hours > 0 ? CAREGIVER_MONTHLY_PAY / hours : 0 };
-  });
-  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
-  const blended = totalH > 0 ? totalCost / totalH : 0;
-  const avgMo = monthKeys.length ? totalH / monthKeys.length : 0;
-  const avgWk = avgMo / 4.345;
-
-  const sessByMonth = new Map<string, number>();
-  confirmed.forEach((r) => { const k = r.date.slice(0, 7); sessByMonth.set(k, (sessByMonth.get(k) ?? 0) + 1); });
-
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const fmtMonth = (k: string) => { const [y, m] = k.split("-").map(Number); return `${MONTHS[(m ?? 1) - 1]} '${String(y).slice(2)}`; };
-  const recent = rows.slice(-6).map((r) => ({ ...r, sessions: sessByMonth.get(r.k) ?? 0 }));
-  const maxRate = Math.max(0.01, ...recent.map((r) => r.rate));
-  const maxHours = Math.max(0.01, ...recent.map((r) => r.hours));
-  const maxSess = Math.max(1, ...recent.map((r) => r.sessions));
-  let run = 0; const cum = rows.map((r) => ({ k: r.k, y: (run += r.hours) })).slice(-6);
-  const acc = palette.G;
-  const stats: [string, string][] = [
-    ["Total hours", `${totalH.toFixed(1)} h`],
-    ["Total paid", `$${Math.round(totalCost).toLocaleString()}`],
-    ["Blended rate", `$${blended.toFixed(2)}/hr`],
-    ["Cadence", `~${avgWk.toFixed(0)} h/wk`],
-  ];
-
-  // Click-to-cycle visuals with a little shuffle animation on change.
-  const [view, setView] = useState(0);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (!el || typeof el.animate !== "function") return;
-    el.animate(
-      [
-        { opacity: 0, transform: "translateX(18px) rotate(1.6deg) scale(0.97)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" },
-    );
-  }, [view]);
-  const VIEWS = [
-    { title: "Effective $/hr by month", note: "Lower is better value; vacation months read higher." },
-    { title: "Hours per month", note: "Confirmed coverage hours each month." },
-    { title: "Cumulative hours", note: "Running total across the period." },
-    { title: "Sessions per month", note: "Confirmed coverage sessions each month." },
-  ];
-  const cur = VIEWS[view];
-
-  const rowBar = (label: string, frac: number, value: React.ReactNode, key: string) => (
-    <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: 44, fontSize: 11, color: t.text2, flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, height: 8, background: rgba(acc, 0.14), borderRadius: 4, overflow: "hidden" }}>
-        <div style={{ width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, height: "100%", background: acc, borderRadius: 4 }} />
-      </div>
-      <div style={{ width: 74, textAlign: "right", fontSize: 11, color: t.text, flexShrink: 0 }}>{value}</div>
-    </div>
-  );
-
-  let body: React.ReactNode;
-  if (view === 0) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.rate / maxRate, <><span style={{ fontWeight: 600 }}>${r.rate.toFixed(2)}</span><span style={{ color: t.text3 }}> · {r.hours.toFixed(0)}h</span></>, r.k))}</div>;
-  } else if (view === 1) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.hours / maxHours, <span style={{ fontWeight: 600 }}>{r.hours.toFixed(1)}h</span>, r.k))}</div>;
-  } else if (view === 3) {
-    body = <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>{recent.map((r) =>
-      rowBar(fmtMonth(r.k), r.sessions / maxSess, <span style={{ fontWeight: 600 }}>{r.sessions}</span>, r.k))}</div>;
-  } else if (cum.length) {
-    // Cumulative-hours mini area.
-    const w = 264, h = 96, L = 6, R = 6, T = 10, B = 18, iw = w - L - R, ih = h - T - B;
-    const maxY = Math.max(1, ...cum.map((p) => p.y));
-    const X = (i: number) => cum.length > 1 ? L + iw * (i / (cum.length - 1)) : L + iw / 2;
-    const Y = (v: number) => T + ih - (v / maxY) * ih;
-    let line = `M ${X(0)} ${Y(cum[0].y)}`;
-    cum.forEach((p, i) => { if (i) line += ` L ${X(i)} ${Y(p.y)}`; });
-    const area = `${line} L ${X(cum.length - 1)} ${T + ih} L ${X(0)} ${T + ih} Z`;
-    const last = cum[cum.length - 1];
-    body = (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: "auto", overflow: "visible" }} aria-label="Cumulative hours">
-        <path d={area} fill={rgba(acc, 0.14)} />
-        <path d={line} fill="none" stroke={acc} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {cum.map((p, i) => <circle key={p.k} cx={X(i)} cy={Y(p.y)} r={i === cum.length - 1 ? 3.5 : 2.5} fill={acc} />)}
-        {cum.map((p, i) => <text key={`${p.k}l`} x={X(i)} y={h - 4} textAnchor="middle" style={{ fill: t.text3, fontSize: "9px", fontFamily: "monospace" }}>{fmtMonth(p.k).split(" ")[0]}</text>)}
-        <text x={X(cum.length - 1)} y={Y(last.y) - 6} textAnchor="end" style={{ fill: t.text, fontSize: "10px", fontWeight: 600, fontFamily: "monospace" }}>{last.y.toFixed(0)}h</text>
-      </svg>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{ ...subhead(t), marginBottom: 6 }}>Caregiver Coverage Analysis</div>
-      {confirmed.length === 0 ? (
-        <div style={{ fontSize: 12, color: t.text3, padding: "4px 2px" }}>No confirmed coverage logged yet.</div>
-      ) : (
-        <div
-          onClick={() => setView((v) => (v + 1) % VIEWS.length)}
-          style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 12, cursor: "pointer" }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
-            {stats.map(([k, v]) => (
-              <div key={k}>
-                <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{k}</div>
-                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em", color: t.text, marginTop: 1 }}>{v}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 10.5, color: t.text3 }}>
-            {daisyName} · {confirmed.length} session{confirmed.length === 1 ? "" : "s"} · {humanDate(dates[0])} → {humanDate(dates[dates.length - 1])}
-          </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: t.text3 }}>{cur.title}</div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {VIEWS.map((_, i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === view ? acc : t.sep }} />)}
-              </div>
-            </div>
-            <div ref={bodyRef} style={{ minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "center" }}>{body}</div>
-            <div style={{ fontSize: 10, color: t.text3, marginTop: 7, lineHeight: 1.45, minHeight: 28 }}>{cur.note}</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─────────────────── Game Day dropdown ───────────────────
 
@@ -955,90 +783,9 @@ function GameDetailRow({ label, value, t }: { label: string; value: string; t: T
 
 // ─────────────────── Utilities helpers ───────────────────
 
-function UtilityRow({ icon, label, hint, onClick, t }: {
-  icon: React.ReactNode;
-  label: string;
-  hint: string;
-  onClick: () => void;
-  t: ThemeTokens;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 12px",
-        background: "transparent",
-        border: 0,
-        cursor: "pointer",
-        textAlign: "left",
-        fontFamily: "inherit",
-        color: t.text,
-      }}
-    >
-      <div style={{ width: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</div>
-        <div style={{ fontSize: 11, color: t.text3, marginTop: 1 }}>{hint}</div>
-      </div>
-      <span style={{ color: t.text3, fontSize: 13 }}>›</span>
-    </button>
-  );
-}
 
-function WrenchIcon({ size = 12, color = "currentColor" }: { size?: number; color?: string }) {
-  // Subtle gray wrench — simplified silhouette.
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M22 7a5 5 0 0 1-6.5 4.77L5.83 21.46a2.83 2.83 0 1 1-4-4L11.5 7.83A5 5 0 0 1 18 1.31l-3.18 3.18 2.7 2.7L20.7 4Z"
-        fill={color}
-        opacity={0.65}
-      />
-    </svg>
-  );
-}
 
-function StopOctagonInline({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M8 2 H16 L22 8 V16 L16 22 H8 L2 16 V8 Z" fill="#8A4B38" />
-    </svg>
-  );
-}
 
-function WandIcon({ size = 14, color = "#56B7A9" }: { size?: number; color?: string }) {
-  // Four 4-pointed sparkle stars in a loose cluster, varied sizes:
-  //   - Big star, upper-left center (the dominant element)
-  //   - Small star, upper-right corner
-  //   - Medium star, middle-right
-  //   - Tiny star, lower-left
-  // Each star is an 8-point polygon with the inner vertices pulled
-  // close to the center to give the pointed-tip / "sparkle" look.
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={color}
-      aria-hidden
-    >
-      {/* Big star — upper-left center */}
-      <path d="M8 3.5 L9.5 7.5 L13.5 9 L9.5 10.5 L8 14.5 L6.5 10.5 L2.5 9 L6.5 7.5 Z" />
-      {/* Small star — upper-right */}
-      <path d="M18 2.5 L18.7 4.3 L20.5 5 L18.7 5.7 L18 7.5 L17.3 5.7 L15.5 5 L17.3 4.3 Z" />
-      {/* Medium star — middle-right */}
-      <path d="M17 10.5 L18 13 L20.5 14 L18 15 L17 17.5 L16 15 L13.5 14 L16 13 Z" />
-      {/* Tiny star — lower-left */}
-      <path d="M8 16 L8.5 17.5 L10 18 L8.5 18.5 L8 20 L7.5 18.5 L6 18 L7.5 17.5 Z" />
-    </svg>
-  );
-}
 
 function iconBtnStyle(t: ThemeTokens): React.CSSProperties {
   return {
@@ -1059,18 +806,6 @@ function iconBtnStyle(t: ThemeTokens): React.CSSProperties {
   };
 }
 
-/** Daisy school ranges → "8a–3p" span. */
-function schoolSpanLabel(rs: MinuteRange[]): string {
-  const f = (m: number) => {
-    const mm = ((m % 1440) + 1440) % 1440;
-    let h = Math.floor(mm / 60); const min = mm % 60;
-    const ap = h < 12 ? "a" : "p"; h = h % 12 || 12;
-    return min ? `${h}:${String(min).padStart(2, "0")}${ap}` : `${h}${ap}`;
-  };
-  const s = Math.min(...rs.map((r) => r.startMin));
-  const e = Math.max(...rs.map((r) => r.endMin));
-  return `${f(s)}–${f(e)}`;
-}
 
 // Appointment time range, e.g. "4:00–5:00p" / "11:00a–1:00p".
 function hm12(hhmm?: string): { h: number; mm: string; ap: string } {
@@ -1099,6 +834,14 @@ function MonthWeekDeltas({ selected, state, t }: {
 }) {
   if (!state) return null;
   const AXIS_START = 6 * 60, AXIS_END = 24 * 60, SLOT = 15;
+  /** Length of an uncovered window in hours, rolling over midnight. */
+  const winHours = (c: { startTime: string; endTime: string; endsNextDay: boolean }): number => {
+    const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+    let d = toMin(c.endTime) - toMin(c.startTime);
+    if (c.endsNextDay || d <= 0) d += 1440;
+    return d / 60;
+  };
+  /** Length of an uncovered window in hours, rolling over midnight. */
   const pad = (n: number) => String(n).padStart(2, "0");
   const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
   const parseHM = (hhmm: string): number => { const [h, m] = hhmm.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
@@ -1113,11 +856,6 @@ function MonthWeekDeltas({ selected, state, t }: {
   const toDt = new Date(thisWeekStart); toDt.setDate(thisWeekStart.getDate() + 8);
   const shiftMap = buildShiftMap(stFilled, iso(fromDt), iso(toDt));
   const cands = computeOverlapCandidates(shiftMap, stFilled);
-  const winHours = (c: { startTime: string; endTime: string; endsNextDay: boolean }): number => {
-    let d = parseHM(c.endTime) - parseHM(c.startTime);
-    if (c.endsNextDay || d <= 0) d += 1440;
-    return d / 60;
-  };
   const dur = (typeId: string | undefined): number => {
     if (!typeId) return 0;
     const ty = state.shiftTypes.find((x) => x.id === typeId);
@@ -1248,15 +986,6 @@ function ChildcareCard({
       .filter((r) => r.status === "confirmed" || r.status === "pending")
       .map((r) => r.date),
   );
-  const parseHM = (hhmm: string): number => {
-    const [h, m] = hhmm.split(":").map(Number);
-    return (h || 0) * 60 + (m || 0);
-  };
-  const winHours = (c: { startTime: string; endTime: string; endsNextDay: boolean }): number => {
-    let d = parseHM(c.endTime) - parseHM(c.startTime);
-    if (c.endsNextDay || d <= 0) d += 1440;
-    return d / 60;
-  };
   const hm = (h: number): string => {
     const H = Math.floor(h); const M = Math.round((h - H) * 60);
     return M ? `${H}h${pad(M)}` : `${H}h`;
