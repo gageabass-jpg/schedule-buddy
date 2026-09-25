@@ -12363,23 +12363,32 @@ function getOTOpportunities(dateISO) {
   return (state.otOpportunities || []).filter(op => op.date === dateISO && op.shiftTypeId);
 }
 
-// ---------- WVU football schedule (static feed, baked from wvusports.com RSS) ----------
-// Loaded once from the same-origin JSON file, keyed by ISO date. Any day with a
-// game gets the Flying WV in the cell's bottom-right corner. Refresh by editing
-// public/wvu-football.json and redeploying — see loadWvuSchedule().
+// ---------- WVU football schedule (live from the wvuSchedule Cloud Function) ----------
+// Keyed by ISO date. Any day with a game gets the Flying WV in the cell's
+// bottom-right corner. Primary source is /wvu-schedule (the function maps
+// ESPN's live schedule into our shape); the bundled static wvu-football.json
+// is the offline fallback if the function is unreachable.
 let _wvuGames = {};
+function applyWvuData(data) {
+  if (!data || !Array.isArray(data.games)) return false;
+  const next = {};
+  for (const g of data.games) if (g && g.date) next[g.date] = g;
+  _wvuGames = next;
+  // The first calendar render may have run before this resolved; repaint it.
+  if (typeof renderCalendar === "function") renderCalendar();
+  return true;
+}
 function loadWvuSchedule() {
-  fetch("wvu-football.json", { cache: "no-cache" })
+  fetch("/wvu-schedule", { cache: "no-cache" })
     .then(r => (r.ok ? r.json() : null))
-    .then(data => {
-      if (!data || !Array.isArray(data.games)) return;
-      const next = {};
-      for (const g of data.games) if (g && g.date) next[g.date] = g;
-      _wvuGames = next;
-      // The first calendar render may have run before this resolved; repaint it.
-      if (typeof renderCalendar === "function") renderCalendar();
-    })
-    .catch(() => { /* offline / missing file — cells simply render without the mark */ });
+    .then(data => { if (!applyWvuData(data)) throw new Error("bad live data"); })
+    .catch(() => {
+      // Live source down — fall back to the bundled static file.
+      fetch("wvu-football.json", { cache: "no-cache" })
+        .then(r => (r.ok ? r.json() : null))
+        .then(applyWvuData)
+        .catch(() => { /* offline / missing — cells simply render without the mark */ });
+    });
 }
 function wvuGameOn(dateISO) {
   return _wvuGames[dateISO] || null;

@@ -24,10 +24,40 @@ const WVU_ESPN_ID = "277";
 const ESPN_URL = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${WVU_ESPN_ID}/schedule`;
 const ET = "America/New_York";
 
+// Shared source for all three surfaces: the wvuSchedule Cloud Function (served
+// via a Hosting rewrite) does the ESPN mapping once. We hit it first, then fall
+// back to ESPN directly (keeps the desktop live even if Functions are down,
+// e.g. a lapsed-billing 503), then to the bundled static file.
+const FUNCTION_URL = "https://schedule-buddy-dd2cf.web.app/wvu-schedule";
+
 export async function loadWvuSchedule(): Promise<Map<string, WvuGame>> {
+  const shared = await fetchGamesJson(FUNCTION_URL);
+  if (shared && shared.size > 0) return shared;
   const live = await fetchEspnSchedule();
   if (live && live.size > 0) return live;
   return loadStaticSchedule();
+}
+
+/** Fetch a `{ games: WvuGame[] }` document (function or static) → Map. */
+async function fetchGamesJson(url: string): Promise<Map<string, WvuGame> | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    let res: Response;
+    try {
+      res = await fetch(url, { cache: "no-cache", signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data?.games)) return null;
+    const out = new Map<string, WvuGame>();
+    for (const g of data.games) if (g?.date) out.set(g.date, g as WvuGame);
+    return out.size > 0 ? out : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Live schedule from ESPN, mapped to WvuGame. Returns null on any failure. */
@@ -104,18 +134,7 @@ function mapEspnEvent(ev: unknown): WvuGame | null {
 
 /** Bundled static schedule — the offline fallback. */
 async function loadStaticSchedule(): Promise<Map<string, WvuGame>> {
-  try {
-    const res = await fetch("wvu-football.json", { cache: "no-cache" });
-    if (!res.ok) return new Map();
-    const data = await res.json();
-    const out = new Map<string, WvuGame>();
-    if (Array.isArray(data?.games)) {
-      for (const g of data.games) if (g?.date) out.set(g.date, g as WvuGame);
-    }
-    return out;
-  } catch {
-    return new Map();   // offline / missing file — calendar just renders without the mark
-  }
+  return (await fetchGamesJson("wvu-football.json")) ?? new Map();
 }
 
 /** ISO instant → Eastern-time calendar date (yyyy-mm-dd). */
