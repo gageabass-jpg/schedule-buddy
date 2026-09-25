@@ -320,8 +320,11 @@ export function MonthGrid({
 
       {calLayout === "month" && (
       /* Month grid */
-      <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", gap: 6, minHeight: 0 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+      <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {/* The calendar is one self-contained card: weekday header, grid, and
+            legend share a single border, hairlines drawn by 1px cell gaps. */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: `1px solid ${t.sep}`, borderRadius: 10, overflow: "hidden", background: t.bgElev }}>
+        <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: `1px solid ${t.sep}` }}>
           {WEEKDAYS_3.map((w, i) => (
             <div
               key={w}
@@ -331,14 +334,14 @@ export function MonthGrid({
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 color: i === 0 || i === 6 ? rgba(palette.G, 0.85) : t.text3,
-                padding: "4px 6px",
+                padding: "6px 8px",
               }}
             >
               {w}
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep, border: `1px solid ${t.sep}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep }}>
           {weeks.map((week, wi) => {
             // Group adjacent no-childcare days in this row into contiguous runs,
             // each drawn as a single red bar spanning those columns.
@@ -639,6 +642,21 @@ export function MonthGrid({
             );
           })}
         </div>
+        {/* Legend — schedule-block states + the reassurance note. */}
+        <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: `1px solid ${t.sep}`, background: t.bg, display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
+            <span style={{ width: 3, height: 15, borderLeft: "3px solid #8A4B38", display: "inline-block", flexShrink: 0 }} />
+            Blocked, covered
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
+            <span style={{ width: 3, height: 15, borderLeft: "3px dashed #8A4B38", display: "inline-block", flexShrink: 0 }} />
+            Blocked, nobody home
+          </span>
+          <span style={{ marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            A block reserves time. It never moves a shift.
+          </span>
+        </div>
+        </div>{/* /calendar card */}
       </div>
       )}
     </div>
