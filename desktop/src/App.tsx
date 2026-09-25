@@ -698,6 +698,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           selfName={selfName}
           partnerName={partnerName}
           isCoverageGap={coverageNeeds.some((c) => c.date === dayDetail.date)}
+          wvuGame={wvuGames.get(dayDetail.date)}
           onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}
           onNewShift={() => { setNewShiftDate(dayDetail.date); setDayDetail(null); setNewShiftOpen(true); }}
           onAsk={() => { setDayDetail(null); setAskClaudeOpen(true); }}

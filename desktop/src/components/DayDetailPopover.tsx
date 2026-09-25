@@ -4,6 +4,7 @@ import { compactTime, type Event as SbEvent, type HouseholdState } from "../stat
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
+import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -25,6 +26,8 @@ interface Props {
   selfName: string;
   partnerName: string;
   isCoverageGap: boolean;
+  /** WVU game on this day, if any — surfaced as a game-day row (Saturdays). */
+  wvuGame?: WvuGame;
   /** Drill from a row into the existing shift-detail popover. */
   onOpenShift: (shift: Shift, anchor: DOMRect) => void;
   onNewShift: () => void;
@@ -39,7 +42,7 @@ interface Props {
  */
 export function DayDetailPopover({
   onClose, date, dayShifts, events, anchor, t, palette, dark, state,
-  selfName, partnerName, isCoverageGap, onOpenShift, onNewShift, onAsk,
+  selfName, partnerName, isCoverageGap, wvuGame, onOpenShift, onNewShift, onAsk,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   // Position from an estimate so the card is visible on the first paint, then
@@ -174,8 +177,30 @@ export function DayDetailPopover({
             </>
           )}
 
-          {/* Truly empty day — no shifts, no events, no coverage gap. */}
-          {dayShifts.length === 0 && dayEvents.length === 0 && !isCoverageGap && (
+          {/* WVU game day — the same static schedule the calendar mark reads. */}
+          {wvuGame && (
+            <>
+              {(dayShifts.length > 0 || dayEvents.length > 0 || isCoverageGap) && <div style={rule} />}
+              <div style={{ ...section, display: "flex", alignItems: "center", gap: 10 }}>
+                <img
+                  src="assets/wvu.png"
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  style={{ width: 20, height: 20, objectFit: "contain", flexShrink: 0 }}
+                />
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {wvuGameLabel(wvuGame)}
+                </span>
+                {wvuGame.tv && (
+                  <span style={{ fontSize: 12, color: t.text2, whiteSpace: "nowrap", flexShrink: 0 }}>{wvuGame.tv}</span>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Truly empty day — no shifts, no events, no coverage gap, no game. */}
+          {dayShifts.length === 0 && dayEvents.length === 0 && !isCoverageGap && !wvuGame && (
             <div style={{ ...section, fontSize: 13, color: t.text2 }}>Nothing scheduled.</div>
           )}
 
