@@ -17,6 +17,10 @@ import { ShareLinkSection } from "./ShareLinkSection";
 import { WallPhotosSection } from "./WallPhotosSection";
 import { OccasionsSection } from "./OccasionsSection";
 import { BrandMark, BRAND_TEAL, BRAND_FONT } from "./BrandMark";
+import { Button01 } from "@/components/ui/nextjsshop-button";
+
+/** Where the Piper Locke mark in the corner goes (opens in the browser). */
+const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
 
 // ── Brand tokens used only inside this console ──────────────────────────────
 const TEAL_TINT = "#D8E7E4";
@@ -285,8 +289,11 @@ export function FamilyConsole({
               );
             })}
           </div>
-          <div style={{ marginTop: "auto", paddingTop: 16, fontSize: 11, color: t.text3 }}>
-            Changes save as you make them.
+          <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 11, color: t.text3 }}>Changes save as you make them.</div>
+            <Button01 href={PIPER_LOCKE_URL} label="Piper Locke website">
+              <img src="assets/piper-locke.png" alt="" />
+            </Button01>
           </div>
         </div>
 

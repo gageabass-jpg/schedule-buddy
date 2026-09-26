@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
@@ -7,6 +7,7 @@ import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette,
 import { BrandMark } from "./BrandMark";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CircleCheckIcon, type CircleCheckIconHandle } from "@/components/ui/circle-check";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
@@ -343,6 +344,7 @@ export function MonthGrid({
                   <button
                     key={ci}
                     type="button"
+                    data-day-cell=""
                     // A cell click opens the day popover only — it deliberately
                     // does NOT re-point the right panel, so the day card there
                     // stays put while you browse the month.
@@ -370,20 +372,7 @@ export function MonthGrid({
                     }}
                   >
                     {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
-                      <div
-                        title="Childcare coverage confirmed"
-                        style={{
-                          position: "absolute",
-                          left: 5,
-                          right: 5,
-                          bottom: 3,
-                          height: 3,
-                          borderRadius: 2,
-                          background: "#0F6E64",
-                          boxShadow: "0 0 4px rgba(15,110,100,0.5)",
-                          pointerEvents: "none",
-                        }}
-                      />
+                      <CareCheck right={wvuGames.has(key) ? 32 : 5} />
                     )}
                     {blockByDate.has(key) && (
                       <div
@@ -478,11 +467,14 @@ export function MonthGrid({
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
+                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Daisy");
                             // White chip with the person's hue as a left-edge bar
-                            // and Ink text (design boards).
+                            // and Ink text (design boards). Hovering the day sweeps
+                            // the chip in that hue and swaps the label for who's on.
                             return (
                               <div
                                 key={`s${i}`}
+                                className="relative"
                                 onClick={onOpenShiftDetail ? (e) => { e.stopPropagation(); onOpenShiftDetail(key, s, e.currentTarget.getBoundingClientRect()); } : undefined}
                                 title={onOpenShiftDetail ? "Shift details" : undefined}
                                 style={{
@@ -504,7 +496,15 @@ export function MonthGrid({
                                   cursor: onOpenShiftDetail ? "pointer" : "default",
                                 }}
                               >
-                                <span>{s.label}</span>
+                                <span
+                                  aria-hidden="true"
+                                  className="pointer-events-none absolute bottom-0 left-0 size-80 -translate-x-full translate-y-full rotate-[-40deg] rounded mb-6 ml-6 transition-all duration-500 ease-out day-hover:mb-[7.5rem] day-hover:ml-0 day-hover:translate-x-0 motion-reduce:transition-none"
+                                  style={{ background: color }}
+                                />
+                                <span className="relative min-w-0 flex-1 transition-colors duration-300 ease-in-out day-hover:text-white">
+                                  <span className="block overflow-hidden text-ellipsis transition-opacity duration-200 day-hover:opacity-0">{s.label}</span>
+                                  <span className="absolute inset-0 overflow-hidden text-ellipsis opacity-0 transition-opacity delay-150 duration-200 day-hover:opacity-100">{name}</span>
+                                </span>
                               </div>
                             );
                           })}
@@ -612,6 +612,10 @@ export function MonthGrid({
         </div>
         {/* Legend — schedule-block states + the reassurance note. */}
         <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: `1px solid ${t.sep}`, background: t.bg, display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+            <CircleCheckIcon size={15} color={CARE_CHECK} isAnimated={false} />
+            Care confirmed
+          </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
             <span style={{ width: 3, height: 15, borderLeft: "3px solid #8A4B38", display: "inline-block", flexShrink: 0 }} />
             Blocked, covered
@@ -712,3 +716,42 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
   };
 }
 
+
+/** Teal, the house "fine": the same colour the confirmed-care line used. */
+const CARE_CHECK = "#0F6E64";
+
+/**
+ * Childcare confirmed for the day: a check in the cell's bottom-right corner
+ * (nudged left when a game logo holds that corner). Hovering the day plays
+ * the check's draw-in once; leaving resets it. It listens on the day cell
+ * itself so a hover doesn't re-render the grid.
+ */
+function CareCheck({ right }: { right: number }) {
+  const holder = useRef<HTMLSpanElement | null>(null);
+  const icon = useRef<CircleCheckIconHandle | null>(null);
+
+  useEffect(() => {
+    const cell = holder.current?.closest("button");
+    if (!cell) return;
+    const play = () => icon.current?.startAnimation();
+    const reset = () => icon.current?.stopAnimation();
+    cell.addEventListener("mouseenter", play);
+    cell.addEventListener("mouseleave", reset);
+    return () => {
+      cell.removeEventListener("mouseenter", play);
+      cell.removeEventListener("mouseleave", reset);
+    };
+  }, []);
+
+  return (
+    <span
+      ref={holder}
+      role="img"
+      aria-label="Childcare coverage confirmed"
+      title="Childcare coverage confirmed"
+      style={{ position: "absolute", right, bottom: 4, display: "flex", pointerEvents: "none" }}
+    >
+      <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
+    </span>
+  );
+}

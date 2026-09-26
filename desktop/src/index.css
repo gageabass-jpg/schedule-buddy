@@ -11,6 +11,9 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* Hovering anywhere on a calendar day cell (marked data-day-cell). Lets the
+   shift chips inside react to the cell, not just to themselves. */
+@custom-variant day-hover ([data-day-cell]:hover &);
 
 /*
  * The slice of preflight shadcn components can't do without, applied only to
@@ -119,5 +122,76 @@
     0% { background-position: 200% 0; }
     25% { background-position: -200% 0; }
     100% { background-position: -200% 0; }
+  }
+}
+
+/*
+ * Pixel button (components/ui/nextjsshop-button.tsx). Our own styles for
+ * Nextjsshop's Button01 markup, which arrived without its stylesheet.
+ * A light tile in both themes so a dark logo reads on it; a 5×5 pixel grid on
+ * the right fills in on hover, each pixel after a random step (--index), and
+ * a scatter of 11 overlay pixels then flashes the Piper Locke red.
+ */
+@layer components {
+  .button01 {
+    --b01-ink: #201e1d;
+    --b01-red: #ec3013;
+    --b01-step: 55ms;
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    height: 44px;
+    padding: 0 60px 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #ffffff;
+    overflow: hidden;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+  .dark .button01 { background: #f7f6f3; border-color: transparent; }
+  .button01:hover { border-color: #c9c6be; }
+  .button01:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  .button01_bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .button01_bg-mid { position: absolute; inset: 0; background: transparent; transition: background 0.3s ease; }
+  .button01:hover .button01_bg-mid { background: #f7f6f3; }
+  .dark .button01:hover .button01_bg-mid { background: #efede7; }
+
+  .button01_bg-right,
+  .button01_bg-right-overlay {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    translate: 0 -50%;
+    display: grid;
+    grid-template-columns: repeat(5, 5px);
+    gap: 2px;
+  }
+  .button01_bg-pixel {
+    width: 5px;
+    height: 5px;
+    border-radius: 1px;
+    background: var(--b01-ink);
+    opacity: 0.1;
+    transition: opacity 0.12s ease;
+    transition-delay: calc(var(--index) * var(--b01-step));
+  }
+  .button01:hover .button01_bg-right .button01_bg-pixel,
+  .button01:focus-visible .button01_bg-right .button01_bg-pixel { opacity: 1; }
+
+  /* Overlay: same grid, first 11 cells; red, and only on hover. */
+  .button01_bg-right-overlay .button01_bg-pixel { background: var(--b01-red); opacity: 0; }
+  .button01:hover .button01_bg-right-overlay .button01_bg-pixel,
+  .button01:focus-visible .button01_bg-right-overlay .button01_bg-pixel { opacity: 1; }
+
+  .button01_inner { position: relative; display: flex; align-items: center; min-width: 0; }
+  .button01_text { display: flex; align-items: center; }
+  .button01_text img { display: block; height: 16px; width: auto; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .button01_bg-pixel { transition-duration: 0s; transition-delay: 0s; }
   }
 }
