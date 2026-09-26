@@ -7,6 +7,10 @@ import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette,
 import { BrandMark } from "./BrandMark";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
+import { FLAG_RED } from "./DayFlagPopover";
+import type { DayFlag } from "../lib/dayFlags";
+import { ShinyButton } from "@/components/ui/shiny-button";
 import { CircleCheckIcon, type CircleCheckIconHandle } from "@/components/ui/circle-check";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { YearView } from "./YearView";
@@ -46,6 +50,10 @@ interface Props {
   partnerName: string;
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
+  /** Flagged days, keyed by date. */
+  dayFlags?: Map<string, DayFlag>;
+  /** Open the flag editor for a day, beside its cell. */
+  onFlagDay?: (date: string, anchor: DOMRect) => void;
   wvuGames: Map<string, WvuGame>;
 }
 
@@ -64,8 +72,76 @@ export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   viewFilter, coverageDates, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onEditEvent, wvuGames,
+  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay,
 }: Props) {
+  // Two-finger swipe (horizontal trackpad scroll) moves a month, anywhere in
+  // the window while the month view shows: over a chip, the rail, the toolbar,
+  // or the dimmed area around nucleusAI. A gesture that starts in a text field,
+  // over something that really scrolls sideways, or inside a dialog (nucleusAI,
+  // a popover card) is left to that thing.
+  //
+  // One swipe is one month. deltaX adds up past a threshold, then the swipe
+  // locks so its momentum tail can't skip months. macOS keeps momentum events
+  // flowing for up to a second after the fingers lift, so waiting for quiet
+  // would swallow a second swipe made in that time. Instead a lock ends when
+  // the scroll speeds up again for two events running (momentum only ever
+  // slows, so a sustained rise is fingers on the pad; one doubled event from a
+  // busy frame isn't) or turns round, and the next swipe counts straight away.
+  const nav = useRef({ onNext, onPrev });
+  nav.current = { onNext, onPrev };
+  useEffect(() => {
+    if (calLayout !== "month") return;
+    const g = {
+      acc: 0, locked: false, dir: 0, lastAbs: 0, rises: 0, triggeredAt: 0,
+      ignore: false, active: false, timer: undefined as number | undefined,
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (!g.active) { g.active = true; g.ignore = swipeBelongsElsewhere(e.target); }
+      window.clearTimeout(g.timer);
+      g.timer = window.setTimeout(() => {
+        g.acc = 0; g.locked = false; g.active = false; g.lastAbs = 0; g.rises = 0;
+      }, 180);
+      if (g.ignore) return;
+
+      const abs = Math.abs(e.deltaX);
+      const now = performance.now();
+      if (g.locked) {
+        const turned = Math.sign(e.deltaX) !== g.dir;
+        g.rises = abs > 3 && abs > g.lastAbs * 1.2 ? g.rises + 1 : 0;
+        const speedingUp = g.rises >= 2 && now - g.triggeredAt > 120;
+        if (turned || speedingUp) { g.locked = false; g.acc = 0; g.rises = 0; }
+      }
+      g.lastAbs = abs;
+      if (g.locked) return;
+
+      g.acc += e.deltaX;
+      if (Math.abs(g.acc) > 50) {
+        g.locked = true;
+        g.dir = Math.sign(g.acc);
+        g.triggeredAt = now;
+        g.acc = 0;
+        if (g.dir > 0) nav.current.onNext(); else nav.current.onPrev();
+      }
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.clearTimeout(g.timer);
+    };
+  }, [calLayout]);
+
+  // Which way the month just moved, so the new grid slides in from that side
+  // (swipe or arrows alike). Derived during render; it sticks until the next
+  // change so an unrelated re-render can't cut the slide short.
+  const monthIndex = viewYear * 12 + viewMonth;
+  const [lastMonthIndex, setLastMonthIndex] = useState(monthIndex);
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  if (monthIndex !== lastMonthIndex) {
+    setLastMonthIndex(monthIndex);
+    setSlide(monthIndex > lastMonthIndex ? "next" : "prev");
+  }
+
   const [hoverTab, setHoverTab] = useState<string | null>(null);
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -174,31 +250,34 @@ export function MonthGrid({
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={onOpenAskClaude}
-          title="Ask nucleusAI — natural-language schedule editing"
-          aria-label="Ask nucleusAI"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            height: 34,
-            padding: "0 12px",
-            borderRadius: 4,
-            border: `1px solid ${palette.G}`,
-            background: "#D8E7E4",
-            color: palette.G,
-            fontFamily: BRAND_FONT,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <BrandMark size={15} color={palette.G} />
-          Ask
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* Shiny border that follows the pointer, around the app icon's teal. */}
+            {/* 36px outside so the teal face inside the 2px shine is 32px,
+                the same as New shift beside it. */}
+            <ShinyButton
+              type="button"
+              size="sm"
+              style={{ height: 36, paddingInline: 14 }}
+              aria-label="Ask nucleusAI"
+              onClick={onOpenAskClaude}
+              gradientFrom="#FFFFFF"
+              gradientTo="#9ACFC6"
+              gradientOpacity={1}
+              borderWidth={2}
+              className="bg-linear-to-b from-[#0F6E64] to-[#0A4F48]"
+              overlayClassName="bg-white/10"
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#fff", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                <BrandMark size={15} color="#F7F6F3" />
+                Ask
+              </span>
+            </ShinyButton>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Ask nucleusAI <span className="text-muted-foreground">· ⌘K</span>
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             {/* 21st.dev enhanced button. The palette's colour rides in as
@@ -310,7 +389,14 @@ export function MonthGrid({
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep }}>
+        <div
+          key={monthIndex}
+          data-motion=""
+          style={{
+            flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep,
+            animation: slide ? `nucleus-month-in-${slide} 240ms cubic-bezier(.2,.8,.2,1) both` : undefined,
+          }}
+        >
           {weeks.map((week, wi) => {
             // Group adjacent no-childcare days in this row into contiguous runs,
             // each drawn as a single red bar spanning those columns.
@@ -414,7 +500,7 @@ export function MonthGrid({
                         }}
                       />
                     )}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
                       <span
                         style={{
                           fontSize: 12,
@@ -428,7 +514,34 @@ export function MonthGrid({
                       >
                         {c.d}
                       </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      {onFlagDay && (() => {
+                        const flag = dayFlags?.get(key);
+                        // A flag on the day: red, always shown, remarks on hover.
+                        // No flag: a faint one appears while the day is hovered.
+                        // It's a span, not a button, because the cell is already a
+                        // button; the day popover's Flag row is the keyboard route.
+                        const mark = (
+                          <span
+                            aria-hidden="true"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const cell = (e.currentTarget as HTMLElement).closest("[data-day-cell]");
+                              onFlagDay(key, (cell ?? e.currentTarget).getBoundingClientRect());
+                            }}
+                            className={flag ? "flex cursor-pointer" : "flex cursor-pointer opacity-0 transition-opacity duration-150 day-hover:opacity-60 hover:!opacity-100"}
+                            style={{ marginLeft: 4, color: flag ? FLAG_RED : t.text3, padding: 2 }}
+                          >
+                            <Flag3FilledIcon size={13} />
+                          </span>
+                        );
+                        return flag?.remarks ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>{mark}</TooltipTrigger>
+                            <TooltipContent side="top" size="sm" className="max-w-64 whitespace-pre-wrap">{flag.remarks}</TooltipContent>
+                          </Tooltip>
+                        ) : mark;
+                      })()}
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
                         {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (
                           <span
                             title="Gage payday"
@@ -511,8 +624,9 @@ export function MonthGrid({
                           {/* Life items — leaf glyph + the event's time. No pill:
                               these read as a quiet marker next to the work shifts. */}
                           {eventSlice.map((ev) => (
+                            <Tooltip key={ev.id}>
+                            <TooltipTrigger asChild>
                             <div
-                              key={ev.id}
                               onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
                               style={{
                                 display: "flex",
@@ -527,7 +641,6 @@ export function MonthGrid({
                                 whiteSpace: "nowrap",
                                 cursor: "pointer",
                               }}
-                              title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}${ev.pending ? " (pending)" : ""}`}
                             >
                               {ev.pending ? (
                                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#8A4B38", flexShrink: 0, boxShadow: "0 0 4px rgba(138,75,56,0.6)" }} />
@@ -545,6 +658,11 @@ export function MonthGrid({
                                 {ev.startTime ? formatChipTime(ev.startTime) : ev.title}
                               </span>
                             </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" size="sm" className="max-w-64">
+                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Daisy"} />
+                            </TooltipContent>
+                            </Tooltip>
                           ))}
                         </div>
                       );
@@ -717,6 +835,9 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
 }
 
 
+/** The app icon's tile colour. */
+const APP_ICON_TEAL = "#0F6E64";
+
 /** Teal, the house "fine": the same colour the confirmed-care line used. */
 const CARE_CHECK = "#0F6E64";
 
@@ -753,5 +874,34 @@ function CareCheck({ right }: { right: number }) {
     >
       <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
     </span>
+  );
+}
+
+/** Whether a sideways swipe starting on `target` is that element's own
+ *  business: typing, a dialog, or something that scrolls horizontally. */
+function swipeBelongsElsewhere(target: EventTarget | null): boolean {
+  for (let el = target instanceof Element ? target : null; el && el !== document.body; el = el.parentElement) {
+    if (el.matches('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return true;
+    const { overflowX } = getComputedStyle(el);
+    if ((overflowX === "auto" || overflowX === "scroll") && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+
+/** What a life event's hover card says: title, when, who, and any notes. */
+function EventTip({ ev, selfName, partnerName, daisyName }: {
+  ev: SbEvent; selfName: string; partnerName: string; daisyName: string;
+}) {
+  const when = ev.startTime
+    ? `${formatChipTime(ev.startTime)}${ev.endTime ? ` – ${formatChipTime(ev.endTime)}` : ""}`
+    : "All day";
+  const who = ev.who === "G" ? selfName : ev.who === "K" ? partnerName : ev.who === "Daisy" ? daisyName : "Family";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ fontWeight: 600 }}>{ev.title || "Event"}</div>
+      <div className="text-muted-foreground">{when} · {who}</div>
+      {ev.notes && <div style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>{ev.notes}</div>}
+      {ev.pending && <div style={{ color: "#8A4B38", fontWeight: 600, marginTop: 2 }}>Pending approval</div>}
+    </div>
   );
 }

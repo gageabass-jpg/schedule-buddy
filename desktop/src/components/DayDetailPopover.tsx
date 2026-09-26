@@ -1,10 +1,14 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift } from "../data";
 import { compactTime, type Event as SbEvent, type HouseholdState } from "../state";
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+import { CircleCheckIcon, type CircleCheckIconHandle } from "@/components/ui/circle-check";
+import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
+import { FLAG_RED } from "./DayFlagPopover";
+import type { DayFlag } from "../lib/dayFlags";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -26,6 +30,12 @@ interface Props {
   selfName: string;
   partnerName: string;
   isCoverageGap: boolean;
+  /** Childcare confirmed for the day (same rule as the calendar's check). */
+  careConfirmed: boolean;
+  /** The day's flag, if it has one. */
+  flag?: DayFlag;
+  /** Open the flag editor for this day. */
+  onFlag: () => void;
   /** WVU game on this day, if any — surfaced as a game-day row (Saturdays). */
   wvuGame?: WvuGame;
   /** Drill from a row into the existing shift-detail popover. */
@@ -42,7 +52,7 @@ interface Props {
  */
 export function DayDetailPopover({
   onClose, date, dayShifts, events, anchor, t, palette, dark, state,
-  selfName, partnerName, isCoverageGap, wvuGame, onOpenShift, onNewShift, onAsk,
+  selfName, partnerName, isCoverageGap, careConfirmed, flag, onFlag, wvuGame, onOpenShift, onNewShift, onAsk,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   // Position from an estimate so the card is visible on the first paint, then
@@ -72,6 +82,12 @@ export function DayDetailPopover({
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
+  // Pop in from the side the tail points to (centered cards grow from the middle).
+  const popIn: CSSProperties = {
+    animation: "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) both",
+    transformOrigin: anchored && pos ? `${pos.side === "right" ? "left" : "right"} ${pos.tailTop}px` : "center",
+  };
+
   const section: CSSProperties = { padding: "14px 16px" };
   const rule: CSSProperties = { height: 1, background: t.sep };
   const hairlineBtn: CSSProperties = {
@@ -88,8 +104,9 @@ export function DayDetailPopover({
   // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
-      <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
+      <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
+        {careConfirmed && <CoveredRibbon />}
         <div
           ref={cardRef}
           role="dialog"
@@ -114,6 +131,26 @@ export function DayDetailPopover({
           </div>
 
           <div style={rule} />
+
+          {/* The day's flag and why. */}
+          {flag && (
+            <>
+              <div
+                style={{ ...section, display: "flex", gap: 10, cursor: "pointer" }}
+                onClick={onFlag}
+                title="Edit flag"
+              >
+                <Flag3FilledIcon size={15} style={{ color: FLAG_RED, flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: t.text, lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    {flag.remarks || "Flagged."}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>{flag.flaggedByName}</div>
+                </div>
+              </div>
+              <div style={rule} />
+            </>
+          )}
 
           {/* Shifts on this day — each row drills into the shift popover. */}
           {dayShifts.length > 0 && (
@@ -226,10 +263,49 @@ export function DayDetailPopover({
               <BrandMark size={15} color={BRAND_TEAL} />
               Ask
             </button>
-            <button type="button" onClick={onNewShift} style={{ ...hairlineBtn, marginLeft: "auto" }}>New shift</button>
+            <button type="button" onClick={onFlag} style={{ ...hairlineBtn, marginLeft: "auto", color: flag ? FLAG_RED : t.text }}>
+              <Flag3FilledIcon size={13} style={{ color: FLAG_RED }} aria-hidden="true" />
+              {flag ? "Edit flag" : "Flag"}
+            </button>
+            <button type="button" onClick={onNewShift} style={hairlineBtn}>New shift</button>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Covered ✓" — a rectangular tag beside the day's title that grows out of
+ * the card's right edge. It lives on the popover's wrapper, not the card,
+ * because the card scrolls and would clip anything that pokes past its edge.
+ * The check draws in once it's out.
+ */
+function CoveredRibbon() {
+  const check = useRef<CircleCheckIconHandle | null>(null);
+  useEffect(() => {
+    const id = window.setTimeout(() => check.current?.startAnimation(), 360);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  return (
+    <div
+      role="status"
+      aria-label="Childcare covered"
+      data-motion=""
+      style={{
+        position: "absolute", zIndex: 2,
+        // Straddles the card's right edge: 10px of it hangs outside.
+        right: -10, top: 31, height: 26,
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "0 10px 0 12px",
+        background: "#0F6E64", color: "#fff", borderRadius: 3,
+        fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em",
+        animation: "nucleus-tab-out 320ms cubic-bezier(.2,.8,.2,1) 140ms both",
+      }}
+    >
+      Covered
+      <CircleCheckIcon ref={check} size={15} color="#fff" />
     </div>
   );
 }

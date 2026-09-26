@@ -4,12 +4,24 @@ import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/ask
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 
+/** A day (or shift) the panel was opened about, from Ask on a popover. */
+export interface AskContext {
+  /** Changes when a different day is attached, so the panel re-attaches. */
+  id: string;
+  /** Shown on the chip, e.g. "Tue, Oct 6 · Gage works". */
+  label: string;
+  /** What nucleusAI is told, sent ahead of the next message. */
+  details: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   palette: Palette;
   t: ThemeTokens;
   dark: boolean;
+  /** Attach this day to the next question. */
+  context?: AskContext | null;
 }
 
 interface UIMessage {
@@ -18,6 +30,8 @@ interface UIMessage {
   /** This reply changed the schedule; carries what undo needs. */
   change?: { id: string; tools: string[] };
   undo?: { state: "busy" | "done" } | { state: "error"; message: string };
+  /** The day this question was asked about, shown above it. */
+  about?: string;
 }
 
 const SUGGESTIONS = [
@@ -43,7 +57,7 @@ function modelLabel(id: string | null): string {
   return `Claude ${family} ${m[2]}${m[3] ? `.${m[3]}` : ""}`;
 }
 
-export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
+export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Props) {
   const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
   // Full conversation that gets passed back to the function — includes the
   // raw tool_use/tool_result blocks the UI doesn't render.
@@ -63,6 +77,12 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
   // An undo happens outside the conversation, so nucleusAI would otherwise
   // go on believing its change is in place. The next message carries a note.
   const undoNoteRef = useRef<string | null>(null);
+  // The day the panel was opened about. It rides along with the next message,
+  // then stays in the conversation's history for follow-ups.
+  const [attached, setAttached] = useState<AskContext | null>(null);
+  useEffect(() => {
+    if (open) setAttached(context ?? null);
+  }, [open, context?.id]);
   // Where the panel has been dragged to; null = its home in the bottom-right.
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -95,13 +115,16 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     const message = text.trim();
     if (!message || busy) return;
     setErr(null);
-    setUiMessages((prev) => [...prev, { role: "user", text: message }]);
+    const about = attached;
+    setAttached(null);
+    setUiMessages((prev) => [...prev, { role: "user", text: message, about: about?.label }]);
     setDraft("");
     setBusy(true);
     try {
       const note = undoNoteRef.current;
       undoNoteRef.current = null;
-      const res = await askClaude(note ? `${note}\n\n${message}` : message, history, mode);
+      const outgoing = [note, about?.details, message].filter(Boolean).join("\n\n");
+      const res = await askClaude(outgoing, history, mode);
       setHistory(res.messages);
       if (res.model) setModel(res.model);
       setUiMessages((prev) => [...prev, { role: "assistant", text: res.reply, change: res.change }]);
@@ -361,6 +384,9 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                         border: mine ? "0" : `1px solid ${t.sep}`,
                       }}
                     >
+                      {m.about && (
+                        <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 3 }}>About {m.about}</div>
+                      )}
                       {m.text}
                       {m.change && (
                         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${t.sep}`, whiteSpace: "normal" }}>
@@ -415,7 +441,43 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
 
             {/* Composer — one box holding the text and its controls. */}
             <div style={{ flexShrink: 0, padding: "8px 12px 10px" }}>
-              <div style={{ border: `1px solid ${t.sep}`, borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", padding: "10px 10px 8px" }}>
+              {/* Allow Edits draws the box in Clay, the house colour for "this can
+                  change things", so the mode is visible where you type, not
+                  only on the mode button. */}
+              <div
+                style={{
+                  border: `1px solid ${mode === "write" ? "#8A4B38" : t.sep}`,
+                  boxShadow: mode === "write" ? `0 0 0 3px ${dark ? "rgba(138,75,56,0.28)" : "rgba(138,75,56,0.14)"}` : "none",
+                  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                  borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", padding: "10px 10px 8px",
+                }}
+              >
+                {/* The day this question is about (from Ask on a popover). */}
+                {attached && (
+                  <div
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%",
+                      margin: "0 0 8px", padding: "3px 4px 3px 8px", borderRadius: 4,
+                      border: `1px solid ${t.sep}`, background: t.bgElev, fontSize: 12, color: t.text,
+                    }}
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+                      <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="none" stroke={BRAND_TEAL} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attached.label}</span>
+                    <button
+                      type="button"
+                      aria-label="Remove the attached day"
+                      title="Remove"
+                      onClick={() => setAttached(null)}
+                      style={{ width: 20, height: 20, padding: 0, border: 0, borderRadius: 3, background: "transparent", color: t.text2, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                    >
+                      <svg width={10} height={10} viewBox="0 0 14 14" aria-hidden="true">
+                        <path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
                 <textarea
                   ref={inputRef}
                   value={draft}

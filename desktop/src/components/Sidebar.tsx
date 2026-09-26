@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
 import type { ViewFilter } from "../App";
 import type { Palette, ThemeTokens } from "../theme";
@@ -42,7 +42,6 @@ export function Sidebar({
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
   onOpenFamilyConsole, onSendCoverage, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
-  const [flip, setFlip] = useState(false);
   return (
     <div
       style={{
@@ -197,79 +196,53 @@ export function Sidebar({
 
       </div>{/* /scrollable middle */}
 
-      {/* Household → Console flip. Hover flips the card to reveal "Console";
-          clicking opens it. A native CSS 3D flip — no motion library. */}
-      <div style={{ perspective: 900 }} onMouseEnter={() => setFlip(true)} onMouseLeave={() => setFlip(false)}>
+      {/* Household → Console. Hovering sweeps the card in Teal from the
+          bottom-left, the same sweep the calendar's shift chips use, and swaps
+          the household for "Console"; clicking opens it. */}
+      <div>
         <button
           type="button"
           onClick={onOpenFamilyConsole}
           title="Open the console"
           aria-label="Open the console"
+          className="group relative overflow-hidden"
           style={{
-            position: "relative",
             width: "100%",
             height: 46,
-            border: 0,
-            background: "transparent",
-            padding: 0,
+            padding: "6px 8px",
+            borderRadius: 8,
+            background: t.bgElev,
+            border: `1px solid ${t.sep}`,
             cursor: "pointer",
-            fontFamily: "inherit",
-            transformStyle: "preserve-3d",
-            transition: "transform 0.5s cubic-bezier(.2,.7,.3,1)",
-            transform: flip ? "rotateX(180deg)" : "rotateX(0deg)",
+            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
           }}
         >
-          {/* Front — the household card. */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 8px",
-              borderRadius: 8,
-              background: t.bgElev,
-              border: `1px solid ${t.sep}`,
-              textAlign: "left",
-              boxSizing: "border-box",
-            }}
-          >
-            <div style={{ display: "flex" }}>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-0 size-[22rem] -translate-x-full translate-y-full rotate-[-40deg] rounded mb-6 ml-6 transition-all duration-500 ease-out group-hover:mb-[9rem] group-hover:ml-0 group-hover:translate-x-0 motion-reduce:transition-none"
+            style={{ background: BRAND_TEAL }}
+          />
+          {/* Resting: the household. */}
+          <span className="relative flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-200 group-hover:opacity-0">
+            <span style={{ display: "flex" }}>
               <PhotoAv who="G" size={22} palette={palette} dark={dark} />
-              <div style={{ marginLeft: -6 }}>
+              <span style={{ marginLeft: -6 }}>
                 <PhotoAv who="K" size={22} palette={palette} dark={dark} />
-              </div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{householdName}</div>
-              <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
-            </div>
+              </span>
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{householdName}</span>
+              <span style={{ display: "block", fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</span>
+            </span>
             <span style={{ color: t.text3, fontSize: 14 }}>›</span>
-          </div>
-          {/* Back — "Console". */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "rotateX(180deg)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              borderRadius: 8,
-              background: BRAND_TEAL,
-              color: "#FFFFFF",
-              boxSizing: "border-box",
-            }}
-          >
+          </span>
+          {/* Hovered: "Console". */}
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-white opacity-0 transition-opacity delay-150 duration-200 group-hover:opacity-100">
             <BrandMark size={16} color="#FFFFFF" />
             <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 14, letterSpacing: "-0.01em" }}>Console</span>
-          </div>
+          </span>
         </button>
       </div>
     </div>

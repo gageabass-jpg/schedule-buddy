@@ -85,6 +85,20 @@ service cloud.firestore {
     // Per-user read-state — when each member last opened the chat. Used
     // to compute unread badges. Doc id = uid, writeable only by self,
     // readable by any member.
+    // Day flags — one doc per flagged day ({date} = YYYY-MM-DD). Any member
+    // can flag, edit or clear a day; remarks are capped at 1000 characters and
+    // a write must name its author as the signed-in user.
+    match /households/{householdId}/dayFlags/{date} {
+      allow read, delete: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow create, update: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.flaggedBy == request.auth.uid
+        && request.resource.data.remarks is string
+        && request.resource.data.remarks.size() <= 1000;
+    }
+
     match /households/{householdId}/chatRead/{uid} {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);

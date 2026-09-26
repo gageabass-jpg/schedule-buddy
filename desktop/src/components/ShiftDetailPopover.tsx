@@ -139,10 +139,16 @@ export function ShiftDetailPopover({
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
+  // Pop in from the side the tail points to (centered cards grow from the middle).
+  const popIn: CSSProperties = {
+    animation: "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) both",
+    transformOrigin: anchored && pos ? `${pos.side === "right" ? "left" : "right"} ${pos.tailTop}px` : "center",
+  };
+
   // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
-      <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
+      <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
         <div
           ref={cardRef}

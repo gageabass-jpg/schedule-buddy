@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
-import { fmtDate, DEMO_SHIFTS, type ShiftMap, type Shift } from "./data";
+import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k" | "coverage";
 export type CalLayout = "day" | "week" | "month" | "year" | "agenda";
@@ -30,7 +30,7 @@ import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
 import { useWvuGames } from "./hooks/useWvuGames";
 import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
-import { buildShiftMap, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
+import { buildShiftMap, compactTime, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
 
 export type EventMap = Record<string, Event[]>;
 import { Sidebar } from "./components/Sidebar";
@@ -66,6 +66,9 @@ import { DayDetailPopover } from "./components/DayDetailPopover";
 import type { Event as SbEvent } from "./state";
 import { deleteShift } from "./lib/writeShift";
 import { toggleChildcareOff } from "./lib/writeChildcareOff";
+import { DayFlagPopover } from "./components/DayFlagPopover";
+import type { AskContext } from "./components/AskClaudePanel";
+import { subscribeDayFlags, type DayFlag } from "./lib/dayFlags";
 
 const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
@@ -157,13 +160,19 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   } | null>(null);
   const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
+  // The day nucleusAI was opened about (Ask on a popover); null = no day.
+  const [askContext, setAskContext] = useState<AskContext | null>(null);
+  const openAsk = (context: AskContext | null = null) => {
+    setAskContext(context);
+    setAskClaudeOpen(true);
+  };
 
   // ⌘K opens nucleusAI — the shortcut the panel advertises in its footer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setAskClaudeOpen(true);
+        openAsk();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -171,6 +180,14 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   }, []);
   const [shiftDetail, setShiftDetail] = useState<{ date: string; shift: Shift; anchor?: DOMRect | null } | null>(null);
   const [dayDetail, setDayDetail] = useState<{ date: string; anchor?: DOMRect | null } | null>(null);
+  // A popover points at a day cell; once the month moves (a swipe, the arrows)
+  // that cell is gone, so close it rather than leave it pointing at nothing.
+  const [flagEditor, setFlagEditor] = useState<{ date: string; anchor?: DOMRect | null } | null>(null);
+  useEffect(() => {
+    setDayDetail(null);
+    setShiftDetail(null);
+    setFlagEditor(null);
+  }, [viewYear, viewMonth]);
   /** Overrides New Shift's default date when it is opened from a day popover. */
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
 
@@ -387,6 +404,58 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   };
 
   const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;
+  // Day flags live in their own subcollection (see lib/dayFlags.ts).
+  const [dayFlags, setDayFlags] = useState<Map<string, DayFlag>>(new Map());
+  useEffect(() => {
+    if (!householdId) { setDayFlags(new Map()); return; }
+    return subscribeDayFlags(householdId, setDayFlags);
+  }, [householdId]);
+  const flagAuthorName =
+    (householdStatus.status === "ready" && user ? householdStatus.household.memberNames?.[user.uid] : undefined)
+    || state?.selfName || "Member";
+
+  // What Ask on a popover tells nucleusAI: the day as the popover shows it.
+  const nameOf = (who: Shift["who"]) =>
+    who === "G" ? selfName : who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Daisy");
+  const hoursOf = (s: Shift) => {
+    const st = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+    return st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
+  };
+  const dateOf = (iso: string, opts: Intl.DateTimeFormatOptions) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+  };
+  const longDate = (iso: string) => dateOf(iso, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const shortDate = (iso: string) => dateOf(iso, { weekday: "short", month: "short", day: "numeric" });
+
+  const dayAskContext = (date: string): AskContext => {
+    const day = shifts[date] ?? [];
+    const kind = dayKindFromShifts(day);
+    const headline = kind === "off" ? "Both off" : kind === "both" ? "Both working" : kind === "g" ? `${selfName} works` : `${partnerName} works`;
+    const parts: string[] = [];
+    parts.push(day.length
+      ? day.map((s) => `${nameOf(s.who)}: ${hoursOf(s)}${s.note ? ` (note: ${s.note})` : ""}.`).join(" ")
+      : "Nobody has a shift.");
+    const events = eventsByDate[date] ?? [];
+    if (events.length) {
+      parts.push(`Events: ${events.map((e) => `${e.title}${e.startTime ? ` at ${compactTime(e.startTime)}` : ""}`).join("; ")}.`);
+    }
+    const flag = dayFlags.get(date);
+    if (flag) parts.push(`The day is flagged${flag.remarks ? `: "${flag.remarks}"` : ""}.`);
+    if (coverageNeeds.some((c) => c.date === date)) parts.push("Nobody has the kids for part of the day.");
+    else if ((state?.coverageRequests ?? []).some((r) => r.date === date && r.status === "confirmed")) parts.push("Childcare is confirmed.");
+    return {
+      id: `day:${date}`,
+      label: `${shortDate(date)} · ${headline}`,
+      details: `(Context: this question is about ${longDate(date)}, ${date}. ${parts.join(" ")} Look the day up with summarize_period if you need more.)`,
+    };
+  };
+
+  const shiftAskContext = (date: string, shift: Shift): AskContext => ({
+    id: `shift:${date}:${shift.who}:${shift.shiftTypeId ?? shift.label}`,
+    label: `${nameOf(shift.who)} · ${shortDate(date)}`,
+    details: `(Context: this question is about ${nameOf(shift.who)}'s shift on ${longDate(date)}, ${date}: ${hoursOf(shift)}${shift.note ? `, note: ${shift.note}` : ""}. Look the day up with summarize_period if you need more.)`,
+  });
 
   // "Send caregiver requests" is condition-driven, not calendar-driven: it
   // shows whenever upcoming both-working days have no coverage lined up, so
@@ -529,8 +598,10 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onSetCalLayout={setCalLayout}
         eventsByDate={eventsByDate}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
-        onOpenAskClaude={() => setAskClaudeOpen(true)}
+        onOpenAskClaude={() => openAsk()}
         wvuGames={wvuGames}
+        dayFlags={dayFlags}
+        onFlagDay={(date, anchor) => { setDayDetail(null); setShiftDetail(null); setFlagEditor({ date, anchor }); }}
       />
       <Inspector
         selected={selected}
@@ -562,7 +633,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         coverageNeedsCount={new Set(coverageNeeds.map((c) => c.date)).size}
         onDismissReminder={scheduleReminder.dismiss}
         onSendCaregiverRequests={() => setCoverageModalOpen(true)}
-        onAsk={() => setAskClaudeOpen(true)}
+        onAsk={() => openAsk()}
       />
       </div>{/* /column grid */}
       <ScheduleBlockModal
@@ -713,6 +784,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         household={householdStatus.status === "ready" ? householdStatus.household : null}
       />
       <AskClaudePanel
+        context={askContext}
         open={askClaudeOpen}
         onClose={() => setAskClaudeOpen(false)}
         palette={palette}
@@ -742,10 +814,29 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           selfName={selfName}
           partnerName={partnerName}
           isCoverageGap={coverageNeeds.some((c) => c.date === dayDetail.date)}
+          careConfirmed={
+            (state?.coverageRequests ?? []).some((r) => r.date === dayDetail.date && r.status === "confirmed")
+            && !(state?.childcareOff ?? []).some((c) => c.date === dayDetail.date)
+          }
           wvuGame={wvuGames.get(dayDetail.date)}
+          flag={dayFlags.get(dayDetail.date)}
+          onFlag={() => { const d = dayDetail; setDayDetail(null); setFlagEditor({ date: d.date, anchor: d.anchor }); }}
           onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}
           onNewShift={() => { setNewShiftDate(dayDetail.date); setDayDetail(null); setNewShiftOpen(true); }}
-          onAsk={() => { setDayDetail(null); setAskClaudeOpen(true); }}
+          onAsk={() => { const d = dayDetail.date; setDayDetail(null); openAsk(dayAskContext(d)); }}
+        />
+      )}
+      {flagEditor && (
+        <DayFlagPopover
+          key={flagEditor.date}
+          date={flagEditor.date}
+          anchor={flagEditor.anchor}
+          flag={dayFlags.get(flagEditor.date)}
+          householdId={householdId}
+          authorName={flagAuthorName}
+          t={t}
+          dark={dark}
+          onClose={() => setFlagEditor(null)}
         />
       )}
       {/* Transient notices, bottom-left beside the 240px sidebar. */}
@@ -769,7 +860,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           selfName={selfName}
           partnerName={partnerName}
           isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
-          onAsk={() => setAskClaudeOpen(true)}
+          onAsk={() => { const target = shiftDetail; setShiftDetail(null); openAsk(shiftAskContext(target.date, target.shift)); }}
           onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
           onHandOff={() => {
             const target = shiftDetail;

@@ -195,3 +195,41 @@
     .button01_bg-pixel { transition-duration: 0s; transition-delay: 0s; }
   }
 }
+
+/*
+ * Motion for the plain (inline-styled) app.
+ *
+ * Buttons grow a touch on hover. Only plain buttons: anything with a class is
+ * a 21st.dev component with an effect of its own (New shift, Piper Locke), and
+ * month day cells (data-day-cell) are left still so the grid doesn't jostle.
+ * `scale` is its own property, so it never fights an inline transform.
+ */
+@layer base {
+  button:not([class]):not([data-day-cell]):not(:disabled) {
+    transition: scale 0.15s ease;
+  }
+  button:not([class]):not([data-day-cell]):not(:disabled):hover { scale: 1.03; }
+  button:not([class]):not([data-day-cell]):not(:disabled):active { scale: 0.98; }
+}
+
+/* Popover cards pop in from the side their tail points to. */
+@keyframes nucleus-pop-in {
+  from { opacity: 0; scale: 0.94; }
+  to   { opacity: 1; scale: 1; }
+}
+/* The "Covered" tag grows out of the card's edge: the visible strip starts as
+   a line 10px in from its right side (where the card edge sits) and opens
+   both ways. */
+@keyframes nucleus-tab-out {
+  from { clip-path: inset(0 10px 0 calc(100% - 10px)); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+/* A new month slides in from the side you moved toward. */
+@keyframes nucleus-month-in-next { from { opacity: 0; translate: 28px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes nucleus-month-in-prev { from { opacity: 0; translate: -28px 0; } to { opacity: 1; translate: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  button:not([class]):not([data-day-cell]):not(:disabled):hover,
+  button:not([class]):not([data-day-cell]):not(:disabled):active { scale: none; }
+  [data-motion] { animation: none !important; }
+}
