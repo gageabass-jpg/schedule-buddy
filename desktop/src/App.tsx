@@ -674,6 +674,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       <CoverageRequestsPanel
         open={coverageRequestsOpen}
         onClose={() => setCoverageRequestsOpen(false)}
+        onAskForMore={() => setCoverageModalOpen(true)}
         palette={palette}
         t={t}
         dark={dark}
