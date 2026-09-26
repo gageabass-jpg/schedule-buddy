@@ -25,10 +25,10 @@ const SUGGESTIONS = [
 ];
 
 /** Read-only is the default: the panel answers until you let it write. */
-const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Can change" };
+const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Allow Edits" };
 const MODE_CAPTION: Record<AskMode, string> = {
   read: "Read only: nucleusAI answers. It changes nothing.",
-  write: "Can change: nucleusAI confirms with you before it writes.",
+  write: "Allow Edits: nucleusAI confirms with you before it writes.",
 };
 
 /** Pretty name for the model id the function reports. */
@@ -57,6 +57,11 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  // Where the panel has been dragged to; null = its home in the bottom-right.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Reset when reopened.
   useEffect(() => {
@@ -67,6 +72,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     setErr(null);
     setMinimized(false);
     setModeOpen(false);
+    setPos(null);
     setTimeout(() => inputRef.current?.focus(), 80);
   }, [open]);
 
@@ -182,17 +188,48 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     color: t.text3, flexShrink: 0, borderRadius: 4,
   };
 
+  // Drag by the titlebar. Clamped so the titlebar can't leave the window.
+  const clampPos = (x: number, y: number) => {
+    const w = panelRef.current?.offsetWidth ?? 420;
+    const h = panelRef.current?.offsetHeight ?? 60;
+    return {
+      x: Math.min(Math.max(8, x), window.innerWidth - w - 8),
+      y: Math.min(Math.max(8, y), window.innerHeight - Math.min(h, 60) - 8),
+    };
+  };
+  const onDragStart = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    e.preventDefault();
+  };
+  const onDragMove = (e: React.PointerEvent<HTMLElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setPos(clampPos(e.clientX - d.dx, e.clientY - d.dy));
+  };
+  const onDragEnd = () => { dragRef.current = null; setDragging(false); };
+  const newConversation = () => {
+    setUiMessages([]);
+    setHistory([]);
+    setErr(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1100 }} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-label="nucleusAI"
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "fixed",
-          right: 24,
-          bottom: 24,
+          ...(pos ? { left: pos.x, top: pos.y } : { right: 24, bottom: 24 }),
           width: "min(420px, calc(100vw - 32px))",
           maxHeight: "min(640px, calc(100vh - 48px))",
           background: t.bgElev,
@@ -209,30 +246,41 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
       >
         {/* Titlebar */}
         <header
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button")) setPos(null); }}
+          title="Drag to move · double-click to put it back"
           style={{
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
             padding: "10px 12px",
+            cursor: dragging ? "grabbing" : "grab",
+            userSelect: "none",
+            touchAction: "none",
             borderBottom: minimized ? "none" : `1px solid ${t.sep}`,
             background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3",
           }}
         >
-          <button
-            type="button"
-            aria-label="Conversation menu"
-            title="Conversation menu"
-            onClick={() => setUiMessages([])}
-            style={{ ...iconBtn, marginRight: 2 }}
-          >
-            <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 8h16M4 14h16" stroke={t.text2} strokeWidth={1.8} strokeLinecap="round" />
+          {/* Grip: the whole titlebar drags; this just says so. */}
+          <span aria-hidden="true" style={{ width: 18, display: "inline-flex", justifyContent: "center", marginRight: 2, flexShrink: 0 }}>
+            <svg width={12} height={18} viewBox="0 0 12 18">
+              {[3, 9, 15].flatMap((y) => [3, 9].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.4} fill={t.text2} />))}
             </svg>
-          </button>
+          </span>
           <div style={{ width: 30, height: 30, borderRadius: 6, background: BRAND_TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <BrandMark size={18} color="#fff" />
           </div>
           <div style={{ flex: 1, minWidth: 0, fontFamily: BRAND_FONT, fontSize: 17, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
             nucleus<span style={{ opacity: 0.5 }}>AI</span>
           </div>
+          {uiMessages.length > 0 && (
+            <button type="button" aria-label="New conversation" title="New conversation" onClick={newConversation} style={iconBtn}>
+              <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke={t.text2} strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           <button type="button" aria-label={minimized ? "Expand" : "Minimise"} onClick={() => setMinimized((v) => !v)} style={iconBtn}>
             <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
               {minimized
