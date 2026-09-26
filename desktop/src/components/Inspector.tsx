@@ -356,7 +356,7 @@ export function Inspector({
         </div>
       )}
 
-      {/* Childcare tab — the week's rest windows + what still needs cover. */}
+      {/* Childcare tab — who has the kids this week, and what nobody holds. */}
       {railTab === "childcare" && (
         <ChildcareCard
           selected={selected}
@@ -944,10 +944,14 @@ function MonthWeekDeltas({ selected, state, t }: {
   );
 }
 
-// Childcare tab card (design board). One Surface card: the week's protected
-// rest windows as per-day bars (Teal-Light = covered, dashed Clay = needs
-// cover), the specific uncovered windows spelled out as consequences, and the
-// two actions (Ask / Request cover). Uses the app's own overlap-coverage engine.
+// Childcare tab card: who has the kids this week. One track per day on the
+// 6am–midnight axis, showing the time neither parent is home and who holds it,
+// in the same marks as the Coverage with Daisy panel: solid = Daisy has it,
+// dashed Teal = waiting on her, dashed Clay = nobody. Days nobody holds are
+// then spelled out as consequences. Gaps come from the app's own overlap
+// engine, so a night shift's rest still lands here when there is one.
+type HoldKind = "has" | "waiting" | "nobody";
+
 function ChildcareCard({
   selected, state, t, dark, selfName, partnerName, daisyName, onRequestCover, onAsk,
 }: {
@@ -981,16 +985,14 @@ function ChildcareCard({
   };
   const shiftMap = buildShiftMap(stFilled, iso(fromDt), iso(toDt));
   const cands = computeOverlapCandidates(shiftMap, stFilled);
-  const covered = new Set(
-    (state.coverageRequests ?? [])
-      .filter((r) => r.status === "confirmed" || r.status === "pending")
-      .map((r) => r.date),
-  );
+  const requests = state.coverageRequests ?? [];
   const hm = (h: number): string => {
     const H = Math.floor(h); const M = Math.round((h - H) * 60);
     return M ? `${H}h${pad(M)}` : `${H}h`;
   };
   const WD = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const CLAY = "#8A4B38";
+  const TEAL = dark ? "#9ACFC6" : "#0F6E64";
 
   // Where a range sits on the 6am–midnight axis, as percentages.
   const place = (startMin: number, endMin: number) => {
@@ -1003,56 +1005,60 @@ function ChildcareCard({
     };
   };
 
+  // Each day's gaps and who holds them. A request on the day is what's
+  // actually been asked for, so it wins over the engine's window; a gap with
+  // no live request is nobody's.
   const rows = days.map((date) => {
-    // The partner's protected rest — the thing the week is really about.
-    const rest = parentDaySegments(date, "K", shiftMap, stFilled).sleep;
-    // The part of it nobody is home for. A day with a coverage request out
-    // counts as handled, so it stops reading as a gap.
-    const dc = covered.has(date) ? [] : cands.filter((c) => c.date === date);
-    const gapRanges = dc.map((c) => ({
-      startMin: hmToMin(c.startTime),
-      endMin: hmToMin(c.endTime, c.endsNextDay),
+    const dayReqs = requests.filter((r) => r.date === date);
+    const held: Array<{ kind: HoldKind; startMin: number; endMin: number; declined: boolean }> = dayReqs.map((r) => ({
+      kind: r.status === "confirmed" ? "has" : r.status === "pending" ? "waiting" : "nobody",
+      startMin: hmToMin(r.startTime),
+      endMin: hmToMin(r.endTime, r.endsNextDay || r.endTime <= r.startTime),
+      declined: r.status === "declined" || r.status === "issue",
     }));
-    const uncoveredMin = gapRanges.reduce((sum, g) => {
-      const a = Math.max(g.startMin, TIMELINE_START_MIN);
-      const b = Math.min(g.endMin, TIMELINE_START_MIN + TIMELINE_SPAN_MIN);
-      return sum + Math.max(0, b - a);
-    }, 0);
+    if (dayReqs.length === 0) {
+      for (const c of cands.filter((x) => x.date === date)) {
+        held.push({ kind: "nobody", startMin: hmToMin(c.startTime), endMin: hmToMin(c.endTime, c.endsNextDay), declined: false });
+      }
+    }
+    const nobody = held.filter((h) => h.kind === "nobody");
     return {
       date,
-      restBars: rest.map((r) => place(r.startMin, r.endMin)).filter(Boolean) as Array<{ left: number; width: number }>,
-      gapBars: gapRanges.map((g) => place(g.startMin, g.endMin)).filter(Boolean) as Array<{ left: number; width: number }>,
-      uncoveredHours: uncoveredMin / 60,
+      held,
+      nobody,
+      uncoveredHours: nobody.reduce((sum, h) => sum + (h.endMin - h.startMin), 0) / 60,
     };
   });
-  const needCover = rows.filter((r) => r.gapBars.length > 0).length;
+  const needCover = rows.filter((r) => r.nobody.length > 0).length;
+  const anyGap = rows.some((r) => r.held.length > 0);
 
-  // The specific uncovered windows, spelled out. Consequence, not mechanism.
-  // Each uncovered window, said as a consequence: why she's resting, and what
-  // the two people who could cover are doing instead.
+  // The days nobody holds, said as a consequence: what each person who could
+  // be home is doing instead.
   const typeOf = (id?: string) => state.shiftTypes.find((x) => x.id === id);
-  const gaps = days.flatMap((date) => {
-    if (covered.has(date)) return [];
+  const gaps = rows.flatMap((r, i) => {
+    const date = r.date;
     const [gy, gm, dd] = date.split("-").map(Number);
-    const dow = new Date(gy, gm - 1, dd).getDay();
     const prev = new Date(gy, gm - 1, dd - 1);
     const dayShifts = shiftMap[date] ?? [];
     const partnerToday = dayShifts.find((x) => x.who === "K");
     const partnerYesterday = (shiftMap[iso(prev)] ?? []).find((x) => x.who === "K");
     const selfToday = dayShifts.find((x) => x.who === "G");
     const daisyToday = dayShifts.find((x) => x.who === "D");
+    const title = (s: string) => `${s.charAt(0)}${s.slice(1).toLowerCase()}`;
 
-    return cands.filter((c) => c.date === date).map((c) => {
-      const gapStart = hmToMin(c.startTime);
+    return r.nobody.map((g) => {
       const parts: string[] = [];
-      // Resting after last night's shift, or ahead of tonight's?
-      const partnerStart = partnerToday ? hmToMin(typeOf(partnerToday.shiftTypeId)?.start ?? "00:00") : null;
-      if (partnerStart !== null && gapStart < partnerStart) {
+      if (g.declined) parts.push(`${daisyName} said no.`);
+      const pt = partnerToday ? typeOf(partnerToday.shiftTypeId) : undefined;
+      const yt = partnerYesterday ? typeOf(partnerYesterday.shiftTypeId) : undefined;
+      if (pt && (pt.preSleepHours ?? 0) > 0 && g.startMin < hmToMin(pt.start)) {
         parts.push(`${partnerName} rests before her night.`);
-      } else if (partnerYesterday) {
-        parts.push(`${partnerName} recovers from ${WD[(dow + 6) % 7].charAt(0)}${WD[(dow + 6) % 7].slice(1).toLowerCase()} night.`);
+      } else if (pt) {
+        parts.push(`${partnerName} works ${compactTime(pt.start)}.`);
+      } else if (yt && (yt.sleepHours ?? 0) > 0) {
+        parts.push(`${partnerName} recovers from ${title(WD[(i + 6) % 7])} night.`);
       } else {
-        parts.push(`${partnerName} is resting.`);
+        parts.push(`${partnerName} is out.`);
       }
       if (selfToday) {
         const st = typeOf(selfToday.shiftTypeId);
@@ -1062,57 +1068,77 @@ function ChildcareCard({
         const dt = typeOf(daisyToday.shiftTypeId);
         parts.push(dt ? `${daisyName} has class until ${compactTime(dt.end)}.` : `${daisyName} has class.`);
       }
-      if (!selfToday && !daisyToday) parts.push("Nobody else is home.");
-
+      const hhmm = (m: number) => `${pad(Math.floor((m % 1440) / 60))}:${pad(m % 60)}`;
       return {
-        key: `${date}-${c.startTime}`,
-        head: `${WD[dow].charAt(0)}${WD[dow].slice(1).toLowerCase()} ${dd} · ${compactTime(c.startTime)} – ${compactTime(c.endTime)}${c.endsNextDay ? " +1d" : ""}`,
+        key: `${date}-${g.startMin}`,
+        head: `${title(WD[i])} ${dd} · ${compactTime(hhmm(g.startMin))} – ${compactTime(hhmm(g.endMin))}${g.endMin > 1440 ? " +1d" : ""}`,
         body: parts.join(" "),
       };
     });
   });
 
+  const barStyle = (kind: HoldKind): React.CSSProperties =>
+    kind === "has" ? { background: dark ? "#8A9591" : "#5A6663" } :
+    kind === "waiting" ? { border: `1.5px dashed ${TEAL}` } :
+    { background: dark ? rgba(CLAY, 0.18) : "#EFDFDB", border: `1.5px dashed ${rgba(CLAY, 0.8)}` };
+
   return (
     <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ ...subhead(t), marginBottom: 0 }}>{partnerName}&rsquo;s rest this week</span>
-        {needCover > 0 && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#8A4B38" }}>{needCover} need cover</span>
-        )}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>Who has the kids this week</span>
+        {needCover > 0 ? (
+          <span style={{ fontSize: 13, fontWeight: 600, color: CLAY, whiteSpace: "nowrap" }}>{needCover} need cover</span>
+        ) : anyGap ? (
+          <span style={{ fontSize: 13, fontWeight: 600, color: t.text2, whiteSpace: "nowrap" }}>All held</span>
+        ) : null}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-        {rows.map((r, i) => (
-          <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text3 }}>{WD[i]}</span>
-            {/* The track is the waking day, 6am to midnight; a block sits where
-                it actually falls, so the shape of the week is readable. */}
-            <div style={{ flex: 1, height: 17, borderRadius: 2, background: t.bgElev2, position: "relative", overflow: "hidden" }}>
-              {r.restBars.map((b, k) => (
-                <div key={`r${k}`} style={{
-                  position: "absolute", top: 2, bottom: 2, left: `${b.left}%`, width: `${b.width}%`,
-                  borderRadius: 2, background: "#D8E7E4", border: "1px solid #9ACFC6", boxSizing: "border-box",
-                }} />
-              ))}
-              {r.gapBars.map((b, k) => (
-                <div key={`g${k}`} style={{
-                  position: "absolute", top: 2, bottom: 2, left: `${b.left}%`, width: `${b.width}%`,
-                  borderRadius: 2, background: dark ? rgba("#8A4B38", 0.18) : "#EFDFDB",
-                  border: `1px dashed ${rgba("#8A4B38", 0.7)}`, boxSizing: "border-box",
-                }} />
-              ))}
-            </div>
-            <span style={{ width: 34, textAlign: "right", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.uncoveredHours > 0 ? "#8A4B38" : "transparent" }}>
-              {r.uncoveredHours > 0 ? hm(r.uncoveredHours) : "·"}
-            </span>
+
+      {!anyGap ? (
+        <div style={{ fontSize: 13.5, color: t.text2, lineHeight: 1.45 }}>
+          Someone&rsquo;s home all week. {selfName} and {partnerName} are never both out at once.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {rows.map((r, i) => (
+              <div key={r.date} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 30, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: t.text2 }}>{WD[i]}</span>
+                {/* The track is the waking day, 6am to midnight; a gap sits
+                    where it actually falls, so the shape of the week reads. */}
+                <div style={{ flex: 1, height: 17, borderRadius: 2, background: t.bgElev2, position: "relative", overflow: "hidden" }}>
+                  {r.held.map((h, k) => {
+                    const p = place(h.startMin, h.endMin);
+                    return p && (
+                      <div key={k} style={{
+                        position: "absolute", top: 2, bottom: 2, left: `${p.left}%`, width: `${p.width}%`,
+                        borderRadius: 2, boxSizing: "border-box", ...barStyle(h.kind),
+                      }} />
+                    );
+                  })}
+                </div>
+                <span style={{ width: 34, textAlign: "right", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.uncoveredHours > 0 ? CLAY : "transparent" }}>
+                  {r.uncoveredHours > 0 ? hm(r.uncoveredHours) : "·"}
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 11.5, color: t.text2 }}>
+            {(["has", "waiting", "nobody"] as const).map((k) => (
+              <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 18, height: 10, borderRadius: 2, boxSizing: "border-box", ...barStyle(k) }} />
+                {k === "has" ? `${daisyName} has it` : k === "waiting" ? "Waiting on her" : "Nobody"}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
       {gaps.length > 0 && (
         <>
-          <div style={{ height: 0.5, background: t.sep }} />
+          <div style={{ height: 1, background: t.sep }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {gaps.map((g) => (
-              <div key={g.key} style={{ padding: "9px 11px", borderRadius: 4, background: dark ? rgba("#8A4B38", 0.14) : "#EFDFDB", border: `1px dashed ${rgba("#8A4B38", 0.5)}` }}>
+              <div key={g.key} style={{ padding: "9px 11px", borderRadius: 4, background: dark ? rgba(CLAY, 0.14) : "#EFDFDB", border: `1px dashed ${rgba(CLAY, 0.5)}` }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: "-0.01em" }}>{g.head}</div>
                 <div style={{ fontSize: 12, color: t.text2, lineHeight: 1.4, marginTop: 3 }}>{g.body}</div>
               </div>
@@ -1120,24 +1146,27 @@ function ChildcareCard({
           </div>
         </>
       )}
+
       <div style={{ display: "flex", gap: 8 }}>
         <button
           type="button"
           onClick={onAsk}
-          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", borderRadius: 4, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+          style={{ minHeight: 44, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 4, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
           <BrandMark size={14} color="#0A4F48" /> Ask
         </button>
-        <button
-          type="button"
-          onClick={onRequestCover}
-          style={{ flex: 1, padding: "10px 14px", borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: "#8A4B38", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
-        >
-          Request cover
-        </button>
+        {needCover > 0 && (
+          <button
+            type="button"
+            onClick={onRequestCover}
+            style={{ flex: 1, minHeight: 44, padding: "0 14px", borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: CLAY, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+          >
+            Request cover
+          </button>
+        )}
       </div>
-      <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.5 }}>
-        A night shift protects 8 hours before it and 8 hours after. A block is covered when {selfName} or {daisyName} is home for all of it.
+      <div style={{ fontSize: 11, color: t.text2, lineHeight: 1.5 }}>
+        A gap is time when neither {selfName} nor {partnerName} is home. {daisyName} covers what she&rsquo;s said yes to.
       </div>
     </div>
   );
