@@ -125,10 +125,8 @@ export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: P
         <span style={{ ...subhead(t), marginBottom: 0 }}>Fatigue index</span>
         <span
           style={{
-            fontFamily: "'Fira Code', ui-monospace, 'SF Mono', Menlo, monospace",
-            fontSize: 12.5,
-            fontWeight: 500,
-            letterSpacing: "-0.01em",
+            fontSize: 13,
+            fontWeight: 600,
             color: rested ? "#0F6E64" : "#8A4B38",
           }}
         >
