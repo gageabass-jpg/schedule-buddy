@@ -63,7 +63,7 @@ export function CoverageRequestsPanel({
   const days = new Set(reqs.map((r) => r.date)).size;
 
   const surface = dark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
-  const paper = dark ? "#161618" : "#F7F6F3";
+  const paper = t.bg;
   const rowProps = { t, dark, surface, axis, householdId, daisy };
 
   return (
@@ -86,7 +86,7 @@ export function CoverageRequestsPanel({
         style={{
           width: "min(600px, calc(100vw - 32px))",
           maxHeight: "88vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `1px solid ${t.sep}`,
           borderRadius: 6,

@@ -276,7 +276,7 @@ export function FamilyConsole({
                     padding: "8px 12px",
                     borderRadius: 4,
                     border: 0,
-                    background: on ? TEAL_TINT : "transparent",
+                    background: on ? t.tealTint : "transparent",
                     color: on ? t.text : t.text2,
                     fontSize: 14,
                     fontWeight: on ? 600 : 500,
@@ -377,7 +377,7 @@ export function FamilyConsole({
 
             {tab === "billing" && <BillingTab t={t} hhName={hhName} />}
 
-            {err && <div style={{ fontSize: 12.5, color: CLAY, marginTop: 16 }}>{err}</div>}
+            {err && <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 16 }}>{err}</div>}
           </div>
         </div>
       </div>
@@ -577,7 +577,7 @@ function GeneralTab(p: {
       >
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" onClick={p.onSignOut} style={secondaryBtn(t)}>Sign out</button>
-          <button type="button" onClick={p.onLeaveHousehold} style={destructiveBtn}>Leave household</button>
+          <button type="button" onClick={p.onLeaveHousehold} style={destructiveBtn(t)}>Leave household</button>
         </div>
         <div style={{ fontSize: 12, color: t.text3 }}>Nucleus Manager {APP_VERSION}</div>
       </div>
@@ -654,7 +654,7 @@ function PeopleTab(p: {
                     title="Remove"
                     disabled={isBusy}
                     onClick={() => p.onRemoveMember(m.uid, m.name)}
-                    style={{ ...iconBtn(t), color: CLAY }}
+                    style={{ ...iconBtn(t), color: t.clayText }}
                   >
                     <TrashIcon />
                   </button>
@@ -680,7 +680,7 @@ function PeopleTab(p: {
             <button type="button" aria-label="Edit Daisy" title="Edit" onClick={() => { /* TODO wire dependent edit */ }} style={iconBtn(t)}>
               <PencilIcon />
             </button>
-            <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: CLAY }}>
+            <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: t.clayText }}>
               <TrashIcon />
             </button>
           </div>
@@ -834,7 +834,7 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
                 <button
                   type="button"
                   onClick={() => setConnected((s) => ({ ...s, [c.key]: !on }))}
-                  style={on ? destructiveBtn : secondaryBtn(t)}
+                  style={on ? destructiveBtn(t) : secondaryBtn(t)}
                 >
                   {on ? "Disconnect" : "Connect"}
                 </button>
@@ -871,7 +871,7 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
         <span style={{ fontSize: 12, color: t.text3 }}>
           Nucleus works without any of these. Each one is off until you turn it on.
         </span>
-        <a href={API_KEYS_URL} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: BRAND_TEAL, fontWeight: 600, textDecoration: "none" }}>
+        <a href={API_KEYS_URL} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: t.tealText, fontWeight: 600, textDecoration: "none" }}>
           Where do I get an API key?
         </a>
       </div>
@@ -942,7 +942,7 @@ function FeedsSubTab({ t }: { t: ThemeTokens }) {
               <span style={feedChip}>{f.where}</span>
               <span style={{ fontSize: 12, color: t.text3, whiteSpace: "nowrap" }}>{f.checked}</span>
               <button type="button" aria-label={`Edit ${f.name}`} title="Edit" onClick={() => { /* TODO wire feed edit */ }} style={iconBtn(t)}><PencilIcon /></button>
-              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: CLAY }}><TrashIcon /></button>
+              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: t.clayText }}><TrashIcon /></button>
             </div>
           ))}
           {feeds.length === 0 && <div style={{ fontSize: 12.5, color: t.text3 }}>No feeds yet.</div>}
@@ -1048,7 +1048,7 @@ function AiProviderCard({ t }: { t: ThemeTokens }) {
         </div>
         <StatusChip t={t} on onLabel="CONNECTED" offLabel="OFF" />
         <button type="button" onClick={() => setEditing(true)} style={secondaryBtn(t)}>Replace</button>
-        <button type="button" onClick={onClear} disabled={busy} style={destructiveBtn}>Remove</button>
+        <button type="button" onClick={onClear} disabled={busy} style={destructiveBtn(t)}>Remove</button>
       </div>
     );
   }
@@ -1078,7 +1078,7 @@ function AiProviderCard({ t }: { t: ThemeTokens }) {
         </button>
         {editing && <button type="button" onClick={() => { setEditing(false); setValue(""); }} style={secondaryBtn(t)}>Cancel</button>}
       </div>
-      {err && <div style={{ fontSize: 12.5, color: CLAY }}>{err}</div>}
+      {err && <div style={{ fontSize: 12.5, color: t.clayText }}>{err}</div>}
     </div>
   );
 }
@@ -1171,7 +1171,7 @@ function TimeZoneField({ t, tz, setTz, householdId, savedTz }: {
           {busy ? "Saving…" : "Save"}
         </button>
       </div>
-      {err && <div style={{ fontSize: 12, color: CLAY, marginTop: 6 }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
     </div>
   );
 }
@@ -1238,8 +1238,8 @@ function Segmented({ t, options, value, onChange }: {
             style={{
               border: 0,
               borderLeft: i === 0 ? 0 : `1px solid ${t.sep}`,
-              background: on ? TEAL_TINT : t.bgElev,
-              color: on ? BRAND_TEAL : t.text2,
+              background: on ? t.tealTint : t.bgElev,
+              color: on ? t.tealText : t.text2,
               fontSize: 13, fontWeight: 600, fontFamily: "inherit",
               padding: "8px 18px", cursor: "pointer",
             }}
@@ -1277,8 +1277,8 @@ function Switch({ t, on, onToggle }: { t: ThemeTokens; on: boolean; onToggle: ()
 
 function RoleChip({ t, role }: { t: ThemeTokens; role: "admin" | "partner" | "supporting" | "dependent" }) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
-    admin: { bg: TEAL_TINT, fg: BRAND_TEAL, label: "ADMIN" },
-    partner: { bg: CLAY_TINT, fg: CLAY, label: "PARTNER" },
+    admin: { bg: t.tealTint, fg: t.tealText, label: "ADMIN" },
+    partner: { bg: t.clayTint, fg: t.clayText, label: "PARTNER" },
     supporting: { bg: t.bgElev2, fg: t.text2, label: "SUPPORTING" },
     dependent: { bg: t.bgElev2, fg: t.text2, label: "DEPENDENT" },
   };
@@ -1295,7 +1295,7 @@ function StatusChip({ t, on, onLabel, offLabel }: { t: ThemeTokens; on: boolean;
     <span
       style={{
         fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 4,
-        background: on ? TEAL_TINT : t.bgElev2, color: on ? BRAND_TEAL : t.text2, flexShrink: 0,
+        background: on ? t.tealTint : t.bgElev2, color: on ? t.tealText : t.text2, flexShrink: 0,
       }}
     >
       {on ? onLabel : offLabel}
@@ -1375,7 +1375,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
@@ -1427,20 +1427,20 @@ function secondaryBtn(t: ThemeTokens): React.CSSProperties {
   };
 }
 
-const destructiveBtn: React.CSSProperties = {
+const destructiveBtn = (t: ThemeTokens): React.CSSProperties => ({
   height: 32,
   padding: "0 16px",
-  border: `1px solid ${CLAY}`,
+  border: `1px solid ${t.clayText}`,
   borderRadius: 4,
   background: "transparent",
-  color: CLAY,
+  color: t.clayText,
   fontFamily: BRAND_FONT,
   fontSize: 13,
   fontWeight: 600,
   cursor: "pointer",
   whiteSpace: "nowrap",
   flexShrink: 0,
-};
+});
 
 function iconBtn(t: ThemeTokens): React.CSSProperties {
   return {
@@ -1582,7 +1582,7 @@ function PaydayRow({
           </button>
         )}
       </div>
-      {err && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: CLAY }}>{err}</div>}
+      {err && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: t.clayText }}>{err}</div>}
     </div>
   );
 }

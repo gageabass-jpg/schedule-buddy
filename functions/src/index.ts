@@ -9,7 +9,7 @@ export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";
 
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging, type Message } from "firebase-admin/messaging";
 import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -87,6 +87,65 @@ function friendlyDate(iso: string): string {
 
 function fmtWindow(r: CoverageRequest): string {
   return `${r.startTime}–${r.endTime}${r.endsNextDay ? " (+1d)" : ""}`;
+}
+
+// ---- notification history -----------------------------------------------
+//
+// Pushes are fire-and-forget, so nothing was kept: a push that landed while
+// the phone was in a drawer, or went to someone with no push token at all,
+// simply vanished. Every notable event is now also recorded, one doc each, in
+// households/{hid}/notifications, which the Mac's bell reads. It's written
+// whether or not anyone had a token, so the history is complete.
+//
+// `roles` says who it's for (the same routing the push uses); `readBy` is a
+// map of uid → true that each member adds themselves to when they read it.
+// Clients can only touch readBy (see firestore.rules).
+
+type NotifyRole = "admin" | "partner" | "supporting";
+
+async function recordNotification(
+  householdId: string,
+  n: { kind: string; title: string; body: string; roles: NotifyRole[]; date?: string; requestId?: string },
+): Promise<void> {
+  try {
+    await getFirestore().collection("households").doc(householdId)
+      .collection("notifications").add({
+        kind: n.kind,
+        title: n.title,
+        body: n.body,
+        roles: n.roles,
+        ...(n.date ? { date: n.date } : {}),
+        ...(n.requestId ? { requestId: n.requestId } : {}),
+        readBy: {},
+        createdAt: FieldValue.serverTimestamp(),
+      });
+  } catch (e) {
+    logger.warn("recordNotification failed", { householdId, kind: n.kind, error: String(e) });
+  }
+}
+
+/** One schedule addition in words, for the history: "Dentist · Fri, Oct 9". */
+function describeAddition(key: string, doc: Record<string, unknown>): { text: string; date?: string } {
+  const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  const self = typeof doc.selfName === "string" && doc.selfName ? doc.selfName : "Gage";
+  const partner = (doc.partner as { name?: string } | undefined)?.name || "Kaylene";
+  const daisy = (doc.dependents as { daisy?: { name?: string } } | undefined)?.daisy?.name || "Daisy";
+  const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
+  if (kind === "ev") {
+    const e = arr(doc.events).find((x) => x?.id === id);
+    const date = typeof e?.date === "string" ? e.date : undefined;
+    return { text: `${String(e?.title ?? "An event")}${date ? ` · ${friendlyDate(date)}` : ""}`, date };
+  }
+  const date = id.split(":")[0];
+  const when = friendlyDate(date);
+  if (kind === "ov") {
+    const o = arr(doc.overrides).find((x) => x?.date === date);
+    return { text: o && o.shiftTypeId == null ? `${self} is off · ${when}` : `${self}'s shift · ${when}`, date };
+  }
+  if (kind === "pk") return { text: `${partner}'s shift · ${when}`, date };
+  if (kind === "dz") return { text: `${daisy}'s class · ${when}`, date };
+  if (kind === "ot") return { text: `Overtime available · ${when}`, date };
+  return { text: when, date };
 }
 
 async function tokensForRoles(
@@ -260,6 +319,14 @@ export const onCoverageRequestsChange = onDocumentUpdated(
     const added: string[] = [];
     for (const k of afterKeys) if (!beforeKeys.has(k)) added.push(k);
     if (added.length > 0) {
+      const first = describeAddition(added[0], afterDoc);
+      await recordNotification(householdId, {
+        kind: "schedule_added",
+        title: added.length === 1 ? "Added to the schedule" : `${added.length} things added to the schedule`,
+        body: added.length === 1 ? first.text : `${first.text} and ${added.length - 1} more`,
+        roles: ["admin", "partner", "supporting"],
+        date: first.date,
+      });
       const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
       logger.info("Schedule additions → broadcast", { householdId, added: added.length, tokens: tokens.length });
       if (tokens.length > 0) {
@@ -346,6 +413,17 @@ export const onCoverageRequestsChange = onDocumentUpdated(
 
     // 1. New pending requests → everyone (adds notify the whole household)
     if (newPending.length > 0) {
+      const one = newPending[0];
+      await recordNotification(householdId, {
+        kind: "new_pending",
+        title: newPending.length === 1 ? "New coverage request" : "New coverage requests",
+        body: newPending.length === 1
+          ? `${friendlyDate(one.date)} · ${fmtWindow(one)}${one.arriveBy ? ` · arrive ${one.arriveBy}` : ""}`
+          : `${newPending.length} new coverage requests`,
+        roles: ["admin", "partner", "supporting"],
+        date: one.date,
+        requestId: newPending.length === 1 ? one.id : undefined,
+      });
       const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
       logger.info("Caregiver tokens resolved", { householdId, tokens: tokens.length });
       if (tokens.length > 0) {
@@ -366,6 +444,22 @@ export const onCoverageRequestsChange = onDocumentUpdated(
 
     // 2. Status changes → managers (admin + partner)
     if (statusChanges.length > 0) {
+      for (const ch of statusChanges) {
+        const verb =
+          ch.to === "confirmed" ? "accepted" :
+          ch.to === "declined"  ? "declined" :
+          ch.to === "issue"     ? "reported an issue with" :
+                                  "updated";
+        await recordNotification(householdId, {
+          kind: `status_${ch.to}`,
+          title: `Caregiver ${verb} coverage`,
+          body: `${friendlyDate(ch.req.date)} · ${fmtWindow(ch.req)}` +
+            (ch.to === "issue" && ch.req.caregiverNote ? ` — “${ch.req.caregiverNote}”` : ""),
+          roles: ["admin", "partner"],
+          date: ch.req.date,
+          requestId: ch.req.id,
+        });
+      }
       const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
       logger.info("Manager tokens resolved", { householdId, tokens: tokens.length });
       if (tokens.length > 0) {
@@ -391,6 +485,17 @@ export const onCoverageRequestsChange = onDocumentUpdated(
     // 3. New change proposals → caregivers. She already agreed to this day,
     //    so this is a "can we move it?" not a new assignment.
     if (newProposals.length > 0) {
+      for (const req of newProposals) {
+        const pc = req.proposedChange!;
+        await recordNotification(householdId, {
+          kind: "change_proposed",
+          title: "Coverage time change requested",
+          body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime} (was ${req.startTime} → ${req.endTime})`,
+          roles: ["supporting"],
+          date: req.date,
+          requestId: req.id,
+        });
+      }
       const tokens = await tokensForRoles(householdId, ["supporting"]);
       if (tokens.length > 0) {
         for (const req of newProposals) {
@@ -410,6 +515,16 @@ export const onCoverageRequestsChange = onDocumentUpdated(
 
     // 4. Resolved proposals → managers.
     if (resolvedProposals.length > 0) {
+      for (const rp of resolvedProposals) {
+        await recordNotification(householdId, {
+          kind: "change_resolved",
+          title: rp.approved ? "Caregiver approved the new time" : "Caregiver kept the original time",
+          body: `${friendlyDate(rp.req.date)} · ${fmtWindow(rp.req)}`,
+          roles: ["admin", "partner"],
+          date: rp.req.date,
+          requestId: rp.req.id,
+        });
+      }
       const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
       if (tokens.length > 0) {
         for (const rp of resolvedProposals) {
@@ -440,9 +555,19 @@ export const onCoverageRequestsCreate = onDocumentCreated(
     const list = (event.data?.data()?.coverageRequests ?? []) as CoverageRequest[];
     const pending = list.filter((r) => r && r.status === "pending");
     if (pending.length === 0) return;
+    const single = pending[0];
+    await recordNotification(householdId, {
+      kind: "new_pending",
+      title: pending.length === 1 ? "New coverage request" : "New coverage requests",
+      body: pending.length === 1
+        ? `${friendlyDate(single.date)} · ${fmtWindow(single)}${single.arriveBy ? ` · arrive ${single.arriveBy}` : ""}`
+        : `${pending.length} new coverage requests`,
+      roles: ["admin", "partner", "supporting"],
+      date: single.date,
+      requestId: pending.length === 1 ? single.id : undefined,
+    });
     const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
     if (tokens.length === 0) return;
-    const single = pending[0];
     const body = pending.length === 1
       ? `${friendlyDate(single.date)} · ${fmtWindow(single)}${single.arriveBy ? ` · arrive ${single.arriveBy}` : ""}`
       : `${pending.length} new coverage requests`;
@@ -537,6 +662,12 @@ export const checkScheduleCadence = onSchedule(
         //    re-notify every Friday until it's dealt with.
         let pushed = 0;
         if (isCycleCloserToday) {
+          await recordNotification(householdId, {
+            kind: "schedule_reminder",
+            title: "Time to update the schedule",
+            body: "This 4-week schedule is wrapping up. Update it and send caregiver requests.",
+            roles: ["admin"],
+          });
           const tokens = await tokensForRoles(householdId, ["admin"]);
           if (tokens.length > 0) {
             await sendToTokens(tokens, {

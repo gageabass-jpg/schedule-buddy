@@ -9,6 +9,7 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";  /* enter/exit animation classes shadcn popovers use; no reset */
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* Hovering anywhere on a calendar day cell (marked data-day-cell). Lets the
@@ -25,6 +26,9 @@
   :where([class]), :where([class])::before, :where([class])::after {
     box-sizing: border-box;
     border: 0 solid;
+    /* shadcn's globals give every border the Line colour by default; without
+       it a bare `border-b` draws in the text colour. */
+    border-color: var(--border);
   }
   :where(button[class]) {
     margin: 0;
@@ -64,24 +68,25 @@
 }
 
 .dark {
-  --background: #1C1C1E;
-  --foreground: #FFFFFF;
-  --card: #1C1C1E;
-  --card-foreground: #FFFFFF;
-  --popover: #2C2C2E;
-  --popover-foreground: #FFFFFF;
+  /* Nucleus Ink, matching themeTokens(true) in src/theme.ts. */
+  --background: #15201E;           /* Ink card */
+  --foreground: #F1F0EC;
+  --card: #15201E;
+  --card-foreground: #F1F0EC;
+  --popover: #1D2A27;
+  --popover-foreground: #F1F0EC;
   --primary: #0F6E64;              /* filled buttons stay Teal on both grounds */
   --primary-foreground: #FFFFFF;
-  --secondary: #2C2C2E;
-  --secondary-foreground: #FFFFFF;
-  --muted: #2C2C2E;
-  --muted-foreground: rgba(235, 235, 245, 0.6);
+  --secondary: #1D2A27;
+  --secondary-foreground: #F1F0EC;
+  --muted: #1D2A27;
+  --muted-foreground: #A9B3B0;
   --accent: rgba(86, 183, 169, 0.16);
-  --accent-foreground: #9ACFC6;
+  --accent-foreground: #56B7A9;    /* Teal Light */
   --destructive: #8A4B38;
   --destructive-foreground: #FFFFFF;
-  --border: rgba(84, 84, 88, 0.6);
-  --input: rgba(84, 84, 88, 0.6);
+  --border: #2A3733;
+  --input: #2A3733;
   --ring: #56B7A9;
 }
 

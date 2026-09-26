@@ -69,6 +69,11 @@ import { toggleChildcareOff } from "./lib/writeChildcareOff";
 import { DayFlagPopover } from "./components/DayFlagPopover";
 import type { AskContext } from "./components/AskClaudePanel";
 import { subscribeDayFlags, type DayFlag } from "./lib/dayFlags";
+import { computeOverlapCandidates } from "./lib/computeOverlap";
+import { blockForDate } from "./lib/writeScheduleBlock";
+import type { CoverageMark } from "./components/MonthGrid";
+import { NotificationInboxPopover, type InboxNotification } from "@/components/ui/notification-inbox-popover";
+import { markAllNotificationsRead, markNotificationRead, subscribeNotifications, type AppNotification } from "./lib/notifications";
 
 const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
@@ -82,9 +87,11 @@ export function App() {
     setDark(resolveDark(themePref));
   }, [themePref]);
 
-  // shadcn-style components read light/dark from a class on <html>.
+  // shadcn-style components read light/dark from a class on <html>, and the
+  // Dock icon swaps to its dark variant to match.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
+    window.sbm?.setAppearance?.(dark);
   }, [dark]);
 
   // Track OS preference changes while the user is in "system" mode.
@@ -410,6 +417,22 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     if (!householdId) { setDayFlags(new Map()); return; }
     return subscribeDayFlags(householdId, setDayFlags);
   }, [householdId]);
+  // The bell: notification history kept server-side (lib/notifications.ts),
+  // the items meant for this member's role.
+  const myRole = householdStatus.status === "ready" && user
+    ? householdStatus.household.roles?.[user.uid] ?? "partner"
+    : null;
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  useEffect(() => {
+    if (!householdId || !myRole) { setNotifications([]); return; }
+    return subscribeNotifications(householdId, myRole, setNotifications);
+  }, [householdId, myRole]);
+  const inbox: InboxNotification[] = notifications.map((n) => ({
+    id: n.id, kind: n.kind, title: n.title, body: n.body, date: n.date,
+    unread: !!user && !n.readBy[user.uid],
+    at: n.createdAt ? n.createdAt.toMillis() : null,
+  }));
+
   const flagAuthorName =
     (householdStatus.status === "ready" && user ? householdStatus.household.memberNames?.[user.uid] : undefined)
     || state?.selfName || "Member";
@@ -464,7 +487,34 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
   // was computed on — and so this and the modal always resolve the same date.
   const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
   const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
-  const coverageDates = useMemo(() => new Set(coverageNeeds.map((c) => c.date)), [coverageNeeds]);
+  // The Coverage view: every day in the loaded months that involves childcare
+  // cover, and where it stands. Not coverageNeeds: that list is today-forward
+  // and drops any day already asked about (it drives "Ask for more days"), so
+  // the view went blank exactly where Daisy had been asked.
+  //   - gaps the overlap engine finds (nobody home), unless the day is blocked;
+  //   - every coverage request, which wins over the engine's window because
+  //     it is what was actually asked. Worst state wins on a day with several.
+  const coverageByDate = useMemo(() => {
+    const out = new Map<string, CoverageMark>();
+    if (!state) return out;
+    const rank: Record<CoverageMark["kind"], number> = { has: 0, waiting: 1, nobody: 2 };
+    const put = (date: string, mark: CoverageMark) => {
+      const prev = out.get(date);
+      if (!prev || rank[mark.kind] >= rank[prev.kind]) out.set(date, mark);
+    };
+    const st: HouseholdState = { ...state, template: state.template ?? [], overrides: state.overrides ?? [], ot: state.ot ?? [] };
+    const requested = new Set((state.coverageRequests ?? []).map((r) => r.date));
+    for (const c of computeOverlapCandidates(shifts, st)) {
+      if (requested.has(c.date) || blockForDate(state.scheduleBlocks, c.date)) continue;
+      put(c.date, { kind: "nobody", startTime: c.startTime, endTime: c.endTime, requested: false });
+    }
+    for (const r of state.coverageRequests ?? []) {
+      const kind = r.status === "confirmed" ? "has" : r.status === "pending" ? "waiting" : "nobody";
+      put(r.date, { kind, startTime: r.startTime, endTime: r.endTime, requested: true });
+    }
+    return out;
+  }, [state, shifts]);
+  const coverageDates = useMemo(() => new Set(coverageByDate.keys()), [coverageByDate]);
 
   // The "Update the schedule" card stays calendar-driven (4-week cadence).
   // See functions/src/index.ts::checkScheduleCadence.
@@ -592,6 +642,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onNewShift={() => setNewShiftOpen(true)}
         viewFilter={viewFilter}
         coverageDates={coverageDates}
+        coverageMarks={coverageByDate}
         onOpenShiftDetail={(date, s, anchor) => { setDayDetail(null); setShiftDetail({ date, shift: s, anchor }); }}
         onOpenDayDetail={(date, anchor) => { setShiftDetail(null); setDayDetail({ date, anchor }); }}
         calLayout={calLayout}
@@ -600,6 +651,23 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenAskClaude={() => openAsk()}
         wvuGames={wvuGames}
+        toolbarEnd={
+          <NotificationInboxPopover
+            notifications={inbox}
+            onMarkRead={(id) => { if (householdId && user) markNotificationRead(householdId, id, user.uid).catch(() => {}); }}
+            onMarkAllRead={() => {
+              if (!householdId || !user) return;
+              markAllNotificationsRead(householdId, inbox.filter((n) => n.unread).map((n) => n.id), user.uid).catch(() => {});
+            }}
+            onOpen={(n) => {
+              if (!n.date) return;
+              const [y, m] = n.date.split("-").map(Number);
+              setViewYear(y);
+              setViewMonth((m || 1) - 1);
+              setSelected(n.date);
+            }}
+          />
+        }
         dayFlags={dayFlags}
         onFlagDay={(date, anchor) => { setDayDetail(null); setShiftDetail(null); setFlagEditor({ date, anchor }); }}
       />

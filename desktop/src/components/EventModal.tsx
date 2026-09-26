@@ -344,7 +344,7 @@ export function EventModal({
             </div>
           )}
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
             {isEdit && editing?.seriesId && (
@@ -399,7 +399,7 @@ function Subhead({ t, children }: { t: ThemeTokens; children: React.ReactNode })
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -408,7 +408,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     letterSpacing: "-0.01em",
     outline: "none",
     width: "100%",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
@@ -449,7 +449,7 @@ function dangerBtn(t: ThemeTokens, _solid = false): React.CSSProperties {
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     background: "transparent",
-    color: "#8A4B38",
+    color: t.clayText,
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",

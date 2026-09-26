@@ -86,7 +86,7 @@ export function ScheduleBlockModal({
         style={{
           width: 460,
           maxHeight: "80vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -155,7 +155,7 @@ export function ScheduleBlockModal({
             />
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <button
             type="button"
@@ -221,7 +221,7 @@ export function ScheduleBlockModal({
                         borderRadius: 7,
                         border: `0.5px solid ${t.sep}`,
                         background: "transparent",
-                        color: "#8A4B38",
+                        color: t.clayText,
                         fontSize: 12,
                         fontWeight: 600,
                         fontFamily: "inherit",

@@ -97,7 +97,7 @@ export function Inspector({
   return (
     <div
       style={{
-        background: dark ? "rgba(20,20,22,0.5)" : "rgba(255,255,255,0.6)",
+        background: dark ? "rgba(21,32,30,0.5)" : "rgba(255,255,255,0.6)",
         borderLeft: `1px solid ${t.sep}`,
         padding: 14,
         display: "flex",
@@ -311,7 +311,7 @@ export function Inspector({
                     fontSize: 9.5, fontWeight: 700,
                     padding: "2px 7px", borderRadius: 999,
                     background: "rgba(138,75,56,0.18)",
-                    color: "#8A4B38",
+                    color: t.clayText,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                   }}
@@ -341,7 +341,7 @@ export function Inspector({
                   borderRadius: 7,
                   border: `0.5px solid rgba(138,75,56,0.45)`,
                   background: "transparent",
-                  color: "#8A4B38",
+                  color: t.clayText,
                   fontSize: 11.5,
                   fontWeight: 600,
                   fontFamily: "inherit",
@@ -405,7 +405,7 @@ export function Inspector({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#8A4B38" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: t.clayText }}>
               {lifeClashCount} clash{lifeClashCount === 1 ? "" : "es"}
             </span>
           )}
@@ -465,7 +465,7 @@ export function Inspector({
                         color: clash ? "#8A4B38" : (ev.healthId ? "#0F6E64" : t.text2),
                       }}>{badge}</span>
                     )}
-                    {ev.pending && <span style={{ fontSize: 10.5, color: "#8A4B38", fontWeight: 700 }}>(pending)</span>}
+                    {ev.pending && <span style={{ fontSize: 10.5, color: t.clayText, fontWeight: 700 }}>(pending)</span>}
                   </div>
                   <div style={{ fontSize: 13, color: clash ? "#8A4B38" : t.text2, lineHeight: 1.4, marginTop: 5 }}>
                     {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
@@ -525,7 +525,7 @@ export function Inspector({
           marginRight: -14,
           marginBottom: -14,
           padding: "8px 14px 14px",
-          background: dark ? "#0A0A0B" : "#FCFBFA",
+          background: dark ? "#121C1A" : "#FCFBFA",
         }}
       >
         <InspectorTabBar
@@ -935,8 +935,8 @@ function MonthWeekDeltas({ selected, state, t }: {
               <span style={{
                 fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
                 padding: "2px 7px", borderRadius: 3, flexShrink: 0,
-                background: bad ? "#EFDFDB" : t.bgElev2,
-                color: bad ? "#8A4B38" : t.text2,
+                background: bad ? t.clayTint : t.bgElev2,
+                color: bad ? t.clayText : t.text2,
               }}>
                 {near0 ? "±0" : `${delta > 0 ? "▲" : "▼"} ${fmt(Math.abs(delta))}`}
               </span>
@@ -1101,7 +1101,7 @@ function ChildcareCard({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
         <span style={{ ...subhead(t), marginBottom: 0 }}>Who has the kids this week</span>
         {needCover > 0 ? (
-          <span style={{ fontSize: 13, fontWeight: 600, color: CLAY, whiteSpace: "nowrap" }}>{needCover} need cover</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: t.clayText, whiteSpace: "nowrap" }}>{needCover} need cover</span>
         ) : anyGap ? (
           <span style={{ fontSize: 13, fontWeight: 600, color: t.text2, whiteSpace: "nowrap" }}>All held</span>
         ) : null}
@@ -1165,15 +1165,15 @@ function ChildcareCard({
         <button
           type="button"
           onClick={onAsk}
-          style={{ minHeight: 44, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 4, border: 0, background: "#D8E7E4", color: "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+          style={{ minHeight: 44, display: "inline-flex", alignItems: "center", gap: 7, padding: "0 14px", borderRadius: 4, border: 0, background: t.tealTint, color: dark ? t.tealText : "#0A4F48", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
         >
-          <BrandMark size={14} color="#0A4F48" /> Ask
+          <BrandMark size={14} color={dark ? t.tealText : "#0A4F48"} /> Ask
         </button>
         {needCover > 0 && (
           <button
             type="button"
             onClick={onRequestCover}
-            style={{ flex: 1, minHeight: 44, padding: "0 14px", borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: CLAY, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+            style={{ flex: 1, minHeight: 44, padding: "0 14px", borderRadius: 4, border: `1px solid ${t.sep}`, background: t.bgElev, color: t.clayText, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
           >
             Request cover
           </button>

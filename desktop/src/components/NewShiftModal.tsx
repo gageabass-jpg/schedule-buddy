@@ -301,15 +301,15 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
 
             {/* Childcare block — shown when Daisy is who works it. */}
             {isDaisy && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 14px", background: TEAL_TINT, border: `1px solid ${TEAL}`, borderRadius: 4 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: TEAL }}>Childcare block</span>
-                <span style={{ fontSize: 12, lineHeight: 1.5, color: TEAL }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 14px", background: t.tealTint, border: `1px solid ${t.tealText}`, borderRadius: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: t.tealText }}>Childcare block</span>
+                <span style={{ fontSize: 12, lineHeight: 1.5, color: t.tealText }}>
                   This puts {daisyName} on the calendar covering the kids for this time. It's not a work shift.
                 </span>
               </div>
             )}
 
-            {err && <div style={{ fontSize: 12, color: CLAY }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
           </div>
 
           {/* Footer — Paper bar, reassurance text, actions. */}
@@ -479,14 +479,14 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
 function selectStyle(t: ThemeTokens): React.CSSProperties {
   // Custom chevron inset 14px from the right edge — gives the option text
   // breathing room and lets us style consistently across OS chrome.
-  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const stroke = "%23" + (t.scheme === "dark" ? "8E8E93" : "6E6E73");
   const chevron =
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {

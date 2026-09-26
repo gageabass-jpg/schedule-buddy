@@ -148,7 +148,7 @@ export function NewRequestModal({
           />
         </Field>
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" onClick={onClose} disabled={busy} style={secondaryBtn(t)}>Cancel</button>
@@ -175,7 +175,7 @@ function Field({ label, t, children }: { label: React.ReactNode; t: ThemeTokens;
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -185,7 +185,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     outline: "none",
     width: "100%",
     boxSizing: "border-box",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 

@@ -436,7 +436,7 @@ export function InboxPanel({
                           border: `0.5px solid rgba(138,75,56,0.6)`,
                           borderRadius: 6,
                           background: "transparent",
-                          color: "#8A4B38",
+                          color: t.clayText,
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: busyId === r.id ? "wait" : "pointer",

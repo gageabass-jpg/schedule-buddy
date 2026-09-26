@@ -211,12 +211,12 @@ export function ShiftDetailPopover({
               type="button"
               onClick={onAsk}
               style={{
-                height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${BRAND_TEAL}`,
-                background: "#D8E7E4", color: BRAND_TEAL, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
+                height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${t.tealText}`,
+                background: t.tealTint, color: t.tealText, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
                 cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
               }}
             >
-              <BrandMark size={15} color={BRAND_TEAL} />
+              <BrandMark size={15} color={t.tealText} />
               Ask
             </button>
             <button type="button" onClick={onEdit} style={hairlineBtn}>Edit</button>

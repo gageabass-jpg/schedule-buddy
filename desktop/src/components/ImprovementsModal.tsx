@@ -74,7 +74,7 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
         style={{
           width: 460,
           maxHeight: "80vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -123,9 +123,9 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
           }}
         />
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         {saved && !err && (
-          <div style={{ fontSize: 12, color: "#0F6E64", fontWeight: 600 }}>
+          <div style={{ fontSize: 12, color: t.tealText, fontWeight: 600 }}>
             Logged. Thanks — add more or close.
           </div>
         )}

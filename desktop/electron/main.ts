@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, safeStorage, shell, type MenuItemConstructorOptions } from "electron";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as os from "node:os";
@@ -607,7 +607,31 @@ function migrateLegacyUserData(): void {
   }
 }
 
+// ─── Dock icon follows the app's light / dark appearance ──────────────────
+// The bundled icon is the Teal tile. In dark mode the Dock shows the dark
+// variant (near-black tile, Teal Light mark) instead. The renderer reports
+// its effective theme, which covers a forced Light/Dark setting as well as
+// "System"; until it does, the OS appearance stands in, so a dark Mac doesn't
+// flash the Teal icon at launch. Only while the app runs: the Finder and a
+// closed app's Dock tile still show the bundled icon.
+function iconPath(dark: boolean): string {
+  const file = dark ? "icon-dark.png" : "icon.png";
+  return app.isPackaged
+    ? path.join(process.resourcesPath, file)
+    : path.join(__dirname, "..", "build", file);
+}
+let dockDark: boolean | null = null;
+function setDockAppearance(dark: boolean) {
+  if (process.platform !== "darwin" || !app.dock || dockDark === dark) return;
+  const img = nativeImage.createFromPath(iconPath(dark));
+  if (img.isEmpty()) return;
+  app.dock.setIcon(img);
+  dockDark = dark;
+}
+ipcMain.on("appearance:set", (_e, dark: unknown) => setDockAppearance(dark === true));
+
 app.whenReady().then(() => {
+  setDockAppearance(nativeTheme.shouldUseDarkColors);
   migrateLegacyUserData();
   installAppMenu();
   createWindow();

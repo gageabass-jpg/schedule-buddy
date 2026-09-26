@@ -85,6 +85,19 @@ service cloud.firestore {
     // Per-user read-state — when each member last opened the chat. Used
     // to compute unread badges. Doc id = uid, writeable only by self,
     // readable by any member.
+    // Notification history — written by Cloud Functions only (recordNotification
+    // in functions/src/index.ts). Members read them and may mark one read or
+    // unread for themselves: an update can change nothing but readBy, and only
+    // their own key in it.
+    match /households/{householdId}/notifications/{notificationId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow update: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+        && request.resource.data.readBy.diff(resource.data.readBy).affectedKeys().hasOnly([request.auth.uid]);
+    }
+
     // Day flags — one doc per flagged day ({date} = YYYY-MM-DD). Any member
     // can flag, edit or clear a day; remarks are capped at 1000 characters and
     // a write must name its author as the signed-in user.

@@ -441,7 +441,7 @@ export function ScheduleImportModal({
         )}
 
         {err && (
-          <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: CLAY, lineHeight: 1.45 }}>{err}</div>
+          <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: t.clayText, lineHeight: 1.45 }}>{err}</div>
         )}
 
         {/* Footer — the reassurance on the left, the actions on the right. */}
@@ -553,8 +553,8 @@ function ReviewPhase({
     <span
       style={{
         display: "inline-flex", alignItems: "center", height: 32, padding: "0 14px", borderRadius: 4,
-        background: tone === "ok" ? TEAL_TINT : CLAY_TINT,
-        color: tone === "ok" ? BRAND_TEAL : CLAY,
+        background: tone === "ok" ? t.tealTint : t.clayTint,
+        color: tone === "ok" ? t.tealText : t.clayText,
         whiteSpace: "nowrap",
       }}
     >
@@ -661,9 +661,9 @@ function ReviewPhase({
   );
 }
 
-function Banner({ t: _t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
+function Banner({ t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: CLAY_TINT, color: CLAY }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: t.clayTint, color: t.clayText }}>
       <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
         <path d="M12 4.5L21 19.5H3L12 4.5z" stroke={CLAY} strokeWidth={1.7} strokeLinejoin="round" />
         <path d="M12 10v4M12 16.4v.2" stroke={CLAY} strokeWidth={1.7} strokeLinecap="round" />
@@ -675,7 +675,7 @@ function Banner({ t: _t, children, action }: { t: ThemeTokens; children: React.R
           onClick={action.onClick}
           style={{
             flexShrink: 0, height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${CLAY}`,
-            background: "transparent", color: CLAY, fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+            background: "transparent", color: t.clayText, fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
           }}
         >
           {action.label}
@@ -722,11 +722,11 @@ function ReviewRow({
             border: `1px solid ${flag === "wrong-month" ? CLAY : t.sep}`,
             background: t.bgElev, color: flag === "wrong-month" ? CLAY : t.text,
             fontFamily: "inherit", fontSize: 13.5,
-            colorScheme: t.bg === "#000" ? "dark" : "light",
+            colorScheme: t.scheme === "dark" ? "dark" : "light",
           }}
         />
         {flag === "wrong-month" && (
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: CLAY, marginTop: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: t.clayText, marginTop: 4 }}>
             IN {MONTHS_LONG[(Number(row.date.split("-")[1]) || 1) - 1].toUpperCase()}
           </div>
         )}
@@ -774,14 +774,14 @@ function ReviewRow({
         {row.skipped ? (
           <span style={{ fontSize: 12.5, color: t.text3, textDecoration: "line-through" }}>skipped</span>
         ) : flag === "ready" ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: BRAND_TEAL }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: t.tealText }}>
             <CheckIcon color={BRAND_TEAL} /> ready
           </span>
         ) : (
           <span
             style={{
               display: "inline-block", padding: "4px 8px", borderRadius: 3, border: `1px solid ${CLAY}`,
-              color: CLAY, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap",
+              color: t.clayText, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap",
             }}
           >
             {FLAG_LABEL[flag]}
@@ -834,13 +834,13 @@ function UploadPhase({
           style={{
             display: "flex", alignItems: "center", gap: 14,
             padding: "14px 16px", borderRadius: 6,
-            border: `1px dashed ${CLAY}`, background: CLAY_TINT,
+            border: `1px dashed ${t.clayText}`, background: t.clayTint,
           }}
         >
           <KeyIcon />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: CLAY }}>No API key yet</div>
-            <div style={{ fontSize: 12.5, color: CLAY, marginTop: 2, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.clayText }}>No API key yet</div>
+            <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 2, lineHeight: 1.4 }}>
               Reading a photo requires one. It is stored on this Mac only.
             </div>
           </div>
@@ -849,7 +849,7 @@ function UploadPhase({
             onClick={onNeedApiKey}
             style={{
               flexShrink: 0, height: 40, padding: "0 16px", borderRadius: 4,
-              border: `1px solid ${CLAY}`, background: "transparent", color: CLAY,
+              border: `1px solid ${CLAY}`, background: "transparent", color: t.clayText,
               fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
             }}
           >

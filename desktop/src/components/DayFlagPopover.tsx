@@ -117,7 +117,7 @@ export function DayFlagPopover({ date, anchor, flag, householdId, authorName, t,
             {flag && (
               <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>Flagged by {flag.flaggedByName}</div>
             )}
-            {err && <div style={{ fontSize: 12, color: "#8A4B38", marginTop: 6 }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
           </div>
 
           <div style={{ height: 1, background: t.sep }} />

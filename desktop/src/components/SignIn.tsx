@@ -116,7 +116,7 @@ export function SignIn({ dark = true }: { dark?: boolean }) {
         )}
 
         {err && (
-          <div style={{ fontSize: 12, color: "#8A4B38", textAlign: "center", maxWidth: "100%" }}>
+          <div style={{ fontSize: 12, color: t.clayText, textAlign: "center", maxWidth: "100%" }}>
             {err}
           </div>
         )}

@@ -70,7 +70,7 @@ export function ToastHost({ t, dark, sidebarWidth = 240 }: {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13.5, color: t.text, lineHeight: 1.45 }}>{toast.text}</div>
             {toast.actionLabel && toast.onAction && (
-              <div style={{ fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, color: BRAND_TEAL, marginTop: 5 }}>
+              <div style={{ fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, color: t.tealText, marginTop: 5 }}>
                 {toast.actionLabel}
               </div>
             )}

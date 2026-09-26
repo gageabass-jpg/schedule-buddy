@@ -216,7 +216,7 @@ function ListView({
         })}
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button type="button" onClick={onClose} style={secondaryBtn(t)}>Done</button>
@@ -353,7 +353,7 @@ function FormView({
             shifts, 6–8 for night shifts.
           </div>
         </Field>
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
           <button type="button" onClick={onBack} style={secondaryBtn(t)} disabled={busy}>Cancel</button>
           <button type="submit" disabled={busy} style={primaryBtn(palette.G, busy)}>
@@ -379,7 +379,7 @@ function Field({ label, t, children }: { label: string; t: ThemeTokens; children
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -387,7 +387,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontFamily: "inherit",
     letterSpacing: "-0.01em",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 

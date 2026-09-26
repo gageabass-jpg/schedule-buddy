@@ -29,6 +29,18 @@ export interface ThemeTokens {
   cardShadow: string;
   tintAlpha: number;
   chipText: string;
+  /** Which ground this is. Read this, never t.bg, to pick native control
+   *  schemes: dark mode's page is no longer pure black. */
+  scheme: "light" | "dark";
+  /** Quiet fills behind a Teal / Clay thing (selected rows, soft buttons,
+   *  warning badges). Light: the brand tints. Dark: translucent washes. */
+  tealTint: string;
+  clayTint: string;
+  /** Teal / Clay as TEXT or a thin line on this ground. On dark these are the
+   *  "Light" variants: Teal itself is 2.7:1 on Ink and fails. Filled buttons
+   *  keep Teal with white text in both modes. */
+  tealText: string;
+  clayText: string;
 }
 
 export type DayKind = "g" | "k" | "both" | "off";
@@ -50,17 +62,26 @@ export function getPalette(name: PaletteName): Palette {
 export function themeTokens(dark: boolean): ThemeTokens {
   return dark
     ? {
-        bg: "#000",
-        bgElev: "#1C1C1E",
-        bgElev2: "#2C2C2E",
-        sep: "rgba(84,84,88,0.6)",
-        text: "#fff",
-        text2: "rgba(235,235,245,0.6)",
-        text3: "rgba(235,235,245,0.3)",
-        scrim: "rgba(255,255,255,0.05)",
+        // Nucleus Ink UI: the brand's dark ground, not system greys. Page a
+        // shade deeper than Ink, cards on Ink, tracks a step up. Text is warm
+        // Paper-white; every text colour clears 4.5:1 on every surface
+        // (text3 is 4.9:1 on the track, 5.5:1 on a card).
+        bg: "#0E1715",          // page
+        bgElev: "#15201E",      // Ink — cards, panels
+        bgElev2: "#1D2A27",     // track, quiet fills
+        sep: "#2A3733",         // hairlines
+        text: "#F1F0EC",
+        text2: "#A9B3B0",       // Grey
+        text3: "#8A9693",
+        scrim: "rgba(241,240,236,0.05)",
         cardShadow: "none",
         tintAlpha: 0.22,
         chipText: "#fff",
+        scheme: "dark",
+        tealTint: "rgba(86,183,169,0.16)",
+        clayTint: "rgba(215,143,119,0.16)",
+        tealText: "#56B7A9",    // Teal Light, 7.0:1 on Ink
+        clayText: "#D78F77",    // Clay Light, 6.4:1 on Ink
       }
     : {
         // Nucleus Paper UI.
@@ -77,6 +98,11 @@ export function themeTokens(dark: boolean): ThemeTokens {
         cardShadow: "none",
         tintAlpha: 0.14,
         chipText: "#fff",
+        scheme: "light",
+        tealTint: "#D8E7E4",
+        clayTint: "#EFDFDB",
+        tealText: "#0F6E64",
+        clayText: "#8A4B38",
       };
 }
 
@@ -93,7 +119,7 @@ export function dayColors(kind: DayKind, palette: Palette, dark: boolean) {
     g:    { tint: rgba(palette.G, tintA),         accent: palette.G },
     k:    { tint: rgba(palette.K, tintA),         accent: palette.K },
     both: { tint: rgba(palette.BOTH, tintA + 0.05), accent: palette.BOTH },
-    off:  { tint: "transparent",                  accent: dark ? "#48484A" : "#C7C7CC" },
+    off:  { tint: "transparent",                  accent: dark ? "#3A4845" : "#C7C7CC" },
   };
   return map[kind] ?? map.off;
 }

@@ -115,7 +115,7 @@ export function ApiKeySettings({ open, onClose, palette, t }: Props) {
               outline: "none",
             }}
           />
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
             {hasKey && (
               <button
@@ -127,7 +127,7 @@ export function ApiKeySettings({ open, onClose, palette, t }: Props) {
                   border: `0.5px solid ${t.sep}`,
                   borderRadius: 8,
                   background: "transparent",
-                  color: "#8A4B38",
+                  color: t.clayText,
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",

@@ -113,7 +113,7 @@ export function WallPhotosSection({ householdId, t, palette }: Props) {
         />
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       {/* Photo grid */}
       {photos === null && (

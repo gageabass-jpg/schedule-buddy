@@ -162,7 +162,7 @@ export function CleanerModal({
         style={{
           width: "min(1000px, 92vw)",
           maxHeight: "85vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -281,7 +281,7 @@ export function CleanerModal({
             </div>
 
             {info && <div style={{ fontSize: 12, color: t.text2 }}>{info}</div>}
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
           </div>
         )}
 
@@ -358,7 +358,7 @@ export function CleanerModal({
               </div>
             )}
 
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>
@@ -480,7 +480,7 @@ export function CleanerModal({
               })}
             </div>
 
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>

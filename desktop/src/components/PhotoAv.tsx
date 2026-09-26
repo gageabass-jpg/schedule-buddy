@@ -27,7 +27,7 @@ export function PhotoAv({ who, size = 22, palette, dark = true, ring = false }: 
         overflow: "hidden",
         flexShrink: 0,
         boxShadow: ring
-          ? `0 0 0 1.5px ${dark ? "#000" : "#fff"}, 0 0 0 2.5px ${color}`
+          ? `0 0 0 1.5px ${dark ? "#15201E" : "#fff"}, 0 0 0 2.5px ${color}`
           : `0 0 0 1px ${rgba(color, 0.5)}`,
       }}
     >

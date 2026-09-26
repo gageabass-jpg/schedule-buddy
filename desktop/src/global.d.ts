@@ -32,6 +32,7 @@ export interface ParseScheduleResult {
 
 export interface SbmApi {
   hasApiKey: () => Promise<boolean>;
+  setAppearance?: (dark: boolean) => void;
   setApiKey: (key: string) => Promise<{ ok: boolean; error?: string }>;
   clearApiKey: () => Promise<void>;
   parseSchedule: (req: ParseScheduleRequest) => Promise<ParseScheduleResult>;

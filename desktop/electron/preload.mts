@@ -28,6 +28,8 @@ export interface ParseScheduleResult {
 
 const api = {
   hasApiKey: (): Promise<boolean> => ipcRenderer.invoke("key:has"),
+  /** Tell the main process the app's effective theme, so the Dock icon matches. */
+  setAppearance: (dark: boolean): void => ipcRenderer.send("appearance:set", dark),
   setApiKey: (key: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("key:set", key),
   clearApiKey: (): Promise<void> => ipcRenderer.invoke("key:clear"),

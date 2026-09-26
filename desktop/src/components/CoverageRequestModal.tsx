@@ -183,10 +183,10 @@ export function CoverageRequestModal({
         {/* What the caregiver's own timetable does to this batch. */}
         {withClash.length > 0 && (
           <div style={{ margin: "0 26px 14px", padding: "12px 14px", borderRadius: 6, background: dark ? rgba("#8A4B38", 0.16) : "#EFDFDB", border: `1px dashed ${rgba("#8A4B38", 0.5)}`, flexShrink: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A4B38" }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: t.clayText }}>
               ⚠ {countWord(withClash.length).replace(/^./, (c) => c.toUpperCase())} of these run into her class time
             </div>
-            <div style={{ fontSize: 12.5, color: "#8A4B38", marginTop: 3, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 3, lineHeight: 1.45 }}>
               Some requested shifts overlap with {daisyName}&rsquo;s class schedule. Review who&rsquo;s home and your scheduled hours to determine a course of action.
             </div>
           </div>
@@ -232,7 +232,7 @@ export function CoverageRequestModal({
                   <div style={{ fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 600, color: t.text }}>
                     {hm12(hmToMin(r.startTime))} – {hm12(hmToMin(r.endTime, r.endsNextDay))}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#8A4B38", marginTop: 3 }}>⚠ {daisyName} has class</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: t.clayText, marginTop: 3 }}>⚠ {daisyName} has class</div>
                 </div>
                 <div style={{ width: 44, textAlign: "right", fontSize: 14, fontWeight: 700, color: t.text2, flexShrink: 0 }}>
                   {durationHours(r.startTime, r.endTime, r.endsNextDay)}h
@@ -297,7 +297,7 @@ export function CoverageRequestModal({
           />
         </div>
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38", padding: "8px 28px 0" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText, padding: "8px 28px 0" }}>{err}</div>}
 
         {/* Footer */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 26px 20px", borderTop: `1px solid ${t.sep}`, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", flexShrink: 0 }}>
@@ -409,7 +409,7 @@ function Tick({ checked, onChange }: { checked: boolean; onChange: (v: boolean) 
 function DateBlock({ month, day, weekday, t }: { month: string; day: number; weekday: string; t: ThemeTokens }) {
   return (
     <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "#8A4B38" }}>{month}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: t.clayText }}>{month}</div>
       <div style={{ fontFamily: BRAND_FONT, fontSize: 24, fontWeight: 700, color: t.text, lineHeight: 1.05 }}>{day}</div>
       <div style={{ fontSize: 10.5, color: t.text3 }}>{weekday}</div>
     </div>

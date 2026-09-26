@@ -238,7 +238,7 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
             </div>
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>Cancel</button>
@@ -275,15 +275,15 @@ function DateRow({ label, hint, enabled, date, onToggle, onDate, palette, t }: {
 
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
-    padding: "7px 10px", background: t.bg === "#000" ? "#000" : t.bg,
+    padding: "7px 10px", background: t.bg,
     border: `0.5px solid ${t.sep}`, borderRadius: 7, color: t.text, fontSize: 13,
     fontFamily: "inherit", letterSpacing: "-0.01em", outline: "none", width: "100%",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
 function selectStyle(t: ThemeTokens): React.CSSProperties {
-  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const stroke = "%23" + (t.scheme === "dark" ? "8E8E93" : "6E6E73");
   const chevron =
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {

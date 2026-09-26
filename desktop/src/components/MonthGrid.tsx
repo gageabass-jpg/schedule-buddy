@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
-import { isPaydayOn } from "../state";
+import { compactTime, isPaydayOn } from "../state";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { ArrowRight } from "lucide-react";
@@ -41,6 +41,8 @@ interface Props {
   onOpenAskClaude: () => void;
   viewFilter: ViewFilter;
   coverageDates?: Set<string>;
+  /** Where each coverage day stands, drawn as a chip in the Coverage view. */
+  coverageMarks?: Map<string, CoverageMark>;
   onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
   /** A click on the day cell itself opens the day-detail popover. */
   onOpenDayDetail?: (date: string, anchor?: DOMRect) => void;
@@ -50,6 +52,8 @@ interface Props {
   partnerName: string;
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
+  /** Rendered at the far right of the toolbar, after New shift (the bell). */
+  toolbarEnd?: React.ReactNode;
   /** Flagged days, keyed by date. */
   dayFlags?: Map<string, DayFlag>;
   /** Open the flag editor for a day, beside its cell. */
@@ -71,8 +75,8 @@ const CARE_STEP = `(${CARE_COL} + 4px)`;
 export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
-  viewFilter, coverageDates, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay,
+  viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
+  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd,
 }: Props) {
   // Two-finger swipe (horizontal trackpad scroll) moves a month, anywhere in
   // the window while the month view shows: over a chip, the rail, the toolbar,
@@ -261,9 +265,10 @@ export function MonthGrid({
               style={{ height: 36, paddingInline: 14 }}
               aria-label="Ask nucleusAI"
               onClick={onOpenAskClaude}
-              gradientFrom="#FFFFFF"
-              gradientTo="#9ACFC6"
-              gradientOpacity={1}
+              // On dark, a white shine reads as a frame; Teal Light glows instead.
+              gradientFrom={dark ? "#9ACFC6" : "#FFFFFF"}
+              gradientTo={dark ? "#56B7A9" : "#9ACFC6"}
+              gradientOpacity={dark ? 0.7 : 1}
               borderWidth={2}
               className="bg-linear-to-b from-[#0F6E64] to-[#0A4F48]"
               overlayClassName="bg-white/10"
@@ -298,6 +303,7 @@ export function MonthGrid({
             New shift <span className="text-muted-foreground">· ⌘N</span>
           </TooltipContent>
         </Tooltip>
+        {toolbarEnd}
       </div>
 
       {calLayout === "year" && (
@@ -381,7 +387,7 @@ export function MonthGrid({
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: i === 0 || i === 6 ? rgba(palette.G, 0.85) : t.text3,
+                color: i === 0 || i === 6 ? (dark ? t.tealText : rgba(palette.G, 0.85)) : t.text3,
                 padding: "6px 8px",
               }}
             >
@@ -573,14 +579,20 @@ export function MonthGrid({
                     </div>
                     {(() => {
                       const dayEvents = eventsByDate[key] ?? [];
-                      const shiftSlice = (dayShifts ?? []).slice(0, 3);
-                      const eventSlice = dayEvents.slice(0, Math.max(0, 3 - shiftSlice.length));
-                      if (shiftSlice.length === 0 && eventSlice.length === 0) return null;
+                      // In the Coverage view a coverage day leads with where its
+                      // cover stands, and gives up one of the three rows for it.
+                      const cover = viewFilter === "coverage" ? coverageMarks?.get(key) : undefined;
+                      const shiftSlice = (dayShifts ?? []).slice(0, cover ? 2 : 3);
+                      const eventSlice = dayEvents.slice(0, Math.max(0, (cover ? 2 : 3) - shiftSlice.length));
+                      if (!cover && shiftSlice.length === 0 && eventSlice.length === 0) return null;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={state?.dependents?.daisy?.name || "Daisy"} />}
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
                             const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Daisy");
+                            const st = state?.shiftTypes?.find((x) => x.id === s.shiftTypeId);
+                            const hours = st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
                             // White chip with the person's hue as a left-edge bar
                             // and Ink text (design boards). Hovering the day sweeps
                             // the chip in that hue and swaps the label for who's on.
@@ -616,7 +628,12 @@ export function MonthGrid({
                                 />
                                 <span className="relative min-w-0 flex-1 transition-colors duration-300 ease-in-out day-hover:text-white">
                                   <span className="block overflow-hidden text-ellipsis transition-opacity duration-200 day-hover:opacity-0">{s.label}</span>
-                                  <span className="absolute inset-0 overflow-hidden text-ellipsis opacity-0 transition-opacity delay-150 duration-200 day-hover:opacity-100">{name}</span>
+                                  {/* Hovered: who's on at the left, their hours popping in at
+                                      the right just after the sweep lands. */}
+                                  <span className="absolute inset-0 flex items-center gap-1.5">
+                                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis opacity-0 transition-opacity delay-150 duration-200 day-hover:opacity-100">{name}</span>
+                                    <span className="shrink-0 font-medium opacity-0 translate-x-2 scale-90 transition-all delay-200 duration-300 ease-[cubic-bezier(.2,1.4,.4,1)] day-hover:translate-x-0 day-hover:scale-100 day-hover:opacity-90 motion-reduce:transition-none">{hours}</span>
+                                  </span>
                                 </span>
                               </div>
                             );
@@ -660,7 +677,7 @@ export function MonthGrid({
                             </div>
                             </TooltipTrigger>
                             <TooltipContent side="top" size="sm" className="max-w-64">
-                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Daisy"} />
+                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Daisy"} t={t} />
                             </TooltipContent>
                             </Tooltip>
                           ))}
@@ -693,7 +710,7 @@ export function MonthGrid({
                       borderRadius: 5,
                       border: `1px dashed ${rgba("#8A4B38", 0.8)}`,
                       background: dark ? "rgba(138,75,56,0.18)" : "rgba(138,75,56,0.10)",
-                      color: "#8A4B38",
+                      color: t.clayText,
                       fontSize: 10.5,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
@@ -730,6 +747,13 @@ export function MonthGrid({
         </div>
         {/* Legend — schedule-block states + the reassurance note. */}
         <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: `1px solid ${t.sep}`, background: t.bg, display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
+          {viewFilter === "coverage" && (["has", "waiting", "nobody"] as const).map((k) => (
+            <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+              <CoverageDot kind={k} dark={dark} />
+              {k === "has" ? `${state?.dependents?.daisy?.name || "Daisy"} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
+            </span>
+          ))}
+          {viewFilter !== "coverage" && (<>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
             <CircleCheckIcon size={15} color={CARE_CHECK} isAnimated={false} />
             Care confirmed
@@ -742,6 +766,7 @@ export function MonthGrid({
             <span style={{ width: 3, height: 15, borderLeft: "3px dashed #8A4B38", display: "inline-block", flexShrink: 0 }} />
             Blocked, nobody home
           </span>
+          </>)}
           <span style={{ marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             A block reserves time. It never moves a shift.
           </span>
@@ -889,8 +914,8 @@ function swipeBelongsElsewhere(target: EventTarget | null): boolean {
 }
 
 /** What a life event's hover card says: title, when, who, and any notes. */
-function EventTip({ ev, selfName, partnerName, daisyName }: {
-  ev: SbEvent; selfName: string; partnerName: string; daisyName: string;
+function EventTip({ ev, selfName, partnerName, daisyName, t }: {
+  ev: SbEvent; selfName: string; partnerName: string; daisyName: string; t: ThemeTokens;
 }) {
   const when = ev.startTime
     ? `${formatChipTime(ev.startTime)}${ev.endTime ? ` – ${formatChipTime(ev.endTime)}` : ""}`
@@ -901,7 +926,65 @@ function EventTip({ ev, selfName, partnerName, daisyName }: {
       <div style={{ fontWeight: 600 }}>{ev.title || "Event"}</div>
       <div className="text-muted-foreground">{when} · {who}</div>
       {ev.notes && <div style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>{ev.notes}</div>}
-      {ev.pending && <div style={{ color: "#8A4B38", fontWeight: 600, marginTop: 2 }}>Pending approval</div>}
+      {ev.pending && <div style={{ color: t.clayText, fontWeight: 600, marginTop: 2 }}>Pending approval</div>}
+    </div>
+  );
+}
+
+/** A coverage day in the Coverage view: the gap or request's hours and who
+ *  holds them. Same marks as the Coverage with Daisy panel. */
+export interface CoverageMark {
+  kind: "has" | "waiting" | "nobody";
+  startTime: string;
+  endTime: string;
+  /** False for a gap nobody has been asked about yet. */
+  requested: boolean;
+}
+
+const COVER_TEAL = "#0F6E64";
+const COVER_CLAY = "#8A4B38";
+const COVER_DAISY = "#5A6663";
+
+/** Filled dot = she has it, hollow ring = waiting, short bar = nobody. */
+function CoverageDot({ kind, dark }: { kind: CoverageMark["kind"]; dark: boolean }) {
+  const teal = dark ? "#9ACFC6" : COVER_TEAL;
+  return (
+    <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true" style={{ flexShrink: 0 }}>
+      {kind === "has" && <circle cx="5" cy="5" r="4" fill={dark ? "#A9B3B0" : COVER_DAISY} />}
+      {kind === "waiting" && <circle cx="5" cy="5" r="3.4" fill="none" stroke={teal} strokeWidth="1.6" />}
+      {kind === "nobody" && <rect x="1" y="4" width="8" height="2.2" rx="1" fill={COVER_CLAY} />}
+    </svg>
+  );
+}
+
+function CoverageChip({ mark, t, dark, daisyName }: { mark: CoverageMark; t: ThemeTokens; dark: boolean; daisyName: string }) {
+  const who = mark.kind === "has" ? daisyName : mark.kind === "waiting" ? "Asked" : "Nobody";
+  const hours = `${compactTime(mark.startTime)}–${compactTime(mark.endTime)}`;
+  const box: React.CSSProperties =
+    mark.kind === "has"
+      ? { background: dark ? "rgba(169,179,176,0.16)" : "#EEF0EF", border: `1px solid ${dark ? "rgba(169,179,176,0.4)" : "#C9CFCD"}` }
+      : mark.kind === "waiting"
+        ? { background: t.bgElev, border: `1px solid ${dark ? "rgba(154,207,198,0.6)" : "#9ACFC6"}` }
+        : { background: dark ? "rgba(138,75,56,0.18)" : "#EFDFDB", border: `1px dashed ${COVER_CLAY}` };
+  const title =
+    mark.kind === "has" ? `${daisyName} has the kids ${hours}`
+      : mark.kind === "waiting" ? `Asked ${daisyName} for ${hours}; waiting on her`
+        : mark.requested ? `${daisyName} can't do ${hours}; nobody has the kids`
+          : `Nobody has the kids ${hours}`;
+  return (
+    <div
+      title={title}
+      style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 600, letterSpacing: "-0.01em",
+        color: mark.kind === "nobody" ? (dark ? "#D9A08E" : COVER_CLAY) : t.text,
+        whiteSpace: "nowrap", overflow: "hidden",
+        ...box,
+      }}
+    >
+      <CoverageDot kind={mark.kind} dark={dark} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{who}</span>
+      <span style={{ marginLeft: "auto", fontWeight: 500, opacity: 0.85, flexShrink: 0 }}>{hours}</span>
     </div>
   );
 }

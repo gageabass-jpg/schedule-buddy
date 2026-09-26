@@ -136,7 +136,7 @@ export function OccasionsSection({ householdId, state, t, palette }: Props) {
         {busy ? "Saving…" : "Add occasion"}
       </button>
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       {/* Existing list */}
       {sorted.length === 0 ? (
@@ -191,7 +191,7 @@ export function OccasionsSection({ householdId, state, t, palette }: Props) {
                     borderRadius: 7,
                     border: `0.5px solid ${t.sep}`,
                     background: "transparent",
-                    color: "#8A4B38",
+                    color: t.clayText,
                     fontSize: 12,
                     fontWeight: 600,
                     fontFamily: "inherit",

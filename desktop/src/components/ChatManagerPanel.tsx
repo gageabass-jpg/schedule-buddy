@@ -192,7 +192,7 @@ export function ChatManagerPanel({
             minHeight: 92,
           }}
         />
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 11, color: t.text3, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {sentFlash ? "Sent ✓" : `Recipients get: "You have a new In-Basket Message"`}

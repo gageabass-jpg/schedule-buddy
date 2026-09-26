@@ -416,7 +416,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                             </>
                           )}
                           {m.undo?.state === "error" && (
-                            <div style={{ flexBasis: "100%", fontSize: 12, color: "#8A4B38", lineHeight: 1.4 }}>{m.undo.message}</div>
+                            <div style={{ flexBasis: "100%", fontSize: 12, color: t.clayText, lineHeight: 1.4 }}>{m.undo.message}</div>
                           )}
                         </div>
                       )}
@@ -436,7 +436,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
             </div>
 
             {err && (
-              <div style={{ flexShrink: 0, padding: "6px 14px", fontSize: 12, color: "#8A4B38", lineHeight: 1.4 }}>{err}</div>
+              <div style={{ flexShrink: 0, padding: "6px 14px", fontSize: 12, color: t.clayText, lineHeight: 1.4 }}>{err}</div>
             )}
 
             {/* Composer — one box holding the text and its controls. */}

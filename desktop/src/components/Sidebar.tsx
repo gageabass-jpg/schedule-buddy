@@ -45,7 +45,7 @@ export function Sidebar({
   return (
     <div
       style={{
-        background: dark ? "rgba(28,28,30,0.6)" : "rgba(246,246,248,0.7)",
+        background: dark ? "rgba(21,32,30,0.6)" : "rgba(246,246,248,0.7)",
         borderRight: `0.5px solid ${t.sep}`,
         // Top pad matches the calendar toolbar so the wordmark lines up with
         // the "September 2026" title (both below the teal titlebar).

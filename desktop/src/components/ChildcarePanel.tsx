@@ -247,7 +247,7 @@ export function ChildcarePanel({
                   <div style={{ width: 5, background: sc, flexShrink: 0 }} />
                   {/* Date block */}
                   <div style={{ width: 78, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: "#8A4B38" }}>{monthAbbr}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: t.clayText }}>{monthAbbr}</div>
                     <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-1.5px", color: t.text, lineHeight: 1 }}>{dd}</div>
                   </div>
                   {/* Details */}
@@ -275,7 +275,7 @@ export function ChildcarePanel({
                     {(() => {
                       const clash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
                       return clash ? (
-                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38", display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: t.clayText, display: "flex", alignItems: "center", gap: 5 }}>
                           ⚠ {daisyName} has class {schoolLabel(clash)} — may not be able to cover
                         </div>
                       ) : null;
