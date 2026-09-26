@@ -511,14 +511,31 @@ export function Inspector({
         </div>
       )}
 
-      {/* Bottom tab bar — Month / Childcare / Life (design boards) */}
-      <InspectorTabBar
-        tab={railTab}
-        onTab={setRailTab}
-        childcareCount={coverageNeedsCount}
-        lifeCount={lifeClashCount}
-        t={t}
-      />
+      {/* Bottom tab bar — Month / Childcare / Life (design boards). The strip
+          behind it is solid and runs out over the rail's 14px padding, so
+          cards scrolling underneath don't show around or below the bar. Its
+          colour is the rail's translucent fill flattened onto the page. */}
+      <div
+        style={{
+          position: "sticky",
+          bottom: -14,
+          zIndex: 1,
+          marginTop: "auto",
+          marginLeft: -14,
+          marginRight: -14,
+          marginBottom: -14,
+          padding: "8px 14px 14px",
+          background: dark ? "#0A0A0B" : "#FCFBFA",
+        }}
+      >
+        <InspectorTabBar
+          tab={railTab}
+          onTab={setRailTab}
+          childcareCount={coverageNeedsCount}
+          lifeCount={lifeClashCount}
+          t={t}
+        />
+      </div>
     </div>
   );
 }
@@ -540,9 +557,6 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
   return (
     <div
       style={{
-        position: "sticky",
-        bottom: 0,
-        marginTop: "auto",
         display: "flex",
         gap: 4,
         padding: 4,
