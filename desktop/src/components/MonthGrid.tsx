@@ -5,11 +5,17 @@ import type { Event as SbEvent, HouseholdState } from "../state";
 import { isPaydayOn } from "../state";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+
+/** The arrow the New shift button slides in on hover. */
+const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
 
 interface Props {
   palette: Palette;
@@ -192,29 +198,26 @@ export function MonthGrid({
           <BrandMark size={15} color={palette.G} />
           Ask
         </button>
-        <button
-          type="button"
-          onClick={onNewShift}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 5,
-            height: 32,
-            padding: "0 14px",
-            borderRadius: 8,
-            border: 0,
-            background: palette.G,
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            lineHeight: 1,
-          }}
-        >
-          New shift
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* 21st.dev enhanced button. The palette's colour rides in as
+                --primary so bg-primary and its hover shade follow it. */}
+            <Button
+              type="button"
+              onClick={onNewShift}
+              variant="expandIcon"
+              Icon={NewShiftArrow}
+              iconPlacement="right"
+              className="h-8 rounded-md px-3.5 text-[13px] font-semibold leading-none cursor-pointer"
+              style={{ "--primary": palette.G } as React.CSSProperties}
+            >
+              New shift
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            New shift <span className="text-muted-foreground">· ⌘N</span>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {calLayout === "year" && (

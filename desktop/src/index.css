@@ -1,0 +1,123 @@
+/*
+ * Tailwind, for shadcn / 21st.dev components.
+ *
+ * Preflight (Tailwind's reset) is left out on purpose: the app is styled with
+ * inline styles that rely on browser defaults, and the reset would quietly
+ * restyle every existing screen. Only the theme and utilities are loaded, so
+ * Tailwind classes do nothing until a component uses them.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * The slice of preflight shadcn components can't do without, applied only to
+ * elements that carry a class. The rest of the app is inline-styled with no
+ * classes, so it never matches. Without this, a component's <button> keeps the
+ * browser's grey 2px border.
+ */
+@layer base {
+  :where([class]), :where([class])::before, :where([class])::after {
+    box-sizing: border-box;
+    border: 0 solid;
+  }
+  :where(button[class]) {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+/*
+ * shadcn's colour names, mapped to Nucleus. Components written against
+ * bg-primary, border-input, text-muted-foreground… come out in the house
+ * palette. There is no red: destructive is Clay.
+ */
+:root {
+  --background: #FFFFFF;           /* Surface */
+  --foreground: #14201E;           /* Ink */
+  --card: #FFFFFF;
+  --card-foreground: #14201E;
+  --popover: #FFFFFF;
+  --popover-foreground: #14201E;
+  --primary: #0F6E64;              /* Teal */
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFEDE7;            /* Track */
+  --secondary-foreground: #14201E;
+  --muted: #EFEDE7;
+  --muted-foreground: #5A6663;     /* Ink-Muted */
+  --accent: #D8E7E4;               /* Teal-Tint */
+  --accent-foreground: #0A4F48;    /* Teal-Deep */
+  --destructive: #8A4B38;          /* Clay */
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E0DA;               /* Line */
+  --input: #E2E0DA;
+  --ring: #0F6E64;
+  --radius: 6px;                   /* md = 4px, the house corner */
+}
+
+.dark {
+  --background: #1C1C1E;
+  --foreground: #FFFFFF;
+  --card: #1C1C1E;
+  --card-foreground: #FFFFFF;
+  --popover: #2C2C2E;
+  --popover-foreground: #FFFFFF;
+  --primary: #0F6E64;              /* filled buttons stay Teal on both grounds */
+  --primary-foreground: #FFFFFF;
+  --secondary: #2C2C2E;
+  --secondary-foreground: #FFFFFF;
+  --muted: #2C2C2E;
+  --muted-foreground: rgba(235, 235, 245, 0.6);
+  --accent: rgba(86, 183, 169, 0.16);
+  --accent-foreground: #9ACFC6;
+  --destructive: #8A4B38;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(84, 84, 88, 0.6);
+  --input: rgba(84, 84, 88, 0.6);
+  --ring: #56B7A9;
+}
+
+@theme inline {
+  --font-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Sora", "Helvetica Neue", Arial, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-ele: calc(var(--radius) - 2px);  /* HextaUI's element corner → 4px */
+
+  /* The shine animation the enhanced button (jakobhoeg) uses. */
+  --animate-shine: shine 3s ease-out infinite;
+
+  @keyframes shine {
+    0% { background-position: 200% 0; }
+    25% { background-position: -200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}

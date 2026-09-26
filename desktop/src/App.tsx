@@ -79,6 +79,11 @@ export function App() {
     setDark(resolveDark(themePref));
   }, [themePref]);
 
+  // shadcn-style components read light/dark from a class on <html>.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
+
   // Track OS preference changes while the user is in "system" mode.
   useEffect(() => {
     if (themePref !== "system") return;
