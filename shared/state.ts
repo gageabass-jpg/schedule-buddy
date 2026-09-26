@@ -50,6 +50,8 @@ export interface Override {
   date: string;
   shiftTypeId: string | null;   // null = "this day is off"
   label: string;
+  /** Free text the household should know about this day's shift. */
+  note?: string;
 }
 
 export interface PartnerShift {
@@ -563,11 +565,16 @@ export function buildShiftMap(
     const resolved = selfShiftId(state, key);
     const label = chipLabel(types, resolved.shiftTypeId);
     if (label && resolved.shiftTypeId) {
+      // A one-off day can carry a note; template days have nowhere to keep one.
+      const note = resolved.source.kind === "override"
+        ? state.overrides?.find((o) => o.date === key)?.note
+        : undefined;
       push(out, key, {
         who: "G",
         label,
         source: resolved.source,
         shiftTypeId: resolved.shiftTypeId,
+        ...(note ? { note } : {}),
         ...(employerFor("G") ? { where: employerFor("G") } : {}),
       });
     }

@@ -411,7 +411,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         date,
         source: shift.source,
         initialShiftTypeId: shift.shiftTypeId,
-        initialLabel: "",
+        initialNote: shift.note ?? "",
         who: shift.who,
       });
       return;
@@ -420,7 +420,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       date,
       source: shift.source,
       initialShiftTypeId: shift.shiftTypeId,
-      initialLabel: "",
+      initialNote: shift.note ?? "",
       who: shift.who,
     });
   };

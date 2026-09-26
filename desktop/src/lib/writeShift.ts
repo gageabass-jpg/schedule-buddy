@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { compactTime, type HouseholdState, type OTShift, type PartnerShift, type DependentShift } from "../state";
+import { compactTime, type HouseholdState, type OTShift, type PartnerShift, type DependentShift, type Override } from "../state";
 import type { ShiftSource } from "../data";
 import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";
 
@@ -15,6 +15,8 @@ export interface NewShiftInput {
   date: string;        // YYYY-MM-DD
   shiftTypeId: string;
   label?: string;
+  /** Free text the household should know, shown as the shift's NOTE. */
+  note?: string;
   coworkers?: string;
   /** Optional location for the shift (e.g. "Thomas Hospital"). Stored as a
    *  NESTED field on the shift object, which is safe under the iOS contract
@@ -120,6 +122,7 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
     throw new WriteShiftError("Pick a date for the shift.");
   }
   const where = input.where?.trim();
+  const note = input.note?.trim();
 
   for (const d of dateList) {
     if (target === "self-ot") {
@@ -128,18 +131,19 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
         shiftTypeId,
         label,
         ...(input.coworkers ? { coworkers: input.coworkers } : {}),
+        ...(note ? { note } : {}),
       };
       // `where` is a nested field not in the strict OTShift type — attach it
       // via a widened reference so it serializes without a type error.
       if (where) (entry as OTShift & { where?: string }).where = where;
       next.ot.push(entry);
     } else if (target === "partner") {
-      const entry: PartnerShift = { date: d, shiftTypeId, label };
+      const entry: PartnerShift = { date: d, shiftTypeId, label, ...(note ? { note } : {}) };
       if (where) (entry as PartnerShift & { where?: string }).where = where;
       next.partner.shifts.push(entry);
     } else {
       // dependent-daisy — a childcare block on Daisy's timeline.
-      const entry: DependentShift = { date: d, shiftTypeId, label };
+      const entry: DependentShift = { date: d, shiftTypeId, label, ...(note ? { note } : {}) };
       if (where) (entry as DependentShift & { where?: string }).where = where;
       next.dependents!.daisy!.shifts.push(entry);
     }
@@ -227,7 +231,15 @@ export async function deleteShift(
 
 export interface EditShiftInput {
   shiftTypeId: string;
-  label: string;
+  /** The shift's note. Empty clears it. */
+  note: string;
+}
+
+/** The entry with its note set, or with the key removed when the note is
+ *  empty — Firestore rejects an undefined field. */
+function withNote<T extends { note?: string }>(entry: T, note: string): T {
+  const { note: _old, ...rest } = entry;
+  return (note ? { ...rest, note } : rest) as T;
 }
 
 /**
@@ -249,30 +261,34 @@ export async function editShift(
     partner: { ...current.partner, shifts: [...(current.partner?.shifts ?? [])] },
   };
 
-  const label = updates.label?.trim() ?? "";
+  const note = updates.note?.trim() ?? "";
 
   switch (source.kind) {
     case "ot":
       if (source.index < 0 || source.index >= next.ot.length) {
         throw new WriteShiftError("This shift no longer exists. Refresh and try again.");
       }
-      next.ot[source.index] = { ...next.ot[source.index], shiftTypeId: updates.shiftTypeId, label };
+      next.ot[source.index] = withNote({ ...next.ot[source.index], shiftTypeId: updates.shiftTypeId }, note);
       break;
     case "partner":
       if (source.index < 0 || source.index >= next.partner.shifts.length) {
         throw new WriteShiftError("This shift no longer exists. Refresh and try again.");
       }
-      next.partner.shifts[source.index] = {
-        ...next.partner.shifts[source.index],
-        shiftTypeId: updates.shiftTypeId,
-        label,
-      };
+      next.partner.shifts[source.index] = withNote(
+        { ...next.partner.shifts[source.index], shiftTypeId: updates.shiftTypeId },
+        note,
+      );
       break;
     case "override":
     case "template":
     case "alt-weekend": {
+      // Editing a recurring day writes a one-off for that date, which is also
+      // where its note lives.
       const existing = next.overrides.findIndex((o) => o.date === dateISO);
-      const entry = { date: dateISO, shiftTypeId: updates.shiftTypeId, label };
+      const entry = withNote<Override>(
+        { date: dateISO, shiftTypeId: updates.shiftTypeId, label: existing >= 0 ? next.overrides[existing].label : "" },
+        note,
+      );
       if (existing >= 0) next.overrides[existing] = entry;
       else next.overrides.push(entry);
       break;

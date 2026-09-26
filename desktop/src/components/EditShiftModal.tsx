@@ -10,7 +10,8 @@ export interface EditShiftTarget {
   date: string;
   source: ShiftSource;
   initialShiftTypeId: string;
-  initialLabel: string;
+  /** The shift's current note, so the field opens showing it. */
+  initialNote: string;
   /** "self" or "partner" — for display only. */
   who: "G" | "K";
 }
@@ -28,7 +29,7 @@ interface Props {
 export function EditShiftModal({ target, onClose, palette, t, dark, householdId, state }: Props) {
   const open = !!target;
   const [shiftTypeId, setShiftTypeId] = useState<string>(target?.initialShiftTypeId ?? "");
-  const [label, setLabel] = useState<string>(target?.initialLabel ?? "");
+  const [note, setNote] = useState<string>(target?.initialNote ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -37,7 +38,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
   if (key !== lastKey) {
     setLastKey(key);
     setShiftTypeId(target?.initialShiftTypeId ?? "");
-    setLabel(target?.initialLabel ?? "");
+    setNote(target?.initialNote ?? "");
     setErr(null);
   }
 
@@ -56,7 +57,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
     setErr(null);
     setBusy(true);
     try {
-      await editShift(householdId, target.date, target.source, { shiftTypeId, label });
+      await editShift(householdId, target.date, target.source, { shiftTypeId, note });
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the change.");
@@ -119,11 +120,12 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
             </select>
           </Field>
 
-          <Field label="Label (optional)" t={t}>
+          <Field label="Note (optional)" t={t}>
             <input
               type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Anything the household should know"
               style={inputStyle(t)}
             />
           </Field>

@@ -148,7 +148,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string", description: "YYYY-MM-DD" },
         action:      { type: "string", enum: ["work", "off"] },
         shiftTypeId: { type: "string", description: "Required when action=work." },
-        label:       { type: "string", description: "Short note shown on the calendar." },
+        label:       { type: "string", description: "Internal label; not shown. Use note for anything the household should see." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "action"],
     },
@@ -174,6 +175,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         shiftTypeId: { type: "string" },
         label:       { type: "string" },
         coworkers:   { type: "string", description: "Optional, free-text who else is on." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "shiftTypeId"],
     },
@@ -196,6 +198,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string" },
         shiftTypeId: { type: "string" },
         label:       { type: "string" },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "shiftTypeId"],
     },
@@ -240,6 +243,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string", description: "YYYY-MM-DD" },
         label:       { type: "string", description: "e.g. \"class\", \"half day\", \"no school\"" },
         shiftTypeId: { type: "string", description: "Optional — only if a catalog type matches her hours." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "label"],
     },
@@ -588,16 +592,20 @@ async function execTool(
         return {
           date,
           gage: self.shiftTypeId
-            ? { shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source.kind }
+            ? {
+                shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source.kind,
+                note: self.source.kind === "override" ? ((state.overrides ?? []).find((x) => x.date === date)?.note ?? null) : null,
+              }
             : (self.source.kind === "override" ? "off (override set)" : "off"),
-          kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId } : "off",
-          ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId } : null,
+          kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId, note: k.note ?? null } : "off",
+          ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId, note: o.note ?? null } : null,
           daisy: (() => {
             const hers = (rendered[date] ?? []).filter((x) => x.who === "D");
             if (hers.length === 0) return "no class listed";
             return hers.map((x) => ({
               school: x.shiftTypeId ? stName(x.shiftTypeId) : (x.label || "class"),
               label: x.label,
+              note: x.note ?? null,
               recurring: x.source === undefined,
             }));
           })(),
@@ -610,6 +618,7 @@ async function execTool(
 
     case "add_override": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       const action = input.action === "off" ? "off" : "work";
       return commit(ctx, name, (fresh) => {
         const shiftTypeId = action === "work"
@@ -620,8 +629,8 @@ async function execTool(
         }
         const label = String(input.label ?? (action === "off" ? "Day off" : ""));
         const overrides = (fresh.overrides ?? []).filter((o) => o.date !== date);
-        overrides.push({ date, shiftTypeId, label });
-        return { result: { ok: true, date, action, shiftTypeId, label }, patch: { overrides } };
+        overrides.push({ date, shiftTypeId, label, ...(note ? { note } : {}) });
+        return { result: { ok: true, date, action, shiftTypeId, label, note: note ?? null }, patch: { overrides } };
       });
     }
 
@@ -638,14 +647,15 @@ async function execTool(
 
     case "add_ot": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       return commit(ctx, name, (fresh) => {
         const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
         if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
         const label = String(input.label ?? "");
         const coworkers = input.coworkers ? String(input.coworkers) : undefined;
         const ot = (fresh.ot ?? []).filter((o) => o.date !== date);
-        ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}) });
-        return { result: { ok: true, date, shiftTypeId: stId, label }, patch: { ot } };
+        ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}), ...(note ? { note } : {}) });
+        return { result: { ok: true, date, shiftTypeId: stId, label, note: note ?? null }, patch: { ot } };
       });
     }
 
@@ -662,14 +672,15 @@ async function execTool(
 
     case "add_partner_shift": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       return commit(ctx, name, (fresh) => {
         const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
         if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
         const label = String(input.label ?? "");
         const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
         const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
-        shifts.push({ date, shiftTypeId: stId, label });
-        return { result: { ok: true, date, shiftTypeId: stId, label }, patch: { partner: { ...partner, shifts } } };
+        shifts.push({ date, shiftTypeId: stId, label, ...(note ? { note } : {}) });
+        return { result: { ok: true, date, shiftTypeId: stId, label, note: note ?? null }, patch: { partner: { ...partner, shifts } } };
       });
     }
 
@@ -704,6 +715,7 @@ async function execTool(
 
     case "add_school_day": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pass date as YYYY-MM-DD." };
       const label = String(input.label ?? "class").trim() || "class";
       const shiftTypeId = input.shiftTypeId ? String(input.shiftTypeId) : undefined;
@@ -714,7 +726,7 @@ async function execTool(
         const existing = fresh.dependents?.daisy;
         // Replace any entry already on that date rather than stacking a second.
         const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
-        const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}) };
+        const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}), ...(note ? { note } : {}) };
         return {
           result: { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length },
           patch: {
@@ -871,7 +883,8 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- ALWAYS call summarize_period for the affected dates first to see what's actually there. Each day reports Gage's shift and its "source" ("override" = a one-off, "template" = from his weekly template).\n` +
       `- To REMOVE / cancel Gage's shift on a day: if source is "override", call remove_override for that date; if source is "template", call add_override with action="off". Either way he ends up with no working shift that day. Do NOT add anything.\n` +
       `- To MOVE Gage's shift from one day to another, do BOTH steps in the same confirmed action: (1) remove/cancel it on the OLD day (per the rule above), and (2) add_override action="work" on the NEW day using the same shift type it had. A move is never just an add — if you only add, the old shift is still there.\n` +
-      `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n\n` +
+      `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n` +
+      `- Notes: when the user wants something noted on a shift ("put a note that…", "note: bring badge"), pass it as the note on add_override, add_ot, add_partner_shift, or add_school_day. To add or change the note on a day that already has a shift, call the same add tool for that date with the same shift type and the new note; it replaces that day's entry. summarize_period shows each shift's current note.\n\n` +
       `Behavior:\n` +
       `- For read-only questions, call the tool that actually knows the answer and answer concisely:\n` +
       `  summarize_period for what's scheduled on given dates — INCLUDING the dependent's school and class\n` +

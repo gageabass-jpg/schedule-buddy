@@ -128,7 +128,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
         target,
         date,
         shiftTypeId,
-        label: note,
+        note,
         where,
         customTime: timesEdited ? { start: startT, end: endT } : undefined,
         dates: dates.length > 1 ? dates : undefined,
