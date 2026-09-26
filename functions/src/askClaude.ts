@@ -337,6 +337,102 @@ function datesInRange(from: string, to: string): string[] {
 interface ExecCtx {
   householdId: string;
   uid: string;
+  /** What the user asked, kept on the undo record so it can say what it undoes. */
+  userMessage: string;
+  /** This reply's undo record, filled in by commit() as writes land. */
+  change: ChangeRecord;
+  /** Writes in one reply run one at a time. Claude can issue two in the same
+   *  turn (both halves of a move), and in parallel they would each build the
+   *  undo record from the same starting copy and drop the other's fields. */
+  writeQueue: Promise<unknown>;
+}
+
+// ───────────────── Writes: transactional, with an undo record ────────────
+// Every write tool goes through commit(). It re-reads state/main inside a
+// transaction and builds the change from that fresh copy, so an edit saved on
+// a phone between nucleusAI reading the schedule and writing it is kept
+// rather than overwritten; Firestore retries the transaction if the document
+// moves under it. In the same transaction it records what each touched
+// top-level field held before and after, in one nucleusChanges doc per reply,
+// which is what undoNucleusChange restores from. A reply that moves a shift
+// (two writes) is therefore undone as one.
+
+interface ChangeRecord {
+  id: string;
+  tools: string[];
+  /** Field → value before this reply first touched it (null = absent). */
+  before: Record<string, unknown>;
+  /** Field → value this reply last wrote. Undo only proceeds while these still match. */
+  after: Record<string, unknown>;
+}
+
+function newChangeRecord(householdId: string): ChangeRecord {
+  const id = getFirestore().collection("households").doc(householdId)
+    .collection("nucleusChanges").doc().id;
+  return { id, tools: [], before: {}, after: {} };
+}
+
+/** Deep copy that turns undefined into null, as Firestore will store it. */
+function plain(v: unknown): unknown {
+  return v === undefined ? null : JSON.parse(JSON.stringify(v));
+}
+
+/** What a write tool decides from the fresh document: its reply to Claude,
+ *  and the fields to write (none when there's nothing to change). */
+type Built = { result: unknown; patch?: Partial<HouseholdState> };
+
+function commit(
+  ctx: ExecCtx,
+  tool: string,
+  build: (fresh: HouseholdState) => Built,
+): Promise<unknown> {
+  const run = ctx.writeQueue.then(() => commitNow(ctx, tool, build));
+  ctx.writeQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function commitNow(
+  ctx: ExecCtx,
+  tool: string,
+  build: (fresh: HouseholdState) => Built,
+): Promise<unknown> {
+  const db = getFirestore();
+  const hh = db.collection("households").doc(ctx.householdId);
+  const ref = hh.collection("state").doc("main");
+  const changeRef = hh.collection("nucleusChanges").doc(ctx.change.id);
+
+  const out = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const fresh = (snap.data() ?? {}) as HouseholdState;
+    const { result, patch } = build(fresh);
+    if (!patch) return { result, wrote: false as const };
+
+    // Worked on copies: the transaction may run more than once.
+    const before = { ...ctx.change.before };
+    const after = { ...ctx.change.after };
+    for (const key of Object.keys(patch)) {
+      if (!(key in before)) before[key] = plain((fresh as unknown as Record<string, unknown>)[key]);
+      after[key] = plain((patch as Record<string, unknown>)[key]);
+    }
+    const tools = [...ctx.change.tools, tool];
+
+    tx.set(ref, { ...fresh, ...patch });
+    tx.set(changeRef, {
+      uid: ctx.uid,
+      userMessage: ctx.userMessage.slice(0, 500),
+      tools, before, after,
+      undone: false,
+      at: FieldValue.serverTimestamp(),
+    });
+    return { result, wrote: true as const, before, after, tools };
+  });
+
+  if (out.wrote) {
+    ctx.change.before = out.before;
+    ctx.change.after = out.after;
+    ctx.change.tools = out.tools;
+  }
+  return out.result;
 }
 
 async function execTool(
@@ -515,66 +611,78 @@ async function execTool(
     case "add_override": {
       const date = String(input.date);
       const action = input.action === "off" ? "off" : "work";
-      const shiftTypeId = action === "work"
-        ? findShiftTypeId(state, String(input.shiftTypeId ?? ""))
-        : null;
-      if (action === "work" && !shiftTypeId) {
-        return { error: `Unknown shift type "${input.shiftTypeId}". Call list_shift_types first.` };
-      }
-      const label = String(input.label ?? (action === "off" ? "Day off" : ""));
-      const overrides = (state.overrides ?? []).filter((o) => o.date !== date);
-      overrides.push({ date, shiftTypeId, label });
-      await ref.set({ ...state, overrides });
-      return { ok: true, date, action, shiftTypeId, label };
+      return commit(ctx, name, (fresh) => {
+        const shiftTypeId = action === "work"
+          ? findShiftTypeId(fresh, String(input.shiftTypeId ?? ""))
+          : null;
+        if (action === "work" && !shiftTypeId) {
+          return { result: { error: `Unknown shift type "${input.shiftTypeId}". Call list_shift_types first.` } };
+        }
+        const label = String(input.label ?? (action === "off" ? "Day off" : ""));
+        const overrides = (fresh.overrides ?? []).filter((o) => o.date !== date);
+        overrides.push({ date, shiftTypeId, label });
+        return { result: { ok: true, date, action, shiftTypeId, label }, patch: { overrides } };
+      });
     }
 
     case "remove_override": {
       const date = String(input.date);
-      const overrides = (state.overrides ?? []).filter((o) => o.date !== date);
-      if (overrides.length === (state.overrides ?? []).length) {
-        return { ok: true, info: `No override existed on ${date}.` };
-      }
-      await ref.set({ ...state, overrides });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const overrides = (fresh.overrides ?? []).filter((o) => o.date !== date);
+        if (overrides.length === (fresh.overrides ?? []).length) {
+          return { result: { ok: true, info: `No override existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { overrides } };
+      });
     }
 
     case "add_ot": {
       const date = String(input.date);
-      const stId = findShiftTypeId(state, String(input.shiftTypeId ?? ""));
-      if (!stId) return { error: `Unknown shift type "${input.shiftTypeId}".` };
-      const label = String(input.label ?? "");
-      const coworkers = input.coworkers ? String(input.coworkers) : undefined;
-      const ot = (state.ot ?? []).filter((o) => o.date !== date);
-      ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}) });
-      await ref.set({ ...state, ot });
-      return { ok: true, date, shiftTypeId: stId, label };
+      return commit(ctx, name, (fresh) => {
+        const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
+        if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
+        const label = String(input.label ?? "");
+        const coworkers = input.coworkers ? String(input.coworkers) : undefined;
+        const ot = (fresh.ot ?? []).filter((o) => o.date !== date);
+        ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}) });
+        return { result: { ok: true, date, shiftTypeId: stId, label }, patch: { ot } };
+      });
     }
 
     case "remove_ot": {
       const date = String(input.date);
-      const ot = (state.ot ?? []).filter((o) => o.date !== date);
-      await ref.set({ ...state, ot });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const ot = (fresh.ot ?? []).filter((o) => o.date !== date);
+        if (ot.length === (fresh.ot ?? []).length) {
+          return { result: { ok: true, info: `No overtime existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { ot } };
+      });
     }
 
     case "add_partner_shift": {
       const date = String(input.date);
-      const stId = findShiftTypeId(state, String(input.shiftTypeId ?? ""));
-      if (!stId) return { error: `Unknown shift type "${input.shiftTypeId}".` };
-      const label = String(input.label ?? "");
-      const partner = state.partner ?? { name: "Kaylene", shifts: [] };
-      const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
-      shifts.push({ date, shiftTypeId: stId, label });
-      await ref.set({ ...state, partner: { ...partner, shifts } });
-      return { ok: true, date, shiftTypeId: stId, label };
+      return commit(ctx, name, (fresh) => {
+        const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
+        if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
+        const label = String(input.label ?? "");
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
+        shifts.push({ date, shiftTypeId: stId, label });
+        return { result: { ok: true, date, shiftTypeId: stId, label }, patch: { partner: { ...partner, shifts } } };
+      });
     }
 
     case "remove_partner_shift": {
       const date = String(input.date);
-      const partner = state.partner ?? { name: "Kaylene", shifts: [] };
-      const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
-      await ref.set({ ...state, partner: { ...partner, shifts } });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
+        if (shifts.length === (partner.shifts ?? []).length) {
+          return { result: { ok: true, info: `No shift existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { partner: { ...partner, shifts } } };
+      });
     }
 
     case "add_event": {
@@ -588,9 +696,10 @@ async function execTool(
       if (input.startTime) ev.startTime = String(input.startTime);
       if (input.endTime) ev.endTime = String(input.endTime);
       if (input.notes) ev.notes = String(input.notes);
-      const events = [...(state.events ?? []), ev];
-      await ref.set({ ...state, events });
-      return { ok: true, event: ev };
+      return commit(ctx, name, (fresh) => ({
+        result: { ok: true, event: ev },
+        patch: { events: [...(fresh.events ?? []), ev] },
+      }));
     }
 
     case "add_school_day": {
@@ -598,37 +707,43 @@ async function execTool(
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pass date as YYYY-MM-DD." };
       const label = String(input.label ?? "class").trim() || "class";
       const shiftTypeId = input.shiftTypeId ? String(input.shiftTypeId) : undefined;
-      if (shiftTypeId && !(state.shiftTypes ?? []).some((t) => t.id === shiftTypeId)) {
-        return { error: `No shift type with id ${shiftTypeId}. Call list_shift_types, or leave it out and pass a label.` };
-      }
-      const existing = state.dependents?.daisy;
-      // Replace any entry already on that date rather than stacking a second.
-      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
-      const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}) };
-      await ref.set({
-        ...state,
-        dependents: {
-          ...(state.dependents ?? {}),
-          daisy: { name: existing?.name || "Daisy", shifts: [...kept, entry] },
-        },
+      return commit(ctx, name, (fresh) => {
+        if (shiftTypeId && !(fresh.shiftTypes ?? []).some((t) => t.id === shiftTypeId)) {
+          return { result: { error: `No shift type with id ${shiftTypeId}. Call list_shift_types, or leave it out and pass a label.` } };
+        }
+        const existing = fresh.dependents?.daisy;
+        // Replace any entry already on that date rather than stacking a second.
+        const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+        const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}) };
+        return {
+          result: { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length },
+          patch: {
+            dependents: {
+              ...(fresh.dependents ?? {}),
+              daisy: { name: existing?.name || "Daisy", shifts: [...kept, entry] },
+            },
+          },
+        };
       });
-      return { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length };
     }
 
     case "remove_school_day": {
       const date = String(input.date);
-      const existing = state.dependents?.daisy;
-      const before = (existing?.shifts ?? []).length;
-      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
-      if (kept.length === before) return { ok: true, date, removed: 0, note: "Nothing was listed on that date." };
-      await ref.set({
-        ...state,
-        dependents: {
-          ...(state.dependents ?? {}),
-          daisy: { name: existing?.name || "Daisy", shifts: kept },
-        },
+      return commit(ctx, name, (fresh) => {
+        const existing = fresh.dependents?.daisy;
+        const before = (existing?.shifts ?? []).length;
+        const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+        if (kept.length === before) return { result: { ok: true, date, removed: 0, note: "Nothing was listed on that date." } };
+        return {
+          result: { ok: true, date, removed: before - kept.length },
+          patch: {
+            dependents: {
+              ...(fresh.dependents ?? {}),
+              daisy: { name: existing?.name || "Daisy", shifts: kept },
+            },
+          },
+        };
       });
-      return { ok: true, date, removed: before - kept.length };
     }
 
     case "block_childcare": {
@@ -637,17 +752,19 @@ async function execTool(
         return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
       }
       const label = (input.label ? String(input.label).trim() : "") || "Daisy – Scheduled Off";
-      const list = [...(state.childcareOff ?? [])];
-      const have = new Set(list.map((c) => c.date));
-      const added: string[] = [];
-      for (const date of dates) {
-        if (have.has(date)) continue;
-        list.push({ date, label });
-        have.add(date);
-        added.push(date);
-      }
-      await ref.set({ ...state, childcareOff: list });
-      return { ok: true, marked: dates, newlyAdded: added, alreadyMarked: dates.length - added.length, label };
+      return commit(ctx, name, (fresh) => {
+        const list = [...(fresh.childcareOff ?? [])];
+        const have = new Set(list.map((c) => c.date));
+        const added: string[] = [];
+        for (const date of dates) {
+          if (have.has(date)) continue;
+          list.push({ date, label });
+          have.add(date);
+          added.push(date);
+        }
+        const result = { ok: true, marked: dates, newlyAdded: added, alreadyMarked: dates.length - added.length, label };
+        return added.length ? { result, patch: { childcareOff: list } } : { result };
+      });
     }
 
     case "unblock_childcare": {
@@ -655,10 +772,12 @@ async function execTool(
       if (dates.size === 0) {
         return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
       }
-      const before = (state.childcareOff ?? []).length;
-      const list = (state.childcareOff ?? []).filter((c) => !dates.has(c.date));
-      await ref.set({ ...state, childcareOff: list });
-      return { ok: true, cleared: [...dates], removed: before - list.length };
+      return commit(ctx, name, (fresh) => {
+        const before = (fresh.childcareOff ?? []).length;
+        const list = (fresh.childcareOff ?? []).filter((c) => !dates.has(c.date));
+        const result = { ok: true, cleared: [...dates], removed: before - list.length };
+        return list.length !== before ? { result, patch: { childcareOff: list } } : { result };
+      });
     }
   }
   return { error: `Unknown tool: ${name}` };
@@ -682,6 +801,9 @@ interface AskResponse {
   model?: string;
   /** Echoed back so the UI can show what the turn actually ran as. */
   mode?: "read" | "write";
+  /** Set when this reply changed the schedule: pass `id` to undoNucleusChange
+   *  to put it back. `tools` names what ran, e.g. ["remove_override", "add_override"]. */
+  change?: { id: string; tools: string[] };
   /** Full updated conversation so the client can pass it back on the next turn. */
   messages: Array<{
     role: "user" | "assistant";
@@ -784,6 +906,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       { role: "user" as const, content: message },
     ];
 
+    const ctx: ExecCtx = {
+      householdId, uid, userMessage: message,
+      change: newChangeRecord(householdId),
+      writeQueue: Promise.resolve(),
+    };
+
     let finalText = "";
     const MAX_ROUNDS = 6;   // generous cap for tool chains
     for (let i = 0; i < MAX_ROUNDS; i++) {
@@ -813,7 +941,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       );
       const toolResults = await Promise.all(toolUses.map(async (tu) => {
         try {
-          const out = await execTool(tu.name, tu.input as Record<string, unknown>, { householdId, uid });
+          const out = await execTool(tu.name, tu.input as Record<string, unknown>, ctx);
           return {
             type: "tool_result" as const,
             tool_use_id: tu.id,
@@ -837,6 +965,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
         .collection("askClaudeLog").add({
           uid, userMessage: message,
           finalReply: finalText.slice(0, 1500),
+          changeId: ctx.change.tools.length ? ctx.change.id : null,
           at: FieldValue.serverTimestamp(),
         });
     } catch { /* best-effort */ }
@@ -845,10 +974,92 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       reply: finalText || "(no reply)",
       model: MODEL,
       mode: readOnly ? "read" : "write",
+      ...(ctx.change.tools.length ? { change: { id: ctx.change.id, tools: ctx.change.tools } } : {}),
       messages: messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content as string | Anthropic.Messages.ContentBlockParam[],
       })),
     };
+  },
+);
+
+// ───────────────── Undo ──────────────────────────────────────────────────
+// Puts back the fields one nucleusAI reply changed. It only proceeds while
+// every one of those fields still holds exactly what that reply wrote: if
+// someone has edited the same part of the schedule since (Kaylene adding a
+// shift on her phone, say), restoring the old copy would erase their edit, so
+// it refuses and says what moved. All or nothing, in one transaction.
+
+/** JSON with object keys sorted, so two equal values compare equal no matter
+ *  what order Firestore hands the keys back in. */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().filter((k) => o[k] !== undefined)
+      .map((k) => `${JSON.stringify(k)}:${stableJson(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
+/** Plain words for a state field, for the "changed since" message. */
+const FIELD_WORDS: Record<string, string> = {
+  overrides: "your one-off shifts",
+  ot: "overtime",
+  partner: "Kaylene's shifts",
+  events: "events",
+  dependents: "Daisy's school days",
+  childcareOff: "childcare days",
+};
+
+interface UndoRequest { changeId?: string }
+interface UndoResponse { ok: true; restored: string[] }
+
+export const undoNucleusChange = onCall<UndoRequest, Promise<UndoResponse>>(
+  { region: "us-central1", cors: true },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Sign in to use this.");
+    const changeId = String(request.data.changeId ?? "");
+    if (!changeId) throw new HttpsError("invalid-argument", "Which change?");
+
+    const db = getFirestore();
+    const hhSnap = await db.collection("households")
+      .where("memberUids", "array-contains", uid).limit(1).get();
+    if (hhSnap.empty) throw new HttpsError("failed-precondition", "No household found.");
+    const hh = hhSnap.docs[0];
+    if ((hh.data().roles?.[uid] ?? "partner") === "supporting") {
+      throw new HttpsError("permission-denied", "Caregivers can't edit the schedule.");
+    }
+    const ref = hh.ref.collection("state").doc("main");
+    const changeRef = hh.ref.collection("nucleusChanges").doc(changeId);
+
+    return db.runTransaction(async (tx) => {
+      const [changeSnap, stateSnap] = await Promise.all([tx.get(changeRef), tx.get(ref)]);
+      if (!changeSnap.exists) throw new HttpsError("not-found", "That change isn't on record.");
+      const change = changeSnap.data() as { before?: Record<string, unknown>; after?: Record<string, unknown>; undone?: boolean };
+      if (change.undone) throw new HttpsError("failed-precondition", "That change was already undone.");
+
+      const current = (stateSnap.data() ?? {}) as Record<string, unknown>;
+      const before = change.before ?? {};
+      const after = change.after ?? {};
+      const moved = Object.keys(after).filter((k) => stableJson(current[k] ?? null) !== stableJson(after[k]));
+      if (moved.length) {
+        const what = moved.map((k) => FIELD_WORDS[k] ?? k).join(" and ");
+        throw new HttpsError(
+          "failed-precondition",
+          `Couldn't undo: ${what} changed after nucleusAI's edit, and undoing would erase that. Nothing was changed.`,
+        );
+      }
+
+      const next: Record<string, unknown> = { ...current };
+      for (const k of Object.keys(after)) {
+        if (before[k] === null || before[k] === undefined) delete next[k];
+        else next[k] = before[k];
+      }
+      tx.set(ref, next);
+      tx.update(changeRef, { undone: true, undoneBy: uid, undoneAt: FieldValue.serverTimestamp() });
+      return { ok: true as const, restored: Object.keys(after) };
+    });
   },
 );

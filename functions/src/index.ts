@@ -1,4 +1,4 @@
-export { askClaude } from "./askClaude";
+export { askClaude, undoNucleusChange } from "./askClaude";
 export { parseSchedule } from "./parseSchedule";
 export { syncHealthCalendar } from "./healthCalendar";
 export { getWallState } from "./wallState";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
-import { askClaude, type AskMessage, type AskMode } from "../lib/askClaude";
+import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/askClaude";
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 
@@ -15,6 +15,9 @@ interface Props {
 interface UIMessage {
   role: "user" | "assistant";
   text: string;
+  /** This reply changed the schedule; carries what undo needs. */
+  change?: { id: string; tools: string[] };
+  undo?: { state: "busy" | "done" } | { state: "error"; message: string };
 }
 
 const SUGGESTIONS = [
@@ -57,6 +60,9 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  // An undo happens outside the conversation, so nucleusAI would otherwise
+  // go on believing its change is in place. The next message carries a note.
+  const undoNoteRef = useRef<string | null>(null);
   // Where the panel has been dragged to; null = its home in the bottom-right.
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -93,16 +99,33 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     setDraft("");
     setBusy(true);
     try {
-      const res = await askClaude(message, history, mode);
+      const note = undoNoteRef.current;
+      undoNoteRef.current = null;
+      const res = await askClaude(note ? `${note}\n\n${message}` : message, history, mode);
       setHistory(res.messages);
       if (res.model) setModel(res.model);
-      setUiMessages((prev) => [...prev, { role: "assistant", text: res.reply }]);
+      setUiMessages((prev) => [...prev, { role: "assistant", text: res.reply, change: res.change }]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setErr(msg);
       setUiMessages((prev) => [...prev, { role: "assistant", text: `(Error) ${msg}` }]);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onUndo = async (index: number) => {
+    const target = uiMessages[index];
+    if (!target?.change || target.undo?.state === "busy" || target.undo?.state === "done") return;
+    const setUndo = (undo: UIMessage["undo"]) =>
+      setUiMessages((prev) => prev.map((m, i) => (i === index ? { ...m, undo } : m)));
+    setUndo({ state: "busy" });
+    try {
+      await undoChange(target.change.id);
+      setUndo({ state: "done" });
+      undoNoteRef.current = `(Note: I undid your earlier change to the schedule — the one that ran ${target.change.tools.join(", ")}. It is no longer in effect.)`;
+    } catch (e) {
+      setUndo({ state: "error", message: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -337,7 +360,41 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                         whiteSpace: "pre-wrap", wordBreak: "break-word",
                         border: mine ? "0" : `1px solid ${t.sep}`,
                       }}
-                    >{m.text}</div>
+                    >
+                      {m.text}
+                      {m.change && (
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${t.sep}`, whiteSpace: "normal" }}>
+                          {m.undo?.state === "done" ? (
+                            <span style={{ fontSize: 12, color: t.text2 }}>Undone. The schedule is back how it was.</span>
+                          ) : (
+                            <>
+                              <span style={{ flex: 1, fontSize: 12, color: t.text2 }}>Changed the schedule</span>
+                              <button
+                                type="button"
+                                onClick={() => onUndo(i)}
+                                disabled={m.undo?.state === "busy"}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  height: 30, padding: "0 10px", borderRadius: 4,
+                                  border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
+                                  fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
+                                  cursor: m.undo?.state === "busy" ? "default" : "pointer",
+                                  opacity: m.undo?.state === "busy" ? 0.6 : 1,
+                                }}
+                              >
+                                <svg width={13} height={13} viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                {m.undo?.state === "busy" ? "Undoing…" : "Undo"}
+                              </button>
+                            </>
+                          )}
+                          {m.undo?.state === "error" && (
+                            <div style={{ flexBasis: "100%", fontSize: 12, color: "#8A4B38", lineHeight: 1.4 }}>{m.undo.message}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               )}
