@@ -960,7 +960,7 @@ function MonthWeekDeltas({ selected, state, t }: {
 
 // Childcare tab card: who has the kids this week. One track per day on the
 // 6am–midnight axis, showing the time neither parent is home and who holds it,
-// in the same marks as the Coverage with Daisy panel: solid = Daisy has it,
+// in the same marks as the Childcare Matrix: solid = Daisy has it,
 // dashed Teal = waiting on her, dashed Clay = nobody. Days nobody holds are
 // then spelled out as consequences. Gaps come from the app's own overlap
 // engine, so a night shift's rest still lands here when there is one.

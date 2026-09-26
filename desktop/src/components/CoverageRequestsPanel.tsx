@@ -1,16 +1,22 @@
-// Coverage with Daisy — opened from the View menu (⌘⇧C) or by right-clicking
+// Childcare Matrix (was "Coverage with Daisy") — opened from the View menu (⌘⇧C) or by right-clicking
 // Coverage in the sidebar.
 // One month of what's been asked of the caregiver, sorted by the question it
 // answers: which days nobody holds, which are still waiting on her, and which
 // she has. Days she has are grouped by the window they share. Opening a row
-// edits that day's hours or cancels it. Previously lived inside the Family
-// Console.
+// edits that day's hours or cancels it. Each mark on the month strip names its
+// day on hover. Previously lived inside the Family Console.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import type { Palette, ThemeTokens } from "../theme";
 import { BRAND_FONT, rgba } from "../theme";
 import type { HouseholdState } from "../state";
 import { deleteCoverageRequest, updateCoverageRequest } from "../lib/writeCoverageRequest";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+/** The arrow New request slides in on hover, as New shift does. */
+const NewRequestArrow = () => <ArrowRight className="size-3.5" />;
 
 type Req = NonNullable<HouseholdState["coverageRequests"]>[number];
 
@@ -33,13 +39,40 @@ interface Props {
 }
 
 export function CoverageRequestsPanel({
-  open, onClose, onAskForMore, t, dark, householdId, state,
+  open, onClose, onAskForMore, palette, t, dark, householdId, state,
 }: Props) {
   const [month, setMonth] = useState(() => ymOf(new Date()));
   /** Which row or group is open for editing. */
   const [openKey, setOpenKey] = useState<string | null>(null);
 
-  if (!open) return null;
+  // Stay mounted for a beat after `open` goes false so the panel can fade and
+  // sink out instead of vanishing, whatever closed it (✕, outside, Escape).
+  const [shown, setShown] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (open) { setShown(true); setLeaving(false); setSlide(null); return; }
+    if (!shown) return;
+    setLeaving(true);
+    const id = window.setTimeout(() => { setShown(false); setLeaving(false); }, 180);
+    return () => window.clearTimeout(id);
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  // Which way the month moved, so its contents slide in from that side.
+  const monthIndex = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
+  const [lastMonthIndex, setLastMonthIndex] = useState(monthIndex);
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  if (monthIndex !== lastMonthIndex) {
+    setLastMonthIndex(monthIndex);
+    setSlide(monthIndex > lastMonthIndex ? "next" : "prev");
+  }
+
+  if (!shown) return null;
 
   const daisy = state?.dependents?.daisy?.name || "Daisy";
   const all = (state?.coverageRequests ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -69,7 +102,9 @@ export function CoverageRequestsPanel({
   return (
     <div
       onClick={onClose}
+      data-motion=""
       style={{
+        animation: `${leaving ? "nucleus-backdrop-out" : "nucleus-backdrop-in"} ${leaving ? 180 : 220}ms ease both`,
         position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -81,9 +116,13 @@ export function CoverageRequestsPanel({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Coverage with ${daisy}`}
+        aria-label="Childcare Matrix"
         onClick={(e) => e.stopPropagation()}
+        data-motion=""
         style={{
+          animation: leaving
+            ? "nucleus-modal-out 180ms cubic-bezier(.4,0,1,1) both"
+            : "nucleus-modal-in 320ms cubic-bezier(.16,1,.3,1) both",
           width: "min(600px, calc(100vw - 32px))",
           maxHeight: "88vh",
           background: t.bgElev,
@@ -102,20 +141,20 @@ export function CoverageRequestsPanel({
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: BRAND_FONT, fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>
-                Coverage with {daisy}
+                Childcare Matrix
               </div>
               <div style={{ fontSize: 13, color: t.text2, marginTop: 4 }}>
-                {days} day{days === 1 ? "" : "s"} · {fmtNum(sum(reqs))} hour{sum(reqs) === 1 ? "" : "s"} asked for
+                {days} day{days === 1 ? "" : "s"} · {fmtNum(sum(reqs))} hour{sum(reqs) === 1 ? "" : "s"}
               </div>
             </div>
             <IconButton label="Close" onClick={onClose} t={t} surface={surface}><XIcon /></IconButton>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", marginTop: 14, border: `1px solid ${t.sep}`, borderRadius: 4, overflow: "hidden" }}>
-            <Stat value={sum(has)} label={`${daisy} has said yes`} color={dark ? TEAL_LIGHT : TEAL} t={t} />
-            <Stat value={sum(waiting)} label="Waiting on her" color={t.text} t={t} divider />
+            <Stat value={sum(has)} label="Confirmed" color={dark ? TEAL_LIGHT : TEAL} t={t} />
+            <Stat value={sum(waiting)} label="Pending" color={t.text} t={t} divider />
             <Stat
-              value={sum(nobody)} label="Nobody holds" t={t} divider
+              value={sum(nobody)} label="Gaps" t={t} divider
               color={sum(nobody) > 0 ? (dark ? "#D9A08E" : CLAY) : t.text}
               fill={sum(nobody) > 0 ? (dark ? rgba(CLAY, 0.22) : CLAY_TINT) : undefined}
             />
@@ -133,7 +172,15 @@ export function CoverageRequestsPanel({
         </div>
 
         {/* The month, by what each day means for the kids. */}
-        <div style={{ flex: 1, minHeight: 120, overflowY: "auto", background: paper, padding: "16px 22px 18px" }}>
+        <div style={{ flex: 1, minHeight: 120, overflowY: "auto", overflowX: "hidden", background: paper }}>
+        <div
+          key={month}
+          data-motion=""
+          style={{
+            padding: "16px 22px 18px",
+            animation: slide ? `nucleus-month-in-${slide} 260ms cubic-bezier(.2,.8,.2,1) both` : undefined,
+          }}
+        >
           {reqs.length === 0 && (
             <div style={{ fontSize: 13, color: t.text2, padding: "28px 12px", textAlign: "center", border: `1px dashed ${t.sep}`, borderRadius: 4 }}>
               Nothing asked of {daisy} in {monthLabel(month)}.
@@ -141,7 +188,7 @@ export function CoverageRequestsPanel({
           )}
 
           {nobody.length > 0 && (
-            <Section label="Nobody holds this" count={nobody.length} note="the kids are not covered" color={dark ? "#D9A08E" : CLAY} t={t}>
+            <Section label="Gaps" count={nobody.length} note="the kids are not covered" color={dark ? "#D9A08E" : CLAY} t={t}>
               {nobody.map((r) => (
                 <Row
                   key={r.id} {...rowProps} kind="nobody" rows={[r]}
@@ -157,7 +204,7 @@ export function CoverageRequestsPanel({
           )}
 
           {waiting.length > 0 && (
-            <Section label={`Waiting on ${daisy}`} count={waiting.length} note={lastAsked ? `sent ${agoLabel(lastAsked)}` : ""} t={t}>
+            <Section label="Pending" count={waiting.length} note={lastAsked ? `sent ${agoLabel(lastAsked)}` : ""} t={t}>
               {waiting.map((r) => (
                 <Row
                   key={r.id} {...rowProps} kind="waiting" rows={[r]}
@@ -169,7 +216,7 @@ export function CoverageRequestsPanel({
           )}
 
           {groups.length > 0 && (
-            <Section label="She has these" count={has.length} unit={has.length === 1 ? "day" : "days"} note="grouped by the window they share" t={t}>
+            <Section count={has.length} unit={has.length === 1 ? "day" : "days"} t={t}>
               {groups.map((g) => {
                 const key = `g:${g[0].startTime}-${g[0].endTime}-${g[0].endsNextDay ? 1 : 0}`;
                 return (
@@ -183,22 +230,25 @@ export function CoverageRequestsPanel({
             </Section>
           )}
         </div>
+        </div>
 
         {/* Footer */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderTop: `1px solid ${t.sep}`, flexShrink: 0 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: t.text2, lineHeight: 1.4 }}>
             Open a day to change its hours. {daisy} sees each change.
           </span>
-          <button
+          {/* Same 21st.dev enhanced button as New shift in the toolbar. */}
+          <Button
             type="button"
             onClick={onAskForMore}
-            style={{
-              height: 38, padding: "0 14px", borderRadius: 4, border: 0,
-              background: TEAL, color: "#fff",
-              fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
-              cursor: "pointer", flexShrink: 0,
-            }}
-          >Ask for more days</button>
+            variant="expandIcon"
+            Icon={NewRequestArrow}
+            iconPlacement="right"
+            className="h-8 shrink-0 cursor-pointer rounded-md px-3.5 text-[13px] font-semibold leading-none"
+            style={{ "--primary": palette.G } as CSSProperties}
+          >
+            New request
+          </Button>
         </div>
       </div>
     </div>
@@ -239,12 +289,24 @@ function MonthStrip({ ym, reqs, t, dark }: { ym: string; reqs: Req[]; t: ThemeTo
         {reqs.map((r) => {
           const d = Number(r.date.slice(8, 10));
           const s = markStyle(r.status, dark);
+          // The mark is 5px wide; the hover target around it is wider so the
+          // tooltip is easy to find.
           return (
-            <div
-              key={r.id}
-              title={`${fmtDate(r.date)} · ${fmtWindow(r)}`}
-              style={{ position: "absolute", left: at(d), top: 1, width: 5, height: 14, marginLeft: -2.5, borderRadius: 2, boxSizing: "border-box", ...s }}
-            />
+            <Tooltip key={r.id} delayDuration={80}>
+              <TooltipTrigger asChild>
+                <div
+                  aria-label={`${fmtDate(r.date)}, ${fmtWindow(r)}, ${statusLabel(r.status)}`}
+                  style={{ position: "absolute", left: at(d), top: -3, width: 13, height: 22, marginLeft: -6.5, display: "flex", justifyContent: "center", alignItems: "center", cursor: "default" }}
+                >
+                  <div style={{ width: 5, height: 14, borderRadius: 2, boxSizing: "border-box", ...s }} />
+                </div>
+              </TooltipTrigger>
+              {/* The panel sits at z-index 1000; the tooltip goes above it. */}
+              <TooltipContent side="top" size="sm" className="z-[1100]">
+                <div style={{ fontWeight: 600 }}>{fmtDate(r.date)}</div>
+                <div className="text-muted-foreground">{fmtWindow(r)} · {statusLabel(r.status)}</div>
+              </TooltipContent>
+            </Tooltip>
           );
         })}
       </div>
@@ -257,6 +319,10 @@ function MonthStrip({ ym, reqs, t, dark }: { ym: string; reqs: Req[]; t: ThemeTo
   );
 }
 
+function statusLabel(status: Req["status"]): string {
+  return status === "confirmed" ? "Confirmed" : status === "pending" ? "Pending" : "Gap";
+}
+
 function markStyle(status: Req["status"], dark: boolean) {
   if (status === "confirmed") return { background: dark ? TEAL_LIGHT : TEAL };
   if (status === "pending") return { border: `1.5px solid ${dark ? TEAL_LIGHT : TEAL}`, background: "transparent" };
@@ -264,15 +330,15 @@ function markStyle(status: Req["status"], dark: boolean) {
 }
 
 function Section({ label, count, unit, note, color, t, children }: {
-  label: string; count: number; unit?: string; note: string; color?: string; t: ThemeTokens; children: ReactNode;
+  label?: string; count: number; unit?: string; note?: string; color?: string; t: ThemeTokens; children: ReactNode;
 }) {
   return (
     <section style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: color ?? t.text }}>
-          {label}<span style={{ marginLeft: 10 }}>{count}{unit ? ` ${unit}` : ""}</span>
+          {label}<span style={{ marginLeft: label ? 10 : 0 }}>{count}{unit ? ` ${unit}` : ""}</span>
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: t.text2 }}>{note}</div>
+        {note && <div style={{ marginLeft: "auto", fontSize: 12, color: t.text2 }}>{note}</div>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{children}</div>
     </section>
@@ -341,14 +407,29 @@ function Row({
           >{action.label}</button>
         )}
         <IconButton label={open ? "Close day" : "Open day"} onClick={onToggle} t={t} surface={surface} expanded={open}>
-          <Chevron dir={open ? "up" : "down"} />
+          <span style={{ display: "flex", transition: "transform 240ms cubic-bezier(.2,.8,.2,1)", transform: open ? "rotate(180deg)" : "none" }}>
+            <Chevron dir="down" />
+          </span>
         </IconButton>
       </div>
-      {open && (
-        <div style={{ borderTop: `1px solid ${t.sep}`, padding: "4px 10px 6px 12px" }}>
-          {rows.map((r) => <DayEditor key={r.id} req={r} t={t} dark={dark} surface={surface} householdId={householdId} daisy={daisy} />)}
+      {/* The editor slides open rather than popping in: a grid row that
+          animates from 0fr to 1fr. It stays mounted (inert while shut) so it
+          can slide shut too. */}
+      <div
+        inert={!open}
+        style={{
+          display: "grid",
+          gridTemplateRows: open ? "1fr" : "0fr",
+          opacity: open ? 1 : 0,
+          transition: "grid-template-rows 280ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease",
+        }}
+      >
+        <div style={{ overflow: "hidden", minHeight: 0 }}>
+          <div style={{ borderTop: `1px solid ${t.sep}`, padding: "4px 10px 6px 12px" }}>
+            {rows.map((r) => <DayEditor key={r.id} req={r} t={t} dark={dark} surface={surface} householdId={householdId} daisy={daisy} />)}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

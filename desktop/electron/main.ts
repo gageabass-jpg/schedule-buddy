@@ -535,7 +535,7 @@ function installAppMenu(): void {
       label: "View",
       submenu: [
         {
-          label: "Coverage Requests",
+          label: "Childcare Matrix",
           accelerator: "CmdOrCtrl+Shift+C",
           click: sendOpenCoverageRequests,
         },

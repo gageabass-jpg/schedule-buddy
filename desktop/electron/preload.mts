@@ -71,7 +71,7 @@ const api = {
     ipcRenderer.on("menu:edit-template", handler);
     return () => ipcRenderer.removeListener("menu:edit-template", handler);
   },
-  /** Fires when the user picks "Coverage Requests" from the View menu. */
+  /** Fires when the user picks "Childcare Matrix" from the View menu. */
   onMenuOpenCoverageRequests: (cb: () => void): (() => void) => {
     const handler = (): void => cb();
     ipcRenderer.on("menu:open-coverage-requests", handler);

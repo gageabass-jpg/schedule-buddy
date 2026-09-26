@@ -238,7 +238,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     return () => { unsub?.(); };
   }, []);
 
-  // View → Coverage Requests (Cmd+Shift+C).
+  // View → Childcare Matrix (Cmd+Shift+C).
   useEffect(() => {
     const unsub = window.sbm?.onMenuOpenCoverageRequests(() => setCoverageRequestsOpen(true));
     return () => { unsub?.(); };

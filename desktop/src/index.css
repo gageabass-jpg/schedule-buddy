@@ -229,6 +229,12 @@
   from { clip-path: inset(0 10px 0 calc(100% - 10px)); }
   to   { clip-path: inset(0 0 0 0); }
 }
+/* Modals: the backdrop fades; the panel rises and settles on the way in and
+   sinks a touch on the way out. */
+@keyframes nucleus-backdrop-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nucleus-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes nucleus-modal-in  { from { opacity: 0; translate: 0 14px; scale: 0.97; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes nucleus-modal-out { from { opacity: 1; translate: 0 0; scale: 1; } to { opacity: 0; translate: 0 8px; scale: 0.985; } }
 /* A new month slides in from the side you moved toward. */
 @keyframes nucleus-month-in-next { from { opacity: 0; translate: 28px 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes nucleus-month-in-prev { from { opacity: 0; translate: -28px 0; } to { opacity: 1; translate: 0 0; } }

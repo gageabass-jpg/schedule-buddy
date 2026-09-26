@@ -932,7 +932,7 @@ function EventTip({ ev, selfName, partnerName, daisyName, t }: {
 }
 
 /** A coverage day in the Coverage view: the gap or request's hours and who
- *  holds them. Same marks as the Coverage with Daisy panel. */
+ *  holds them. Same marks as the Childcare Matrix. */
 export interface CoverageMark {
   kind: "has" | "waiting" | "nobody";
   startTime: string;
