@@ -1,7 +1,10 @@
 // Tooltip from HextaUI by Preet Suthar — https://hextaui.com
-// Listed on 21st.dev as @preetsuthar17/tooltip. Copied as supplied; colours
-// come from the shadcn variables in src/index.css (card = Surface, border =
-// Line), and `rounded-ele` is defined there as the house 4px corner.
+// Listed on 21st.dev as @preetsuthar17/tooltip. Colours come from the shadcn
+// variables in src/index.css (card = Surface, border = Line), and
+// `rounded-ele` is defined there as the house 4px corner.
+// One change: the content renders through a Radix Portal, with 8px collision
+// padding. As supplied it rendered in place, so a tooltip inside a scroll
+// container that clips overflow (the right rail) was sliced at its edge.
 
 "use client";
 
@@ -71,14 +74,16 @@ interface TooltipContentProps
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   TooltipContentProps
->(({ className, variant, size, sideOffset = 4, ...props }, ref) => {
+>(({ className, variant, size, sideOffset = 4, collisionPadding = 8, ...props }, ref) => {
   const [isVisible, setIsVisible] = React.useState(false);
 
   return (
+    <TooltipPrimitive.Portal>
     <AnimatePresence>
       <TooltipPrimitive.Content
         ref={ref}
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn("relative", className)}
         onAnimationStart={() => setIsVisible(true)}
         onAnimationEnd={() => setIsVisible(false)}
@@ -101,6 +106,7 @@ const TooltipContent = React.forwardRef<
         </motion.div>
       </TooltipPrimitive.Content>
     </AnimatePresence>
+    </TooltipPrimitive.Portal>
   );
 });
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
