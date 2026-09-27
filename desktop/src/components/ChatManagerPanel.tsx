@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdMeta } from "../state";
 import { auth } from "../firebase";
 import { ChatError, sendManagerMessage } from "../lib/chat";
+import { shortcut } from "../lib/platform";
 
 interface Props {
   open: boolean;
@@ -201,7 +202,7 @@ export function ChatManagerPanel({
             type="button"
             onClick={onSend}
             disabled={sending || !draft.trim()}
-            title="Send (⌘↩)"
+            title={`Send (${shortcut("↩")})`}
             style={{
               padding: "7px 18px",
               borderRadius: 8,

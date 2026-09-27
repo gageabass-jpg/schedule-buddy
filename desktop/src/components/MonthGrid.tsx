@@ -18,6 +18,7 @@ import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+import { shortcut } from "../lib/platform";
 
 /** The arrow the New shift button slides in on hover. */
 const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
@@ -280,7 +281,7 @@ export function MonthGrid({
             </ShinyButton>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Ask nucleusAI <span className="text-muted-foreground">· ⌘K</span>
+            Ask nucleusAI <span className="text-muted-foreground">· {shortcut("K")}</span>
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -300,7 +301,7 @@ export function MonthGrid({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            New shift <span className="text-muted-foreground">· ⌘N</span>
+            New shift <span className="text-muted-foreground">· {shortcut("N")}</span>
           </TooltipContent>
         </Tooltip>
         {toolbarEnd}

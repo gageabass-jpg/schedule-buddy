@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ThemeTokens } from "../theme";
 import { MANAGER_ORANGE } from "../theme";
 import { useModalMotion } from "../lib/modalMotion";
+import { shortcut } from "../lib/platform";
 
 interface Props {
   open: boolean;
@@ -155,7 +156,7 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
           >
             {busy ? "Saving…" : "Submit idea"}
           </button>
-          <span style={{ fontSize: 11, color: t.text3 }}>⌘↵ to submit</span>
+          <span style={{ fontSize: 11, color: t.text3 }}>{shortcut("↵")} to submit</span>
         </div>
 
         {/* Past ideas */}

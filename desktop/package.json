@@ -16,7 +16,8 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:web && npm run build:electron",
     "start": "electron .",
-    "dist": "npm run build && electron-builder --mac --arm64"
+    "dist": "npm run build && electron-builder --mac --arm64",
+    "dist:win": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",
@@ -99,6 +100,26 @@
           "path": "/Applications"
         }
       ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nucleus Manager",
+      "artifactName": "Nucleus Manager Setup ${version}.${ext}"
     },
     "extraResources": [
       {

@@ -217,6 +217,17 @@
   button:not([class]):not([data-day-cell]):not(:disabled):active { scale: 0.98; }
 }
 
+/* Windows draws thick, always-on scrollbars; slim them to a Line-coloured
+   thumb like the overlay ones on a Mac. */
+.platform-win ::-webkit-scrollbar { width: 10px; height: 10px; }
+.platform-win ::-webkit-scrollbar-track { background: transparent; }
+.platform-win ::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 5px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+.platform-win ::-webkit-scrollbar-thumb:hover { background-color: var(--muted-foreground); }
+.platform-win ::-webkit-scrollbar-corner { background: transparent; }
+
 /* Popover cards pop in from the side their tail points to. */
 @keyframes nucleus-pop-in {
   from { opacity: 0; scale: 0.94; }

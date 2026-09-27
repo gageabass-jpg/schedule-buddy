@@ -390,9 +390,17 @@ async function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    titleBarStyle: "hiddenInset",
-    // Center the traffic lights vertically in the 28px top bar (TopBar.tsx).
-    trafficLightPosition: { x: 19, y: 7 },
+    // The title bar is hidden and the app's own 28px top bar (TopBar.tsx)
+    // stands in. On a Mac the traffic lights sit inset on its left, centred
+    // vertically; on Windows the minimise / maximise / close buttons are drawn
+    // over its right end (Teal Deep there, so they match).
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 19, y: 7 } }
+      : {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: { color: "#0A4F48", symbolColor: "#FFFFFF", height: 28 },
+          icon: iconPath(false),
+        }),
     backgroundColor: "#0F0F12",
     show: false,
     webPreferences: {
@@ -629,6 +637,15 @@ function setDockAppearance(dark: boolean) {
   dockDark = dark;
 }
 ipcMain.on("appearance:set", (_e, dark: unknown) => setDockAppearance(dark === true));
+
+// Windows has no menu bar under a hidden title bar; the top bar's menu button
+// opens the same application menu as a popup instead.
+ipcMain.on("menu:popup", (e, x: unknown, y: unknown) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const menu = Menu.getApplicationMenu();
+  if (!win || !menu) return;
+  menu.popup({ window: win, x: Math.round(Number(x) || 0), y: Math.round(Number(y) || 0) });
+});
 
 app.whenReady().then(() => {
   setDockAppearance(nativeTheme.shouldUseDarkColors);

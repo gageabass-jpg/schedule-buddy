@@ -4,6 +4,7 @@ import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/ask
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
+import { shortcut } from "../lib/platform";
 
 /** A day (or shift) the panel was opened about, from Ask on a popover. */
 export interface AskContext {
@@ -611,7 +612,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                 <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: t.text3, lineHeight: 1.35 }}>
                   {MODE_CAPTION[mode]}
                 </span>
-                <span style={{ fontSize: 12, color: t.text3, flexShrink: 0 }}>⌘K</span>
+                <span style={{ fontSize: 12, color: t.text3, flexShrink: 0 }}>{shortcut("K")}</span>
               </div>
             </div>
           </>
