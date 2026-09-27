@@ -88,8 +88,9 @@ export function MonthGrid({
   viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
-  // Two-finger swipe (horizontal trackpad scroll) moves a month, anywhere in
-  // the window while the month view shows: over a chip, the rail, the toolbar,
+  // Two-finger swipe (horizontal trackpad scroll) moves a month (a week in
+  // week view, a day in day view), anywhere in the window: over a chip, the
+  // rail, the toolbar,
   // or the dimmed area around nucleusAI. A gesture that starts in a text field,
   // over something that really scrolls sideways, or inside a dialog (nucleusAI,
   // a popover card) is left to that thing.
@@ -122,7 +123,9 @@ export function MonthGrid({
     if (down) onNext(); else onPrev();
   };
   useEffect(() => {
-    if (calLayout !== "month") return;
+    // Month, week and day views: the swipe steps a month, a week or a day
+    // (whatever the arrows do). Year and agenda keep the wheel to themselves.
+    if (calLayout !== "month" && calLayout !== "week" && calLayout !== "day") return;
     const g = {
       acc: 0, locked: false, dir: 0, lastAbs: 0, rises: 0, triggeredAt: 0,
       ignore: false, active: false, timer: undefined as number | undefined,

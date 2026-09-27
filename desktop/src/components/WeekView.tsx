@@ -5,6 +5,7 @@ import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette,
 import { eventInitial } from "./EventAvatar";
 import { parentDaySegments } from "../lib/computeOverlap";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+import { assignLanes, laneBox, type Span } from "../lib/lanes";
 
 const COVERAGE_COLOR = "#0F6E64";
 
@@ -58,6 +59,20 @@ function blockForShift(shift: Shift, state: HouseholdState | null, offsetMin = 0
   return {
     startMin: Math.max(startMin, winStart) - winStart,
     endMin: Math.min(endMin, winEnd) - winStart,
+  };
+}
+
+/** Where a coverage window sits in a day column (px), or null if it's outside it. */
+function coverageSpan(r: { startTime: string; endTime: string; endsNextDay?: boolean }): { top: number; height: number } | null {
+  const startMin = parseHM(r.startTime);
+  let endMin = parseHM(r.endTime);
+  if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
+  const winStart = HOUR_START * 60;
+  const winEnd = HOUR_END * 60;
+  if (endMin <= winStart || startMin >= winEnd) return null;
+  return {
+    top: (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR,
+    height: (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR,
   };
 }
 
@@ -205,6 +220,38 @@ export function WeekView({
           {/* Day columns */}
           {days.map(({ key }) => {
             const isSel = key === selected;
+            // Overlapping blocks (a shift, Daisy's class, the coverage window,
+            // an event) share the column side by side instead of stacking, so
+            // none is hidden under another. Heights include each kind's
+            // minimum, since that's what's drawn.
+            const covs = (state?.coverageRequests ?? [])
+              .filter((r) => r.date === key && (r.status === "pending" || r.status === "confirmed"));
+            const spans: Span[] = [];
+            const px = (b: PlacedBlock) => ({ top: (b.startMin / 60) * PX_PER_HOUR, h: ((b.endMin - b.startMin) / 60) * PX_PER_HOUR });
+            (shifts[prevDayKey(key)] ?? []).forEach((s, i) => {
+              const b = blockForShift(s, state, -24 * 60);
+              if (!b) return;
+              const { top, h } = px(b);
+              if (h > 1) spans.push({ id: `tail-${i}`, top, bottom: top + Math.max(h, 14) });
+            });
+            covs.forEach((r, i) => {
+              const c = coverageSpan(r);
+              if (c) spans.push({ id: `cov-${i}`, top: c.top, bottom: c.top + Math.max(c.height, 12) });
+            });
+            (shifts[key] ?? []).forEach((s, i) => {
+              const b = blockForShift(s, state);
+              if (!b) return;
+              const { top, h } = px(b);
+              spans.push({ id: `shift-${i}`, top, bottom: top + Math.max(h, 18) });
+            });
+            (eventsByDate[key] ?? []).forEach((ev) => {
+              const b = blockForEvent(ev);
+              if (!b) return;
+              const { top, h } = px(b);
+              spans.push({ id: `ev-${ev.id}`, top, bottom: top + Math.max(h, 18) });
+            });
+            const lanes = assignLanes(spans);
+            const box = (id: string) => laneBox(lanes.get(id), 4);
             return (
               <div
                 key={key}
@@ -253,29 +300,24 @@ export function WeekView({
                   });
                 })}
 
-                {/* Coverage window — green stripe on the right edge. */}
-                {(state?.coverageRequests ?? [])
-                  .filter((r) => r.date === key && (r.status === "pending" || r.status === "confirmed"))
-                  .map((r, i) => {
-                    const startMin = parseHM(r.startTime);
-                    let endMin = parseHM(r.endTime);
-                    if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
-                    const winStart = HOUR_START * 60;
-                    const winEnd = HOUR_END * 60;
-                    if (endMin <= winStart || startMin >= winEnd) return null;
-                    const top = (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR;
-                    const height = (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR;
+                {/* Coverage window — a green block in its own lane. */}
+                {covs.map((r, i) => {
+                    const c = coverageSpan(r);
+                    if (!c) return null;
                     return (
                       <div
                         key={`cov-${i}`}
                         style={{
-                          // Right-side block, half the width of a shift block.
-                          position: "absolute", right: 4, width: "calc(50% - 6px)", top, height: Math.max(height, 12),
+                          position: "absolute", ...box(`cov-${i}`), top: c.top, height: Math.max(c.height, 12),
                           borderRadius: 4, background: `linear-gradient(180deg, ${rgba("#56B7A9", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
                           boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.45)}`, pointerEvents: "none",
+                          padding: "2px 6px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                          color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em",
                         }}
                         title={`Coverage ${r.startTime}–${r.endTime}`}
-                      />
+                      >
+                        {c.height >= 14 ? "Coverage" : null}
+                      </div>
                     );
                   })}
 
@@ -293,7 +335,7 @@ export function WeekView({
                     <div
                       key={`tail-${i}`}
                       style={{
-                        position: "absolute", left: 4, right: 4, top, height: Math.max(height, 14),
+                        position: "absolute", ...box(`tail-${i}`), top, height: Math.max(height, 14),
                         background: t.bgElev, border: `1px solid ${t.sep}`, borderLeft: `3px solid ${color}`, borderRadius: 4,
                         padding: "2px 6px", fontSize: 10.5, fontWeight: 600, color: t.text, opacity: 0.85,
                         overflow: "hidden", whiteSpace: "nowrap", letterSpacing: "-0.01em",
@@ -318,8 +360,7 @@ export function WeekView({
                       key={i}
                       style={{
                         position: "absolute",
-                        left: 4,
-                        right: 4,
+                        ...box(`shift-${i}`),
                         top,
                         height: Math.max(height, 18),
                         background: t.bgElev,
@@ -355,8 +396,7 @@ export function WeekView({
                       onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
                       style={{
                         position: "absolute",
-                        left: 4,
-                        right: 4,
+                        ...box(`ev-${ev.id}`),
                         top,
                         height: Math.max(height, 18),
                         background: "transparent",
