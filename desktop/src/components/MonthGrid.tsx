@@ -63,6 +63,8 @@ interface Props {
   dayFlags?: Map<string, DayFlag>;
   /** Kaylene's stretches by date: a fire in the cell's corner, "2/3" on hover. */
   stretches?: Map<string, StretchDay>;
+  /** When each day's childcare was confirmed (epoch ms), for the check's tooltip. */
+  careConfirmedAt?: Map<string, number>;
   /** Open the flag editor for a day, beside its cell. */
   onFlagDay?: (date: string, anchor: DOMRect) => void;
   wvuGames: Map<string, WvuGame>;
@@ -83,7 +85,7 @@ export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches,
+  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
   // Two-finger swipe (horizontal trackpad scroll) moves a month, anywhere in
   // the window while the month view shows: over a chip, the rail, the toolbar,
@@ -472,7 +474,7 @@ export function MonthGrid({
                     }}
                   >
                     {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
-                      <CareCheck right={wvuGames.has(key) ? 32 : 5} />
+                      <CareCheck right={wvuGames.has(key) ? 32 : 5} confirmedAt={careConfirmedAt?.get(key)} />
                     )}
                     {stretches?.get(key) && (
                       <StretchMark
@@ -503,23 +505,27 @@ export function MonthGrid({
                       />
                     )}
                     {wvuGames.has(key) && (
-                      <img
-                        src="assets/wvu.png"
-                        alt=""
-                        aria-hidden="true"
-                        title={wvuGameLabel(wvuGames.get(key)!)}
-                        draggable={false}
-                        style={{
-                          position: "absolute",
-                          right: 4,
-                          bottom: 4,
-                          width: 24,
-                          height: 22,
-                          objectFit: "contain",
-                          pointerEvents: "none",
-                          filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))",
-                        }}
-                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <img
+                            src="assets/wvu.png"
+                            alt={wvuGameLabel(wvuGames.get(key)!)}
+                            draggable={false}
+                            style={{
+                              position: "absolute",
+                              right: 4,
+                              bottom: 4,
+                              width: 24,
+                              height: 22,
+                              objectFit: "contain",
+                              filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))",
+                            }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" size="sm">
+                          <WvuGameTip game={wvuGames.get(key)!} />
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     <div style={{ display: "flex", alignItems: "center" }}>
                       <span
@@ -908,13 +914,15 @@ function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: stri
   }, []);
 
   return (
+    <Tooltip>
+    <TooltipTrigger asChild>
     <span
       ref={holder}
       role="img"
       aria-label={`${name}'s stretch, day ${stretch.day} of ${stretch.of}`}
       style={{
         position: "absolute", right, bottom: 4, height: 15,
-        display: "flex", alignItems: "center", pointerEvents: "none", color: STRETCH_RED,
+        display: "flex", alignItems: "center", color: STRETCH_RED,
       }}
     >
       <FireIcon ref={icon} size={15} className="flex" />
@@ -927,6 +935,25 @@ function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: stri
         {stretch.day}/{stretch.of}
       </span>
     </span>
+    </TooltipTrigger>
+    <TooltipContent side="top" size="sm">Day {stretch.day} of {stretch.of}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A WVU game's tooltip: the matchup, then kickoff, TV and where. */
+function WvuGameTip({ game }: { game: WvuGame }) {
+  const vs = game.neutral || game.home ? "vs" : "at";
+  const details = [
+    game.kickoff && game.kickoff !== "TBD" ? game.kickoff : "Kickoff TBD",
+    game.tv,
+    game.location,
+  ].filter(Boolean).join(" · ");
+  return (
+    <>
+      <div className="font-semibold">WVU {vs} {game.opponent}</div>
+      <div className="text-muted-foreground">{details}</div>
+    </>
   );
 }
 
@@ -942,7 +969,7 @@ const CARE_CHECK = "#0F6E64";
  * the check's draw-in once; leaving resets it. It listens on the day cell
  * itself so a hover doesn't re-render the grid.
  */
-function CareCheck({ right }: { right: number }) {
+function CareCheck({ right, confirmedAt }: { right: number; confirmedAt?: number }) {
   const holder = useRef<HTMLSpanElement | null>(null);
   const icon = useRef<CircleCheckIconHandle | null>(null);
 
@@ -959,16 +986,26 @@ function CareCheck({ right }: { right: number }) {
     };
   }, []);
 
+  const when = confirmedAt
+    ? `Confirmed ${new Date(confirmedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+    : "Confirmed";
   return (
-    <span
-      ref={holder}
-      role="img"
-      aria-label="Childcare coverage confirmed"
-      title="Childcare coverage confirmed"
-      style={{ position: "absolute", right, bottom: 4, display: "flex", pointerEvents: "none" }}
-    >
-      <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          ref={holder}
+          role="img"
+          aria-label={`Childcare covered. ${when}.`}
+          style={{ position: "absolute", right, bottom: 4, display: "flex" }}
+        >
+          <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" size="sm">
+        <div className="font-semibold">Childcare covered</div>
+        <div className="text-muted-foreground">{when}</div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

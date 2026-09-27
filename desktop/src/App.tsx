@@ -443,6 +443,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     if (!householdId || !myRole) { setNotifications([]); return; }
     return subscribeNotifications(householdId, myRole, setNotifications);
   }, [householdId, myRole]);
+  // When each day's childcare was confirmed, from the confirmation in the
+  // notification history (the request itself carries no timestamp for it).
+  // Newest first, so the first one seen per day is the latest confirmation.
+  const careConfirmedAt = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const n of notifications) {
+      if (n.kind !== "status_confirmed" || !n.date || !n.createdAt || out.has(n.date)) continue;
+      out.set(n.date, n.createdAt.toMillis());
+    }
+    return out;
+  }, [notifications]);
   const inbox: InboxNotification[] = notifications.map((n) => ({
     id: n.id, kind: n.kind, title: n.title, body: n.body, date: n.date,
     unread: !!user && !n.readBy[user.uid],
@@ -657,6 +668,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         selfName={selfName}
         partnerName={partnerName}
         stretches={kStretches}
+        careConfirmedAt={careConfirmedAt}
         onSelectDate={setSelected}
         onPrev={handlePrev}
         onNext={handleNext}
