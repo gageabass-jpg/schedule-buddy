@@ -7,6 +7,7 @@ import type { HouseholdState, ScheduleBlock } from "../state";
 import {
   addScheduleBlock, removeScheduleBlock,
 } from "../lib/writeScheduleBlock";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -39,6 +40,9 @@ export function ScheduleBlockModal({
     setNotes("");
     setErr(null);
   }, [open, defaultDate]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -73,7 +77,7 @@ export function ScheduleBlockModal({
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0,
+        ...mm.backdrop, position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 1000,
@@ -83,7 +87,7 @@ export function ScheduleBlockModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: 460,
           maxHeight: "80vh",
           background: t.bgElev,

@@ -6,6 +6,7 @@ import { hmToMin, daisyCoverageConflict, type MinuteRange } from "../lib/compute
 import { timelineForDate } from "../lib/timelineData";
 import { DayTimeline } from "./DayTimeline";
 import { auth } from "../firebase";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -133,18 +134,21 @@ export function ChildcarePanel({
     return [...list].sort((a, b) => a.date.localeCompare(b.date));
   }, [scoped, filter]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const statusTriggerLabel = STATUS_OPTIONS.find((o) => o.key === filter)?.label ?? "All statuses";
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Assigned shifts"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(640px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: dark ? t.bgElev : "#F7F6F3", color: t.text,

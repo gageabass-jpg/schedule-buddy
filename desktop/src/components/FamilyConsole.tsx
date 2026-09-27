@@ -18,6 +18,7 @@ import { WallPhotosSection } from "./WallPhotosSection";
 import { OccasionsSection } from "./OccasionsSection";
 import { BrandMark, BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 import { Button01 } from "@/components/ui/nextjsshop-button";
+import { useModalMotion } from "../lib/modalMotion";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -112,6 +113,9 @@ export function FamilyConsole({
     });
   }, [open, state?.householdName, state?.employers, state?.timeZone, household]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const hhName = state?.householdName ?? defaultHouseholdName(household);
@@ -185,7 +189,7 @@ export function FamilyConsole({
     <div
       onClick={onClose}
       style={{
-        position: "fixed",
+        ...mm.backdrop, position: "fixed",
         inset: 0,
         background: "rgba(0,0,0,0.4)",
         zIndex: 1200,
@@ -200,7 +204,7 @@ export function FamilyConsole({
         aria-modal="true"
         aria-label="Admin Console"
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: "min(1200px, 94vw)",
           height: "min(920px, 96vh)",
           background: t.bg,

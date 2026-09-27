@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -20,6 +21,9 @@ export function ApiKeySettings({ open, onClose, palette, t }: Props) {
     setValue("");
     window.sbm?.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
   }, [open]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -59,13 +63,13 @@ export function ApiKeySettings({ open, onClose, palette, t }: Props) {
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Anthropic API key"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

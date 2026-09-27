@@ -74,6 +74,7 @@ import { blockForDate } from "./lib/writeScheduleBlock";
 import type { CoverageMark } from "./components/MonthGrid";
 import { NotificationInboxPopover, type InboxNotification } from "@/components/ui/notification-inbox-popover";
 import { markAllNotificationsRead, markNotificationRead, subscribeNotifications, type AppNotification } from "./lib/notifications";
+import { ModalPresence } from "./lib/modalMotion";
 
 const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
@@ -704,144 +705,172 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         onAsk={() => openAsk()}
       />
       </div>{/* /column grid */}
-      <ScheduleBlockModal
-        open={scheduleBlockOpen}
-        onClose={() => setScheduleBlockOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        defaultDate={selected}
-      />
-      <CleanerModal
-        open={cleanerOpen}
-        onClose={() => setCleanerOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        selfName={selfName}
-        partnerName={partnerName}
-      />
-      <NewShiftModal
-        open={newShiftOpen}
-        onClose={() => { setNewShiftOpen(false); setNewShiftDate(null); }}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        defaultDate={newShiftDate ?? selected}
-      />
-      <TemplateEditor
-        open={templateOpen}
-        initialPerson={templatePerson}
-        onClose={() => setTemplateOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-      />
-      <EditShiftModal
-        target={editTarget}
-        onClose={() => setEditTarget(null)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-      />
-      <ShiftTypesEditor
-        open={shiftTypesOpen}
-        onClose={() => setShiftTypesOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-      />
-      <ScheduleImportModal
-        scheduleId={importScheduleId}
-        onClose={() => setImportScheduleId(null)}
-        onNeedApiKey={() => setApiKeyOpen(true)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        today={today}
-        contextMonth={`${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`}
-      />
-      <ApiKeySettings
-        open={apiKeyOpen}
-        onClose={() => setApiKeyOpen(false)}
-        palette={palette}
-        t={t}
-      />
-      <EventModal
-        open={eventModalOpen}
-        onClose={() => setEventModalOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        defaultDate={selected}
-        editing={eventEditTarget}
-      />
-      <FamilyConsole
-        open={familyConsoleOpen}
-        onClose={() => setFamilyConsoleOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        household={householdStatus.status === "ready" ? householdStatus.household : null}
-        state={state}
-        themePref={themePref}
-        onSetThemePref={onSetThemePref}
-        onOpenChatManager={() => { setFamilyConsoleOpen(false); setChatManagerOpen(true); }}
-      />
-      <CoverageRequestModal
-        open={coverageModalOpen}
-        onClose={() => setCoverageModalOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        today={today}
-      />
-      <CoverageRequestsPanel
-        open={coverageRequestsOpen}
-        onClose={() => setCoverageRequestsOpen(false)}
-        onAskForMore={() => setCoverageModalOpen(true)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-      />
-      <ImprovementsModal
-        open={improvementsOpen}
-        onClose={() => setImprovementsOpen(false)}
-        t={t}
-        dark={dark}
-      />
-      <ChildcarePanel
-        open={childcareOpen}
-        onClose={() => setChildcareOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        state={state}
-        onSendBatch={() => setCoverageModalOpen(true)}
-        onSendSingle={() => setNewRequestOpen(true)}
-      />
+      <ModalPresence open={scheduleBlockOpen}>
+        <ScheduleBlockModal
+          open={scheduleBlockOpen}
+          onClose={() => setScheduleBlockOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          defaultDate={selected}
+        />
+      </ModalPresence>
+      <ModalPresence open={cleanerOpen}>
+        <CleanerModal
+          open={cleanerOpen}
+          onClose={() => setCleanerOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          selfName={selfName}
+          partnerName={partnerName}
+        />
+      </ModalPresence>
+      <ModalPresence open={newShiftOpen}>
+        <NewShiftModal
+          open={newShiftOpen}
+          onClose={() => { setNewShiftOpen(false); setNewShiftDate(null); }}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          defaultDate={newShiftDate ?? selected}
+        />
+      </ModalPresence>
+      <ModalPresence open={templateOpen}>
+        <TemplateEditor
+          open={templateOpen}
+          initialPerson={templatePerson}
+          onClose={() => setTemplateOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+        />
+      </ModalPresence>
+      <ModalPresence open={!!editTarget}>
+        <EditShiftModal
+          target={editTarget}
+          onClose={() => setEditTarget(null)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+        />
+      </ModalPresence>
+      <ModalPresence open={shiftTypesOpen}>
+        <ShiftTypesEditor
+          open={shiftTypesOpen}
+          onClose={() => setShiftTypesOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+        />
+      </ModalPresence>
+      <ModalPresence open={!!importScheduleId}>
+        <ScheduleImportModal
+          scheduleId={importScheduleId}
+          onClose={() => setImportScheduleId(null)}
+          onNeedApiKey={() => setApiKeyOpen(true)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          today={today}
+          contextMonth={`${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`}
+        />
+      </ModalPresence>
+      <ModalPresence open={apiKeyOpen}>
+        <ApiKeySettings
+          open={apiKeyOpen}
+          onClose={() => setApiKeyOpen(false)}
+          palette={palette}
+          t={t}
+        />
+      </ModalPresence>
+      <ModalPresence open={eventModalOpen}>
+        <EventModal
+          open={eventModalOpen}
+          onClose={() => setEventModalOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          defaultDate={selected}
+          editing={eventEditTarget}
+        />
+      </ModalPresence>
+      <ModalPresence open={familyConsoleOpen}>
+        <FamilyConsole
+          open={familyConsoleOpen}
+          onClose={() => setFamilyConsoleOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          household={householdStatus.status === "ready" ? householdStatus.household : null}
+          state={state}
+          themePref={themePref}
+          onSetThemePref={onSetThemePref}
+          onOpenChatManager={() => { setFamilyConsoleOpen(false); setChatManagerOpen(true); }}
+        />
+      </ModalPresence>
+      <ModalPresence open={coverageModalOpen}>
+        <CoverageRequestModal
+          open={coverageModalOpen}
+          onClose={() => setCoverageModalOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          today={today}
+        />
+      </ModalPresence>
+      <ModalPresence open={coverageRequestsOpen}>
+        <CoverageRequestsPanel
+          open={coverageRequestsOpen}
+          onClose={() => setCoverageRequestsOpen(false)}
+          onAskForMore={() => setCoverageModalOpen(true)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+        />
+      </ModalPresence>
+      <ModalPresence open={improvementsOpen}>
+        <ImprovementsModal
+          open={improvementsOpen}
+          onClose={() => setImprovementsOpen(false)}
+          t={t}
+          dark={dark}
+        />
+      </ModalPresence>
+      <ModalPresence open={childcareOpen}>
+        <ChildcarePanel
+          open={childcareOpen}
+          onClose={() => setChildcareOpen(false)}
+          palette={palette}
+          t={t}
+          dark={dark}
+          householdId={householdId}
+          state={state}
+          onSendBatch={() => setCoverageModalOpen(true)}
+          onSendSingle={() => setNewRequestOpen(true)}
+        />
+      </ModalPresence>
       <ChatManagerPanel
         open={chatManagerOpen}
         onClose={() => setChatManagerOpen(false)}
@@ -851,94 +880,104 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         householdId={householdId}
         household={householdStatus.status === "ready" ? householdStatus.household : null}
       />
-      <AskClaudePanel
-        context={askContext}
-        open={askClaudeOpen}
-        onClose={() => setAskClaudeOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-      />
-      <NewRequestModal
-        open={newRequestOpen}
-        onClose={() => { setNewRequestOpen(false); setNewRequestPrefill(null); }}
-        palette={palette}
-        t={t}
-        householdId={householdId}
-        defaultDate={selected}
-        prefill={newRequestPrefill}
-      />
-      {dayDetail && (
-        <DayDetailPopover
-          onClose={() => setDayDetail(null)}
-          date={dayDetail.date}
-          dayShifts={shifts[dayDetail.date] ?? []}
-          events={eventsByDate[dayDetail.date] ?? []}
-          anchor={dayDetail.anchor}
-          t={t}
+      <ModalPresence open={askClaudeOpen}>
+        <AskClaudePanel
+          context={askContext}
+          open={askClaudeOpen}
+          onClose={() => setAskClaudeOpen(false)}
           palette={palette}
-          dark={dark}
-          state={state}
-          selfName={selfName}
-          partnerName={partnerName}
-          isCoverageGap={coverageNeeds.some((c) => c.date === dayDetail.date)}
-          careConfirmed={
-            (state?.coverageRequests ?? []).some((r) => r.date === dayDetail.date && r.status === "confirmed")
-            && !(state?.childcareOff ?? []).some((c) => c.date === dayDetail.date)
-          }
-          wvuGame={wvuGames.get(dayDetail.date)}
-          flag={dayFlags.get(dayDetail.date)}
-          onFlag={() => { const d = dayDetail; setDayDetail(null); setFlagEditor({ date: d.date, anchor: d.anchor }); }}
-          onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}
-          onNewShift={() => { setNewShiftDate(dayDetail.date); setDayDetail(null); setNewShiftOpen(true); }}
-          onAsk={() => { const d = dayDetail.date; setDayDetail(null); openAsk(dayAskContext(d)); }}
-        />
-      )}
-      {flagEditor && (
-        <DayFlagPopover
-          key={flagEditor.date}
-          date={flagEditor.date}
-          anchor={flagEditor.anchor}
-          flag={dayFlags.get(flagEditor.date)}
-          householdId={householdId}
-          authorName={flagAuthorName}
           t={t}
           dark={dark}
-          onClose={() => setFlagEditor(null)}
         />
-      )}
+      </ModalPresence>
+      <ModalPresence open={newRequestOpen}>
+        <NewRequestModal
+          open={newRequestOpen}
+          onClose={() => { setNewRequestOpen(false); setNewRequestPrefill(null); }}
+          palette={palette}
+          t={t}
+          householdId={householdId}
+          defaultDate={selected}
+          prefill={newRequestPrefill}
+        />
+      </ModalPresence>
+      <ModalPresence open={!!dayDetail}>
+        {dayDetail && (
+          <DayDetailPopover
+            onClose={() => setDayDetail(null)}
+            date={dayDetail.date}
+            dayShifts={shifts[dayDetail.date] ?? []}
+            events={eventsByDate[dayDetail.date] ?? []}
+            anchor={dayDetail.anchor}
+            t={t}
+            palette={palette}
+            dark={dark}
+            state={state}
+            selfName={selfName}
+            partnerName={partnerName}
+            isCoverageGap={coverageNeeds.some((c) => c.date === dayDetail.date)}
+            careConfirmed={
+              (state?.coverageRequests ?? []).some((r) => r.date === dayDetail.date && r.status === "confirmed")
+              && !(state?.childcareOff ?? []).some((c) => c.date === dayDetail.date)
+            }
+            wvuGame={wvuGames.get(dayDetail.date)}
+            flag={dayFlags.get(dayDetail.date)}
+            onFlag={() => { const d = dayDetail; setDayDetail(null); setFlagEditor({ date: d.date, anchor: d.anchor }); }}
+            onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}
+            onNewShift={() => { setNewShiftDate(dayDetail.date); setDayDetail(null); setNewShiftOpen(true); }}
+            onAsk={() => { const d = dayDetail.date; setDayDetail(null); openAsk(dayAskContext(d)); }}
+          />
+        )}
+      </ModalPresence>
+      <ModalPresence open={!!flagEditor}>
+        {flagEditor && (
+          <DayFlagPopover
+            key={flagEditor.date}
+            date={flagEditor.date}
+            anchor={flagEditor.anchor}
+            flag={dayFlags.get(flagEditor.date)}
+            householdId={householdId}
+            authorName={flagAuthorName}
+            t={t}
+            dark={dark}
+            onClose={() => setFlagEditor(null)}
+          />
+        )}
+      </ModalPresence>
       {/* Transient notices, bottom-left beside the 240px sidebar. */}
       <ToastHost t={t} dark={dark} sidebarWidth={240} />
 
-      {shiftDetail && (
-        <ShiftDetailPopover
-          open
-          onClose={() => setShiftDetail(null)}
-          shift={shiftDetail.shift}
-          date={shiftDetail.date}
-          who={shiftDetail.shift.who}
-          dayShifts={shifts[shiftDetail.date] ?? []}
-          anchor={shiftDetail.anchor}
-          t={t}
-          palette={palette}
-          dark={dark}
-          state={state}
-          events={eventsByDate[shiftDetail.date] ?? []}
-          householdName={householdName}
-          selfName={selfName}
-          partnerName={partnerName}
-          isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
-          onAsk={() => { const target = shiftDetail; setShiftDetail(null); openAsk(shiftAskContext(target.date, target.shift)); }}
-          onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
-          onHandOff={() => {
-            const target = shiftDetail;
-            setShiftDetail(null);
-            setNewRequestPrefill({ date: target.date });
-            setNewRequestOpen(true);
-          }}
-          onDelete={() => { const target = shiftDetail; setShiftDetail(null); void handleDeleteShift(target.date, target.shift); }}
-        />
-      )}
+      <ModalPresence open={!!shiftDetail}>
+        {shiftDetail && (
+          <ShiftDetailPopover
+            open
+            onClose={() => setShiftDetail(null)}
+            shift={shiftDetail.shift}
+            date={shiftDetail.date}
+            who={shiftDetail.shift.who}
+            dayShifts={shifts[shiftDetail.date] ?? []}
+            anchor={shiftDetail.anchor}
+            t={t}
+            palette={palette}
+            dark={dark}
+            state={state}
+            events={eventsByDate[shiftDetail.date] ?? []}
+            householdName={householdName}
+            selfName={selfName}
+            partnerName={partnerName}
+            isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
+            onAsk={() => { const target = shiftDetail; setShiftDetail(null); openAsk(shiftAskContext(target.date, target.shift)); }}
+            onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
+            onHandOff={() => {
+              const target = shiftDetail;
+              setShiftDetail(null);
+              setNewRequestPrefill({ date: target.date });
+              setNewRequestOpen(true);
+            }}
+            onDelete={() => { const target = shiftDetail; setShiftDetail(null); void handleDeleteShift(target.date, target.shift); }}
+          />
+        )}
+      </ModalPresence>
     </div>
   );
 }

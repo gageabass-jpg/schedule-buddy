@@ -9,6 +9,7 @@ import {
   shiftTypeUsage,
   crossesMidnight,
 } from "../lib/writeShiftTypes";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,9 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
     setMode({ kind: "list" });
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   // Hide synthetic "Custom …" types minted from inline template slots.
@@ -44,13 +48,13 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Shift types"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

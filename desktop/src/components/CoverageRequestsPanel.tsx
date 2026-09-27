@@ -14,6 +14,7 @@ import type { HouseholdState } from "../state";
 import { deleteCoverageRequest, updateCoverageRequest } from "../lib/writeCoverageRequest";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useModalMotion } from "../lib/modalMotion";
 
 /** The arrow New request slides in on hover, as New shift does. */
 const NewRequestArrow = () => <ArrowRight className="size-3.5" />;
@@ -45,23 +46,9 @@ export function CoverageRequestsPanel({
   /** Which row or group is open for editing. */
   const [openKey, setOpenKey] = useState<string | null>(null);
 
-  // Stay mounted for a beat after `open` goes false so the panel can fade and
-  // sink out instead of vanishing, whatever closed it (✕, outside, Escape).
-  const [shown, setShown] = useState(open);
-  const [leaving, setLeaving] = useState(false);
-  useEffect(() => {
-    if (open) { setShown(true); setLeaving(false); setSlide(null); return; }
-    if (!shown) return;
-    setLeaving(true);
-    const id = window.setTimeout(() => { setShown(false); setLeaving(false); }, 180);
-    return () => window.clearTimeout(id);
-  }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Fade and rise in, sink out, Escape to close (shared with every modal; the
+  // exit needs the <ModalPresence> it's mounted in).
+  const mm = useModalMotion(open, onClose);
 
   // Which way the month moved, so its contents slide in from that side.
   const monthIndex = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
@@ -71,8 +58,10 @@ export function CoverageRequestsPanel({
     setLastMonthIndex(monthIndex);
     setSlide(monthIndex > lastMonthIndex ? "next" : "prev");
   }
+  // A reopened panel shouldn't replay the last month's slide.
+  useEffect(() => { if (open) setSlide(null); }, [open]);
 
-  if (!shown) return null;
+  if (!open) return null;
 
   const daisy = state?.dependents?.daisy?.name || "Daisy";
   const all = (state?.coverageRequests ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -102,9 +91,8 @@ export function CoverageRequestsPanel({
   return (
     <div
       onClick={onClose}
-      data-motion=""
       style={{
-        animation: `${leaving ? "nucleus-backdrop-out" : "nucleus-backdrop-in"} ${leaving ? 180 : 220}ms ease both`,
+        ...mm.backdrop,
         position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -118,11 +106,8 @@ export function CoverageRequestsPanel({
         aria-modal="true"
         aria-label="Childcare Matrix"
         onClick={(e) => e.stopPropagation()}
-        data-motion=""
         style={{
-          animation: leaving
-            ? "nucleus-modal-out 180ms cubic-bezier(.4,0,1,1) both"
-            : "nucleus-modal-in 320ms cubic-bezier(.16,1,.3,1) both",
+          ...mm.panel,
           width: "min(600px, calc(100vw - 32px))",
           maxHeight: "88vh",
           background: t.bgElev,

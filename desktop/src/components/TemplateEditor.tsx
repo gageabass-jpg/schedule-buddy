@@ -4,6 +4,7 @@ import type { HouseholdState, PersonWeeklyTemplate, TemplateSlot } from "../stat
 import { compactTime, isCustomType } from "../state";
 import { saveWeeklyTemplates, type TemplatePerson, type WeeklyTemplates } from "../lib/writeTemplate";
 import { DAYS_LONG } from "../data";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -84,6 +85,9 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
     setErr(null);
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const names: Record<TemplatePerson, string> = {
@@ -149,10 +153,10 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog" aria-modal="true" aria-label="Weekly template"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(560px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: t.bgElev, color: t.text, borderRadius: 16, padding: "20px 22px 16px",

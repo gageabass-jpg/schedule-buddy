@@ -4,6 +4,7 @@ import { BRAND_FONT, type ThemeTokens } from "../theme";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
 import { removeDayFlag, saveDayFlag, type DayFlag } from "../lib/dayFlags";
 import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
+import { useModalMotion } from "../lib/modalMotion";
 
 /** The flag's red. Nucleus keeps red out of its palette; a flag is the one
  *  place it's wanted, and the flag shape carries the meaning on its own. */
@@ -57,8 +58,10 @@ export function DayFlagPopover({ date, anchor, flag, householdId, authorName, t,
   const wrapperStyle: CSSProperties = anchored
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
+  // Pops in from its tail, fades out, Escape closes (shared with every modal).
+  const mm = useModalMotion(true, onClose);
   const popIn: CSSProperties = {
-    animation: "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) both",
+    ...mm.popover,
     transformOrigin: anchored && pos ? `${pos.side === "right" ? "left" : "right"} ${pos.tailTop}px` : "center",
   };
   const btn: CSSProperties = {
@@ -68,14 +71,13 @@ export function DayFlagPopover({ date, anchor, flag, householdId, authorName, t,
   };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
+    <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
         <div
           ref={cardRef}
           role="dialog"
           aria-label="Flag this day"
-          onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
           style={{
             position: "relative", background: t.bgElev, color: t.text,
             border: `1px solid ${t.sep}`, borderTop: `2px solid ${FLAG_RED}`, borderRadius: 4,

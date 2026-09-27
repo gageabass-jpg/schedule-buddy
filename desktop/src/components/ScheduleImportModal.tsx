@@ -10,6 +10,7 @@ import { muteChangeNotices, notify } from "../lib/toast";
 import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
 
 const CLAY = "#8A4B38";
 const TEAL_TINT = "#D8E7E4";
@@ -96,6 +97,9 @@ export function ScheduleImportModal({
     setErr(null);
     window.sbm?.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
   }, [scheduleId]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(!!scheduleId, onClose);
 
   if (!scheduleId || !def) return null;
 
@@ -341,12 +345,12 @@ export function ScheduleImportModal({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Read from a photo"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

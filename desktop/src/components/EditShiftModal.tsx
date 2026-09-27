@@ -5,6 +5,7 @@ import { compactTime } from "../state";
 import type { ShiftSource } from "../data";
 import { editShift } from "../lib/writeShift";
 import { BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
 
 export interface EditShiftTarget {
   date: string;
@@ -42,6 +43,9 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
     setErr(null);
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open || !target) return null;
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -78,13 +82,13 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Edit shift"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

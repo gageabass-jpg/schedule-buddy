@@ -4,6 +4,7 @@ import type { HouseholdState } from "../state";
 import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
 import { compactTime, isCustomType } from "../state";
 import { BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
 
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
@@ -66,6 +67,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     setNote("");
     setErr(null);
   }
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -147,13 +151,13 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(20,32,30,0.52)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(20,32,30,0.52)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="New shift"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

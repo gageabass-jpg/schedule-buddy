@@ -4,6 +4,7 @@ import { compactTime, type Event as SbEvent, type HouseholdState } from "../stat
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
+import { useModalMotion } from "../lib/modalMotion";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -74,6 +75,9 @@ export function ShiftDetailPopover({
     if (card) setPos(computePopoverPos(anchor, card.offsetWidth, card.offsetHeight));
   }, [open, anchor]);
 
+  // Pops in from its tail, fades out, Escape closes (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const personCol = personColor(who, palette);
@@ -141,13 +145,13 @@ export function ShiftDetailPopover({
 
   // Pop in from the side the tail points to (centered cards grow from the middle).
   const popIn: CSSProperties = {
-    animation: "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) both",
+    ...mm.popover,
     transformOrigin: anchored && pos ? `${pos.side === "right" ? "left" : "right"} ${pos.tailTop}px` : "center",
   };
 
   // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
+    <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
         <div

@@ -12,6 +12,7 @@ import {
   applyCoverageRewrite, computeCoverageRewrite,
   type CoverageRewriteEntry,
 } from "../lib/rewriteCoverage";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -55,6 +56,9 @@ export function CleanerModal({
     setRwApprovals({});
     setDoneMsg(null);
   }, [open]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -149,7 +153,7 @@ export function CleanerModal({
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0,
+        ...mm.backdrop, position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 1000,
@@ -159,7 +163,7 @@ export function CleanerModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: "min(1000px, 92vw)",
           maxHeight: "85vh",
           background: t.bgElev,

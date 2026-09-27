@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import { addCoverageRequests } from "../lib/writeCoverageRequest";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -46,6 +47,9 @@ export function NewRequestModal({
     setErr(null);
   }, [open, defaultDate, prefill]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   // Detect "crosses midnight" so we can mark endsNextDay.
@@ -75,12 +79,12 @@ export function NewRequestModal({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Single coverage request"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",

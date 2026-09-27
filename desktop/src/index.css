@@ -222,6 +222,10 @@
   from { opacity: 0; scale: 0.94; }
   to   { opacity: 1; scale: 1; }
 }
+@keyframes nucleus-pop-out {
+  from { opacity: 1; scale: 1; }
+  to   { opacity: 0; scale: 0.96; }
+}
 /* The "Covered" tag grows out of the card's edge: the visible strip starts as
    a line 10px in from its right side (where the card edge sits) and opens
    both ways. */

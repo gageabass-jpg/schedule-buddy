@@ -5,6 +5,7 @@ import { hmToMin, daisyCoverageConflict, type OverlapCandidate, type MinuteRange
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 import { timelineForDate, parentShiftStarts } from "../lib/timelineData";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -93,6 +94,9 @@ export function CoverageRequestModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, datesKey]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   // What the header and the two sections are made of. A day whose window runs
@@ -154,10 +158,10 @@ export function CoverageRequestModal({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog" aria-modal="true" aria-label="Send to caregiver"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(780px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: dark ? t.bgElev : "#F7F6F3", color: t.text,

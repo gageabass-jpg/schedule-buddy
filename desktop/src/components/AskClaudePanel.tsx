@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/askClaude";
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
 
 /** A day (or shift) the panel was opened about, from Ask on a popover. */
 export interface AskContext {
@@ -108,6 +109,9 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
 
   // Stop dictation if the panel goes away mid-listen.
   useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -267,13 +271,13 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1100 }} />
       <div
         ref={panelRef}
         role="dialog"
         aria-label="nucleusAI"
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           ...(pos ? { left: pos.x, top: pos.y } : { right: 24, bottom: 24 }),
           width: "min(420px, calc(100vw - 32px))",
