@@ -22,6 +22,7 @@ import { shortcut } from "../lib/platform";
 import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
 import { STRETCH_RED } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
+import { holidayOn } from "../../../shared/holidays";
 
 /** The arrow the New shift button slides in on hover. */
 const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
@@ -429,6 +430,7 @@ export function MonthGrid({
                 const colors = dayColors(kind, palette, dark);
                 const isToday = key === today;
                 const isSel = key === selected;
+                const holiday = holidayOn(key);
                 const matchesFilter =
                   viewFilter === "all" ||
                   (viewFilter === "both" && kind === "both") ||
@@ -560,6 +562,15 @@ export function MonthGrid({
                           </Tooltip>
                         ) : mark;
                       })()}
+                      {holiday && (
+                        <span
+                          title={holiday.name}
+                          style={{
+                            marginLeft: 5, minWidth: 0, fontSize: 10.5, fontWeight: 600, color: t.tealText,
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          }}
+                        >{holiday.short}</span>
+                      )}
                       <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
                         {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (
                           <span

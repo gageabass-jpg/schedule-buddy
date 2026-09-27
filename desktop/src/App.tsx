@@ -76,6 +76,7 @@ import { NotificationInboxPopover, type InboxNotification } from "@/components/u
 import { markAllNotificationsRead, markNotificationRead, subscribeNotifications, type AppNotification } from "./lib/notifications";
 import { ModalPresence } from "./lib/modalMotion";
 import { stretchesFor } from "./lib/stretch";
+import { holidayOn } from "../../shared/holidays";
 
 const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
@@ -477,6 +478,11 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     const events = eventsByDate[date] ?? [];
     if (events.length) {
       parts.push(`Events: ${events.map((e) => `${e.title}${e.startTime ? ` at ${compactTime(e.startTime)}` : ""}`).join("; ")}.`);
+    }
+    const holiday = holidayOn(date);
+    if (holiday) {
+      const paid = [...new Set(day.filter((s) => s.who === "G" || s.who === "K").map((s) => nameOf(s.who)))];
+      parts.push(`It's ${holiday.name}, a federal holiday${paid.length ? `; ${paid.join(" and ")} get${paid.length === 1 ? "s" : ""} holiday pay for working it` : ""}.`);
     }
     const flag = dayFlags.get(date);
     if (flag) parts.push(`The day is flagged${flag.remarks ? `: "${flag.remarks}"` : ""}.`);

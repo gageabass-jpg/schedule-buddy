@@ -12,6 +12,8 @@ import type { DayFlag } from "../lib/dayFlags";
 import { useModalMotion } from "../lib/modalMotion";
 import { StretchBadge } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
+import { HolidayPayTag } from "./HolidayPayTag";
+import { holidayOn } from "../../../shared/holidays";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -75,6 +77,7 @@ export function DayDetailPopover({
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
 
   const kind = dayKindFromShifts(dayShifts);
+  const holiday = holidayOn(date);
   const title =
     kind === "off" ? "Both off"
       : kind === "both" ? "Both working"
@@ -131,6 +134,7 @@ export function DayDetailPopover({
           <div style={section}>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: t.text3, textTransform: "uppercase" }}>
               {WEEKDAYS_3[dow]} · {MONTHS_LONG[mo - 1]} {d}
+              {holiday && <span style={{ color: t.tealText }}> · {holiday.name}</span>}
             </div>
             <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
               {title}
@@ -190,6 +194,7 @@ export function DayDetailPopover({
                         <span style={{ fontWeight: 400, color: t.text3, marginLeft: 7 }}>[{s.note}]</span>
                       )}
                     </div>
+                    {holiday && (s.who === "G" || s.who === "K") && <HolidayPayTag t={t} />}
                     {s.who === "K" && stretch && <StretchBadge stretch={stretch} name={partnerName} />}
                     <span style={{ fontSize: 13, color: t.text2, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0 }}>
                       {timeText}

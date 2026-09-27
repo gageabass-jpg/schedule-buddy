@@ -32,6 +32,7 @@ import {
   type ShiftType, type Event as SbEvent, type ChildcareOffDay,
 } from "./shared/state";
 import { dayKindFromShifts, type ShiftMap } from "./shared/schedule";
+import { holidayOn } from "./shared/holidays";
 import { computeOverlapCandidates, parentDaySegments } from "./shared/computeOverlap";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
@@ -58,7 +59,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     name: "summarize_period",
     description:
       "Get a compact summary of what's scheduled (shifts, OT, events) in " +
-      "a date range. Use for read-only questions like \"what's my week look like?\".",
+      "a date range, with each day's federal holiday if it's one. Use for read-only " +
+      "questions like \"what's my week look like?\" or \"am I working any holidays?\".",
     input_schema: {
       type: "object",
       properties: {
@@ -611,6 +613,7 @@ async function execTool(
           })(),
           events: events.filter((e) => e.date === date).map((e) => e.title),
           noChildcare: childcareOff.some((c) => c.date === date),
+          federalHoliday: holidayOn(date)?.name ?? null,
         };
       });
       return { from, to, days, shiftTypeCount: (state.shiftTypes ?? []).length };
@@ -874,6 +877,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- "Gage" is the household admin. His recurring schedule comes from a weekly template.\n` +
       `- "Kaylene" is Gage's partner. Her shifts are individual dated entries.\n` +
       `- "Daisy" is the family's caregiver (supporting role), not an editor. When Daisy is off, there is no childcare that day.\n` +
+      `- Gage and Kaylene both get holiday pay for shifts worked on US federal holidays. summarize_period marks each day's federalHoliday; use it for questions about working holidays or holiday pay.\n` +
       `- When the user picks up an unusual day for Gage, use add_override (action="work").\n` +
       `- When Gage takes off a day he normally works, use add_override (action="off").\n` +
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +

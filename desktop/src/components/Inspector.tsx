@@ -12,6 +12,8 @@ import {
 import type { WvuGame } from "../lib/wvuSchedule";
 import { StretchBadge } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
+import { HolidayPayTag } from "./HolidayPayTag";
+import { holidayOn } from "../../../shared/holidays";
 
 interface Props {
   selected: string;
@@ -63,6 +65,7 @@ export function Inspector({
   const shifts = allShifts[selected];
   const wvuGame = wvuGames.get(selected);
   const kind = dayKindFromShifts(shifts);
+  const holiday = holidayOn(selected);
 
   // Which shift row has its edit/delete buttons revealed. Double-click
   // the row to toggle. Single-click reading-only state stays calm.
@@ -158,7 +161,10 @@ export function Inspector({
           borderTop: "2px solid #8A4B38",
         }}
       >
-        <div style={{ ...subhead(t), fontSize: 10 }}>{dayLabel}</div>
+        <div style={{ ...subhead(t), fontSize: 10 }}>
+          {dayLabel}
+          {holiday && <span style={{ color: t.tealText }}> · {holiday.name}</span>}
+        </div>
         <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
           {kind === "off"
             ? "Both off"
@@ -213,6 +219,7 @@ export function Inspector({
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                 </div>
+                {holiday && (s.who === "G" || s.who === "K") && <HolidayPayTag t={t} fontSize={11.5} />}
                 {s.who === "K" && stretches?.get(selected) && (
                   <StretchBadge stretch={stretches.get(selected)!} name={partnerName} size={15} fontSize={14} />
                 )}
