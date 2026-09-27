@@ -52,7 +52,10 @@ export function dayKindFromShifts(shifts: Shift[] | undefined): DayKind {
   const hasK = shifts.some((s) => s.who === "K");
   if (hasG && hasK) return "both";
   if (hasG) return "g";
-  return "k";
+  if (hasK) return "k";
+  // Only Daisy has something on (a class): both parents are off, so it's
+  // still couple time.
+  return "off";
 }
 
 export const MONTHS_LONG = [

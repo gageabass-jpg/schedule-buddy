@@ -10,6 +10,8 @@ import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
 import { FLAG_RED } from "./DayFlagPopover";
 import type { DayFlag } from "../lib/dayFlags";
 import { useModalMotion } from "../lib/modalMotion";
+import { StretchBadge } from "./StretchBadge";
+import type { StretchDay } from "../lib/stretch";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -33,6 +35,8 @@ interface Props {
   isCoverageGap: boolean;
   /** Childcare confirmed for the day (same rule as the calendar's check). */
   careConfirmed: boolean;
+  /** Where the day sits in Kaylene's stretch, if it's in one. */
+  stretch?: StretchDay;
   /** The day's flag, if it has one. */
   flag?: DayFlag;
   /** Open the flag editor for this day. */
@@ -53,7 +57,7 @@ interface Props {
  */
 export function DayDetailPopover({
   onClose, date, dayShifts, events, anchor, t, palette, dark, state,
-  selfName, partnerName, isCoverageGap, careConfirmed, flag, onFlag, wvuGame, onOpenShift, onNewShift, onAsk,
+  selfName, partnerName, isCoverageGap, careConfirmed, flag, onFlag, wvuGame, stretch, onOpenShift, onNewShift, onAsk,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   // Position from an estimate so the card is visible on the first paint, then
@@ -186,6 +190,7 @@ export function DayDetailPopover({
                         <span style={{ fontWeight: 400, color: t.text3, marginLeft: 7 }}>[{s.note}]</span>
                       )}
                     </div>
+                    {s.who === "K" && stretch && <StretchBadge stretch={stretch} name={partnerName} />}
                     <span style={{ fontSize: 13, color: t.text2, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0 }}>
                       {timeText}
                     </span>

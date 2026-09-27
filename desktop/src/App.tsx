@@ -75,6 +75,7 @@ import type { CoverageMark } from "./components/MonthGrid";
 import { NotificationInboxPopover, type InboxNotification } from "@/components/ui/notification-inbox-popover";
 import { markAllNotificationsRead, markNotificationRead, subscribeNotifications, type AppNotification } from "./lib/notifications";
 import { ModalPresence } from "./lib/modalMotion";
+import { stretchesFor } from "./lib/stretch";
 
 const PALETTE: PaletteName = "nucleus";
 const FLAT = false;
@@ -298,6 +299,17 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
     return buildShiftMap(state, from, to);
   }, [state, viewYear, viewMonth]);
 
+  // Kaylene's stretches (runs of consecutive days she works), for the fire
+  // mark. Built two weeks wider than the shift window so a run crossing its
+  // edge still counts every day ("3/4", not "1/2").
+  const kStretches = useMemo(() => {
+    if (!state) return stretchesFor(DEMO_SHIFTS, "K");
+    const iso = (d: Date) => fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
+    const from = iso(new Date(viewYear, viewMonth - 1, 1 - 14));
+    const to = iso(new Date(viewYear, viewMonth + 2, 14));
+    return stretchesFor(buildShiftMap(state, from, to), "K");
+  }, [state, viewYear, viewMonth]);
+
   // Counts shown next to the Views entries in the sidebar.
   // All / Both / Couple are scoped to the visible month; This week scans the
   // calendar week (Sun..Sat) containing today.
@@ -321,6 +333,8 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
       if (hasG) g++;
       if (hasK) k++;
       if (hasG && hasK) both++;
+      // Both parents off is couple time even when Daisy has class.
+      if (!hasG && !hasK) couple++;
     }
 
     let week = 0;
@@ -636,6 +650,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         today={today}
         selfName={selfName}
         partnerName={partnerName}
+        stretches={kStretches}
         onSelectDate={setSelected}
         onPrev={handlePrev}
         onNext={handleNext}
@@ -682,6 +697,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
         state={state}
         selfName={selfName}
         partnerName={partnerName}
+        stretches={kStretches}
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
         onOpenShiftDetail={(date, s, anchor) => setShiftDetail({ date, shift: s, anchor })}
@@ -921,6 +937,7 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
               && !(state?.childcareOff ?? []).some((c) => c.date === dayDetail.date)
             }
             wvuGame={wvuGames.get(dayDetail.date)}
+          stretch={kStretches.get(dayDetail.date)}
             flag={dayFlags.get(dayDetail.date)}
             onFlag={() => { const d = dayDetail; setDayDetail(null); setFlagEditor({ date: d.date, anchor: d.anchor }); }}
             onOpenShift={(s, anchor) => { const d = dayDetail.date; setDayDetail(null); setShiftDetail({ date: d, shift: s, anchor }); }}

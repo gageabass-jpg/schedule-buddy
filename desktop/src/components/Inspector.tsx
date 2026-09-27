@@ -10,6 +10,8 @@ import {
   hmToMin, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
 } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
+import { StretchBadge } from "./StretchBadge";
+import type { StretchDay } from "../lib/stretch";
 
 interface Props {
   selected: string;
@@ -17,6 +19,8 @@ interface Props {
   t: ThemeTokens;
   dark: boolean;
   shifts: ShiftMap;
+  /** Kaylene's stretches by date, for the fire beside her hours. */
+  stretches?: Map<string, StretchDay>;
   state: HouseholdState | null;
   selfName: string;
   partnerName: string;
@@ -48,7 +52,7 @@ interface Props {
 
 
 export function Inspector({
-  selected, palette, t, dark, shifts: allShifts, state, selfName, partnerName,
+  selected, palette, t, dark, shifts: allShifts, stretches, state, selfName, partnerName,
   onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay: _onSendCoverageForDay,
   onToggleChildcareOff: _onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner: _onOpenCleaner,
@@ -209,6 +213,9 @@ export function Inspector({
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                 </div>
+                {s.who === "K" && stretches?.get(selected) && (
+                  <StretchBadge stretch={stretches.get(selected)!} name={partnerName} size={15} fontSize={14} />
+                )}
                 <span
                   style={{
                     fontSize: 14,

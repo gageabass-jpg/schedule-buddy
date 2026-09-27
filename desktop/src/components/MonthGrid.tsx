@@ -19,6 +19,9 @@ import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 import { shortcut } from "../lib/platform";
+import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
+import { STRETCH_RED } from "./StretchBadge";
+import type { StretchDay } from "../lib/stretch";
 
 /** The arrow the New shift button slides in on hover. */
 const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
@@ -57,6 +60,8 @@ interface Props {
   toolbarEnd?: React.ReactNode;
   /** Flagged days, keyed by date. */
   dayFlags?: Map<string, DayFlag>;
+  /** Kaylene's stretches by date: a fire in the cell's corner, "2/3" on hover. */
+  stretches?: Map<string, StretchDay>;
   /** Open the flag editor for a day, beside its cell. */
   onFlagDay?: (date: string, anchor: DOMRect) => void;
   wvuGames: Map<string, WvuGame>;
@@ -77,7 +82,7 @@ export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
   viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
-  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd,
+  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches,
 }: Props) {
   // Two-finger swipe (horizontal trackpad scroll) moves a month, anywhere in
   // the window while the month view shows: over a chip, the rail, the toolbar,
@@ -466,6 +471,13 @@ export function MonthGrid({
                   >
                     {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
                       <CareCheck right={wvuGames.has(key) ? 32 : 5} />
+                    )}
+                    {stretches?.get(key) && (
+                      <StretchMark
+                        stretch={stretches.get(key)!}
+                        name={partnerName}
+                        right={(wvuGames.has(key) ? 32 : 5) + (confirmedCareDates.has(key) && !noCareByDate.has(key) ? 18 : 0)}
+                      />
                     )}
                     {blockByDate.has(key) && (
                       <div
@@ -860,6 +872,52 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
   };
 }
 
+
+/**
+ * Kaylene's stretch: a red fire in the cell's bottom-right corner, left of
+ * the childcare check when there is one. Hovering the day flickers the flame
+ * and slides it left to make room for which day of the run it is ("2/3").
+ * Like CareCheck it listens on the cell, so a hover doesn't re-render the grid.
+ */
+function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: string; right: number }) {
+  const holder = useRef<HTMLSpanElement | null>(null);
+  const icon = useRef<FireIconHandle | null>(null);
+
+  useEffect(() => {
+    const cell = holder.current?.closest("button");
+    if (!cell) return;
+    const play = () => icon.current?.startAnimation();
+    const reset = () => icon.current?.stopAnimation();
+    cell.addEventListener("mouseenter", play);
+    cell.addEventListener("mouseleave", reset);
+    return () => {
+      cell.removeEventListener("mouseenter", play);
+      cell.removeEventListener("mouseleave", reset);
+    };
+  }, []);
+
+  return (
+    <span
+      ref={holder}
+      role="img"
+      aria-label={`${name}'s stretch, day ${stretch.day} of ${stretch.of}`}
+      style={{
+        position: "absolute", right, bottom: 4, height: 15,
+        display: "flex", alignItems: "center", pointerEvents: "none", color: STRETCH_RED,
+      }}
+    >
+      <FireIcon ref={icon} size={15} className="flex" />
+      {/* Grows from nothing on hover; the box is anchored on the right, so
+          the flame is pushed left as it opens. */}
+      <span
+        className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out day-hover:ml-0.5 day-hover:max-w-8 day-hover:opacity-100 motion-reduce:transition-none"
+        style={{ fontSize: 10.5, fontWeight: 700, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}
+      >
+        {stretch.day}/{stretch.of}
+      </span>
+    </span>
+  );
+}
 
 /** The app icon's tile colour. */
 const APP_ICON_TEAL = "#0F6E64";
