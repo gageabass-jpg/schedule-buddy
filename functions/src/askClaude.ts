@@ -117,9 +117,34 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "list_coverage_requests",
     description:
-      "Childcare cover asked of caregivers, and where each one stands " +
-      "(pending, confirmed, declined). Use before offering to ask again.",
+      "Childcare cover asked of the caregiver (Daisy): each request's id, date, " +
+      "coverage window (start/end, arrive-by) and where it stands (pending, " +
+      "confirmed, declined, issue). These are \"Daisy's coverage windows\". " +
+      "Use before offering to ask again, and before update_coverage_request.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "update_coverage_request",
+    description:
+      "Change the window of a childcare coverage request already asked of " +
+      "Daisy: when she starts or stops covering, the arrive-by time, or the " +
+      "notes. Use for \"move Daisy's coverage on the 28th to start at 2\", " +
+      "\"she can't come till 2 on Monday\", \"push her coverage to 6\". One " +
+      "call per date. Pass only the fields that change. If the date has more " +
+      "than one request, pass the id from list_coverage_requests. Daisy sees " +
+      "the change on her schedule; a confirmed request stays confirmed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date:      { type: "string", description: "The request's date, YYYY-MM-DD." },
+        id:        { type: "string", description: "Only when the date has more than one request." },
+        startTime: { type: "string", description: "New start, HH:MM 24-hour (e.g. \"14:00\")." },
+        endTime:   { type: "string", description: "New end, HH:MM 24-hour. Earlier than start means it ends the next day." },
+        arriveBy:  { type: "string", description: "New arrive-by time HH:MM, or \"\" to clear it." },
+        notes:     { type: "string", description: "New notes for Daisy, or \"\" to clear them." },
+      },
+      required: ["date"],
+    },
   },
   {
     name: "get_household",
@@ -538,11 +563,59 @@ async function execTool(
 
     case "list_coverage_requests":
       return (state.coverageRequests ?? []).map((r) => ({
-        date: r.date, status: r.status,
+        id: r.id, date: r.date, status: r.status,
         startTime: r.startTime ?? null, endTime: r.endTime ?? null,
+        endsNextDay: !!r.endsNextDay,
+        arriveBy: r.arriveBy ?? null,
         notes: r.notes ?? null,
+        caregiverNote: r.caregiverNote ?? null,
         caregiver: r.caregiverUid ?? null,
       }));
+
+    case "update_coverage_request": {
+      const date = String(input.date ?? "");
+      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+      const has = (k: string) => typeof input[k] === "string";
+      for (const k of ["startTime", "endTime"]) {
+        if (has(k) && !hhmm.test(String(input[k]))) return { error: `${k} must be HH:MM (24-hour).` };
+      }
+      if (has("arriveBy") && input.arriveBy !== "" && !hhmm.test(String(input.arriveBy))) {
+        return { error: "arriveBy must be HH:MM (24-hour), or \"\" to clear it." };
+      }
+      if (!["startTime", "endTime", "arriveBy", "notes"].some(has)) {
+        return { error: "Nothing to change. Pass startTime, endTime, arriveBy or notes." };
+      }
+      return commit(ctx, name, (fresh) => {
+        const list = [...(fresh.coverageRequests ?? [])];
+        const onDate = list.filter((r) => r.date === date && (!input.id || r.id === String(input.id)));
+        if (onDate.length === 0) return { result: { error: `No coverage request on ${date}${input.id ? " with that id" : ""}.` } };
+        if (onDate.length > 1) {
+          return { result: { error: `${date} has ${onDate.length} requests; pass the id.`, requests: onDate.map((r) => ({ id: r.id, startTime: r.startTime, endTime: r.endTime, status: r.status })) } };
+        }
+        const cur = onDate[0];
+        const next = { ...cur };
+        if (has("startTime")) next.startTime = String(input.startTime);
+        if (has("endTime")) next.endTime = String(input.endTime);
+        if (has("startTime") || has("endTime")) {
+          if (next.endTime <= next.startTime) next.endsNextDay = true;
+          else delete next.endsNextDay;
+        }
+        if (has("arriveBy")) {
+          if (input.arriveBy) next.arriveBy = String(input.arriveBy); else delete next.arriveBy;
+        }
+        if (has("notes")) {
+          const n = String(input.notes).trim();
+          if (n) next.notes = n; else delete next.notes;
+        }
+        list[list.indexOf(cur)] = next;
+        const result = {
+          ok: true, date, status: next.status,
+          before: { startTime: cur.startTime, endTime: cur.endTime, arriveBy: cur.arriveBy ?? null },
+          after: { startTime: next.startTime, endTime: next.endTime, arriveBy: next.arriveBy ?? null },
+        };
+        return { result, patch: { coverageRequests: list } };
+      });
+    }
 
     case "get_household":
       return {
@@ -882,6 +955,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- When Gage takes off a day he normally works, use add_override (action="off").\n` +
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +
       `- Kaylene's shifts always go through add_partner_shift.\n` +
+      `- "Daisy's coverage window" on a day means the childcare coverage request asked of her (list_coverage_requests): the hours she watches the kids. To change when it starts or ends ("she's leaving class at 2, so start her coverage at 2 on the 28th"), use update_coverage_request, one call per date. That is separate from her class days (add_school_day / remove_school_day), which you only touch if the user says her class itself changed.\n` +
       `- To mark days with NO childcare (Daisy scheduled off, or "block off" a week for childcare), use block_childcare with a from/to range — it stamps the whole range in ONE call, so a full week is reliably covered. Never use add_event or add_override for childcare availability. Use unblock_childcare to restore childcare.\n\n` +
       `Editing Gage's shifts:\n` +
       `- ALWAYS call summarize_period for the affected dates first to see what's actually there. Each day reports Gage's shift and its "source" ("override" = a one-off, "template" = from his weekly template).\n` +

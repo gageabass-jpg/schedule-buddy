@@ -23,6 +23,7 @@ import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
 import { STRETCH_RED } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
 import { holidayOn } from "../../../shared/holidays";
+import { IS_WINDOWS } from "../lib/platform";
 
 /** The arrow the New shift button slides in on hover. */
 const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
@@ -102,6 +103,24 @@ export function MonthGrid({
   // busy frame isn't) or turns round, and the next swipe counts straight away.
   const nav = useRef({ onNext, onPrev });
   nav.current = { onNext, onPrev };
+
+  // Windows: the mouse wheel over the toolbar steps back (up) or forward
+  // (down), one step per notch. A notch is ~100px of deltaY; a precision
+  // touchpad sends many small deltas, so they add up to 50 before a step, and
+  // steps are at least 250ms apart so a fast spin can't race through a year.
+  const wheel = useRef({ acc: 0, last: 0 });
+  const onToolbarWheel = (e: React.WheelEvent) => {
+    if (!IS_WINDOWS || e.deltaY === 0 || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+    const w = wheel.current;
+    const now = performance.now();
+    if (now - w.last > 400) w.acc = 0;
+    w.acc += e.deltaY;
+    if (Math.abs(w.acc) < 50 || now - w.last < 250) return;
+    w.last = now;
+    const down = w.acc > 0;
+    w.acc = 0;
+    if (down) onNext(); else onPrev();
+  };
   useEffect(() => {
     if (calLayout !== "month") return;
     const g = {
@@ -200,8 +219,10 @@ export function MonthGrid({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* Toolbar */}
+      {/* Toolbar. On Windows the mouse wheel over it steps the calendar:
+          up for the previous month, down for the next. */}
       <div
+        onWheel={onToolbarWheel}
         style={{
           display: "flex",
           alignItems: "center",
