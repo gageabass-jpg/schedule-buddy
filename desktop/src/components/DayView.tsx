@@ -5,6 +5,7 @@ import { compactTime } from "../state";
 import { parentDaySegments } from "../lib/computeOverlap";
 import { PhotoAv } from "./PhotoAv";
 import { EventAvatar } from "./EventAvatar";
+import { BlockTip } from "./BlockTip";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 import { assignLanes, laneBox, type Span } from "../lib/lanes";
 
@@ -124,6 +125,10 @@ export function DayView({
   const wvuGame = wvuGames.get(selected);
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
   const whoName = (who: string) => who === "G" ? selfName : who === "K" ? partnerName : daisyName;
+  // Hover cards: avatar, name, then the hours.
+  const hours = (a: string, b: string) => `${compactTime(a)} – ${compactTime(b)}`;
+  const av = (who: Shift["who"]) => <PhotoAv who={who} size={30} palette={palette} dark={dark} />;
+  const eventWho = (who: string) => (who === "G" || who === "K" || who === "D" ? whoName(who) : who === "Daisy" ? daisyName : "Family");
   const totalHeight = (HOUR_END - HOUR_START) * PX_PER_HOUR;
 
   // Overlapping blocks (a shift, Daisy's class, the coverage window, an
@@ -329,18 +334,23 @@ export function DayView({
                 if (!c) return null;
                 const { top, height } = c;
                 return (
-                  <div
+                  <BlockTip
                     key={`cov-${i}`}
+                    avatar={av("D")}
+                    name={daisyName}
+                    detail={`Coverage ${hours(r.startTime, r.endTime)} · ${r.status === "confirmed" ? "Confirmed" : "Pending"}`}
+                  >
+                  <div
                     style={{
                       position: "absolute", ...box(`cov-${i}`), top, height: Math.max(height, 22),
                       borderRadius: 6, background: `linear-gradient(180deg, ${rgba("#56B7A9", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
                       boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.4)}`, padding: "4px 8px", overflow: "hidden",
-                      color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em", pointerEvents: "none",
+                      color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em",
                     }}
-                    title={`Coverage ${r.startTime}–${r.endTime}`}
                   >
                     Coverage
                   </div>
+                  </BlockTip>
                 );
               })}
 
@@ -354,15 +364,15 @@ export function DayView({
               const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
               if (height <= 1) return null;
               return (
+                <BlockTip key={`tail-${i}`} avatar={av(s.who)} name={whoName(s.who)} detail={`Overnight · until ${typ ? endLabel(typ) : ""}`}>
                 <div
-                  key={`tail-${i}`}
                   style={{ position: "absolute", ...box(`tail-${i}`), top, height: Math.max(height, 22), background: t.bgElev, border: `1px solid ${t.sep}`, borderLeft: `3px solid ${color}`, borderRadius: 6, padding: "6px 10px", color: t.text, opacity: 0.85, overflow: "hidden" }}
-                  title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.01em" }}>
                     {whoName(s.who)} · until {typ ? endLabel(typ) : ""}
                   </div>
                 </div>
+                </BlockTip>
               );
             })}
 
@@ -381,8 +391,13 @@ export function DayView({
               const height = ((endAbs - startAbs) / 60) * PX_PER_HOUR;
               const color = ev.pending ? "#8A4B38" : eventColor(ev.who, palette);
               return (
-                <div
+                <BlockTip
                   key={ev.id}
+                  avatar={<EventAvatar who={ev.who} size={30} palette={palette} dark={dark} />}
+                  name={ev.title}
+                  detail={`${ev.endTime ? hours(ev.startTime, ev.endTime) : compactTime(ev.startTime)} · ${eventWho(ev.who)}`}
+                >
+                <div
                   onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
                   style={{
                     position: "absolute",
@@ -401,7 +416,6 @@ export function DayView({
                     cursor: "pointer",
                     zIndex: 1,
                   }}
-                  title={ev.title}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <EventAvatar who={ev.who} size={18} palette={palette} dark={dark} />
@@ -415,6 +429,7 @@ export function DayView({
                     </div>
                   )}
                 </div>
+                </BlockTip>
               );
             })}
             {/* Shift blocks */}
@@ -426,8 +441,13 @@ export function DayView({
               const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
               const typ = state?.shiftTypes.find((typ) => typ.id === s.shiftTypeId);
               return (
-                <div
+                <BlockTip
                   key={i}
+                  avatar={av(s.who)}
+                  name={whoName(s.who)}
+                  detail={typ ? `${hours(typ.start, typ.end)} · ${typ.name}` : s.label}
+                >
+                <div
                   style={{
                     position: "absolute",
                     ...box(`shift-${i}`),
@@ -454,6 +474,7 @@ export function DayView({
                     </div>
                   )}
                 </div>
+                </BlockTip>
               );
             })}
           </div>

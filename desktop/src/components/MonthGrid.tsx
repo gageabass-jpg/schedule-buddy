@@ -369,6 +369,8 @@ export function MonthGrid({
           eventsByDate={eventsByDate}
           onEditEvent={onEditEvent}
           wvuGames={wvuGames}
+          selfName={selfName}
+          partnerName={partnerName}
         />
       )}
 
