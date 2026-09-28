@@ -2775,6 +2775,17 @@
      (see _askKeyboardEngage). The transition makes that lift glide with the
      keyboard's own animation instead of snapping. */
   .ask-composer.ask-kb-live { transition: transform 0.25s ease-out, padding-bottom 0.25s ease-out; will-change: transform; }
+  /* Invisible focus stand-in, placed where the keyboard can't cover it. 16px
+     so iOS doesn't zoom; it must stay rendered (opacity, not display:none)
+     or it can't take focus. */
+  .ask-focus-proxy {
+    position: absolute; top: 60px; left: 0;
+    width: 1px; height: 1px; padding: 0; border: 0;
+    opacity: 0; font-size: 16px; pointer-events: none;
+    caret-color: transparent;
+  }
+  /* The page behind nucleusAI is pinned while it's open (see _askLockPage). */
+  body.ask-page-locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 
 
   /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
@@ -3670,8 +3681,8 @@
     flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px;
     display: flex; align-items: center; justify-content: center; font-size: 15px;
   }
-  .mc-insight.bad .mc-insight-icon { background: rgba(138,75,56,0.15); }
-  .mc-insight.good .mc-insight-icon { background: rgba(15,110,100,0.16); }
+  .mc-insight.bad .mc-insight-icon { background: rgba(138,75,56,0.15); color: var(--clay); }
+  .mc-insight.good .mc-insight-icon { background: rgba(15,110,100,0.16); color: var(--brand); }
   .mc-insight-text { font-size: 12.5px; line-height: 1.35; color: var(--text-2); }
   .mc-insight-text b { color: var(--text); font-weight: 600; }
   .mc-insight-text .bad-v  { color: var(--ot); font-weight: 700; }
@@ -6718,7 +6729,7 @@
         <div class="ask-title">nucleus<span style="opacity:0.55;font-weight:600;">AI</span></div>
         <div class="ask-sub">Schedule changes in plain English</div>
       </div>
-      <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close">✕</button>
+      <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="ask-weekstrip" id="askWeekStrip">
       <div class="ask-weekstrip-head">
@@ -6736,22 +6747,24 @@
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="I picked up an OT shift this Friday night">
-          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.16);color:#0F6E64;">＋</span>
+          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.16);color:#0F6E64;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">I picked up an OT shift this Friday night</span><span class="ask-sug-sub">Adds a shift · checks for conflicts</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Move my Monday shift next week to Wednesday">
-          <span class="ask-sug-glyph" style="background:rgba(90,102,99,0.16);color:#5A6663;">⇄</span>
+          <span class="ask-sug-glyph" style="background:rgba(90,102,99,0.16);color:#5A6663;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">Move my Monday shift next week to Wednesday</span><span class="ask-sug-sub">Swaps a shift to another day</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Kaylene is off the rest of this week">
-          <span class="ask-sug-glyph" style="background:rgba(138,75,56,0.15);color:#8A4B38;">–</span>
+          <span class="ask-sug-glyph" style="background:rgba(138,75,56,0.15);color:#8A4B38;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">Kaylene is off the rest of this week</span><span class="ask-sug-sub">Clears shifts · flags childcare gaps</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
     </div>
+    <!-- Focus stand-in near the top of the sheet: see _askFocusViaProxy(). -->
+    <input class="ask-focus-proxy" id="askFocusProxy" type="text" tabindex="-1" aria-hidden="true" autocomplete="off" autocorrect="off" spellcheck="false">
     <div class="ask-composer">
       <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell nucleusAI what to change…"></textarea>
       <button type="button" class="ask-send" id="askSendBtn" aria-label="Send" disabled><svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 16V2M2.5 7.5L8 2l5.5 5.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -8893,6 +8906,49 @@ function _capKeyboardPlugin() {
 // plugin's own keyboardWillShow height (e.g. 318), not visualViewport. Restore
 // 'native' on close so the chat pane (which relies on it) is unaffected. Off
 // Capacitor this no-ops, leaving default behavior untouched.
+// On a real iPhone, focusing the composer makes WebKit scroll the whole web
+// view to "reveal" it above the keyboard — the sheet and page jump, then
+// bounce back. (The simulator doesn't do this.) So a tap on the composer
+// focuses an invisible field near the top of the sheet first: the keyboard
+// rises with nothing to reveal. Once the composer has been lifted above the
+// keyboard, focus moves to it — already visible, so nothing scrolls.
+let _askProxyPending = false;
+function _askFocusViaProxy(e) {
+  const input = document.getElementById("askInput");
+  const proxy = document.getElementById("askFocusProxy");
+  if (!input || !proxy || document.activeElement === input || !_askKbCleanup) return;
+  e.preventDefault();                       // no native focus, no synthetic click
+  _askProxyPending = true;
+  proxy.value = "";
+  proxy.focus({ preventScroll: true });
+  // If keyboardWillShow never arrives (hardware keyboard, no plugin), hand
+  // focus over anyway so typing still works.
+  setTimeout(_askHandOffFocus, 700);
+}
+function _askHandOffFocus() {
+  if (!_askProxyPending) return;
+  _askProxyPending = false;
+  const input = document.getElementById("askInput");
+  if (input) input.focus({ preventScroll: true });
+}
+
+// Pin the page behind the sheet so nothing under it can scroll either.
+let _askLockedY = null;
+function _askLockPage() {
+  if (_askLockedY !== null) return;
+  _askLockedY = window.scrollY || 0;
+  document.body.style.top = `-${_askLockedY}px`;
+  document.body.classList.add("ask-page-locked");
+}
+function _askUnlockPage() {
+  if (_askLockedY === null) return;
+  const y = _askLockedY;
+  _askLockedY = null;
+  document.body.classList.remove("ask-page-locked");
+  document.body.style.top = "";
+  window.scrollTo(0, y);
+}
+
 let _askKbCleanup = null;
 function _askKeyboardEngage() {
   if (_askKbCleanup) return;
@@ -8913,7 +8969,13 @@ function _askKeyboardEngage() {
     }
   };
   let hShow = null, hHide = null;
-  try { hShow = K.addListener("keyboardWillShow", (info) => lift(info && info.keyboardHeight)); } catch (_) {}
+  try {
+    hShow = K.addListener("keyboardWillShow", (info) => {
+      lift(info && info.keyboardHeight);
+      // The composer is above the keyboard now; move focus onto it.
+      requestAnimationFrame(_askHandOffFocus);
+    });
+  } catch (_) {}
   try { hHide = K.addListener("keyboardWillHide", () => lift(0)); } catch (_) {}
   _askKbCleanup = () => {
     const off = (h) => { try { if (h && h.remove) h.remove(); else if (h && h.then) h.then((x) => x && x.remove && x.remove()); } catch (_) {} };
@@ -8942,6 +9004,7 @@ function openAskClaude() {
   if (input) input.value = "";
   refreshAskSendDisabled();
   document.body.classList.remove("ask-claude-closing");
+  _askLockPage();
   document.body.classList.add("ask-claude-open");
   _askKeyboardEngage();
   // Don't auto-focus the input: on the iOS webview that pops the keyboard up
@@ -8951,8 +9014,13 @@ function openAskClaude() {
 }
 
 function closeAskClaude() {
+  _askProxyPending = false;
+  const proxy = document.getElementById("askFocusProxy");
+  if (proxy && document.activeElement === proxy) proxy.blur();
   _askKeyboardRelease();
   closeSheetAnimated("ask-claude-open", "ask-claude-closing", 380);
+  // After the close animation; skip if the sheet was reopened meanwhile.
+  setTimeout(() => { if (!document.body.classList.contains("ask-claude-open")) _askUnlockPage(); }, 400);
 }
 
 function refreshAskSendDisabled() {
@@ -9644,6 +9712,7 @@ function wireAskClaudeUI() {
   if (backdrop && !backdrop.__wired) { backdrop.__wired = true; backdrop.addEventListener("click", closeAskClaude); }
   if (input && !input.__wired) {
     input.__wired = true;
+    input.addEventListener("touchend", _askFocusViaProxy, { passive: false });
     input.addEventListener("input", refreshAskSendDisabled);
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -15033,7 +15102,7 @@ function renderMonthComparison() {
     const dir = pick.delta > 0 ? "up" : "down";
     const sign = pick.delta > 0 ? "+" : "−";
     insight = `<div class="mc-insight ${pick.good ? "good" : "bad"}">
-      <div class="mc-insight-icon">${pick.good ? "✓" : "⚠︎"}</div>
+      <div class="mc-insight-icon">${pick.good ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>` : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/></svg>`}</div>
       <div class="mc-insight-text"><b>${escapeHTML(pick.m.label)}</b> is ${dir} the most this ${meta.label.toLowerCase()} — <span class="${pick.good ? "good-v" : "bad-v"}">${sign}${pick.mag.toFixed(1)}h/wk</span>.</div>
     </div>`;
   }
