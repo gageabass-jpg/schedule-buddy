@@ -1191,6 +1191,11 @@
     box-shadow: none;
   }
   .layout-tab:hover { background: var(--scrim); }
+  .layout-thumb { display: none; }   /* light mode draws it; dark keeps the lifted pill */
+  /* The view you just switched to fades in rather than popping. */
+  @keyframes layoutIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .layout-enter { animation: layoutIn 0.22s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .layout-enter { animation: none; } }
   .layout-tab.active {
     background: var(--bg-elev);
     color: var(--text);
@@ -1214,16 +1219,30 @@
       color: var(--text-2);
     }
     .layout-tab + .layout-tab { border-left: 1px solid var(--border); }
+    .layout-tabs { position: relative; touch-action: pan-y; }
+    /* The selection is one Teal-Tint thumb that slides (and can be dragged)
+       between segments; syncLayoutTabsUI() places it. */
+    .layout-thumb {
+      display: block;
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      width: 50%;
+      background: var(--brand-tint);
+      transition: transform 0.3s cubic-bezier(0.22, 0.8, 0.3, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .layout-tab { position: relative; z-index: 1; background: transparent; transition: color 0.2s; }
     .layout-tab.active,
     .layout-tab.active:hover {
-      background: var(--brand-tint);
+      background: transparent;
       color: var(--brand);
       font-weight: 600;
       box-shadow: none;
     }
     /* iOS keeps :hover on the last tapped button; the global button:hover
        brightness would wash the tint out. */
-    .layout-tab:hover { filter: none; }
+    .layout-tab:hover { filter: none; background: transparent; }
   }
 
   /* Month navigation header (prev / month label / next) */
@@ -4409,6 +4428,9 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    /* The month arrows are 44px; Agenda hides them. Hold the row at their
+       height so the switcher below doesn't jump between layouts. */
+    min-height: 44px;
   }
   .cal-header-panel .cal-header-title { margin-right: auto; min-width: 0; }
   /* Month nav rides in the title row: the title already names the month, so
@@ -6532,6 +6554,7 @@
 
   <!-- Layout tabs: Month / Agenda (Week and Day were retired) -->
   <div class="layout-tabs" id="layoutTabs" role="tablist" aria-label="Calendar layout">
+    <span class="layout-thumb" id="layoutThumb" aria-hidden="true"></span>
     <button class="layout-tab active" data-layout="month" role="tab" aria-selected="true">Month</button>
     <button class="layout-tab" data-layout="agenda" role="tab" aria-selected="false">Agenda</button>
   </div>
@@ -10828,10 +10851,32 @@ function mergeStateFromFirestore(data) {
   for (const k of Object.keys(data || {})) {
     if (!knownKeys.has(k)) console.warn("[SB] Firestore field not handled by iOS — would be dropped on next save:", k);
   }
+  // This device's view (month showing, Month vs Agenda, open tab) wins over
+  // whatever another phone last wrote — see saveViewState().
+  const view = _loadViewPrefs();
+  if (view) {
+    if (view.ui && typeof view.ui === "object") merged.ui = { ...(merged.ui || {}), ...view.ui };
+    if (typeof view.activeTab === "string") merged.activeTab = view.activeTab;
+  }
   return applyMigrations(merged);
 }
 
 let saveTimer = null;
+// View-only preferences — which month is showing, Month vs Agenda, the open
+// tab, the M/Q/Y period — belong to this device. They go to their own
+// localStorage key: no Firestore write, no "saved" flash, and an incoming
+// snapshot from the other phone doesn't move this one's calendar.
+const VIEW_KEY = "nucleus.view";
+function _loadViewPrefs() {
+  try { return JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); } catch (e) { return null; }
+}
+function saveViewState() {
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify({ ui: state.ui || {}, activeTab: state.activeTab }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* storage full or blocked — the view just won't persist */ }
+}
+
 function saveState() {
   // Save to localStorage as cache
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -14373,10 +14418,17 @@ function _wireCellHandlers() {
 
 function syncLayoutTabsUI() {
   const ui = _ensureCalUIState();
-  document.querySelectorAll(".layout-tab").forEach(b => {
+  const tabs = [...document.querySelectorAll(".layout-tab")];
+  tabs.forEach(b => {
     b.classList.toggle("active", b.dataset.layout === ui.calLayout);
     b.setAttribute("aria-selected", b.dataset.layout === ui.calLayout ? "true" : "false");
   });
+  const thumb = document.getElementById("layoutThumb");
+  if (thumb) {
+    const idx = Math.max(0, tabs.findIndex(b => b.dataset.layout === ui.calLayout));
+    thumb.style.width = `${100 / tabs.length}%`;
+    thumb.style.transform = `translateX(${idx * 100}%)`;
+  }
   // Mirror the layout onto the body so CSS can scope things (e.g. the
   // Ask Claude FAB only shows on the Month calendar view).
   document.body.dataset.calLayout = ui.calLayout || "month";
@@ -14384,9 +14436,18 @@ function syncLayoutTabsUI() {
 
 function setCalLayout(layout) {
   const ui = _ensureCalUIState();
+  if (ui.calLayout === layout) { syncLayoutTabsUI(); return; }
   ui.calLayout = layout;
-  saveState();
+  saveViewState();
   renderCalendar();
+  const shown = layout === "agenda" ? document.getElementById("agendaView")
+                                    : document.querySelector('.cal-wrap[data-layout="month"]');
+  if (shown) {
+    shown.classList.remove("layout-enter");
+    void shown.offsetWidth;                 // restart the animation
+    shown.classList.add("layout-enter");
+    shown.addEventListener("animationend", () => shown.classList.remove("layout-enter"), { once: true });
+  }
 }
 
 function shiftViewMonth(deltaMonths) {
@@ -14394,7 +14455,7 @@ function shiftViewMonth(deltaMonths) {
   const cur = parseISODate(ui.viewMonth) || new Date();
   const next = new Date(cur.getFullYear(), cur.getMonth() + deltaMonths, 1);
   ui.viewMonth = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -14403,7 +14464,7 @@ function shiftViewDay(deltaDays) {
   const cur = parseISODate(ui.viewDayDate) || new Date();
   const next = addDays(cur, deltaDays);
   ui.viewDayDate = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -14412,7 +14473,7 @@ function shiftViewWeek(deltaWeeks) {
   const cur = parseISODate(ui.viewWeekStart) || new Date();
   const next = addDays(cur, deltaWeeks * 7);
   ui.viewWeekStart = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -14923,7 +14984,7 @@ function renderMonthComparison() {
         if (!state.ui) state.ui = {};
         if (state.ui.monthCompPeriod === btn.dataset.p) return;
         state.ui.monthCompPeriod = btn.dataset.p;
-        saveState();
+        saveViewState();
         renderMonthComparison();
       };
     });
@@ -15256,7 +15317,7 @@ function switchTab(tabId) {
   const dd = document.getElementById("tabDropdown");
   if (dd) dd.value = tabId;
   state.activeTab = tabId;
-  saveState();
+  saveViewState();
 }
 document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
@@ -15328,6 +15389,50 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawe
 document.querySelectorAll(".layout-tab").forEach(btn => {
   btn.addEventListener("click", () => setCalLayout(btn.dataset.layout));
 });
+// Drag the switcher's thumb: it follows the finger, and on release snaps to
+// the nearer segment. A plain tap is left to the click handler above.
+(function initLayoutThumbDrag() {
+  const bar = document.getElementById("layoutTabs");
+  const thumb = document.getElementById("layoutThumb");
+  if (!bar || !thumb) return;
+  let sx = 0, sy = 0, startPos = 0, w = 0, n = 0, mode = null;
+  bar.addEventListener("touchstart", e => {
+    mode = null;
+    if (getComputedStyle(thumb).display === "none" || e.touches.length !== 1) return;
+    const tabs = bar.querySelectorAll(".layout-tab");
+    n = tabs.length;
+    w = bar.clientWidth / n;
+    const active = [...tabs].findIndex(b => b.classList.contains("active"));
+    startPos = Math.max(0, active) * w;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    mode = "pending";
+  }, { passive: true });
+  bar.addEventListener("touchmove", e => {
+    if (mode !== "pending" && mode !== "drag") return;
+    const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if (mode === "pending") {
+      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) { mode = "drag"; thumb.style.transition = "none"; }
+      else if (Math.abs(dy) > 6) { mode = null; return; }
+      else return;
+    }
+    e.preventDefault();
+    const pos = Math.min((n - 1) * w, Math.max(0, startPos + dx));
+    thumb.style.transform = `translateX(${pos}px)`;
+  }, { passive: false });
+  const end = e => {
+    if (mode !== "drag") { mode = null; return; }
+    mode = null;
+    e.preventDefault();                     // no click after a drag
+    const dx = (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : sx) - sx;
+    const pos = Math.min((n - 1) * w, Math.max(0, startPos + dx));
+    const idx = Math.round(pos / w);
+    thumb.style.transition = "";
+    const tab = bar.querySelectorAll(".layout-tab")[idx];
+    if (tab) setCalLayout(tab.dataset.layout);
+  };
+  bar.addEventListener("touchend", end, { passive: false });
+  bar.addEventListener("touchcancel", end, { passive: false });
+})();
 // Month navigation
 const _mp = document.getElementById("monthPrev");
 const _mn = document.getElementById("monthNext");
