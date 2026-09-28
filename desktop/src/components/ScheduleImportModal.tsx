@@ -11,6 +11,7 @@ import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
 
 const CLAY = "#8A4B38";
 const TEAL_TINT = "#D8E7E4";
@@ -800,7 +801,7 @@ function ReviewRow({
         onClick={() => onUpdate(row.rid, { skipped: !row.skipped })}
         style={{ width: 30, height: 38, padding: 0, border: 0, background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
       >
-        <TrashIcon color={row.skipped ? BRAND_TEAL : t.text3} />
+        <RedTrash />
       </button>
     </div>
   );
@@ -1068,13 +1069,6 @@ function CheckIcon({ color }: { color: string }) {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12.5l5 5 9-11" />
-    </svg>
-  );
-}
-function TrashIcon({ color }: { color: string }) {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
     </svg>
   );
 }

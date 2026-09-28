@@ -5,6 +5,7 @@ import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../them
 import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
 import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -231,12 +232,7 @@ export function ShiftDetailPopover({
               onClick={onDelete}
               style={{ ...hairlineBtn, marginLeft: "auto", padding: 0, width: 34, minWidth: 34 }}
             >
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"
-                  stroke={CLAY} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
+              <RedTrash />
             </button>
           </div>
         </div>

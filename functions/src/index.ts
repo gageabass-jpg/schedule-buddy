@@ -5,6 +5,7 @@ export { getWallState } from "./wallState";
 export { icsFeed } from "./icsFeed";
 export { wvuSchedule } from "./wvuSchedule";
 export { cleanSchedule } from "./cleanSchedule";
+export { placesAutocomplete } from "./placesAutocomplete";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";
 

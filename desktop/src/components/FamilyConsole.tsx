@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import type { Palette, ThemeTokens } from "../theme";
+import { personColor, type Palette, type ThemeTokens } from "../theme";
 import type { HouseholdMeta } from "../state";
 import type { HouseholdState } from "../state";
 import type { DependentBlock } from "../state";
 import type { ThemePref } from "../App";
-import { setHouseholdName, setEmployer, setTimeZone } from "../lib/writeHouseholdMeta";
+import { setHouseholdName, setEmployer } from "../lib/writeHouseholdMeta";
 import { setPaydaySchedule } from "../lib/writePaydays";
 import type { PaydaySchedule } from "../state";
 import { createInviteCode } from "../lib/createInviteCode";
@@ -19,6 +19,8 @@ import { OccasionsSection } from "./OccasionsSection";
 import { BrandMark, BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 import { Button01 } from "@/components/ui/nextjsshop-button";
 import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
+import { EmployerField } from "./EmployerField";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -29,17 +31,6 @@ const CLAY = "#8A4B38";
 const CLAY_TINT = "#EFDFDB";
 const APP_VERSION = "0.1.0";
 
-// Household time zone options (IANA id + friendly label). Default is Eastern.
-const DEFAULT_TZ = "America/New_York";
-const TIME_ZONES: Array<{ id: string; label: string }> = [
-  { id: "America/New_York", label: "Eastern · New York" },
-  { id: "America/Chicago", label: "Central · Chicago" },
-  { id: "America/Denver", label: "Mountain · Denver" },
-  { id: "America/Phoenix", label: "Mountain (no DST) · Phoenix" },
-  { id: "America/Los_Angeles", label: "Pacific · Los Angeles" },
-  { id: "America/Anchorage", label: "Alaska · Anchorage" },
-  { id: "Pacific/Honolulu", label: "Hawaii · Honolulu" },
-];
 const API_KEYS_URL = "https://console.anthropic.com/settings/keys";
 
 type NavKey = "general" | "people" | "wall" | "integrations" | "notifications" | "billing";
@@ -73,7 +64,6 @@ export function FamilyConsole({
   themePref, onSetThemePref, onOpenChatManager,
 }: Props) {
   const [draftName, setDraftName] = useState("");
-  const [tz, setTz] = useState(DEFAULT_TZ);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -100,7 +90,6 @@ export function FamilyConsole({
   useEffect(() => {
     if (!open) return;
     setDraftName(state?.householdName ?? defaultHouseholdName(household));
-    setTz(state?.timeZone ?? DEFAULT_TZ);
     setErr(null);
     setCopied(false);
     setCaregiverCode(null);
@@ -111,7 +100,7 @@ export function FamilyConsole({
       K: state?.employers?.K ?? "",
       D: state?.employers?.D ?? "",
     });
-  }, [open, state?.householdName, state?.employers, state?.timeZone, household]);
+  }, [open, state?.householdName, state?.employers, household]);
 
   // Fade and rise in, sink out, Escape to close (shared with every modal).
   const mm = useModalMotion(open, onClose);
@@ -120,11 +109,19 @@ export function FamilyConsole({
 
   const hhName = state?.householdName ?? defaultHouseholdName(household);
 
+  // A household is named once. Until a name is saved the field is open (the
+  // console shows the default in it); saving asks first, then it's display
+  // only.
   const onSaveName = async () => {
     if (!householdId) { setErr("No household linked."); return; }
+    if (state?.householdName?.trim()) return;
+    const name = draftName.trim();
+    if (!name) return;
+    const ok = window.confirm(`Name your household "${name}"?\n\nOnce it's named, the name can't be changed.`);
+    if (!ok) return;
     setErr(null);
     setBusy(true);
-    try { await setHouseholdName(householdId, draftName); }
+    try { await setHouseholdName(householdId, name); }
     catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
     finally { setBusy(false); }
   };
@@ -316,15 +313,9 @@ export function FamilyConsole({
               <GeneralTab
                 t={t} dark={dark}
                 hhName={hhName}
+                nameLocked={!!state?.householdName?.trim()}
                 draftName={draftName} setDraftName={setDraftName}
-                tz={tz} setTz={setTz}
                 busy={busy} onSaveName={onSaveName}
-                selfName={state?.selfName?.trim() || "Gage"}
-                partnerName={state?.partner?.name?.trim() || "Kaylene"}
-                daisyName={state?.dependents?.daisy?.name?.trim() || "Daisy"}
-                employers={employers} setEmployers={setEmployers}
-                savedEmployers={state?.employers ?? {}}
-                employerBusy={employerBusy} onSaveEmployer={onSaveEmployer}
                 inviteCode={household?.inviteCode ?? null}
                 copied={copied} onCopyCode={onCopyCode}
                 caregiverEmail={caregiverEmail} setCaregiverEmail={setCaregiverEmail}
@@ -366,6 +357,9 @@ export function FamilyConsole({
                 }}
                 daisy={daisy}
                 state={state} householdId={householdId}
+                employers={employers} setEmployers={setEmployers}
+                savedEmployers={state?.employers ?? {}}
+                employerBusy={employerBusy} onSaveEmployer={onSaveEmployer}
               />
             )}
 
@@ -397,15 +391,10 @@ export function FamilyConsole({
 function GeneralTab(p: {
   t: ThemeTokens; dark: boolean;
   hhName: string;
+  /** A name has been saved; it can't be changed any more. */
+  nameLocked: boolean;
   draftName: string; setDraftName: (v: string) => void;
-  tz: string; setTz: (v: string) => void;
   busy: boolean; onSaveName: () => void;
-  selfName: string; partnerName: string; daisyName: string;
-  employers: { G: string; K: string; D: string };
-  setEmployers: (v: { G: string; K: string; D: string }) => void;
-  savedEmployers: { G?: string; K?: string; D?: string };
-  employerBusy: "G" | "K" | "D" | null;
-  onSaveEmployer: (who: "G" | "K" | "D") => void;
   inviteCode: string | null;
   copied: boolean; onCopyCode: () => void;
   caregiverEmail: string; setCaregiverEmail: (v: string) => void;
@@ -416,79 +405,44 @@ function GeneralTab(p: {
   householdId: string | null; state: HouseholdState | null; palette: Palette;
 }) {
   const { t } = p;
-  const nameDirty = p.draftName !== p.hhName;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: "100%" }}>
-      {/* HOUSEHOLD */}
+      {/* HOUSEHOLD — named once, then fixed. */}
       <Section t={t} label="Household">
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <FieldLabel t={t}>Name</FieldLabel>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                value={p.draftName}
-                onChange={(e) => p.setDraftName(e.target.value)}
-                placeholder="Bass Household"
-                style={inputStyle(t)}
-              />
-              <button
-                type="button"
-                onClick={p.onSaveName}
-                disabled={p.busy || !nameDirty}
-                style={{ ...primaryBtn, opacity: p.busy || !nameDirty ? 0.5 : 1, cursor: p.busy || !nameDirty ? "not-allowed" : "pointer" }}
-              >
-                {p.busy ? "Saving…" : "Save"}
-              </button>
+        <FieldLabel t={t}>Name</FieldLabel>
+        {p.nameLocked ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, maxWidth: 420 }}>
+            <div
+              style={{ ...inputStyle(t), display: "flex", alignItems: "center", gap: 8, background: t.bgElev2, color: t.text, cursor: "default" }}
+              aria-readonly="true"
+            >
+              <LockIcon />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.hhName}</span>
             </div>
           </div>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <FieldLabel t={t}>Time zone</FieldLabel>
-            <TimeZoneField t={t} tz={p.tz} setTz={p.setTz} householdId={p.householdId} savedTz={p.state?.timeZone ?? DEFAULT_TZ} />
+        ) : (
+          <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
+            <input
+              type="text"
+              value={p.draftName}
+              onChange={(e) => p.setDraftName(e.target.value)}
+              placeholder="Bass Household"
+              style={inputStyle(t)}
+            />
+            <button
+              type="button"
+              onClick={p.onSaveName}
+              disabled={p.busy || !p.draftName.trim()}
+              style={{ ...primaryBtn, opacity: p.busy || !p.draftName.trim() ? 0.5 : 1, cursor: p.busy || !p.draftName.trim() ? "not-allowed" : "pointer" }}
+            >
+              {p.busy ? "Saving…" : "Save"}
+            </button>
           </div>
+        )}
+        <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>
+          {p.nameLocked ? "Your household name cannot be edited." : "Once it's saved, the name can't be changed."}
         </div>
       </Section>
-
-      {/* EMPLOYERS — a shift shows these as its "where". */}
-      <Section t={t} label="Employers">
-        <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 12, lineHeight: 1.45 }}>
-          Shown as a shift's location when the shift doesn't name one itself, so changing a job
-          updates every shift rather than leaving the old employer on past dates.
-        </div>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {([
-            ["G", p.selfName, "Thomas Hospital"],
-            ["K", p.partnerName, "Sterile Processing"],
-            ["D", p.daisyName, "School or college"],
-          ] as Array<["G" | "K" | "D", string, string]>).map(([who, label, placeholder]) => {
-            const dirty = (p.employers[who] ?? "") !== (p.savedEmployers[who] ?? "");
-            const saving = p.employerBusy === who;
-            return (
-              <div key={who} style={{ flex: 1, minWidth: 240 }}>
-                <FieldLabel t={t}>{label}</FieldLabel>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    value={p.employers[who]}
-                    onChange={(e) => p.setEmployers({ ...p.employers, [who]: e.target.value })}
-                    placeholder={placeholder}
-                    style={inputStyle(t)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => p.onSaveEmployer(who)}
-                    disabled={saving || !dirty}
-                    style={{ ...primaryBtn, opacity: saving || !dirty ? 0.5 : 1, cursor: saving || !dirty ? "not-allowed" : "pointer" }}
-                  >
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
 
       {/* INVITE CODE */}
       <Section t={t} label="Invite code" desc="Share with a new member to link their Mac or phone.">
@@ -593,6 +547,23 @@ function GeneralTab(p: {
 // PEOPLE
 // ════════════════════════════════════════════════════════════════════════════
 
+type PersonKey = "G" | "K" | "D";
+
+/** Which schedule a member is: Gage, Kaylene, Daisy, or someone else. */
+function personKeyFor(name: string): PersonKey | null {
+  const n = name.toLowerCase();
+  if (n.includes("gage")) return "G";
+  if (n.includes("kayl")) return "K";
+  if (n.includes("daisy")) return "D";
+  return null;
+}
+
+const EMPLOYER_PLACEHOLDER: Record<PersonKey, string> = {
+  G: "Thomas Hospital",
+  K: "Thomas Hospital",
+  D: "School or college",
+};
+
 function PeopleTab(p: {
   t: ThemeTokens; dark: boolean; palette: Palette;
   members: Array<{ uid: string; name: string; role: "admin" | "partner" | "supporting" }>;
@@ -602,15 +573,116 @@ function PeopleTab(p: {
   daisy: DependentBlock | undefined;
   state: HouseholdState | null;
   householdId: string | null;
+  employers: { G: string; K: string; D: string };
+  setEmployers: (v: { G: string; K: string; D: string }) => void;
+  savedEmployers: { G?: string; K?: string; D?: string };
+  employerBusy: PersonKey | null;
+  onSaveEmployer: (who: PersonKey) => void;
 }) {
   const { t, palette, dark } = p;
 
-  // WHAT NUCLEUSAI MAY DO — local per-person permission (TODO wire).
+  // Which row's editor is open: a member uid, or "dependent:daisy".
+  const [editing, setEditing] = useState<string | null>(null);
+  const toggle = (id: string) => setEditing((cur) => (cur === id ? null : id));
+
+  // WHAT NUCLEUSAI MAY DO — per member. Not saved yet (TODO wire to the
+  // household doc's aiPermission; see the ai-permission-gate patch).
   const [aiPerms, setAiPerms] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const m of p.members) init[m.uid] = m.role === "supporting" ? "read" : "draft";
     return init;
   });
+
+  // The fields behind each person's Edit.
+  const editor = (key: PersonKey | null, name: string, memberUid: string | null) => (
+    <div
+      style={{
+        margin: "-2px 0 4px", padding: "14px 16px 16px", borderRadius: 4,
+        border: `1px solid ${t.sep}`, borderTop: `2px solid ${key ? personColor(key, palette) : t.sep}`,
+        background: t.bg, display: "flex", flexDirection: "column", gap: 14,
+      }}
+    >
+      {key && (
+        <div>
+          <FieldLabel t={t}>Employer</FieldLabel>
+          <div style={{ fontSize: 12, color: t.text2, marginBottom: 8, lineHeight: 1.45 }}>
+            Search for the business, or type any name. Shown as a shift's location when the shift doesn't name one itself.
+          </div>
+          {(() => {
+            const dirty = (p.employers[key] ?? "") !== (p.savedEmployers[key] ?? "");
+            const saving = p.employerBusy === key;
+            return (
+              <div style={{ display: "flex", gap: 8, maxWidth: 460 }}>
+                <EmployerField
+                  value={p.employers[key]}
+                  onChange={(v) => p.setEmployers({ ...p.employers, [key]: v })}
+                  placeholder={EMPLOYER_PLACEHOLDER[key]}
+                  ariaLabel={`${name}'s employer`}
+                  t={t}
+                  inputStyle={inputStyle(t)}
+                />
+                <button
+                  type="button"
+                  onClick={() => p.onSaveEmployer(key)}
+                  disabled={saving || !dirty}
+                  style={{ ...primaryBtn, opacity: saving || !dirty ? 0.5 : 1, cursor: saving || !dirty ? "not-allowed" : "pointer" }}
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {(key === "G" || key === "K") && (
+        <div>
+          <FieldLabel t={t}>Payday</FieldLabel>
+          <div style={{ fontSize: 12, color: t.text2, marginBottom: 8, lineHeight: 1.45 }}>
+            Any one payday and how often it repeats. A $ chip marks each one on the calendar.
+          </div>
+          <PaydayRow who={key} label={name} color={personColor(key, palette)} schedule={p.state?.paydays?.[key] ?? null} householdId={p.householdId} t={t} />
+        </div>
+      )}
+
+      {memberUid && (
+        <div>
+          <FieldLabel t={t}>What nucleusAI may do</FieldLabel>
+          <div style={{ fontSize: 12, color: t.text2, marginBottom: 8, lineHeight: 1.45 }}>
+            The most {name} may let the assistant do on their behalf.
+          </div>
+          <select
+            value={aiPerms[memberUid] ?? "draft"}
+            onChange={(e) => setAiPerms((s) => ({ ...s, [memberUid]: e.target.value }))}
+            aria-label={`What nucleusAI may do for ${name}`}
+            style={{ ...inputStyle(t), width: 200, cursor: "pointer" }}
+          >
+            <option value="draft">Draft</option>
+            <option value="read">Read only</option>
+            <option value="off">Off</option>
+          </select>
+          <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>Not saved yet — this setting is coming soon.</div>
+        </div>
+      )}
+
+      {!key && !memberUid && (
+        <div style={{ fontSize: 12.5, color: t.text3 }}>Nothing to edit for this person yet.</div>
+      )}
+    </div>
+  );
+
+  const editBtn = (id: string, name: string) => (
+    <button
+      type="button"
+      aria-label={`Edit ${name}`}
+      aria-expanded={editing === id}
+      title={editing === id ? "Done" : "Edit"}
+      onClick={() => toggle(id)}
+      style={{ ...iconBtn(t), ...(editing === id ? { background: t.tealTint, borderColor: t.tealTint, color: t.tealText } : {}) }}
+    >
+      <PencilIcon />
+    </button>
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -621,48 +693,52 @@ function PeopleTab(p: {
             <div style={{ fontSize: 12.5, color: t.text3 }}>No members yet.</div>
           )}
           {p.members.map((m) => {
-            const isG = m.name.toLowerCase().includes("gage");
-            const isK = m.name.toLowerCase().includes("kaylene") || m.name.toLowerCase().includes("kayl");
+            const key = personKeyFor(m.name);
             const isSelf = !!p.selfUid && m.uid === p.selfUid;
             const isBusy = p.removingUid === m.uid;
             const summary = m.role === "admin" ? "Full schedule · overrides"
               : m.role === "supporting" ? "Coverage requests only"
               : "Full schedule";
             return (
-              <div key={m.uid} style={{ ...rowCard(t), opacity: isBusy ? 0.5 : 1 }}>
-                {isG ? <PhotoAv who="G" size={34} palette={palette} dark={dark} /> :
-                 isK ? <PhotoAv who="K" size={34} palette={palette} dark={dark} /> :
-                 <InitialSquare letter={m.name[0]?.toUpperCase() ?? "?"} color={palette.BOTH} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {m.name}{isSelf ? <span style={{ color: t.text3, fontWeight: 500, marginLeft: 6 }}>(you)</span> : null}
+              <div key={m.uid} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <div style={{ ...rowCard(t), opacity: isBusy ? 0.5 : 1 }}>
+                  {key ? <PhotoAv who={key} size={34} palette={palette} dark={dark} /> :
+                   <InitialSquare letter={m.name[0]?.toUpperCase() ?? "?"} color={palette.BOTH} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {m.name}{isSelf ? <span style={{ color: t.text3, fontWeight: 500, marginLeft: 6 }}>(you)</span> : null}
+                    </div>
+                    <div style={{ fontSize: 12, color: t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {summary}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {summary}
-                  </div>
+                  <RoleChip t={t} role={m.role} />
+                  {editBtn(m.uid, m.name)}
+                  {isSelf ? (
+                    // You can't remove yourself: the trash is there, greyed out.
+                    <button
+                      type="button"
+                      aria-label="You can't remove yourself"
+                      title="You can't remove yourself"
+                      disabled
+                      style={{ ...iconBtn(t), cursor: "default" }}
+                    >
+                      <RedTrash disabledColor={t.text3} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${m.name}`}
+                      title="Remove"
+                      disabled={isBusy}
+                      onClick={() => p.onRemoveMember(m.uid, m.name)}
+                      style={{ ...iconBtn(t), color: t.clayText }}
+                    >
+                      <RedTrash />
+                    </button>
+                  )}
                 </div>
-                <RoleChip t={t} role={m.role} />
-                <button
-                  type="button"
-                  aria-label={`Edit ${m.name}`}
-                  title="Edit"
-                  onClick={() => { /* TODO wire member edit */ }}
-                  style={iconBtn(t)}
-                >
-                  <PencilIcon />
-                </button>
-                {!isSelf && (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${m.name}`}
-                    title="Remove"
-                    disabled={isBusy}
-                    onClick={() => p.onRemoveMember(m.uid, m.name)}
-                    style={{ ...iconBtn(t), color: t.clayText }}
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
+                {editing === m.uid && editor(key, m.name, m.uid)}
               </div>
             );
           })}
@@ -672,64 +748,28 @@ function PeopleTab(p: {
       {/* DEPENDENTS */}
       <Section t={t} label="Dependents" desc="Kids and others whose schedule lives in the household.">
         {p.daisy ? (
-          <div style={rowCard(t)}>
-            <InitialSquare letter="D" color="#5A6663" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{p.daisy.name || "Daisy"}</div>
-              <div style={{ fontSize: 12, color: t.text2 }}>
-                School schedule · {p.daisy.shifts?.length ?? 0} class day{(p.daisy.shifts?.length ?? 0) === 1 ? "" : "s"} on file
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={rowCard(t)}>
+              <PhotoAv who="D" size={34} palette={palette} dark={dark} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{p.daisy.name || "Daisy"}</div>
+                <div style={{ fontSize: 12, color: t.text2 }}>
+                  School schedule · {p.daisy.shifts?.length ?? 0} class day{(p.daisy.shifts?.length ?? 0) === 1 ? "" : "s"} on file
+                </div>
               </div>
+              <RoleChip t={t} role="dependent" />
+              {editBtn("dependent:daisy", p.daisy.name || "Daisy")}
+              <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: t.clayText }}>
+                <RedTrash />
+              </button>
             </div>
-            <RoleChip t={t} role="dependent" />
-            <button type="button" aria-label="Edit Daisy" title="Edit" onClick={() => { /* TODO wire dependent edit */ }} style={iconBtn(t)}>
-              <PencilIcon />
-            </button>
-            <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: t.clayText }}>
-              <TrashIcon />
-            </button>
+            {editing === "dependent:daisy" && editor("D", p.daisy.name || "Daisy", null)}
           </div>
         ) : (
           <div style={{ fontSize: 12.5, color: t.text3 }}>
             No dependents yet. Import Daisy's class schedule from the sidebar to add her.
           </div>
         )}
-      </Section>
-
-      {/* PAYDAYS */}
-      <Section t={t} label="Paydays" desc="A $ chip appears on the calendar on each member's payday.">
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <PaydayRow who="G" label="Gage" color={palette.G} schedule={p.state?.paydays?.G ?? null} householdId={p.householdId} t={t} />
-          <PaydayRow who="K" label="Kaylene" color={palette.K} schedule={p.state?.paydays?.K ?? null} householdId={p.householdId} t={t} />
-          <button type="button" onClick={() => { /* TODO wire add-a-person */ }} style={{ ...secondaryBtn(t), alignSelf: "flex-start" }}>
-            Add a person
-          </button>
-        </div>
-      </Section>
-
-      {/* WHAT NUCLEUSAI MAY DO — placeholder */}
-      <Section
-        t={t}
-        label="What NucleusAI may do"
-        desc="This is the most each person may allow the assistant to do on their behalf."
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {p.members.map((m) => (
-            <div key={m.uid} style={{ ...rowCard(t), gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {m.name}
-              </div>
-              <select
-                value={aiPerms[m.uid] ?? "draft"}
-                onChange={(e) => setAiPerms((s) => ({ ...s, [m.uid]: e.target.value }))}
-                style={{ ...inputStyle(t), width: 160, cursor: "pointer" }}
-              >
-                <option value="draft">Draft</option>
-                <option value="read">Read only</option>
-                <option value="off">Off</option>
-              </select>
-            </div>
-          ))}
-        </div>
       </Section>
     </div>
   );
@@ -946,7 +986,7 @@ function FeedsSubTab({ t }: { t: ThemeTokens }) {
               <span style={feedChip}>{f.where}</span>
               <span style={{ fontSize: 12, color: t.text3, whiteSpace: "nowrap" }}>{f.checked}</span>
               <button type="button" aria-label={`Edit ${f.name}`} title="Edit" onClick={() => { /* TODO wire feed edit */ }} style={iconBtn(t)}><PencilIcon /></button>
-              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: t.clayText }}><TrashIcon /></button>
+              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: t.clayText }}><RedTrash /></button>
             </div>
           ))}
           {feeds.length === 0 && <div style={{ fontSize: 12.5, color: t.text3 }}>No feeds yet.</div>}
@@ -1144,42 +1184,6 @@ function BillingTab({ t, hhName }: { t: ThemeTokens; hhName: string }) {
 // SHARED PIECES
 // ════════════════════════════════════════════════════════════════════════════
 
-function TimeZoneField({ t, tz, setTz, householdId, savedTz }: {
-  t: ThemeTokens; tz: string; setTz: (v: string) => void; householdId: string | null; savedTz: string;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const dirty = tz !== savedTz;
-  const onSave = async () => {
-    if (!householdId) { setErr("No household linked."); return; }
-    setErr(null);
-    setBusy(true);
-    try { await setTimeZone(householdId, tz); }
-    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
-    finally { setBusy(false); }
-  };
-  const known = TIME_ZONES.some((z) => z.id === tz);
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <select value={tz} onChange={(e) => setTz(e.target.value)} style={{ ...inputStyle(t), cursor: "pointer" }}>
-          {TIME_ZONES.map((z) => <option key={z.id} value={z.id}>{z.label}</option>)}
-          {!known && <option value={tz}>{tz}</option>}
-        </select>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={busy || !dirty}
-          style={{ ...primaryBtn, opacity: busy || !dirty ? 0.5 : 1, cursor: busy || !dirty ? "not-allowed" : "pointer" }}
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-      </div>
-      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
-    </div>
-  );
-}
-
 function Section({ label, desc, t, action, children }: { label: string; desc?: string; t: ThemeTokens; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
@@ -1330,18 +1334,19 @@ function XIcon() {
     </svg>
   );
 }
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, opacity: 0.7 }}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
 function PencilIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-    </svg>
-  );
-}
-function TrashIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18M8 6V4h8v2m-9 0v14a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6" />
     </svg>
   );
 }

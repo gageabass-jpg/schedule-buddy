@@ -39,7 +39,7 @@ export function federalHolidays(y: number): Holiday[] {
     { date: iso(y, 6, 4), name: "Independence Day", short: "July 4th" },
     { date: iso(y, 8, nthWeekday(y, 8, 1, 1)), name: "Labor Day", short: "Labor Day" },
     { date: iso(y, 9, nthWeekday(y, 9, 1, 2)), name: "Columbus Day", short: "Columbus Day" },
-    { date: iso(y, 10, 11), name: "Veteran's Day", short: "Veteran's Day" },
+    { date: iso(y, 10, 11), name: "Veterans Day", short: "Veterans Day" },
     { date: iso(y, 10, nthWeekday(y, 10, 4, 4)), name: "Thanksgiving", short: "Thanksgiving" },
     { date: iso(y, 11, 25), name: "Christmas Day", short: "Christmas" },
   ];
