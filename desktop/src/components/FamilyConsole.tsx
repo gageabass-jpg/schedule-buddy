@@ -21,7 +21,7 @@ import { Button01 } from "@/components/ui/nextjsshop-button";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
-import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, type CommuteConfig, type CommutePlace } from "../lib/commute";
+import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, setCommuteCushion, DEFAULT_CUSHION, type CommuteConfig, type CommutePlace } from "../lib/commute";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -333,6 +333,7 @@ export function FamilyConsole({
                 draftName={draftName} setDraftName={setDraftName}
                 busy={busy} onSaveName={onSaveName}
                 commuteHome={commute.home ?? null}
+                commuteCushion={commute.cushion ?? DEFAULT_CUSHION}
                 inviteCode={household?.inviteCode ?? null}
                 copied={copied} onCopyCode={onCopyCode}
                 caregiverEmail={caregiverEmail} setCaregiverEmail={setCaregiverEmail}
@@ -416,6 +417,7 @@ function GeneralTab(p: {
   draftName: string; setDraftName: (v: string) => void;
   busy: boolean; onSaveName: () => void;
   commuteHome: CommutePlace | null;
+  commuteCushion: { min: number; max: number };
   inviteCode: string | null;
   copied: boolean; onCopyCode: () => void;
   caregiverEmail: string; setCaregiverEmail: (v: string) => void;
@@ -472,6 +474,8 @@ function GeneralTab(p: {
         desc="Your home address, for leave-by times and heavy-traffic alerts before each shift. Only you and your partner can see it."
       >
         <CommuteHome t={t} householdId={p.householdId} home={p.commuteHome} />
+        <div style={{ height: 14 }} />
+        <CommuteCushion t={t} householdId={p.householdId} cushion={p.commuteCushion} />
       </Section>
 
       {/* INVITE CODE */}
@@ -1278,6 +1282,55 @@ function CommuteHome({ t, householdId, home }: { t: ThemeTokens; householdId: st
       </div>
       <div style={{ fontSize: 11.5, color: home ? t.tealText : t.text3, marginTop: 6 }}>
         {home ? "Traffic alerts are on for anyone whose employer is picked from the list." : "Pick your address from the list, then save."}
+      </div>
+      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
+    </div>
+  );
+}
+
+/** How long before a shift the household leaves — the coffee-stop cushion. */
+function CommuteCushion({ t, householdId, cushion }: { t: ThemeTokens; householdId: string | null; cushion: { min: number; max: number } }) {
+  const [min, setMin] = useState(String(cushion.min));
+  const [max, setMax] = useState(String(cushion.max));
+  const [saved, setSaved] = useState(`${cushion.min}-${cushion.max}`);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  // Follow the saved value when it changes elsewhere (state adjusted during render).
+  if (`${cushion.min}-${cushion.max}` !== saved) {
+    setSaved(`${cushion.min}-${cushion.max}`); setMin(String(cushion.min)); setMax(String(cushion.max));
+  }
+  const lo = Number(min), hi = Number(max);
+  const valid = Number.isInteger(lo) && Number.isInteger(hi) && lo >= 0 && hi <= 180 && lo <= hi;
+  const dirty = lo !== cushion.min || hi !== cushion.max;
+  const onSave = async () => {
+    if (!householdId) { setErr("No household linked."); return; }
+    setErr(null);
+    setBusy(true);
+    try { await setCommuteCushion(householdId, { min: lo, max: hi }); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
+    finally { setBusy(false); }
+  };
+  const num: React.CSSProperties = { ...inputStyle(t), width: 72, textAlign: "center" };
+  return (
+    <div>
+      <FieldLabel t={t}>When you leave</FieldLabel>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: t.text }}>
+        <span>We leave</span>
+        <input type="number" min={0} max={180} value={min} onChange={(e) => setMin(e.target.value)} aria-label="Least minutes before a shift" style={num} />
+        <span>to</span>
+        <input type="number" min={0} max={180} value={max} onChange={(e) => setMax(e.target.value)} aria-label="Most minutes before a shift" style={num} />
+        <span>minutes before a shift.</span>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={busy || !valid || !dirty}
+          style={{ ...primaryBtn, opacity: busy || !valid || !dirty ? 0.5 : 1, cursor: busy || !valid || !dirty ? "not-allowed" : "pointer" }}
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </div>
+      <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>
+        {valid ? "When traffic runs heavy, this window moves earlier and whoever's working gets a heads-up." : "Use whole minutes, 0–180, with the first no bigger than the second."}
       </div>
       {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
     </div>

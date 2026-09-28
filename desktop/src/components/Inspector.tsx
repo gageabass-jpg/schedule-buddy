@@ -235,13 +235,15 @@ export function Inspector({
                     // Leave by, from the traffic check before this shift.
                     const c = (s.who === "G" || s.who === "K") ? commute?.get(`${selected}_${s.who}`) : undefined;
                     if (!c || !stype || c.shiftStart !== stype.start) return null;
-                    const extra = c.durationMin - c.typicalMin;
+                    const window_ = c.windowFrom && c.windowTo
+                      ? `Leave ${compactTime(c.windowFrom)}–${compactTime(c.windowTo)} · latest ${compactTime(c.leaveBy)}`
+                      : `Leave by ${compactTime(c.leaveBy)}`;
                     return (
                       <div
                         style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: c.heavy ? FLAG_RED : t.text2 }}
-                        title={`${c.durationMin} min to ${c.placeLabel}${c.live ? " right now" : " expected"} · ${c.typicalMin} min with no traffic`}
+                        title={`${c.durationMin} min to ${c.placeLabel}${c.live ? " right now" : " expected"}${c.usualMin ? ` · usually ${c.usualMin} min` : ""}`}
                       >
-                        {c.heavy ? `Heavy traffic, ${extra} min extra · ` : ""}Leave by {compactTime(c.leaveBy)} · {c.durationMin} min
+                        {c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}{window_} · {c.durationMin} min drive
                       </div>
                     );
                   })()}

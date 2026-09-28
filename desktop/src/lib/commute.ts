@@ -15,7 +15,11 @@ export interface CommutePlace { placeId: string; label: string }
 export interface CommuteConfig {
   home?: CommutePlace | null;
   work?: Partial<Record<"G" | "K", CommutePlace | null>>;
+  /** Minutes before a shift the household usually leaves (default 45–60). */
+  cushion?: { min: number; max: number };
 }
+
+export const DEFAULT_CUSHION = { min: 45, max: 60 };
 
 export interface CommuteResult {
   date: string;
@@ -24,7 +28,13 @@ export interface CommuteResult {
   placeLabel: string;
   durationMin: number;
   typicalMin: number;
-  leaveBy: string;        // "HH:MM"
+  /** A normal day's drive at this hour; absent on results from before the cushion. */
+  usualMin?: number;
+  /** How far the usual window moved earlier for traffic. */
+  earlierMin?: number;
+  windowFrom?: string;    // "HH:MM" — the usual window, moved
+  windowTo?: string;
+  leaveBy: string;        // "HH:MM" — the latest departure
   leaveByMs: number;
   heavy: boolean;
   live: boolean;
@@ -44,6 +54,10 @@ export function subscribeCommuteConfig(householdId: string, onChange: (c: Commut
 
 export async function setCommuteHome(householdId: string, home: CommutePlace | null): Promise<void> {
   await setDoc(configRef(householdId), { home }, { merge: true });
+}
+
+export async function setCommuteCushion(householdId: string, cushion: { min: number; max: number }): Promise<void> {
+  await setDoc(configRef(householdId), { cushion }, { merge: true });
 }
 
 export async function setCommuteWork(householdId: string, who: "G" | "K", place: CommutePlace | null): Promise<void> {

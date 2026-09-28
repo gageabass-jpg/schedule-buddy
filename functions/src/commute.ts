@@ -6,15 +6,18 @@
 //     Google place ids picked in the Manager), it finds Gage's and Kaylene's
 //     next shift today or tomorrow with the same buildShiftMap the calendar
 //     uses.
-//   - More than LIVE_WINDOW_MIN before a shift: one predicted drive time
-//     (Google Routes, traffic model best guess) every few hours.
-//   - Inside the window: the live drive time every run, until they should
-//     have left.
+//   - The household leaves a cushion before each shift (default 45–60 min,
+//     set in the Manager) for coffee and the like. That's the usual window.
+//   - Hours ahead: one predicted drive (Google Routes, best-guess traffic
+//     for leaving at the usual time), every few hours. That prediction is
+//     "usual" — a normal day at that hour, rush hour included.
+//   - From an hour before the usual window: the live drive every run. When
+//     it runs longer than usual, the window slides earlier by the difference.
 //   - Each result is written to households/{hid}/commute/{date}_{who}, which
-//     the Manager and the phone read to show "Leave by 2:22p · 28 min".
-//   - When the drive is much longer than usual (Routes' staticDuration: the
-//     same route with no traffic), that person — only that person — gets a
-//     push. Again only if it gets another 10 minutes worse.
+//     the Manager and the phone read to show "Leave 5–5:15a · latest 5:36a".
+//     Latest = shift start − live drive − time to park and walk in.
+//   - When the window has to move 10+ minutes earlier, that person — only
+//     that person — gets a push. Again only if it moves another 10 minutes.
 //   - The Google key is the same secret as placesAutocomplete; it's
 //     restricted to Places (New) and Routes.
 
@@ -27,15 +30,19 @@ import { buildShiftMap, expandCustomTemplateTypes, type HouseholdState } from ".
 
 const GOOGLE_API_KEY = defineSecret("GOOGLE_PLACES_API_KEY");
 
-/** Start watching live traffic this long before a shift starts. */
-const LIVE_WINDOW_MIN = 90;
-/** Minutes of slack added to the drive when working out "leave by". */
-const BUFFER_MIN = 10;
+/** The cushion before a shift when the household hasn't set one. */
+const DEFAULT_CUSHION = { min: 45, max: 60 };
+/** Start live checks this long before the usual window opens. */
+const LIVE_LEAD_MIN = 60;
+/** Parking and walking in: the latest departure leaves this much slack. */
+const PARK_MIN = 10;
+/** Move the window at least this much before sending an alert. */
+const ALERT_EARLIER_MIN = 10;
 /** Look this far ahead for the next shift. */
 const LOOKAHEAD_MIN = 16 * 60;
 /** Re-predict a far-off shift at most this often. */
 const PREDICT_EVERY_MS = 3 * 60 * 60 * 1000;
-/** Keep checking a little past "leave by", in case someone's running late. */
+/** Keep checking a little past the latest time, in case someone's running late. */
 const AFTER_LEAVE_BY_MIN = 15;
 
 type Who = "G" | "K";
@@ -44,6 +51,8 @@ interface Place { placeId: string; label: string }
 interface CommuteConfig {
   home?: Place | null;
   work?: Partial<Record<Who, Place | null>>;
+  /** Minutes before a shift the household usually leaves. */
+  cushion?: { min?: number; max?: number };
 }
 
 export interface CommuteDoc {
@@ -52,15 +61,19 @@ export interface CommuteDoc {
   shiftStart: string;        // "HH:MM" local
   shiftStartMs: number;
   placeLabel: string;        // "Thomas Memorial Hospital"
-  durationMin: number;       // drive time for this departure, with traffic
+  durationMin: number;       // latest measured drive, with traffic
   typicalMin: number;        // the same drive with no traffic
-  leaveBy: string;           // "HH:MM" local
+  usualMin: number;          // a normal day at this hour (the prediction)
+  earlierMin: number;        // how far the window moved: drive − usual, ≥ 0
+  windowFrom: string;        // "HH:MM" local — the usual window, moved
+  windowTo: string;
+  leaveBy: string;           // "HH:MM" local — the latest departure
   leaveByMs: number;
-  heavy: boolean;            // much worse than typical
+  heavy: boolean;            // moved ALERT_EARLIER_MIN or more
   live: boolean;             // measured now (true) or predicted ahead (false)
   checkedAt: number;
   alertedAt?: number;
-  alertedMin?: number;
+  alertedEarlier?: number;
 }
 
 // ── Time zones: a wall-clock time in the household's zone → epoch ms ───────
@@ -139,10 +152,10 @@ async function driveMinutes(
   return { durationMin: Math.round(d / 60), typicalMin: Math.round((Number.isFinite(st) ? st : d) / 60) };
 }
 
-/** Much worse than usual: at least 10 minutes and 30% over the no-traffic time. */
-function isHeavy(durationMin: number, typicalMin: number): boolean {
-  const extra = durationMin - typicalMin;
-  return extra >= 10 && extra >= typicalMin * 0.3;
+
+function clampMin(v: unknown, fallback: number): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.round(v) : fallback;
+  return Math.min(180, Math.max(0, n));
 }
 
 // ── Who is who ──────────────────────────────────────────────────────────────
@@ -197,6 +210,11 @@ export const checkCommutes = onSchedule(
       try {
         const cfg = (await hhDoc.ref.collection("private").doc("commute").get()).data() as CommuteConfig | undefined;
         if (!cfg?.home?.placeId) continue;
+        const cushion = {
+          min: clampMin(cfg.cushion?.min, DEFAULT_CUSHION.min),
+          max: clampMin(cfg.cushion?.max, DEFAULT_CUSHION.max),
+        };
+        if (cushion.max < cushion.min) cushion.max = cushion.min;
         const stateSnap = await hhDoc.ref.collection("state").doc("main").get();
         if (!stateSnap.exists) continue;
         const state = stateSnap.data() as HouseholdState;
@@ -228,45 +246,52 @@ export const checkCommutes = onSchedule(
           const ref = hhDoc.ref.collection("commute").doc(`${next.date}_${who}`);
           const prev = (await ref.get()).data() as CommuteDoc | undefined;
           const minutesAway = (next.startMs - now) / 60000;
-          const live = minutesAway <= LIVE_WINDOW_MIN;
+          const live = minutesAway <= cushion.max + LIVE_LEAD_MIN;
 
           if (!live && prev && now - prev.checkedAt < PREDICT_EVERY_MS) continue;
           if (live && prev?.live && now > prev.leaveByMs + AFTER_LEAVE_BY_MIN * 60000) continue;
 
-          // Predicted: depart at the usual time. Live: depart now.
-          const guessMin = prev?.typicalMin ?? 30;
-          const departMs = live ? null : next.startMs - (guessMin + BUFFER_MIN) * 60000;
+          // Ahead of time: predict leaving at the usual time. Live: leave now.
+          const usualDepartMs = next.startMs - cushion.max * 60000;
+          const departMs = live ? null : usualDepartMs;
           if (departMs !== null && departMs <= now) continue;
           const drive = await driveMinutes(key, cfg.home, work, departMs);
           if (!drive) continue;
 
-          const leaveByMs = next.startMs - (drive.durationMin + BUFFER_MIN) * 60000;
-          const heavy = isHeavy(drive.durationMin, drive.typicalMin);
+          // "Usual" is the prediction for this hour; live readings are held
+          // against it. Without one yet, fall back to the no-traffic drive.
+          const usualMin = live ? (prev?.usualMin ?? drive.typicalMin) : drive.durationMin;
+          const earlierMin = Math.max(0, drive.durationMin - usualMin);
+          const fromMs = next.startMs - (cushion.max + earlierMin) * 60000;
+          const toMs = next.startMs - (cushion.min + earlierMin) * 60000;
+          const leaveByMs = next.startMs - (drive.durationMin + PARK_MIN) * 60000;
+          const heavy = earlierMin >= ALERT_EARLIER_MIN;
           const out: CommuteDoc = {
             date: next.date, who, shiftStart: next.start, shiftStartMs: next.startMs,
             placeLabel: work.label,
-            durationMin: drive.durationMin, typicalMin: drive.typicalMin,
+            durationMin: drive.durationMin, typicalMin: drive.typicalMin, usualMin, earlierMin,
+            windowFrom: localHhmm(fromMs, tz), windowTo: localHhmm(toMs, tz),
             leaveBy: localHhmm(leaveByMs, tz), leaveByMs,
             heavy, live, checkedAt: now,
-            ...(prev?.alertedAt ? { alertedAt: prev.alertedAt, alertedMin: prev.alertedMin } : {}),
+            ...(prev?.alertedAt ? { alertedAt: prev.alertedAt, alertedEarlier: prev.alertedEarlier } : {}),
           };
 
-          // Alert that person, once, and again only if it gets 10+ min worse.
-          if (live && heavy && now < leaveByMs + AFTER_LEAVE_BY_MIN * 60000 &&
-              (!prev?.alertedAt || drive.durationMin >= (prev.alertedMin ?? 0) + 10)) {
+          // Alert that person, once, and again only if it moves 10+ min more.
+          if (live && heavy && now < leaveByMs &&
+              (!prev?.alertedAt || earlierMin >= (prev.alertedEarlier ?? 0) + ALERT_EARLIER_MIN)) {
             const uid = uidFor(who, hhDoc.data(), state);
-            const extra = drive.durationMin - drive.typicalMin;
-            const title = `Heavy traffic to ${work.label}`;
-            const body = now >= leaveByMs
-              ? `${drive.durationMin} min right now, ${extra} more than usual. Leave now.`
-              : `${drive.durationMin} min right now, ${extra} more than usual. Leave by ${clock12(leaveByMs, tz)}.`;
+            const title = `Leave ${earlierMin} min earlier today`;
+            const when = now >= toMs
+              ? `Leave now, ${clock12(leaveByMs, tz)} at the latest.`
+              : `Leave between ${clock12(Math.max(fromMs, now), tz)} and ${clock12(toMs, tz)}, ${clock12(leaveByMs, tz)} at the latest.`;
+            const body = `Heavy traffic to ${work.label}: ${drive.durationMin} min right now. ${when}`;
             if (uid && await pushTo(householdId, uid, title, body, { kind: "traffic", householdId, date: next.date })) {
               out.alertedAt = now;
-              out.alertedMin = drive.durationMin;
+              out.alertedEarlier = earlierMin;
             }
           }
           await ref.set(out);
-          logger.info("commute: checked", { householdId, who, date: next.date, live, durationMin: drive.durationMin, typicalMin: drive.typicalMin, heavy });
+          logger.info("commute: checked", { householdId, who, date: next.date, live, durationMin: drive.durationMin, usualMin, earlierMin, heavy });
         }
       } catch (e) {
         logger.warn("commute: household failed", { householdId, error: String(e) });

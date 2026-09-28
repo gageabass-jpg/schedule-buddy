@@ -11275,8 +11275,9 @@ function initFirestoreSync() {
 
 // ==================== COMMUTE ("leave by") ====================
 // The checkCommutes function writes households/{hid}/commute/{date}_{who}
-// before each of Gage's and Kaylene's shifts: the drive time with traffic and
-// when to leave. Admin and partner only (firestore.rules); the day card and
+// before each of Gage's and Kaylene's shifts: the drive with traffic, the
+// household's usual leave window (moved earlier when traffic's heavy) and
+// the latest time to leave. Admin and partner only (firestore.rules); the day card and
 // agenda show it under that person's shift.
 let _commute = {};
 let _commuteUnsub = null;
@@ -11291,14 +11292,19 @@ function initCommuteSync() {
       if (typeof renderCalendar === "function") renderCalendar();
     }, err => console.warn("commute listener:", err));
 }
-// "Leave by 2:22p · 28 min", or a warning when traffic is heavy. For the
+// "Leave 5–5:15a · latest 5:36a · 14 min drive", led by how much earlier
+// when traffic's heavy. For the
 // shift that starts at `startTime` only (a second shift that day has none).
 function leaveByHTML(dISO, who, startTime, withName) {
   const c = _commute[`${dISO}_${who}`];
   if (!c || c.shiftStart !== startTime) return "";
-  const extra = c.durationMin - c.typicalMin;
   const who_ = withName ? `${_eventWhoMeta(who).name}: ` : "";
-  const text = `${who_}${c.heavy ? `Heavy traffic, ${extra} min extra · ` : ""}${withName ? "leave" : "Leave"} by ${compactTime(c.leaveBy)} · ${c.durationMin} min`;
+  const leave = withName ? "leave" : "Leave";
+  // The household's usual window (moved earlier for traffic), then the latest.
+  const when = c.windowFrom && c.windowTo
+    ? `${leave} ${compactTime(c.windowFrom)}–${compactTime(c.windowTo)} · latest ${compactTime(c.leaveBy)}`
+    : `${leave} by ${compactTime(c.leaveBy)}`;
+  const text = `${who_}${c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}${when} · ${c.durationMin} min drive`;
   return `<div class="leave-by${c.heavy ? " heavy" : ""}">${escapeHTML(text)}</div>`;
 }
 
