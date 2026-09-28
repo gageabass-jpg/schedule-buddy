@@ -17,6 +17,8 @@ import { BlockTip } from "./BlockTip";
 import { PhotoAv } from "./PhotoAv";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
+import type { CommuteResult } from "../lib/commute";
+import { FLAG_RED } from "./DayFlagPopover";
 
 interface Props {
   selected: string;
@@ -26,6 +28,8 @@ interface Props {
   shifts: ShiftMap;
   /** Kaylene's stretches by date, for the fire beside her hours. */
   stretches?: Map<string, StretchDay>;
+  /** "Leave by" results keyed `${date}_${who}` (lib/commute.ts). */
+  commute?: Map<string, CommuteResult>;
   state: HouseholdState | null;
   selfName: string;
   partnerName: string;
@@ -57,7 +61,7 @@ interface Props {
 
 
 export function Inspector({
-  selected, palette, t, dark, shifts: allShifts, stretches, state, selfName, partnerName,
+  selected, palette, t, dark, shifts: allShifts, stretches, commute, state, selfName, partnerName,
   onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay: _onSendCoverageForDay,
   onToggleChildcareOff: _onToggleChildcareOff, onSelectDate,
   onOpenScheduleBlock, onOpenCleaner: _onOpenCleaner,
@@ -227,6 +231,20 @@ export function Inspector({
                 <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
+                  {(() => {
+                    // Leave by, from the traffic check before this shift.
+                    const c = (s.who === "G" || s.who === "K") ? commute?.get(`${selected}_${s.who}`) : undefined;
+                    if (!c || !stype || c.shiftStart !== stype.start) return null;
+                    const extra = c.durationMin - c.typicalMin;
+                    return (
+                      <div
+                        style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: c.heavy ? FLAG_RED : t.text2 }}
+                        title={`${c.durationMin} min to ${c.placeLabel}${c.live ? " right now" : " expected"} · ${c.typicalMin} min with no traffic`}
+                      >
+                        {c.heavy ? `Heavy traffic, ${extra} min extra · ` : ""}Leave by {compactTime(c.leaveBy)} · {c.durationMin} min
+                      </div>
+                    );
+                  })()}
                 </div>
                 {holiday && (s.who === "G" || s.who === "K") && <HolidayPayTag t={t} fontSize={11.5} />}
                 {s.who === "K" && stretches?.get(selected) && (

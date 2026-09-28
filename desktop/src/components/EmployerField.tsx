@@ -9,9 +9,11 @@ import { searchPlaces, type PlaceSuggestion } from "../lib/placesAutocomplete";
  * picking one fills in its name. Anything typed can still be saved as is, and
  * if the search is unavailable the box simply behaves like a text field.
  */
-export function EmployerField({ value, onChange, placeholder, ariaLabel, t, inputStyle }: {
+export function EmployerField({ value, onChange, onPick, placeholder, ariaLabel, t, inputStyle }: {
   value: string;
   onChange: (v: string) => void;
+  /** Called with the place itself when one is picked from the list. */
+  onPick?: (place: PlaceSuggestion) => void;
   placeholder: string;
   ariaLabel: string;
   t: ThemeTokens;
@@ -54,6 +56,7 @@ export function EmployerField({ value, onChange, placeholder, ariaLabel, t, inpu
     typed.current = false;
     session.current = null;                       // the next search is a new session
     onChange(s.name);
+    onPick?.(s);
     setOpen(false);
     setSuggestions([]);
   };

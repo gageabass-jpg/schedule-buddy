@@ -21,6 +21,7 @@ import { Button01 } from "@/components/ui/nextjsshop-button";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
+import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, type CommuteConfig, type CommutePlace } from "../lib/commute";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -81,6 +82,14 @@ export function FamilyConsole({
   // shift names its own location.
   const [employers, setEmployers] = useState<{ G: string; K: string; D: string }>({ G: "", K: "", D: "" });
   const [employerBusy, setEmployerBusy] = useState<"G" | "K" | "D" | null>(null);
+  // An employer picked from the Google list, per person, until it's saved.
+  // Saving it also sets where that person drives for traffic alerts.
+  const [employerPicks, setEmployerPicks] = useState<Partial<Record<"G" | "K" | "D", CommutePlace>>>({});
+  const [commute, setCommute] = useState<CommuteConfig>({});
+  useEffect(() => {
+    if (!open || !householdId) return;
+    return subscribeCommuteConfig(householdId, setCommute);
+  }, [open, householdId]);
 
   const [removingUid, setRemovingUid] = useState<string | null>(null);
   const [tab, setTab] = useState<NavKey>("general");
@@ -130,7 +139,14 @@ export function FamilyConsole({
     if (!householdId) { setErr("No household linked."); return; }
     setErr(null);
     setEmployerBusy(who);
-    try { await setEmployer(householdId, who, employers[who]); }
+    try {
+      await setEmployer(householdId, who, employers[who]);
+      const pick = employerPicks[who];
+      if (who !== "D" && pick && pick.label === employers[who].trim()) {
+        await setCommuteWork(householdId, who, pick);
+      }
+      setEmployerPicks((m) => ({ ...m, [who]: undefined }));
+    }
     catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
     finally { setEmployerBusy(null); }
   };
@@ -316,6 +332,7 @@ export function FamilyConsole({
                 nameLocked={!!state?.householdName?.trim()}
                 draftName={draftName} setDraftName={setDraftName}
                 busy={busy} onSaveName={onSaveName}
+                commuteHome={commute.home ?? null}
                 inviteCode={household?.inviteCode ?? null}
                 copied={copied} onCopyCode={onCopyCode}
                 caregiverEmail={caregiverEmail} setCaregiverEmail={setCaregiverEmail}
@@ -360,6 +377,9 @@ export function FamilyConsole({
                 employers={employers} setEmployers={setEmployers}
                 savedEmployers={state?.employers ?? {}}
                 employerBusy={employerBusy} onSaveEmployer={onSaveEmployer}
+                employerPicks={employerPicks}
+                onPickEmployer={(who, place) => setEmployerPicks((m) => ({ ...m, [who]: place }))}
+                commuteWork={commute.work ?? {}}
               />
             )}
 
@@ -395,6 +415,7 @@ function GeneralTab(p: {
   nameLocked: boolean;
   draftName: string; setDraftName: (v: string) => void;
   busy: boolean; onSaveName: () => void;
+  commuteHome: CommutePlace | null;
   inviteCode: string | null;
   copied: boolean; onCopyCode: () => void;
   caregiverEmail: string; setCaregiverEmail: (v: string) => void;
@@ -442,6 +463,15 @@ function GeneralTab(p: {
         <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>
           {p.nameLocked ? "Your household name cannot be edited." : "Once it's saved, the name can't be changed."}
         </div>
+      </Section>
+
+      {/* COMMUTE — home address, for "leave by" times and traffic alerts. */}
+      <Section
+        t={t}
+        label="Commute"
+        desc="Your home address, for leave-by times and heavy-traffic alerts before each shift. Only you and your partner can see it."
+      >
+        <CommuteHome t={t} householdId={p.householdId} home={p.commuteHome} />
       </Section>
 
       {/* INVITE CODE */}
@@ -578,6 +608,9 @@ function PeopleTab(p: {
   savedEmployers: { G?: string; K?: string; D?: string };
   employerBusy: PersonKey | null;
   onSaveEmployer: (who: PersonKey) => void;
+  employerPicks: Partial<Record<PersonKey, CommutePlace>>;
+  onPickEmployer: (who: PersonKey, place: CommutePlace) => void;
+  commuteWork: Partial<Record<"G" | "K", CommutePlace | null>>;
 }) {
   const { t, palette, dark } = p;
 
@@ -609,13 +642,18 @@ function PeopleTab(p: {
             Search for the business, or type any name. Shown as a shift's location when the shift doesn't name one itself.
           </div>
           {(() => {
-            const dirty = (p.employers[key] ?? "") !== (p.savedEmployers[key] ?? "");
+            const pick = p.employerPicks[key];
+            const savedPlace = key !== "D" ? p.commuteWork[key] : null;
+            // A new pick of the same name still needs saving: it sets the place.
+            const newPlace = !!pick && pick.label === p.employers[key].trim() && pick.placeId !== savedPlace?.placeId;
+            const dirty = (p.employers[key] ?? "") !== (p.savedEmployers[key] ?? "") || newPlace;
             const saving = p.employerBusy === key;
             return (
               <div style={{ display: "flex", gap: 8, maxWidth: 460 }}>
                 <EmployerField
                   value={p.employers[key]}
                   onChange={(v) => p.setEmployers({ ...p.employers, [key]: v })}
+                  onPick={(s) => p.onPickEmployer(key, { placeId: s.placeId, label: s.name })}
                   placeholder={EMPLOYER_PLACEHOLDER[key]}
                   ariaLabel={`${name}'s employer`}
                   t={t}
@@ -632,6 +670,11 @@ function PeopleTab(p: {
               </div>
             );
           })()}
+          {key !== "D" && (
+            p.commuteWork[key]
+              ? <div style={{ fontSize: 11.5, color: t.tealText, marginTop: 6 }}>Traffic alerts: drive to {p.commuteWork[key]!.label}.</div>
+              : <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>Pick the employer from the list to get traffic alerts before shifts.</div>
+          )}
         </div>
       )}
 
@@ -1183,6 +1226,63 @@ function BillingTab({ t, hhName }: { t: ThemeTokens; hhName: string }) {
 // ════════════════════════════════════════════════════════════════════════════
 // SHARED PIECES
 // ════════════════════════════════════════════════════════════════════════════
+
+/** The home address, searched through Google like the employers. */
+function CommuteHome({ t, householdId, home }: { t: ThemeTokens; householdId: string | null; home: CommutePlace | null }) {
+  const [draft, setDraft] = useState(home?.label ?? "");
+  const [pick, setPick] = useState<CommutePlace | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [shown, setShown] = useState(home?.label ?? "");
+  // Follow the saved address when it changes elsewhere (state adjusted during render).
+  if ((home?.label ?? "") !== shown) { setShown(home?.label ?? ""); setDraft(home?.label ?? ""); setPick(null); }
+
+  const save = async (next: CommutePlace | null) => {
+    if (!householdId) { setErr("No household linked."); return; }
+    setErr(null);
+    setBusy(true);
+    try { await setCommuteHome(householdId, next); setPick(null); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save."); }
+    finally { setBusy(false); }
+  };
+  const canSave = !!pick && pick.label === draft && pick.placeId !== home?.placeId;
+
+  return (
+    <div>
+      <FieldLabel t={t}>Home address</FieldLabel>
+      <div style={{ display: "flex", gap: 8, maxWidth: 560 }}>
+        <EmployerField
+          value={draft}
+          onChange={(v) => { setDraft(v); setPick(null); }}
+          onPick={(s) => {
+            const label = s.detail ? `${s.name}, ${s.detail}` : s.name;
+            setDraft(label);
+            setPick({ placeId: s.placeId, label });
+          }}
+          placeholder="Start typing your street address"
+          ariaLabel="Home address"
+          t={t}
+          inputStyle={inputStyle(t)}
+        />
+        <button
+          type="button"
+          onClick={() => pick && save(pick)}
+          disabled={busy || !canSave}
+          style={{ ...primaryBtn, opacity: busy || !canSave ? 0.5 : 1, cursor: busy || !canSave ? "not-allowed" : "pointer" }}
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        {home && (
+          <button type="button" onClick={() => save(null)} disabled={busy} style={secondaryBtn(t)}>Clear</button>
+        )}
+      </div>
+      <div style={{ fontSize: 11.5, color: home ? t.tealText : t.text3, marginTop: 6 }}>
+        {home ? "Traffic alerts are on for anyone whose employer is picked from the list." : "Pick your address from the list, then save."}
+      </div>
+      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
+    </div>
+  );
+}
 
 function Section({ label, desc, t, action, children }: { label: string; desc?: string; t: ThemeTokens; action?: React.ReactNode; children: React.ReactNode }) {
   return (

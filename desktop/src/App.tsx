@@ -69,6 +69,7 @@ import { toggleChildcareOff } from "./lib/writeChildcareOff";
 import { DayFlagPopover } from "./components/DayFlagPopover";
 import type { AskContext } from "./components/AskClaudePanel";
 import { subscribeDayFlags, type DayFlag } from "./lib/dayFlags";
+import { subscribeCommuteResults, type CommuteResult } from "./lib/commute";
 import { computeOverlapCandidates } from "./lib/computeOverlap";
 import { blockForDate } from "./lib/writeScheduleBlock";
 import type { CoverageMark } from "./components/MonthGrid";
@@ -466,6 +467,12 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     if (!householdId) { setDayFlags(new Map()); return; }
     return subscribeDayFlags(householdId, setDayFlags);
   }, [householdId]);
+  // "Leave by" results from the checkCommutes function (lib/commute.ts).
+  const [commute, setCommute] = useState<Map<string, CommuteResult>>(new Map());
+  useEffect(() => {
+    if (!householdId) { setCommute(new Map()); return; }
+    return subscribeCommuteResults(householdId, today, setCommute);
+  }, [householdId, today]);
   // The bell: notification history kept server-side (lib/notifications.ts),
   // the items meant for this member's role.
   const myRole = householdStatus.status === "ready" && user
@@ -749,6 +756,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         selfName={selfName}
         partnerName={partnerName}
         stretches={kStretches}
+        commute={commute}
         onEditShift={handleEditShift}
         onDeleteShift={handleDeleteShift}
         onOpenShiftDetail={(date, s, anchor) => setShiftDetail({ date, shift: s, anchor })}

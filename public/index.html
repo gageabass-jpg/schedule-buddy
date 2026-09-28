@@ -3291,6 +3291,10 @@
   }
   .mdc-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
   .mdc-row .mdc-av { width: 26px; height: 26px; font-size: 11px; }
+  /* Leave by — under the shift it's for, lined up with the name. */
+  .mdc-leave { margin: -4px 0 0 36px; }
+  .leave-by { font-size: 13px; color: var(--text-2); }
+  .leave-by.heavy { color: var(--stretch-red, #DC2626); font-weight: 600; }
   .mdc-name { font-weight: 600; }
   .mdc-time { color: var(--text-2); }
   .mdc-quiet { color: var(--text-2); }
@@ -7804,6 +7808,7 @@ function enterApp() {
   updateUserBar();
   applyRoleRestrictions();
   initFirestoreSync();
+  initCommuteSync();
   initOTApprovalSync();
   initFeedbackSync();
   initChat();
@@ -10665,6 +10670,8 @@ if (codeModalCopyBtn) codeModalCopyBtn.addEventListener("click", async () => {
 
 function cleanupListeners() {
   if (stateUnsubscribe) { stateUnsubscribe(); stateUnsubscribe = null; }
+  if (_commuteUnsub) { _commuteUnsub(); _commuteUnsub = null; }
+  _commute = {};
   if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
   if (feedbackUnsubscribe) { feedbackUnsubscribe(); feedbackUnsubscribe = null; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
@@ -11264,6 +11271,35 @@ function initFirestoreSync() {
     console.warn("onSnapshot error:", err);
     updateSyncStatus("offline");
   });
+}
+
+// ==================== COMMUTE ("leave by") ====================
+// The checkCommutes function writes households/{hid}/commute/{date}_{who}
+// before each of Gage's and Kaylene's shifts: the drive time with traffic and
+// when to leave. Admin and partner only (firestore.rules); the day card and
+// agenda show it under that person's shift.
+let _commute = {};
+let _commuteUnsub = null;
+function initCommuteSync() {
+  if (!householdId || (userRole !== "admin" && userRole !== "partner")) return;
+  const today = toISODate(new Date());
+  _commuteUnsub = db.collection("households").doc(householdId).collection("commute")
+    .where("date", ">=", today)
+    .onSnapshot(snap => {
+      _commute = {};
+      snap.forEach(d => { _commute[d.id] = d.data(); });
+      if (typeof renderCalendar === "function") renderCalendar();
+    }, err => console.warn("commute listener:", err));
+}
+// "Leave by 2:22p · 28 min", or a warning when traffic is heavy. For the
+// shift that starts at `startTime` only (a second shift that day has none).
+function leaveByHTML(dISO, who, startTime, withName) {
+  const c = _commute[`${dISO}_${who}`];
+  if (!c || c.shiftStart !== startTime) return "";
+  const extra = c.durationMin - c.typicalMin;
+  const who_ = withName ? `${_eventWhoMeta(who).name}: ` : "";
+  const text = `${who_}${c.heavy ? `Heavy traffic, ${extra} min extra · ` : ""}${withName ? "leave" : "Leave"} by ${compactTime(c.leaveBy)} · ${c.durationMin} min`;
+  return `<div class="leave-by${c.heavy ? " heavy" : ""}">${escapeHTML(text)}</div>`;
 }
 
 // ==================== OT APPROVAL SYSTEM ====================
@@ -13932,7 +13968,8 @@ function renderMonthDayCard(dISO) {
     if (!evts.length) return "";
     const times = evts.map(e => `${compactTime(e.startTime)} – ${compactTime(e.endTime)}${e.pending ? ` <span class="mdc-tag">pending</span>` : ""}`).join(", ");
     const fire = who === "K" ? stretchBadgeHTML(kStretch, _eventWhoMeta("K").name) : "";
-    return `<div class="mdc-row">${personAvatarHTML(who, "mdc-av")}<span class="mdc-name">${escapeHTML(_eventWhoMeta(who).name)}</span><span class="mdc-time">${times}</span>${fire}</div>`;
+    const leave = (who === "G" || who === "K") ? leaveByHTML(dISO, who, evts[0].startTime) : "";
+    return `<div class="mdc-row">${personAvatarHTML(who, "mdc-av")}<span class="mdc-name">${escapeHTML(_eventWhoMeta(who).name)}</span><span class="mdc-time">${times}</span>${fire}</div>${leave ? `<div class="mdc-leave">${leave}</div>` : ""}`;
   };
   const period = _postedPeriod(_monthEvts.g, _monthEvts.k);
   const unposted = !period || dISO < period.from || dISO > period.to;
@@ -14394,12 +14431,15 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
       verdict = `<div class="ag-verdict"><i class="lg-edge-open"></i>${escapeHTML(block.label || "Schedule block")} — nobody has it yet</div>`;
     }
 
+    const leaves = (cell.gOnDay[0] ? leaveByHTML(dISO, "G", cell.gOnDay[0].startTime, true) : "") +
+                   (cell.kOnDay[0] ? leaveByHTML(dISO, "K", cell.kOnDay[0].startTime, true) : "");
     const evs = getEventsForDate(dISO).map(ev =>
       `<button type="button" class="ag-ev" data-eid="${escapeAttr(ev.id || "")}">${escapeHTML(ev.title || "Event")}${ev.startTime ? ` · ${compactTime(ev.startTime)}` : ""}</button>`).join("");
 
     html += `<div class="ag-row${isToday ? " today" : ""}${block ? (covered ? " has-block" : " has-block block-open") : ""}" data-date="${dISO}">
       <div class="ag-head"><span class="ag-day">${head}</span>${facts.length ? `<span class="mdc-chips">${facts.join("")}</span>` : ""}</div>
       <div class="ag-shifts">${shifts.length ? shifts.join("") : `<span class="ag-off">Nobody's working</span>`}</div>
+      ${leaves}
       ${verdict}
       ${evs ? `<div class="ag-evs">${evs}</div>` : ""}
     </div>`;
