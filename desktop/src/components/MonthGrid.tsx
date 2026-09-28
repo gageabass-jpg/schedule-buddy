@@ -23,6 +23,7 @@ import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
 import { STRETCH_RED } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
 import { holidayOn } from "../../../shared/holidays";
+import { GovernmentLineIcon } from "./ui/government-line-icon";
 import { IS_WINDOWS } from "../lib/platform";
 
 /** The arrow the New shift button slides in on hover. */
@@ -594,14 +595,21 @@ export function MonthGrid({
                           </Tooltip>
                         ) : mark;
                       })()}
+                      {/* The holiday, centred in the top row between the date
+                          (and its flag) and the payday marks. Centring on the
+                          whole cell would leave room for about "Vete…". */}
                       {holiday && (
                         <span
                           title={holiday.name}
                           style={{
-                            marginLeft: 5, minWidth: 0, fontSize: 10.5, fontWeight: 600, color: t.tealText,
-                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            flex: 1, minWidth: 0, padding: "0 4px",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                            fontSize: 10.5, fontWeight: 600, color: t.tealText,
                           }}
-                        >{holiday.short}</span>
+                        >
+                          <GovernmentLineIcon size={11} aria-hidden="true" style={{ flexShrink: 0, color: t.text3 }} />
+                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{holiday.short}</span>
+                        </span>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
                         {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (

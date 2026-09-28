@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
@@ -111,7 +111,13 @@ export function App() {
   // One loading screen from launch until the household's first snapshot, so
   // the placeholder calendar never shows. It sits over the app and fades out;
   // after 10s it gives way regardless, and the top bar's "connecting" says
-  // the rest.
+  // the rest. It stays up for at least 3s even when everything is ready
+  // sooner, so the dots get to run through their split and merge.
+  const [minShown, setMinShown] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setMinShown(true), 3000);
+    return () => window.clearTimeout(id);
+  }, []);
   const [appReady, setAppReady] = useState(false);
   const markReady = useCallback(() => setAppReady(true), []);
   useEffect(() => {
@@ -119,7 +125,7 @@ export function App() {
     const id = window.setTimeout(markReady, 10_000);
     return () => window.clearTimeout(id);
   }, [auth.status, appReady, markReady]);
-  const booting = auth.status === "loading" || (auth.status === "signed-in" && !appReady);
+  const booting = !minShown || auth.status === "loading" || (auth.status === "signed-in" && !appReady);
 
   return (
     <>
@@ -441,13 +447,16 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     setViewMonth(tM - 1);
     setSelected(fmtDate(tY, tM - 1, tD));
   };
+  const refreshTimer = useRef<number | undefined>(undefined);
   const handleRefresh = () => {
     // Bumping the nonce re-subscribes the Firestore listeners (fresh server
-    // read). Re-subscribing fires near-instantly, so keep the spinner up for a
-    // beat so the tap registers visually even when nothing changed.
+    // read). Re-subscribing fires near-instantly, so the orbit beside the
+    // lockup stays up for 3s, long enough to be seen turning; a second tap
+    // restarts the 3s rather than cutting the first one short.
     setRefreshing(true);
     setRefreshNonce((n) => n + 1);
-    window.setTimeout(() => setRefreshing(false), 700);
+    window.clearTimeout(refreshTimer.current);
+    refreshTimer.current = window.setTimeout(() => setRefreshing(false), 3000);
   };
 
   const householdId = householdStatus.status === "ready" ? householdStatus.household.id : null;

@@ -13,7 +13,10 @@ import type { WvuGame } from "../lib/wvuSchedule";
 import { StretchBadge } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
 import { HolidayPayTag } from "./HolidayPayTag";
+import { BlockTip } from "./BlockTip";
+import { PhotoAv } from "./PhotoAv";
 import { holidayOn } from "../../../shared/holidays";
+import { GovernmentLineIcon } from "./ui/government-line-icon";
 
 interface Props {
   selected: string;
@@ -163,7 +166,13 @@ export function Inspector({
       >
         <div style={{ ...subhead(t), fontSize: 10 }}>
           {dayLabel}
-          {holiday && <span style={{ color: t.tealText }}> · {holiday.name}</span>}
+          {holiday && (
+            <span style={{ color: t.tealText }}>
+              {" · "}
+              <GovernmentLineIcon size={11} aria-hidden="true" style={{ color: t.text3, verticalAlign: "-1.5px", marginRight: 3 }} />
+              {holiday.name}
+            </span>
+          )}
         </div>
         <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
           {kind === "off"
@@ -380,6 +389,7 @@ export function Inspector({
           selfName={selfName}
           partnerName={partnerName}
           daisyName={daisyName}
+          palette={palette}
           onRequestCover={onSendCaregiverRequests}
           onAsk={onAsk}
         />
@@ -974,16 +984,18 @@ function MonthWeekDeltas({ selected, state, t }: {
 
 // Childcare tab card: who has the kids this week. One track per day on the
 // 6am–midnight axis, showing the time neither parent is home and who holds it,
-// in the same marks as the Childcare Matrix: solid = Daisy has it,
-// dashed Teal = waiting on her, dashed Clay = nobody. Days nobody holds are
+// in the same marks as the Childcare Matrix: solid = Daisy, dashed Teal =
+// holding (asked, not yet answered), dashed Clay = a gap. Each bar's hover
+// card says who is watching and when. Days nobody holds are
 // then spelled out as consequences. Gaps come from the app's own overlap
 // engine, so a night shift's rest still lands here when there is one.
 type HoldKind = "has" | "waiting" | "nobody";
 
 function ChildcareCard({
-  selected, state, t, dark, selfName, partnerName, daisyName, onRequestCover, onAsk,
+  selected, state, t, dark, selfName, partnerName, daisyName, palette, onRequestCover, onAsk,
 }: {
   selected: string;
+  palette: Palette;
   state: HouseholdState | null;
   t: ThemeTokens;
   dark: boolean;
@@ -1105,6 +1117,16 @@ function ChildcareCard({
     });
   });
 
+  // "2p – 3:30p" (and "+1d" when it runs past midnight), for the hover cards.
+  const clock = (m: number) => compactTime(`${pad(Math.floor((m % 1440) / 60))}:${pad(m % 60)}`);
+  const span = (a: number, b: number) => `${clock(a)} – ${clock(b)}${b > 1440 ? " +1d" : ""}`;
+  const tipFor = (h: { kind: HoldKind; startMin: number; endMin: number; declined: boolean }) =>
+    h.kind === "has"
+      ? { name: daisyName, detail: `${span(h.startMin, h.endMin)} · Confirmed` }
+      : h.kind === "waiting"
+        ? { name: daisyName, detail: `${span(h.startMin, h.endMin)} · Holding, not answered yet` }
+        : { name: "Gap", detail: `${span(h.startMin, h.endMin)} · ${h.declined ? `${daisyName} said no` : "Nobody is watching"}` };
+
   const barStyle = (kind: HoldKind): React.CSSProperties =>
     kind === "has" ? { background: dark ? "#8A9591" : "#5A6663" } :
     kind === "waiting" ? { border: `1.5px dashed ${TEAL}` } :
@@ -1113,12 +1135,10 @@ function ChildcareCard({
   return (
     <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <span style={{ ...subhead(t), marginBottom: 0 }}>Who has the kids this week</span>
-        {needCover > 0 ? (
+        <span style={{ ...subhead(t), marginBottom: 0 }}>Who has the kids this week?</span>
+        {needCover > 0 && (
           <span style={{ fontSize: 13, fontWeight: 600, color: t.clayText, whiteSpace: "nowrap" }}>{needCover} need cover</span>
-        ) : anyGap ? (
-          <span style={{ fontSize: 13, fontWeight: 600, color: t.text2, whiteSpace: "nowrap" }}>All held</span>
-        ) : null}
+        )}
       </div>
 
       {!anyGap ? (
@@ -1136,11 +1156,22 @@ function ChildcareCard({
                 <div style={{ flex: 1, height: 17, borderRadius: 2, background: t.bgElev2, position: "relative", overflow: "hidden" }}>
                   {r.held.map((h, k) => {
                     const p = place(h.startMin, h.endMin);
-                    return p && (
-                      <div key={k} style={{
-                        position: "absolute", top: 2, bottom: 2, left: `${p.left}%`, width: `${p.width}%`,
-                        borderRadius: 2, boxSizing: "border-box", ...barStyle(h.kind),
-                      }} />
+                    if (!p) return null;
+                    const tip = tipFor(h);
+                    return (
+                      <BlockTip
+                        key={k}
+                        avatar={h.kind === "nobody"
+                          ? <span style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, boxSizing: "border-box", ...barStyle("nobody") }} />
+                          : <PhotoAv who="D" size={30} palette={palette} dark={dark} />}
+                        name={tip.name}
+                        detail={tip.detail}
+                      >
+                        <div style={{
+                          position: "absolute", top: 2, bottom: 2, left: `${p.left}%`, width: `${p.width}%`,
+                          borderRadius: 2, boxSizing: "border-box", ...barStyle(h.kind),
+                        }} />
+                      </BlockTip>
                     );
                   })}
                 </div>
@@ -1154,7 +1185,7 @@ function ChildcareCard({
             {(["has", "waiting", "nobody"] as const).map((k) => (
               <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 18, height: 10, borderRadius: 2, boxSizing: "border-box", ...barStyle(k) }} />
-                {k === "has" ? `${daisyName} has it` : k === "waiting" ? "Waiting on her" : "Nobody"}
+                {k === "has" ? daisyName : k === "waiting" ? "Holding" : "Gap"}
               </span>
             ))}
           </div>
@@ -1194,7 +1225,7 @@ function ChildcareCard({
         )}
       </div>
       <div style={{ fontSize: 11, color: t.text2, lineHeight: 1.5 }}>
-        A gap is time when neither {selfName} nor {partnerName} is home. {daisyName} covers what she&rsquo;s said yes to.
+        A gap is time when neither {selfName} nor {partnerName} is home.
       </div>
     </div>
   );

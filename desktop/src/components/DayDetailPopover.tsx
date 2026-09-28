@@ -14,6 +14,8 @@ import { StretchBadge } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
 import { HolidayPayTag } from "./HolidayPayTag";
 import { holidayOn } from "../../../shared/holidays";
+import { GovernmentLineIcon } from "./ui/government-line-icon";
+import { TriangleAlertIcon, type TriangleAlertIconHandle } from "@/components/ui/triangle-alert";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -77,6 +79,7 @@ export function DayDetailPopover({
   const daisyName = state?.dependents?.daisy?.name || "Daisy";
 
   const kind = dayKindFromShifts(dayShifts);
+  const block = (state?.scheduleBlocks ?? []).find((b) => b.startDate <= date && date <= b.endDate);
   const holiday = holidayOn(date);
   const title =
     kind === "off" ? "Both off"
@@ -116,7 +119,10 @@ export function DayDetailPopover({
     <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
-        {careConfirmed && <CoveredRibbon />}
+        {/* Banners on the card's right edge: a schedule block (red) and
+            confirmed childcare (Teal). With both, they stack in the header. */}
+        {block && <BlockedRibbon label={block.label} top={careConfirmed ? 8 : 31} />}
+        {careConfirmed && <CoveredRibbon top={block ? 40 : 31} delay={block ? 240 : 140} />}
         <div
           ref={cardRef}
           role="dialog"
@@ -134,7 +140,13 @@ export function DayDetailPopover({
           <div style={section}>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: t.text3, textTransform: "uppercase" }}>
               {WEEKDAYS_3[dow]} · {MONTHS_LONG[mo - 1]} {d}
-              {holiday && <span style={{ color: t.tealText }}> · {holiday.name}</span>}
+              {holiday && (
+            <span style={{ color: t.tealText }}>
+              {" · "}
+              <GovernmentLineIcon size={11} aria-hidden="true" style={{ color: t.text3, verticalAlign: "-1.5px", marginRight: 3 }} />
+              {holiday.name}
+            </span>
+          )}
             </div>
             <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
               {title}
@@ -294,12 +306,12 @@ export function DayDetailPopover({
  * because the card scrolls and would clip anything that pokes past its edge.
  * The check draws in once it's out.
  */
-function CoveredRibbon() {
+function CoveredRibbon({ top, delay }: { top: number; delay: number }) {
   const check = useRef<CircleCheckIconHandle | null>(null);
   useEffect(() => {
-    const id = window.setTimeout(() => check.current?.startAnimation(), 360);
+    const id = window.setTimeout(() => check.current?.startAnimation(), delay + 220);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [delay]);
 
   return (
     <div
@@ -309,16 +321,52 @@ function CoveredRibbon() {
       style={{
         position: "absolute", zIndex: 2,
         // Straddles the card's right edge: 10px of it hangs outside.
-        right: -10, top: 31, height: 26,
+        right: -10, top, height: 26,
         display: "flex", alignItems: "center", gap: 6,
         padding: "0 10px 0 12px",
         background: "#0F6E64", color: "#fff", borderRadius: 3,
         fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em",
-        animation: "nucleus-tab-out 320ms cubic-bezier(.2,.8,.2,1) 140ms both",
+        animation: `nucleus-tab-out 320ms cubic-bezier(.2,.8,.2,1) ${delay}ms both`,
       }}
     >
       Covered
       <CircleCheckIcon ref={check} size={15} color="#fff" />
+    </div>
+  );
+}
+
+/**
+ * The day sits in a schedule block (Tools → Schedule Block): a red tab out of
+ * the card's right edge, the same shape and motion as "Covered", with the
+ * triangle alert giving one shake as it lands. The block's label is its
+ * tooltip.
+ */
+function BlockedRibbon({ label, top }: { label?: string; top: number }) {
+  const alert = useRef<TriangleAlertIconHandle | null>(null);
+  useEffect(() => {
+    const id = window.setTimeout(() => alert.current?.startAnimation(), 360);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const name = label?.trim() || "Schedule block";
+  return (
+    <div
+      role="status"
+      aria-label={`Blocked: ${name}`}
+      title={name}
+      data-motion=""
+      style={{
+        position: "absolute", zIndex: 2,
+        right: -10, top, height: 26,
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "0 10px 0 12px",
+        background: FLAG_RED, color: "#fff", borderRadius: 3,
+        fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, letterSpacing: "-0.01em",
+        animation: "nucleus-tab-out 320ms cubic-bezier(.2,.8,.2,1) 140ms both",
+      }}
+    >
+      Blocked
+      <TriangleAlertIcon ref={alert} size={15} color="#fff" />
     </div>
   );
 }
