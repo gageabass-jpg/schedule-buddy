@@ -5,6 +5,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
 import { BrandMark, BRAND_FONT, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./BrandMark";
+import { TwinOrbit } from "./ui/twin-orbit";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
 
 interface SidebarProps {
@@ -82,15 +83,25 @@ export function Sidebar({
           width: "100%",
         }}
       >
-        <BrandMark
-          size={22}
-          color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL}
-          style={{ flexShrink: 0, animation: refreshing ? "sbmSpin 0.6s linear" : undefined }}
-        />
+        <BrandMark size={22} color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL} style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 15, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: BRAND_FONT, whiteSpace: "nowrap" }}>
           <span style={{ fontWeight: 600, color: t.text }}>nucleus</span>
           <span style={{ fontWeight: 400, color: t.text2 }}> manager</span>
         </span>
+        {/* While a refresh runs, two dots orbit beside the lockup. The slot
+            is the orbit's full sweep (5px dot, 155% radius ≈ 21px). */}
+        {refreshing && (
+          <span
+            aria-hidden="true"
+            style={{
+              width: 22, height: 22, flexShrink: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              color: dark ? BRAND_TEAL_LIGHT : BRAND_TEAL,
+            }}
+          >
+            <TwinOrbit className="size-[5px]" />
+          </span>
+        )}
       </button>
 
       <div
