@@ -65,6 +65,9 @@
     --accent-hover: #7CCABF;
     --ot: #FF453A;
     --ok: #30D158;
+    --stretch-red: #F87171;      /* Kaylene's stretch fire; flag red on Paper */
+    --both-off: rgba(52,199,89,0.20);      /* both parents off (month grid) */
+    --both-off-edge: rgba(52,199,89,0.55);
     --covered: #30D158;          /* confirmed-childcare bar (Teal in light) */
     /* Import-review accents — brighter green on the dark default. */
     --import-green: #30D158;
@@ -133,6 +136,9 @@
       --color-off: #56B7A9;       /* off / free — Teal-Mid, used for tints/rings only */
 
       --ok: #0F6E64;              /* success / confirmed → Teal */
+      --stretch-red: #DC2626;     /* desktop's flag red, 4.8:1 on Surface */
+      --both-off: #DDEFD6;        /* soft green — Ink on it is 14:1 */
+      --both-off-edge: #8CC17E;
       --ot: #8A4B38;              /* overtime / alarm → Clay (no red token) */
       /* NOTE: the --cal-* day tints live in a second :root block below and are
          overridden for light there (they must, to beat that later block). */
@@ -1191,7 +1197,33 @@
     box-shadow: 0 1px 2px rgba(20,32,30,0.08);
   }
   @media (prefers-color-scheme: light) {
-    .layout-tab.active { background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.10); }
+    /* Nucleus segmented control: one hairline box, hairline dividers, the
+       selected segment filled Teal-Tint with Teal text. No lifted pill. */
+    .layout-tabs {
+      gap: 0;
+      padding: 0;
+      background: var(--bg-elev);
+      border-color: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .layout-tab {
+      min-height: 44px;
+      border-radius: 0;
+      font-weight: 400;
+      color: var(--text-2);
+    }
+    .layout-tab + .layout-tab { border-left: 1px solid var(--border); }
+    .layout-tab.active,
+    .layout-tab.active:hover {
+      background: var(--brand-tint);
+      color: var(--brand);
+      font-weight: 600;
+      box-shadow: none;
+    }
+    /* iOS keeps :hover on the last tapped button; the global button:hover
+       brightness would wash the tint out. */
+    .layout-tab:hover { filter: none; }
   }
 
   /* Month navigation header (prev / month label / next) */
@@ -1337,6 +1369,47 @@
     flex-direction: column;
     gap: 8px;
     margin: 0 0 16px;
+  }
+  /* Agenda day card (renderAgendaView). Hairline card; a schedule block
+     keeps the same Clay left edge as the month grid. */
+  .ag-row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 11px 14px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-radius: 10px;
+  }
+  .ag-row.today { border-color: var(--brand); }
+  .ag-row.has-block { border-left: 3px solid var(--clay); }
+  .ag-row.has-block.block-open { border-left-style: dashed; }
+  .ag-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .ag-day { font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .ag-shifts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+  .ag-shift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .ag-shift .ag-av { width: 22px; height: 22px; font-size: 10px; }
+  .ag-off { color: var(--text-2); }
+  .ag-verdict {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    background: var(--clay-tint);
+    color: var(--clay);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ag-evs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ag-ev {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--sep);
+    border-radius: 8px;
+    background: var(--bg-elev);
+    color: var(--text);
+    font: 400 13px var(--font);
+    cursor: pointer;
   }
   .agenda-row {
     display: flex;
@@ -2149,6 +2222,8 @@
     box-shadow: 0 6px 18px rgba(15,110,100,0.4);
   }
   .ask-claude-fab:active { transform: scale(0.96); }
+  .ask-claude-fab { color: #ffffff; }
+  .ask-claude-fab svg,
   .ask-claude-fab img {
     width: 100%;
     height: 100%;
@@ -2199,6 +2274,32 @@
   body.ask-claude-open .parse-fab { display: none; }
   /* Keep the FAB visible while its own speed-dial menu is open, and rotate the
      "+" into an "×". */
+  @media (prefers-color-scheme: light) {
+    /* Nucleus: "+" is the primary action, so it takes the thumb spot at the
+       bottom as a flat Teal circle; Ask sits above it as a quiet Surface
+       circle with a Teal mark. They float, so they keep a shadow. */
+    .parse-fab {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--brand-fill);
+      box-shadow: 0 8px 22px rgba(15,110,100,0.34);
+    }
+    .ask-claude-fab {
+      right: 20px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
+      width: 48px;
+      height: 48px;
+      padding: 13px;
+      border-radius: 50%;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      color: var(--brand);
+      box-shadow: 0 6px 18px rgba(20,32,30,0.14);
+    }
+    body.add-menu-open .ask-claude-fab { display: none; }
+  }
   body.add-menu-open .parse-fab { display: inline-flex !important; }
   body.add-menu-open .parse-fab .parse-plus { transform: rotate(45deg); }
   .parse-fab .parse-plus { transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
@@ -2822,6 +2923,18 @@
      ~2:1 against white). */
   .cal-pay-chip.g { background: #157A3C; }
   .cal-pay-chip.k { background: #6B21A8; }
+  @media (prefers-color-scheme: light) {
+    /* A person owns a hue: the "$" takes the payee's colour on a quiet Track
+       chip (Teal 5.2:1, Clay 5.7:1 on Track) — no purple, no lift. */
+    .cal-pay-chip {
+      border-radius: 3px;
+      background: #EFEDE7;
+      box-shadow: none;
+      font-weight: 700;
+    }
+    .cal-pay-chip.g { background: #EFEDE7; color: var(--person-g); }
+    .cal-pay-chip.k { background: #EFEDE7; color: var(--person-k); }
+  }
 
   /* Confirmed-childcare bar — green strip along the bottom edge of any
      calendar cell whose coverage request has been accepted. */
@@ -2897,6 +3010,203 @@
      the stripes via their own z-index below. */
   .cal-cell.has-block > .cal-date,
   .cal-cell.has-block > .cal-shifts { position: relative; z-index: 1; }
+
+  /* ===== Quiet month (phone) — renderMonthView(quiet) ===== */
+  /* A cell holds a date and up to three dots. Everything else is in the day
+     card below, so the grid can be read at a glance. */
+  .cal-grid.quiet {
+    display: block;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    touch-action: pan-y;          /* vertical scroll stays native; we take horizontal */
+  }
+  .qm-hdrs {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sep);
+    border: 1px solid var(--sep);
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    overflow: hidden;
+  }
+  .qm-track {
+    display: flex;
+    align-items: flex-start;
+    width: 300%;
+    transform: translateX(-33.3333%);
+    will-change: transform;
+  }
+  .qm-page {
+    flex: 0 0 33.3333%;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sep);
+    border: 1px solid var(--sep);
+    border-top-width: 1px;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+  .cal-grid.quiet .qm-cell {
+    min-height: 50px;
+    padding: 6px 0 7px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--bg-elev);
+    color: var(--text);
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cal-grid.quiet .qm-cell:hover { filter: none; }
+  .cal-grid.quiet .qm-cell.outside { opacity: 1; background: var(--bg); }
+  .cal-grid.quiet .qm-cell.outside .qm-num { color: var(--text-3); font-weight: 400; }
+  .cal-grid.quiet .qm-cell.outside .qm-dots { opacity: 0.45; }
+  /* Both parents off inside the posted schedule. The missing G/K dots say the
+     same thing, so the green is never the only signal. */
+  /* Blocked days: a light Clay fill behind the edge. Both-off green, declared
+     after, wins on a day that is both. */
+  .cal-grid.quiet .qm-cell.has-block { background: var(--clay-tint); }
+  .cal-grid.quiet .qm-cell.qm-both-off { background: var(--both-off); }
+  .cal-grid.quiet .qm-cell.selected { background: color-mix(in srgb, var(--brand) 16%, var(--bg-elev)); }
+  .cal-grid.quiet .qm-cell.selected.qm-both-off { box-shadow: inset 0 0 0 2px var(--both-off-edge); }
+  .cal-grid.quiet .qm-cell.today { box-shadow: none; border-radius: 0; }
+  .cal-grid.quiet .qm-cell.has-block > .qm-num,
+  .cal-grid.quiet .qm-cell.has-block > .qm-dots { position: relative; z-index: 1; }
+  .qm-num {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .qm-cell.today .qm-num,
+  .cal-grid.quiet .qm-cell.outside.today .qm-num { background: var(--brand-fill); color: #fff; font-weight: 600; }
+  /* Nobody has the kids → dashed Clay ring round the date (dashed ring =
+     nobody yet). Shape, not tint, so it survives greyscale. */
+  .qm-cell.qm-gap .qm-num { outline: 1.5px dashed var(--clay); outline-offset: 1px; }
+  .qm-dots { display: flex; justify-content: center; gap: 4px; height: 6px; }
+  .qm-dot { width: 6px; height: 6px; border-radius: 50%; box-sizing: border-box; flex: 0 0 auto; }
+  .qm-dot.on.g { background: var(--person-g); }
+  .qm-dot.on.k { background: var(--person-k); }
+  .qm-dot.on.d { background: var(--person-d); }
+  /* Pending (imported, not yet approved) → hollow ring. */
+  .qm-dot.pending { border: 1.5px solid; }
+  .qm-dot.pending.g { border-color: var(--person-g); }
+  .qm-dot.pending.k { border-color: var(--person-k); }
+  .qm-dot.pending.d { border-color: var(--person-d); }
+
+  /* Kaylene's stretch (2+ days in a row): fire + "day/of", in the flag red
+     desktop uses for the same mark (4.8:1 on Surface). */
+  .stretch-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    color: var(--stretch-red, #DC2626);
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .stretch-badge svg { width: 14px; height: 14px; display: block; }
+
+  /* Shape marks shared by the legend, the day card and the agenda. */
+  .lg-gap { display: inline-block; flex: 0 0 auto; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 1.5px dashed var(--clay); }
+  .lg-edge-open { display: inline-block; flex: 0 0 auto; width: 3px; height: 14px; border-radius: 3px;
+    background: repeating-linear-gradient(var(--clay) 0, var(--clay) 3px, transparent 3px, transparent 6px); }
+  .lg-ok  { display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+  .cal-legend i.lg-dot { width: 8px; height: 8px; border: 0; border-radius: 50%; }
+  .cal-legend i.lg-dot.g { background: var(--person-g); }
+  .cal-legend i.lg-dot.k { background: var(--person-k); }
+  .cal-legend i.lg-dot.d { background: var(--person-d); }
+  .cal-grid.quiet + .cal-legend { justify-content: center; }
+  .cal-legend i.lg-block { width: 12px; height: 12px; border: 0; border-left: 3px solid var(--clay); border-radius: 0; background: var(--clay-tint); }
+  .cal-legend i.lg-both-off { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--both-off-edge); background: var(--both-off); }
+  .cal-legend i.lg-gap { width: 12px; height: 12px; border-radius: 50%; border: 1.5px dashed var(--clay); }
+
+  /* The day card under the quiet grid. */
+  .month-daycard {
+    margin-top: 10px;
+    padding: 4px 14px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .month-daycard[hidden] { display: none; }
+  .mdc-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .mdc-date {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding-top: 2px;
+  }
+  .mdc-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .mdc-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--bg-elev2);
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .mdc-chip img { display: block; }
+  /* Bottom-left, where the floating buttons on the right can't cover it. */
+  .mdc-more {
+    align-self: flex-start;
+    min-height: 44px;
+    margin: -4px 0 -10px -8px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--brand);
+    font: 600 14px var(--font);
+    cursor: pointer;
+  }
+  .mdc-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .mdc-row .mdc-av { width: 26px; height: 26px; font-size: 11px; }
+  .mdc-name { font-weight: 600; }
+  .mdc-time { color: var(--text-2); }
+  .mdc-quiet { color: var(--text-2); }
+  .mdc-tag { font-size: 12px; color: var(--text-2); }
+  /* The day's one sentence. Neutral by default; Clay when nobody has the
+     kids, Teal when they're covered. The mark before it carries the state. */
+  .mdc-verdict {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 11px;
+    border-radius: 6px;
+    background: var(--bg-elev2);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .mdc-verdict > i { align-self: center; }
+  .mdc-verdict.alert { background: var(--clay-tint); color: var(--clay); font-weight: 600; }
+  .mdc-verdict.ok { background: color-mix(in srgb, var(--brand) 14%, var(--bg-elev)); color: var(--brand); }
 
   /* Tooltip */
   .cal-tooltip {
@@ -4096,7 +4406,23 @@
   .cal-header-panel {
     text-align: left;
     margin: 6px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
+  .cal-header-panel .cal-header-title { margin-right: auto; min-width: 0; }
+  /* Month nav rides in the title row: the title already names the month, so
+     the label is dropped and the arrows go quiet (no chrome, Ink-Muted). */
+  .cal-header-panel .month-nav { margin: 0; padding: 0; gap: 0; flex-shrink: 0; }
+  .cal-header-panel .month-nav-label { display: none; }
+  .cal-header-panel .month-nav-btn {
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    box-shadow: none;
+    color: var(--text-2);
+  }
+  .cal-header-panel .month-nav-btn:active { background: var(--scrim); }
   .cal-header-title {
     font-size: 30px;
     font-weight: 700;
@@ -4301,11 +4627,26 @@
     will-change: transform;
   }
   @media (prefers-color-scheme: light) {
-    .bottom-tabs-inner {
-      background: rgba(255,255,255,0.85);
-      border-color: rgba(0,0,0,0.06);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    /* Nucleus: a flat Surface bar with a hairline top edge — hairlines, not
+       shadows, and no floating pill. */
+    .bottom-tabs {
+      padding: 0 0 env(safe-area-inset-bottom, 0px);
+      background: var(--bg-elev);
+      border-top: 1px solid var(--border);
+      pointer-events: auto;
     }
+    .bottom-tabs-inner {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .bottom-tab { min-height: 58px; justify-content: center; }
+    .bottom-tab.active,
+    .bottom-tab.active .bt-label { color: var(--brand); }
   }
   .bottom-tab {
     flex: 1;
@@ -6126,6 +6467,17 @@
   <!-- Calendar header panel -->
   <div class="cal-header-panel">
     <div class="cal-header-title" id="calHeaderTitle">Work Schedule</div>
+    <!-- Month nav sits beside the title (one month name on screen, not two).
+         renderCalendar() shows it on the Month layout only. -->
+    <div class="month-nav" id="monthNav">
+      <div class="month-nav-label" id="monthNavLabel">April 2026</div>
+      <button class="month-nav-btn" id="monthPrev" aria-label="Previous month">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="month-nav-btn" id="monthNext" aria-label="Next month">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </div>
 
   <!-- Today ribbon: at-a-glance summary, populated by renderTodayRibbon() -->
@@ -6178,32 +6530,21 @@
   </div>
   <button class="partner-edit-btn mobile-hidden" id="partnerEditBtnMobile" style="display:none;">&#9998; Kaylene</button>
 
-  <!-- Layout tabs: Month / Week / Agenda -->
+  <!-- Layout tabs: Month / Agenda (Week and Day were retired) -->
   <div class="layout-tabs" id="layoutTabs" role="tablist" aria-label="Calendar layout">
     <button class="layout-tab active" data-layout="month" role="tab" aria-selected="true">Month</button>
-    <button class="layout-tab" data-layout="week" role="tab" aria-selected="false">Week</button>
-    <button class="layout-tab" data-layout="day" role="tab" aria-selected="false">Day</button>
     <button class="layout-tab" data-layout="agenda" role="tab" aria-selected="false">Agenda</button>
-  </div>
-
-  <!-- Month nav (prev/next around month label) -->
-  <div class="month-nav" id="monthNav">
-    <button class="month-nav-btn" id="monthPrev" aria-label="Previous month">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="month-nav-label" id="monthNavLabel">April 2026</div>
-    <button class="month-nav-btn" id="monthNext" aria-label="Next month">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
   </div>
 
   <!-- Calendar grid (Month) -->
   <div class="cal-wrap" data-layout="month">
     <div class="cal-grid" id="calGrid"></div>
     <!-- Key for the month grid. Populated per active view (Schedule / Fatigue /
-         Childcare / Couple) by renderCalLegend(); the persistent block-edge and
-         childcare-covered marks are always shown. -->
+         Childcare / Couple) by renderCalLegend(), or renderQuietLegend() on
+         phones; the persistent block-edge mark is always shown. -->
     <div class="cal-legend" id="calLegend" aria-label="Calendar key"></div>
+    <!-- Phone: the selected day in words (renderMonthDayCard). -->
+    <div class="month-daycard" id="monthDayCard" hidden aria-live="polite"></div>
     <div class="cal-tooltip" id="calTooltipHover" style="display:none;"></div>
   </div>
   <!-- Dimmed backdrop behind the mobile day sheet; tap to dismiss. -->
@@ -6540,7 +6881,7 @@
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
 <button class="ask-claude-fab" id="askClaudeBtn" type="button" aria-label="Ask Nucleus">
-  <img src="/assets/nucleus-mark.svg" alt="" draggable="false" />
+  <svg viewBox="0 0 100 100" fill="none" aria-hidden="true"><path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
 
 <!-- "+" Import schedule from photo (shining ring), stacked above the Claude FAB -->
@@ -12524,6 +12865,9 @@ function buildDayAnalysisCache(throughISO) {
 
     let childcare = "ok";
     let soloMin = 0, gapMin = 0;
+    // Contiguous gap windows as [startMin, endMin) minutes-of-day, so the day
+    // card can say *when* nobody has the kids, not just that someone doesn't.
+    const gapRanges = [];
     // A confirmed caregiver request FOR THIS DATE means childcare is handled for
     // the day — authoritative, and consistent with the green "confirmed
     // coverage" bar the calendar cell already shows. Otherwise fall through to
@@ -12540,7 +12884,13 @@ function buildDayAnalysisCache(throughISO) {
         const k = kGrid[di][s];
         const gBusy = g !== "free";
         const kBusy = k !== "free";
-        if (gBusy && kBusy) gapMin += SLOT_MIN;
+        if (gBusy && kBusy) {
+          gapMin += SLOT_MIN;
+          const m = slotMinuteOfDay(s);
+          const last = gapRanges[gapRanges.length - 1];
+          if (last && last[1] === m) last[1] = m + SLOT_MIN;
+          else gapRanges.push([m, m + SLOT_MIN]);
+        }
         else if (gBusy || kBusy) soloMin += SLOT_MIN;
       }
       if (gapMin > 0) childcare = "gap";
@@ -12559,6 +12909,7 @@ function buildDayAnalysisCache(throughISO) {
       childcare,
       soloMin,
       gapMin,
+      gapRanges,
       coupleHours: (coupleMin / 60).toFixed(1),
     };
   }
@@ -12675,6 +13026,9 @@ function updateMonthTitle() {
 function _ensureCalUIState() {
   if (!state.ui) state.ui = {};
   if (!state.ui.calLayout) state.ui.calLayout = "month";
+  // Week and Day layouts were retired; a household doc saved while one was
+  // open still says so, and there is no tab left to leave it.
+  if (state.ui.calLayout === "week" || state.ui.calLayout === "day") state.ui.calLayout = "month";
   if (!state.ui.viewMonth) {
     // Default visible month: today, clamped to range if range is set
     const today = new Date();
@@ -12722,8 +13076,11 @@ function renderCalendar() {
   const daisyEvts = daisyEvents();
   // Roll the analysis window forward to cover the month being viewed.
   const _vm = parseISODate(ui.viewMonth) || new Date();
-  const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 1, 0));
-  buildDayAnalysisCache(_viewMonthEnd);
+  // …and far enough past today for the 14-day agenda, whichever is later.
+  // (through the month after, which the phone pager shows when you peek)
+  const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 2, 0));
+  const _agendaEnd = toISODate(addDays(new Date(), 14));
+  buildDayAnalysisCache(_agendaEnd > _viewMonthEnd ? _agendaEnd : _viewMonthEnd);
 
   // Compute today's ribbon + the always-visible big-title regardless of layout
   renderTodayRibbon(gageEvts, kayEvts, daisyEvts);
@@ -12918,6 +13275,14 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   document.getElementById("monthNavLabel").textContent = `${months[monthIdx]} ${monthDate.getFullYear()}`;
 
+  // Phones get the quiet month: dots in the grid, the detail in a day card
+  // below it, and a pager you can drag between months. Wider screens keep the
+  // chip grid and the view tints.
+  if (_isSheetMode()) {
+    renderQuietMonth(monthDate, { g: gageEvts, k: kayEvts, d: daisyEvts }, view);
+    return;
+  }
+
   let html = CAL_DAYS.map(d => `<div class="cal-hdr">${d}</div>`).join("");
   for (const day of days) {
     const dISO = toISODate(day);
@@ -12986,13 +13351,405 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
       ${wvuIcon}
     </div>`;
   }
-  document.getElementById("calGrid").innerHTML = html;
+  const grid = document.getElementById("calGrid");
+  grid.innerHTML = html;
+  grid.classList.remove("quiet");
+  const dayCard = document.getElementById("monthDayCard");
+  if (dayCard) dayCard.hidden = true;
 
   // Key for the tints of the active view + the persistent block/care marks.
   renderCalLegend(view);
 
   // Wire tooltip handlers on cells (hover/click)
   _wireCellHandlers();
+}
+
+// ─────────────────── Quiet month (phone) ───────────────────
+// The grid says only who works and whether anything needs attention; the day
+// card under it says the rest in words. Selection is view-only UI, so it lives
+// here and never in `state` (state is written whole to Firestore).
+let _monthSelISO = null;
+let _monthEvts = { g: [], k: [], d: [] };
+
+// One month as a page of the pager: only the weeks it needs.
+function _quietPageHTML(monthDate, evts, view, period, isCur) {
+  const monthIdx = monthDate.getMonth();
+  const todayISO = toISODate(new Date());
+  const from = parseISODate(state.range.from);
+  let days = monthGridDays(monthDate);
+  const cut = days.findIndex((dd, i) => i > 0 && i % 7 === 0 && dd.getMonth() !== monthIdx);
+  if (cut > 0) days = days.slice(0, cut);
+  let html = "";
+  for (const day of days) {
+    const dISO = toISODate(day);
+    const otherMonth = day.getMonth() !== monthIdx;
+    const cell = computeDayCellData(dISO, evts.g, evts.k, evts.d, view);
+    html += _quietMonthCellHTML(day, cell, _dayAnalysis[dISO] || {}, {
+      otherMonth, outside: otherMonth || !!(from && day < from),
+      isToday: dISO === todayISO, selected: isCur && dISO === _monthSelISO, period,
+    });
+  }
+  // Neighbour pages are only there to be peeked at while dragging.
+  return `<div class="qm-page${isCur ? " cur" : ""}"${isCur ? "" : ' aria-hidden="true" inert'}>${html}</div>`;
+}
+
+// The phone month: fixed weekday row, then a track of three pages (previous,
+// this, next) sitting at the middle one. Dragging slides the track.
+function renderQuietMonth(monthDate, evts, view) {
+  const y = monthDate.getFullYear(), m = monthDate.getMonth();
+  const todayISO = toISODate(new Date());
+  _monthEvts = evts;
+  const inMonth = iso => { const x = parseISODate(iso); return x && x.getMonth() === m && x.getFullYear() === y; };
+  if (!_monthSelISO || !inMonth(_monthSelISO)) {
+    _monthSelISO = inMonth(todayISO) ? todayISO : toISODate(new Date(y, m, 1));
+  }
+  const period = _postedPeriod(evts.g, evts.k);
+
+  const grid = document.getElementById("calGrid");
+  grid.classList.add("quiet");
+  grid.innerHTML =
+    `<div class="qm-hdrs">${CAL_DAYS.map(d => `<div class="cal-hdr">${d}</div>`).join("")}</div>` +
+    `<div class="qm-track">` +
+      _quietPageHTML(new Date(y, m - 1, 1), evts, view, period, false) +
+      _quietPageHTML(monthDate, evts, view, period, true) +
+      _quietPageHTML(new Date(y, m + 1, 1), evts, view, period, false) +
+    `</div>`;
+  const track = grid.querySelector(".qm-track");
+  track.style.height = track.children[1].offsetHeight + "px";
+
+  renderQuietLegend();
+  _wireQuietCells();
+  renderMonthDayCard(_monthSelISO);
+}
+
+// ── Month pager ── Slide to the neighbour month, then re-render around it.
+// Returns false when there is no pager (wide layout), so callers can fall
+// back to a plain month change.
+let _pagerBusy = false;
+const _PAGER_EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
+function _monthPagerGo(dir) {
+  const grid = document.getElementById("calGrid");
+  const track = grid && grid.classList.contains("quiet") && grid.querySelector(".qm-track");
+  if (!track) return false;
+  if (_pagerBusy) return true;
+  _pagerBusy = true;
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    _pagerBusy = false;
+    _monthSelISO = null;          // the new month picks today, or its 1st
+    shiftViewMonth(dir);          // re-renders with the new month centred
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { finish(); return true; }
+  const w = grid.clientWidth;
+  const target = track.children[dir > 0 ? 2 : 0];
+  track.style.transition = `transform 0.32s ${_PAGER_EASE}, height 0.32s ${_PAGER_EASE}`;
+  track.style.transform = `translateX(${-w - dir * w}px)`;
+  track.style.height = target.offsetHeight + "px";
+  track.addEventListener("transitionend", e => { if (e.propertyName === "transform") finish(); });
+  setTimeout(finish, 450);        // in case transitionend never arrives
+  return true;
+}
+
+// Drag-to-peek: the track follows the finger (height eases toward the month
+// being revealed); release past 30% of the width, or with a flick, to turn
+// the page, otherwise it springs back. A mostly-vertical drag is left to the
+// page scroll.
+(function initMonthPager() {
+  const grid = document.getElementById("calGrid");
+  if (!grid) return;
+  let sx = 0, sy = 0, st = 0, w = 0, mode = null, track = null, curH = 0;
+  grid.addEventListener("touchstart", e => {
+    mode = null;
+    if (!grid.classList.contains("quiet") || _pagerBusy || e.touches.length !== 1) return;
+    track = grid.querySelector(".qm-track");
+    if (!track) return;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; st = Date.now();
+    w = grid.clientWidth;
+    curH = track.children[1].offsetHeight;
+    mode = "pending";
+  }, { passive: true });
+  grid.addEventListener("touchmove", e => {
+    if (mode !== "pending" && mode !== "drag") return;
+    const t = e.touches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (mode === "pending") {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        mode = "drag";
+        track.style.transition = "none";
+      } else if (Math.abs(dy) > 8) { mode = "scroll"; return; }
+      else return;
+    }
+    e.preventDefault();
+    track.style.transform = `translateX(${-w + dx}px)`;
+    const peek = track.children[dx < 0 ? 2 : 0];
+    const f = Math.min(1, Math.abs(dx) / w);
+    track.style.height = (curH + (peek.offsetHeight - curH) * f) + "px";
+  }, { passive: false });
+  const end = e => {
+    if (mode !== "drag") { mode = null; return; }
+    mode = null;
+    const t = e.changedTouches && e.changedTouches[0];
+    const dx = t ? t.clientX - sx : 0;
+    const v = dx / Math.max(1, Date.now() - st);   // px per ms
+    const dir = (dx < -w * 0.3 || (v < -0.35 && dx < -24)) ? 1
+              : (dx > w * 0.3 || (v > 0.35 && dx > 24)) ? -1 : 0;
+    if (dir) { _monthPagerGo(dir); return; }
+    track.style.transition = `transform 0.26s ${_PAGER_EASE}, height 0.26s ${_PAGER_EASE}`;
+    track.style.transform = `translateX(${-w}px)`;
+    track.style.height = curH + "px";
+  };
+  grid.addEventListener("touchend", end);
+  grid.addEventListener("touchcancel", end);
+})();
+
+// Who works → a dot, always in Gage, Kaylene, Daisy order, centred under the
+// date. A pending shift is a hollow ring.
+function _quietDot(who, evts) {
+  if (!evts.length) return "";
+  const pending = evts.every(e => e.pending);
+  return `<span class="qm-dot ${who}${pending ? " pending" : " on"}"></span>`;
+}
+
+// The span both parents' schedules are posted for: from the later of their
+// first shifts to the earlier of their last. Past that, an empty day means
+// "not posted yet", not "off". (state.range is the old import window and
+// goes stale, so it can't answer this.)
+function _postedPeriod(gEvts, kEvts) {
+  const span = evts => {
+    const ds = evts.map(e => e.startDate).filter(Boolean).sort();
+    return ds.length ? [ds[0], ds[ds.length - 1]] : null;
+  };
+  const g = span(gEvts), k = span(kEvts);
+  if (!g || !k) return null;
+  return { from: g[0] > k[0] ? g[0] : k[0], to: g[1] < k[1] ? g[1] : k[1] };
+}
+
+function _quietMonthCellHTML(day, cell, da, o) {
+  const dISO = toISODate(day);
+  const blockInfo = scheduleBlockFor(dISO);
+  const covered = hasConfirmedCoverage(dISO);
+  const gap = da.childcare === "gap";
+  const cls = ["cal-cell", "qm-cell"];
+  if (o.otherMonth || o.outside) cls.push("outside");
+  if (o.isToday) cls.push("today");
+  if (o.selected) cls.push("selected");
+  if (blockInfo) cls.push("has-block", ...(covered ? [] : ["block-open"]));
+  if (gap) cls.push("qm-gap");
+  // Both parents off, inside the posted schedule → green (no G/K dot either).
+  const bothOff = !o.otherMonth && o.period && dISO >= o.period.from && dISO <= o.period.to &&
+    !cell.gOnDay.length && !cell.kOnDay.length;
+  if (bothOff) cls.push("qm-both-off");
+
+  const names = [];
+  if (cell.gOnDay.length) names.push(_eventWhoMeta("G").name);
+  if (cell.kOnDay.length) names.push(_eventWhoMeta("K").name);
+  if (cell.dOnDay.length) names.push(_eventWhoMeta("Daisy").name);
+  const aria = [day.toLocaleDateString(undefined, { month: "long", day: "numeric" })];
+  aria.push(names.length ? `${names.join(", ")} working` : "nobody working");
+  if (bothOff) aria.push("you're both off");
+  if (gap) aria.push("nobody has the kids");
+  if (blockInfo) aria.push(`${blockInfo.label || "schedule block"}, ${covered ? "covered" : "nobody yet"}`);
+
+  return `<button type="button" class="${cls.join(" ")}" data-date="${dISO}" aria-label="${escapeAttr(aria.join(", "))}"${o.selected ? ' aria-pressed="true"' : ""}>
+    <span class="qm-num">${day.getDate()}</span>
+    <span class="qm-dots">${_quietDot("g", cell.gOnDay)}${_quietDot("k", cell.kOnDay)}${_quietDot("d", cell.dOnDay)}</span>
+  </button>`;
+}
+
+function renderQuietLegend() {
+  const el = document.getElementById("calLegend");
+  if (!el) return;
+  const who = (w, k) => `<span><i class="lg-dot ${k}"></i>${escapeHTML(_eventWhoMeta(w).name)}</span>`;
+  el.innerHTML =
+    who("G", "g") + who("K", "k") + who("Daisy", "d") +
+    `<span><i class="lg-both-off"></i>Both off</span>` +
+    `<span><i class="lg-block"></i>Schedule block</span>`;
+}
+
+function _selectMonthDay(iso) {
+  _monthSelISO = iso;
+  document.querySelectorAll("#calGrid .qm-page.cur .qm-cell").forEach(c => {
+    const on = c.dataset.date === iso;
+    c.classList.toggle("selected", on);
+    if (on) c.setAttribute("aria-pressed", "true"); else c.removeAttribute("aria-pressed");
+  });
+  renderMonthDayCard(iso);
+}
+
+// Same first-tap rule as the chip grid: act on touchend (iOS would otherwise
+// spend the first tap on :hover), with a movement guard so a swipe to the next
+// month never selects a day.
+function _wireQuietCells() {
+  let start = null;
+  document.querySelectorAll("#calGrid .qm-page.cur .qm-cell[data-date]").forEach(el => {
+    el.addEventListener("touchstart", e => {
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    el.addEventListener("touchend", e => {
+      const s = start; start = null;
+      if (!s) return;
+      const t = e.changedTouches[0];
+      if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) return;
+      e.preventDefault();
+      _selectMonthDay(el.dataset.date);
+    }, { passive: false });
+    el.addEventListener("click", () => _selectMonthDay(el.dataset.date));
+  });
+}
+
+function _fmtRange(startMin, endMin) {
+  const hm = m => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return `${compactTime(hm(startMin))} – ${compactTime(hm(endMin))}`;
+}
+
+// ── Stretches: runs of 2+ consecutive days Kaylene works. Mirrors desktop
+// lib/stretch.ts, which marks each day with a fire and "day/of" ("2/3").
+function stretchesFor(evts) {
+  const days = [...new Set(evts.map(e => e.startDate))].sort();
+  const out = new Map();
+  let run = [];
+  const flush = () => {
+    if (run.length >= 2) run.forEach((iso, i) => out.set(iso, { day: i + 1, of: run.length }));
+    run = [];
+  };
+  for (const iso of days) {
+    if (run.length && toISODate(addDays(parseISODate(run[run.length - 1]), 1)) !== iso) flush();
+    run.push(iso);
+  }
+  flush();
+  return out;
+}
+
+// Heroicons "fire" (MIT) — the same flame desktop's StretchBadge uses.
+const FIRE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.3622 5.21361C18.2427 6.50069 20.25 9.39075 20.25 12.7497C20.25 17.306 16.5563 20.9997 12 20.9997C7.44365 20.9997 3.75 17.306 3.75 12.7497C3.75 10.5376 4.62058 8.52889 6.03781 7.04746C6.8043 8.11787 7.82048 8.99731 9.00121 9.60064C9.04632 6.82497 10.348 4.35478 12.3621 2.73413C13.1255 3.75788 14.1379 4.61821 15.3622 5.21361Z"/><path d="M12 18C14.0711 18 15.75 16.3211 15.75 14.25C15.75 12.3467 14.3321 10.7746 12.4949 10.5324C11.4866 11.437 10.7862 12.6779 10.5703 14.0787C9.78769 13.8874 9.06529 13.5425 8.43682 13.0779C8.31559 13.4467 8.25 13.8407 8.25 14.25C8.25 16.3211 9.92893 18 12 18Z"/></svg>`;
+
+function stretchBadgeHTML(st, name) {
+  if (!st) return "";
+  return `<span class="stretch-badge" role="img" aria-label="${escapeAttr(`${name}'s stretch, day ${st.day} of ${st.of}`)}">${FIRE_SVG}${st.day}/${st.of}</span>`;
+}
+
+// Photo avatar for a person (the calendar grid keeps plain dots).
+function personAvatarHTML(who, extraCls = "") {
+  const m = _eventWhoMeta(who);
+  const photo = who === "G" ? "g" : who === "K" ? "k" : who === "Daisy" ? "d" : "";
+  return `<span class="sb-avatar ${m.cls} ${extraCls}"${photo ? ` data-photo="${photo}"` : ""} aria-hidden="true">${m.initial}</span>`;
+}
+
+// "a", "a and b", "a, b and c"
+function _joinAnd(list) {
+  if (list.length <= 1) return list.join("");
+  return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+// One sentence for the day: its life events, then what that means for the
+// kids. "Maeva & Elliot Dentist App. at 9:30a, Kaylene is off."
+// Returns { html, tone } — tone "alert" (nobody has them), "ok" or "".
+function daySentence(dISO, g, k, period) {
+  const da = _dayAnalysis[dISO] || {};
+  // Outside the posted schedule an empty day is unknown, not "off".
+  const unposted = !g.length && !k.length && (!period || dISO < period.from || dISO > period.to);
+  const nm = w => _eventWhoMeta(w).name;
+
+  const byWho = new Map();
+  for (const ev of getEventsForDate(dISO)) {
+    const w = ["G", "K", "Daisy"].includes(ev.who) ? ev.who : "family";
+    if (!byWho.has(w)) byWho.set(w, []);
+    byWho.get(w).push(ev);
+  }
+  const evItem = ev => {
+    const title = String(ev.title || "Event").trim().replace(/[!\s]+$/, "");
+    return `${escapeHTML(title)}${ev.startTime ? ` at ${compactTime(ev.startTime)}` : ""}${ev.pending ? " (pending)" : ""}`;
+  };
+  const clauses = [];
+  for (const [w, list] of byWho) {
+    const items = _joinAnd(list.map(evItem));
+    clauses.push(w === "family" ? items : `${escapeHTML(nm(w))} has ${items}`);
+  }
+
+  // Say the consequence, not the mechanism.
+  const block = scheduleBlockFor(dISO);
+  const covered = hasConfirmedCoverage(dISO);
+  let tone = "", icon = "";
+  if (da.childcare === "gap") {
+    const when = (da.gapRanges || []).map(r => _fmtRange(r[0], r[1])).join(", ");
+    clauses.push(`nobody has the kids${when ? ` ${when}` : ""}`);
+    tone = "alert"; icon = `<i class="lg-gap"></i>`;
+  } else if (block && !covered) {
+    clauses.push(`nobody has the ${escapeHTML((block.label || "schedule").toLowerCase())} block yet`);
+    tone = "alert"; icon = `<i class="lg-edge-open"></i>`;
+  } else if (covered) {
+    const when = ((state && state.coverageRequests) || [])
+      .filter(r => r && r.date === dISO && r.status === "confirmed" && r.startTime && r.endTime)
+      .map(r => `${compactTime(r.startTime)} – ${compactTime(r.endTime)}`).join(", ");
+    clauses.push(`${escapeHTML(nm("Daisy"))} has the kids${when ? ` ${when}` : ""}`);
+    tone = "ok"; icon = `<i class="lg-ok"></i>`;
+  } else if (g.length && k.length) {
+    clauses.push("the kids are covered");
+    tone = "ok"; icon = `<i class="lg-ok"></i>`;
+  } else if (g.length || k.length) {
+    clauses.push(`${escapeHTML(nm(g.length ? "K" : "G"))} is off`);
+  } else if (!unposted) {
+    clauses.push("you're both off");
+  }
+  if (!clauses.length) return null;
+
+  let text = clauses.join(", ");
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  if (!/[.!?]$/.test(text)) text += ".";
+  return { html: `${icon}<span>${text}</span>`, tone };
+}
+
+// The day card: payday and friends in the corner, who works (with faces),
+// then one sentence that says what the day means.
+function renderMonthDayCard(dISO) {
+  const el = document.getElementById("monthDayCard");
+  if (!el || !dISO) return;
+  const d = parseISODate(dISO);
+  const g = eventsOnDate(_monthEvts.g, dISO);
+  const k = eventsOnDate(_monthEvts.k, dISO);
+  const dz = eventsOnDate(_monthEvts.d, dISO);
+  const isToday = dISO === toISODate(new Date());
+  const head = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const kStretch = stretchesFor(_monthEvts.k).get(dISO);
+
+  const personRow = (who, evts) => {
+    if (!evts.length) return "";
+    const times = evts.map(e => `${compactTime(e.startTime)} – ${compactTime(e.endTime)}${e.pending ? ` <span class="mdc-tag">pending</span>` : ""}`).join(", ");
+    const fire = who === "K" ? stretchBadgeHTML(kStretch, _eventWhoMeta("K").name) : "";
+    return `<div class="mdc-row">${personAvatarHTML(who, "mdc-av")}<span class="mdc-name">${escapeHTML(_eventWhoMeta(who).name)}</span><span class="mdc-time">${times}</span>${fire}</div>`;
+  };
+  const period = _postedPeriod(_monthEvts.g, _monthEvts.k);
+  const unposted = !period || dISO < period.from || dISO > period.to;
+  let rows = personRow("G", g) + personRow("K", k) + personRow("Daisy", dz);
+  if (!rows) rows = `<div class="mdc-row mdc-quiet">${unposted ? "No schedule posted yet" : "Nobody's working"}</div>`;
+
+  // Small facts ride in the top-right corner as chips.
+  const chips = [];
+  const pd = state.paydays || {};
+  if (pd.G && isPaydayOnIso(dISO, pd.G)) chips.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("G").name)}'s payday</span>`);
+  if (pd.K && isPaydayOnIso(dISO, pd.K)) chips.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("K").name)}'s payday</span>`);
+  const game = wvuGameOn(dISO);
+  if (game) chips.push(`<span class="mdc-chip"><img src="assets/wvu.png" alt="" aria-hidden="true" width="14" height="13">${escapeHTML(wvuGameTitle(game))}</span>`);
+  if (getOTOpportunities(dISO).length) chips.push(`<span class="mdc-chip">Overtime open</span>`);
+
+  const sentence = daySentence(dISO, g, k, period);
+
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="mdc-head"><span class="mdc-date">${isToday ? "Today · " : ""}${escapeHTML(head)}</span>${chips.length ? `<span class="mdc-chips">${chips.join("")}</span>` : ""}</div>
+    ${rows}
+    ${sentence ? `<div class="mdc-verdict${sentence.tone ? ` ${sentence.tone}` : ""}">${sentence.html}</div>` : ""}
+    <button type="button" class="mdc-more" id="mdcMore">Day details ›</button>`;
+  const more = document.getElementById("mdcMore");
+  if (more) more.addEventListener("click", e => {
+    e.stopPropagation();
+    const cell = document.querySelector(`#calGrid .qm-page.cur .qm-cell[data-date="${dISO}"]`);
+    showCalTooltip(cell, dISO, null, true);
+  });
 }
 
 // Month-grid legend. The tint swatches follow the active view; the block-edge
@@ -13360,6 +14117,10 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   document.getElementById("dayView").style.display = "none";
   const agEl = document.getElementById("agendaView");
   agEl.style.display = "flex";
+  // The list starts today whatever month the grid was on, so the title
+  // shouldn't name a month.
+  const titleEl = document.getElementById("calHeaderTitle");
+  if (titleEl) titleEl.textContent = "Coming up";
 
   // Show ~14 days starting from today
   const start = new Date();
@@ -13367,9 +14128,6 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   const days = [];
   for (let i = 0; i < 14; i++) days.push(addDays(start, i));
   const todayISO = toISODate(new Date());
-  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-  const dowFull = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  const labels = _personLabels();
 
   // Group into This week / Next week / Later. Work days list one clean line per
   // shift (name · range · hours); off days render as a slim, quiet row.
@@ -13381,6 +14139,12 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
     return w === thisWk ? "This week" : w === nextWk ? "Next week" : "Later";
   };
 
+  // One card per day: who works, then a line only when something needs
+  // attention. Busy days get room to breathe instead of a squeezed cell.
+  const shortDay = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const shortMo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const pd = state.paydays || {};
+  const kStretches = stretchesFor(kayEvts);
   let html = "";
   let curSection = null;
   for (const d of days) {
@@ -13389,37 +14153,43 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
     if (sec !== curSection) { curSection = sec; html += `<div class="agenda-section">${sec}</div>`; }
 
     const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
+    const da = _dayAnalysis[dISO] || {};
     const isToday = dISO === todayISO;
-    let kind = "off";
-    if (cell.gWorks && cell.kWorks) kind = "both";
-    else if (cell.gWorks) kind = "g";
-    else if (cell.kWorks) kind = "k";
+    const head = `${isToday ? "Today · " : ""}${shortDay[d.getDay()]} ${d.getDate() === 1 || d === days[0] ? `${shortMo[d.getMonth()]} ` : ""}${d.getDate()}`;
 
-    const title =
-      kind === "off"  ? "Both off" :
-      kind === "both" ? "Both working" :
-      kind === "g"    ? `${labels.self} works` :
-                        `${labels.partner} works`;
+    const shift = (who, cls, e) =>
+      `<span class="ag-shift">${personAvatarHTML(who, "ag-av")}${escapeHTML(_eventWhoMeta(who).name)} ${compactTime(e.startTime)}–${compactTime(e.endTime)}${e.pending ? " (pending)" : ""}${who === "K" ? stretchBadgeHTML(kStretches.get(dISO), _eventWhoMeta("K").name) : ""}</span>`;
+    const shifts = [
+      ...cell.gOnDay.map(e => shift("G", "g", e)),
+      ...cell.kOnDay.map(e => shift("K", "k", e)),
+      ...cell.dOnDay.map(e => shift("Daisy", "d", e)),
+    ];
 
-    let shiftsHTML = "";
-    if (kind !== "off") {
-      for (const e of cell.gOnDay) shiftsHTML += _agendaShiftLine("G", e);
-      for (const e of cell.kOnDay) shiftsHTML += _agendaShiftLine("K", e);
+    // Small facts ride on the right of the header.
+    const facts = [];
+    if (pd.G && isPaydayOnIso(dISO, pd.G)) facts.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("G").name)}'s payday</span>`);
+    if (pd.K && isPaydayOnIso(dISO, pd.K)) facts.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("K").name)}'s payday</span>`);
+    const game = wvuGameOn(dISO);
+    if (game) facts.push(`<span class="mdc-chip"><img src="assets/wvu.png" alt="" aria-hidden="true" width="14" height="13">${escapeHTML(wvuGameTitle(game))}</span>`);
+
+    const block = scheduleBlockFor(dISO);
+    const covered = hasConfirmedCoverage(dISO);
+    let verdict = "";
+    if (da.childcare === "gap") {
+      const when = (da.gapRanges || []).map(r => _fmtRange(r[0], r[1])).join(", ");
+      verdict = `<div class="ag-verdict"><i class="lg-gap"></i>Nobody has the kids${when ? ` ${when}` : ""}</div>`;
+    } else if (block && !covered) {
+      verdict = `<div class="ag-verdict"><i class="lg-edge-open"></i>${escapeHTML(block.label || "Schedule block")} — nobody has it yet</div>`;
     }
-    const evPillsHTML = getEventsForDate(dISO).map(agendaEventPillHTML).join("");
 
-    html += `<div class="agenda-row${isToday ? " today" : ""}${kind === "off" ? " off" : ""}" data-kind="${kind}" data-date="${dISO}">
-      <div class="agenda-date">
-        <div class="ad-dow">${dowFull[d.getDay()]}</div>
-        <div class="ad-num">${d.getDate()}</div>
-        <div class="ad-mo">${months[d.getMonth()]}</div>
-      </div>
-      <div class="agenda-rail"></div>
-      <div class="agenda-body">
-        <div class="agenda-title">${title}${wvuMarkHTML(dISO, "agenda-wvu-icon")}</div>
-        ${shiftsHTML ? `<div class="agenda-shifts">${shiftsHTML}</div>` : ""}
-      </div>
-      ${evPillsHTML ? `<div class="agenda-events">${evPillsHTML}</div>` : ""}
+    const evs = getEventsForDate(dISO).map(ev =>
+      `<button type="button" class="ag-ev" data-eid="${escapeAttr(ev.id || "")}">${escapeHTML(ev.title || "Event")}${ev.startTime ? ` · ${compactTime(ev.startTime)}` : ""}</button>`).join("");
+
+    html += `<div class="ag-row${isToday ? " today" : ""}${block ? (covered ? " has-block" : " has-block block-open") : ""}" data-date="${dISO}">
+      <div class="ag-head"><span class="ag-day">${head}</span>${facts.length ? `<span class="mdc-chips">${facts.join("")}</span>` : ""}</div>
+      <div class="ag-shifts">${shifts.length ? shifts.join("") : `<span class="ag-off">Nobody's working</span>`}</div>
+      ${verdict}
+      ${evs ? `<div class="ag-evs">${evs}</div>` : ""}
     </div>`;
   }
   agEl.innerHTML = html;
@@ -14561,8 +15331,8 @@ document.querySelectorAll(".layout-tab").forEach(btn => {
 // Month navigation
 const _mp = document.getElementById("monthPrev");
 const _mn = document.getElementById("monthNext");
-if (_mp) _mp.addEventListener("click", () => shiftViewMonth(-1));
-if (_mn) _mn.addEventListener("click", () => shiftViewMonth(+1));
+if (_mp) _mp.addEventListener("click", () => { if (!_monthPagerGo(-1)) shiftViewMonth(-1); });
+if (_mn) _mn.addEventListener("click", () => { if (!_monthPagerGo(+1)) shiftViewMonth(+1); });
 // Day navigation
 const _dp = document.getElementById("dayPrev");
 const _dn = document.getElementById("dayNext");
@@ -14768,7 +15538,7 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
 // agenda re-renders. Backdrop tap / grabber tap dismiss it.
 (() => {
   document.addEventListener("click", (e) => {
-    const pill = e.target.closest(".agenda-ev-pill");
+    const pill = e.target.closest(".agenda-ev-pill, .ag-ev");
     if (!pill) return;
     e.stopPropagation();
     e.preventDefault();
@@ -14799,7 +15569,9 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
   }
 
   function inSwipeZone(target) {
-    return !!(target.closest && target.closest('.cal-wrap[data-layout="month"], #weekView, #dayView'));
+    if (!target.closest) return false;
+    if (target.closest(".cal-grid.quiet")) return false;   // the month pager owns this
+    return !!target.closest('.cal-wrap[data-layout="month"], #weekView, #dayView');
   }
 
   document.addEventListener("touchstart", (e) => {
@@ -14827,7 +15599,7 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
     const dir = dx < 0 ? +1 : -1;   // swipe left → next, swipe right → prev
     if (layout === "week")      shiftViewWeek(dir);
     else if (layout === "day")  shiftViewDay(dir);
-    else                        shiftViewMonth(dir);
+    else if (!_monthPagerGo(dir)) shiftViewMonth(dir);
   }, { passive: true });
 })();
 
@@ -14851,6 +15623,7 @@ document.addEventListener("click", (e) => {
   }
 }, true);
 </script>
+
 
 </body>
 </html>
