@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
@@ -25,7 +25,7 @@ function resolveDark(pref: ThemePref): boolean {
   if (pref === "light") return false;
   return systemPrefersDark();
 }
-import { useAuth, doSignOut } from "./hooks/useAuth";
+import { useAuth } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
 import { useWvuGames } from "./hooks/useWvuGames";
@@ -41,7 +41,7 @@ import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
 import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
-import { BrandMark, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./components/BrandMark";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
 import { EditShiftModal, type EditShiftTarget } from "./components/EditShiftModal";
@@ -108,24 +108,48 @@ export function App() {
 
   const auth = useAuth();
 
-  if (auth.status === "loading") return <Splash message="Connecting…" dark={dark} />;
-  if (auth.status === "signed-out") return <SignIn dark={dark} />;
-  return <ManagerApp dark={dark} themePref={themePref} onSetThemePref={setThemePref} />;
+  // One loading screen from launch until the household's first snapshot, so
+  // the placeholder calendar never shows. It sits over the app and fades out;
+  // after 10s it gives way regardless, and the top bar's "connecting" says
+  // the rest.
+  const [appReady, setAppReady] = useState(false);
+  const markReady = useCallback(() => setAppReady(true), []);
+  useEffect(() => {
+    if (auth.status !== "signed-in" || appReady) return;
+    const id = window.setTimeout(markReady, 10_000);
+    return () => window.clearTimeout(id);
+  }, [auth.status, appReady, markReady]);
+  const booting = auth.status === "loading" || (auth.status === "signed-in" && !appReady);
+
+  return (
+    <>
+      {auth.status === "signed-out" && <SignIn dark={dark} />}
+      {auth.status === "signed-in" && (
+        <ManagerApp dark={dark} themePref={themePref} onSetThemePref={setThemePref} onReady={markReady} />
+      )}
+      <LoadingScreen visible={booting} dark={dark} />
+    </>
+  );
 }
 
 interface ManagerAppProps {
   dark: boolean;
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
+  /** Called once the household has loaded (or turned out not to exist). */
+  onReady: () => void;
 }
 
-function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
+function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProps) {
   const palette = getPalette(PALETTE);
   const auth = useAuth();
   const user = auth.status === "signed-in" ? auth.user : null;
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const householdStatus = useHousehold(user, refreshNonce);
+  useEffect(() => {
+    if (householdStatus.status !== "loading") onReady();
+  }, [householdStatus.status, onReady]);
 
   // Ticking, not per-render: this is a long-running Electron app that can sit
   // open across midnight with no re-render. A frozen `today` made the coverage
@@ -1013,50 +1037,6 @@ function ManagerApp({ dark, themePref, onSetThemePref }: ManagerAppProps) {
           />
         )}
       </ModalPresence>
-    </div>
-  );
-}
-
-function Splash({ title, message, showSignOut, dark = true }: { title?: string; message: string; showSignOut?: boolean; dark?: boolean }) {
-  const t = themeTokens(dark);
-  return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: t.bg,
-        color: t.text,
-        padding: 24,
-        gap: 14,
-        textAlign: "center",
-      }}
-    >
-      <BrandMark size={48} color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL} />
-      {title && <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{title}</div>}
-      <div style={{ fontSize: 13, color: t.text2, maxWidth: 380, lineHeight: 1.5 }}>{message}</div>
-      {showSignOut && (
-        <button
-          type="button"
-          onClick={() => { void doSignOut(); }}
-          style={{
-            marginTop: 6,
-            padding: "7px 14px",
-            border: `0.5px solid ${t.sep}`,
-            borderRadius: 8,
-            background: t.bgElev,
-            color: t.text,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          Sign out
-        </button>
-      )}
     </div>
   );
 }
