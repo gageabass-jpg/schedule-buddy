@@ -423,6 +423,7 @@ async function createWindow() {
     "accounts.google.com",
     "appleid.apple.com",
     "schedule-buddy-dd2cf.firebaseapp.com",
+    "schedule-buddy-staging.firebaseapp.com",   // dev builds sign in to staging
   ];
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     try {

@@ -7364,14 +7364,31 @@
 
 <script>
 // ==================== FIREBASE INIT ====================
-const firebaseConfig = {
-  apiKey: "AIzaSyDgRavOYvAYbw2nVmOUG_CT8Klifl24Xbk",
-  authDomain: "schedule-buddy-dd2cf.firebaseapp.com",
-  projectId: "schedule-buddy-dd2cf",
-  storageBucket: "schedule-buddy-dd2cf.firebasestorage.app",
-  messagingSenderId: "751719086344",
-  appId: "1:751719086344:web:d831238f5039d29d17d4bd"
+// Two projects: live (the family's data) and staging (fake households for
+// trying changes). The staging site and local development (the simulator's
+// dev build loads from localhost) use staging; everything else is live.
+// Web apiKeys are public identifiers; the security rules guard the data.
+const FIREBASE_CONFIGS = {
+  live: {
+    apiKey: "AIzaSyDgRavOYvAYbw2nVmOUG_CT8Klifl24Xbk",
+    authDomain: "schedule-buddy-dd2cf.firebaseapp.com",
+    projectId: "schedule-buddy-dd2cf",
+    storageBucket: "schedule-buddy-dd2cf.firebasestorage.app",
+    messagingSenderId: "751719086344",
+    appId: "1:751719086344:web:d831238f5039d29d17d4bd",
+  },
+  staging: {
+    apiKey: "AIzaSyD5RWmvRWqrp0GKZeOcxqZPw1Ja8z2Pbog",
+    authDomain: "schedule-buddy-staging.firebaseapp.com",
+    projectId: "schedule-buddy-staging",
+    storageBucket: "schedule-buddy-staging.firebasestorage.app",
+    messagingSenderId: "713442891579",
+    appId: "1:713442891579:web:c68260e15783cbc2c4c91e",
+  },
 };
+const NUCLEUS_ENV = (/(^|\.)schedule-buddy-staging\./.test(location.hostname) ||
+  location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "staging" : "live";
+const firebaseConfig = FIREBASE_CONFIGS[NUCLEUS_ENV];
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -7774,10 +7791,13 @@ document.getElementById("hhJoinBtn").addEventListener("click", async () => {
     // Stripping the @domain so the household sidebar shows "kaylene.bass"
     // rather than the full address.
     const fallbackName = currentUser.email ? currentUser.email.split("@")[0] : "Member";
+    // joinCode names the invite: the security rules only let someone add
+    // themselves with a real code for this household, in the code's role.
     await hhRef.update({
       memberUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
       [`memberNames.${currentUser.uid}`]: currentUser.displayName || fallbackName,
       [`roles.${currentUser.uid}`]: role,
+      joinCode: code,
     });
     await resolveHousehold(currentUser);
   } catch (e) {
