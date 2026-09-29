@@ -1,0 +1,316 @@
+// The any-household model (shared/model.ts, fromLegacy.ts, resolve.ts).
+//
+// The migration is only safe if a converted household draws exactly what it
+// drew before. These tests run the legacy engine and the new one side by side
+// — on a household that uses every field, and on hundreds of random ones —
+// and require identical calendars, coverage gaps and caregiver time.
+//
+// Runs against the built functions (npm run test:rules builds them first).
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import stateMod from "../functions/lib/shared/state.js";
+import overlapMod from "../functions/lib/shared/computeOverlap.js";
+import legacyMod from "../functions/lib/shared/fromLegacy.js";
+import resolveMod from "../functions/lib/shared/resolve.js";
+
+const { buildShiftMap, expandCustomTemplateTypes } = stateMod;
+const { computeOverlapCandidates, daisyDayRanges } = overlapMod;
+const { fromLegacy, PER_DEVICE } = legacyMod;
+const { resolveShifts, coverageGaps, caregiverDayRanges } = resolveMod;
+
+const HH = "hh1";
+const META = {
+  memberUids: ["uGage", "uKay", "uDaisy"],
+  memberNames: { uGage: "Gage", uKay: "Kaylene", uDaisy: "Daisy" },
+  roles: { uGage: "admin", uKay: "partner", uDaisy: "supporting" },
+  inviteCode: "ABC222",
+  createdBy: "uGage",
+};
+
+const SHIFT_TYPES = [
+  { id: "d", name: "Day", start: "07:00", end: "19:00", crossesMidnight: false },
+  { id: "n", name: "Night", start: "19:00", end: "07:00", crossesMidnight: true, sleepHours: 7, preSleepHours: 6 },
+  { id: "e", name: "Early", start: "05:30", end: "14:00", crossesMidnight: false, sleepHours: 0 },
+  { id: "c", name: "Class", start: "09:00", end: "13:00", crossesMidnight: false },
+];
+
+/** A household that uses every field state/main has. */
+function fullState() {
+  return {
+    shiftTypes: SHIFT_TYPES,
+    template: ["d", null, null, "d", "d", null, null],
+    templateEndDate: "2027-01-01",
+    alt: { enabled: true, refSat: "2026-09-05", sat: "d", sun: "d" },
+    ot: [
+      { date: "2026-09-09", shiftTypeId: "n", label: "OT", coworkers: "Sam" },
+      { date: "2026-10-14", shiftTypeId: "d", label: "OT", note: "cover for Jo", where: "ER" },
+    ],
+    otOpportunities: [{ date: "2026-10-20", shiftTypeId: "n", coworkers: "Lee" }],
+    overrides: [
+      { date: "2026-09-16", shiftTypeId: null, label: "off" },
+      { date: "2026-09-17", shiftTypeId: "n", label: "swap", note: "traded" },
+      { date: "2026-09-17", shiftTypeId: "d", label: "dupe" },
+    ],
+    range: { from: "2026-09-01", to: "2026-12-31" },
+    calName: "Bass Schedule",
+    calView: "childcare",
+    selfName: "Gage",
+    partner: { name: "Kaylene", shifts: [
+      { date: "2026-09-10", shiftTypeId: "n", label: "extra" },
+      { date: "2026-09-24", shiftTypeId: "e", label: "early", note: "training" },
+    ] },
+    caregiverBlackouts: [{ dow: 2, start: "09:00", end: "13:00" }],
+    ui: { calLayout: "month", viewMonth: "2026-09", viewWeekStart: "2026-09-27" },
+    activeTab: "calendar",
+    dependents: { daisy: { name: "Daisy", shifts: [
+      { date: "2026-09-12", shiftTypeId: "c", label: "exam" },
+      { date: "2026-09-19", label: "field trip" },
+    ] } },
+    imports: [{ id: "imp1", scheduleId: "g", importedAt: 1, addedDates: [], noteCount: 0, photo: "data:image/jpeg;base64,AAAA" }],
+    events: [
+      { id: "e1", date: "2026-09-11", title: "Dentist", who: "G" },
+      { id: "e2", date: "2026-09-12", title: "Recital", who: "family" },
+      { id: "e3", date: "2026-09-13", title: "Lunch", who: "K" },
+      { id: "e4", date: "2026-09-14", title: "Exam", who: "Daisy", healthId: "h1" },
+    ],
+    householdName: "Bass Household",
+    employers: { G: "Thomas Hospital", K: "CAMC", D: "BVCTC" },
+    timeZone: "America/New_York",
+    shareEnabled: true,
+    shareToken: "tok",
+    coverageRequests: [
+      { id: "cov1", date: "2026-09-10", startTime: "17:00", endTime: "09:00", endsNextDay: true, status: "confirmed", createdAt: 1, caregiverUid: "uDaisy" },
+      { id: "cov2", date: "2026-09-24", startTime: "03:30", endTime: "15:00", status: "pending", createdAt: 2 },
+    ],
+    caregiverRequests: [{ id: "cr1", type: "other", date: "2026-09-20", status: "new", createdAt: 3, createdBy: "uDaisy" }],
+    childcareOff: [{ date: "2026-09-25", label: "Daisy – Scheduled Off" }],
+    paydays: { G: { anchor: "2026-09-04", freq: "biweekly" }, K: { anchor: "2026-09-11", freq: "weekly" } },
+    occasions: [{ id: "o1", date: "2026-10-31", label: "Halloween", type: "holiday", annual: true }],
+    scheduleBlocks: [
+      { id: "b1", startDate: "2026-10-01", endDate: "2026-10-03", label: "Trip", createdAt: 4, createdBy: "uGage" },
+      { startDate: "2026-10-08", endDate: "2026-10-08", label: "Daisy: exam" },
+    ],
+    weeklyTemplates: {
+      G: { days: ["d", null, { start: "06:00", end: "14:30" }, "d", "d", null, null], endDate: "2027-01-01" },
+      K: { days: [null, "n", "n", null, null, "n", null], startDate: "2026-09-02" },
+      daisy: { days: [null, "c", { start: "10:00", end: "15:00" }, "c", null, null, null] },
+    },
+    _migrations: ["kayleneSeed"],
+    mystery: 42,
+  };
+}
+
+// ── Side-by-side comparison ────────────────────────────────────────────────
+
+const FROM = "2026-09-01";
+const TO = "2026-11-30";
+
+function addDays(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+const SOURCE = { template: "template", "alt-weekend": "alt-weekend", override: "replace", ot: "add", partner: "add" };
+
+/** The legacy calendar, in the new model's terms. */
+function legacyCalendar(state, people) {
+  const whoToId = { G: people.G, K: people.K, D: people.D };
+  const map = buildShiftMap(expandCustomTemplateTypes(state), FROM, TO);
+  const out = {};
+  for (const [date, shifts] of Object.entries(map)) {
+    if (date < FROM || date > TO) continue; // legacy also lists extras outside the window
+    out[date] = shifts.map((s) => ({
+      personId: whoToId[s.who], label: s.label, shiftTypeId: s.shiftTypeId,
+      // Legacy caregiver shifts carry no source (they were display-only).
+      source: s.who === "D" ? undefined : SOURCE[s.source.kind], note: s.note, where: s.where,
+    }));
+  }
+  return out;
+}
+
+function newCalendar(model) {
+  const caregiver = model.people.find((p) => p.role === "caregiver")?.id;
+  const map = resolveShifts(model, FROM, TO);
+  const out = {};
+  for (const [date, shifts] of Object.entries(map)) {
+    out[date] = shifts.map((s) => ({
+      personId: s.personId, label: s.label, shiftTypeId: s.shiftTypeId,
+      source: s.personId === caregiver ? undefined : s.source.kind,
+      note: s.note, where: s.where,
+    }));
+  }
+  return out;
+}
+
+/** Drop undefined so deepEqual compares only real values. */
+const norm = (v) => JSON.parse(JSON.stringify(v));
+
+function assertSameHousehold(state, label = "") {
+  const { model, people } = fromLegacy(HH, structuredClone(state), META);
+
+  assert.deepEqual(norm(newCalendar(model)), norm(legacyCalendar(state, people)), `${label} calendar differs`);
+
+  // Coverage gaps: compare away from the window's edges, where the legacy map
+  // can hold extras from outside the window.
+  const inner = (c) => c.date > FROM && c.date < addDays(TO, -1);
+  const expanded = expandCustomTemplateTypes(state);
+  const legacyGaps = computeOverlapCandidates(buildShiftMap(expanded, FROM, TO), expanded).filter(inner);
+  const newGaps = coverageGaps(model, resolveShifts(model, FROM, TO)).filter(inner);
+  assert.deepEqual(norm(newGaps), norm(legacyGaps), `${label} coverage gaps differ`);
+
+  if (people.D) {
+    const shifts = resolveShifts(model, FROM, TO);
+    for (let d = FROM; d <= TO; d = addDays(d, 1)) {
+      assert.deepEqual(caregiverDayRanges(model, shifts, people.D, d), daisyDayRanges(expanded, d), `${label} caregiver time differs on ${d}`);
+    }
+  }
+  return { model, legacyGaps };
+}
+
+// ── The full household ─────────────────────────────────────────────────────
+
+test("every field of state/main lands somewhere, or is reported", () => {
+  const { model, notes, photos, people } = fromLegacy(HH, fullState(), META);
+  assert.deepEqual(notes.sort(), [
+    "duplicate override for 2026-09-17 ignored (the first one always won)",
+    "legacy template/templateEndDate superseded by weeklyTemplates.G and not copied",
+    "schedule block 2026-10-08–2026-10-08 had no id; given " + model.scheduleBlocks[1].id,
+    'state/main field "mystery" has no place in the new model and was not copied',
+  ].sort());
+  assert.deepEqual([...PER_DEVICE].sort(), ["activeTab", "calView", "ui"]);
+
+  const [g, k, d] = model.people;
+  assert.deepEqual([g.name, g.role, g.uid, g.color], ["Gage", "adult", "uGage", "teal"]);
+  assert.deepEqual([k.name, k.role, k.uid, k.color], ["Kaylene", "adult", "uKay", "clay"]);
+  assert.deepEqual([d.name, d.role, d.uid, d.color], ["Daisy", "caregiver", "uDaisy", "ink"]);
+  assert.equal(g.employer, "Thomas Hospital");
+  assert.equal(k.payday.freq, "weekly");
+  assert.equal(d.blackouts.length, 1);
+  assert.equal(g.altWeekend.refSat, "2026-09-05");
+
+  assert.equal(model.root.name, "Bass Household");
+  assert.equal(model.root.childcare, true);
+  assert.equal(model.settings.shareToken, "tok");
+  assert.deepEqual(model.settings.migrations, ["kayleneSeed"]);
+
+  assert.deepEqual(model.events.map((e) => e.personId), [people.G, undefined, people.K, people.D]);
+  assert.ok(model.events.every((e) => !("who" in e)));
+  assert.deepEqual(model.coverageRequests.map((r) => r.caregiverId), [people.D, people.D]);
+  assert.deepEqual(model.caregiverOff, [{ id: `2026-09-25_${people.D}`, personId: people.D, date: "2026-09-25", label: "Daisy – Scheduled Off" }]);
+  assert.equal(model.shiftOffers[0].personId, people.G);
+
+  // Photos come out of the record, to be uploaded to Storage.
+  assert.deepEqual(photos, [{ importId: "imp1", dataUrl: "data:image/jpeg;base64,AAAA" }]);
+  assert.ok(!("photo" in model.imports[0]));
+
+  // 2 overrides (one duplicate dropped) + 2 OT + 2 partner + 2 caregiver.
+  assert.equal(model.shifts.length, 8);
+});
+
+test("the full household draws the same calendar, gaps and caregiver time", () => {
+  const { legacyGaps } = assertSameHousehold(fullState(), "full household:");
+  assert.ok(legacyGaps.length > 5, "fixture should produce real coverage gaps");
+});
+
+test("converting twice gives the same ids", () => {
+  assert.deepEqual(fromLegacy(HH, fullState(), META), fromLegacy(HH, fullState(), META));
+});
+
+test("a household with only the legacy template still converts", () => {
+  const s = fullState();
+  delete s.weeklyTemplates;
+  assertSameHousehold(s, "legacy template:");
+});
+
+// ── Random households ──────────────────────────────────────────────────────
+
+function rng(seed) {
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+}
+
+function randomState(seed) {
+  const r = rng(seed);
+  const pick = (xs) => xs[Math.floor(r() * xs.length)];
+  const typeIds = SHIFT_TYPES.map((t) => t.id);
+  const slot = () => (r() < 0.4 ? null : r() < 0.85 ? pick(typeIds) : { start: pick(["06:00", "08:30", "15:00", "22:00"]), end: pick(["14:00", "18:30", "02:00", "07:00"]) });
+  const week = () => Array.from({ length: 7 }, slot);
+  // The legacy `template` only ever held preset ids; custom times came with
+  // weeklyTemplates.
+  const presetWeek = () => Array.from({ length: 7 }, () => (r() < 0.4 ? null : pick(typeIds)));
+  const date = () => addDays(FROM, Math.floor(r() * 95) - 2);
+  const n = (max) => Math.floor(r() * (max + 1));
+  const s = {
+    shiftTypes: SHIFT_TYPES,
+    template: r() < 0.5 ? presetWeek() : undefined,
+    templateEndDate: r() < 0.3 ? date() : undefined,
+    alt: { enabled: r() < 0.5, refSat: pick(["2026-09-05", "2026-09-12"]), sat: pick([...typeIds, null]), sun: pick([...typeIds, null]) },
+    ot: Array.from({ length: n(6) }, () => ({ date: date(), shiftTypeId: pick(typeIds), label: "OT", coworkers: r() < 0.5 ? "Sam" : "" })),
+    otOpportunities: [],
+    overrides: Array.from({ length: n(8) }, () => ({ date: date(), shiftTypeId: r() < 0.3 ? null : pick(typeIds), label: "x" })),
+    range: { from: FROM, to: TO },
+    calName: "c", calView: "schedule", selfName: "Gage",
+    partner: { name: "Kaylene", shifts: Array.from({ length: n(10) }, () => ({ date: date(), shiftTypeId: pick(typeIds), label: "p" })) },
+    caregiverBlackouts: [],
+    ui: { calLayout: "month", viewMonth: "2026-09", viewWeekStart: "2026-09-06" },
+    employers: r() < 0.5 ? { G: "A", K: "B", D: "C" } : undefined,
+    weeklyTemplates: {
+      G: r() < 0.6 ? { days: week(), startDate: r() < 0.3 ? date() : undefined, endDate: r() < 0.3 ? date() : undefined } : undefined,
+      K: r() < 0.8 ? { days: week(), startDate: r() < 0.3 ? date() : undefined } : undefined,
+      daisy: r() < 0.6 ? { days: week() } : undefined,
+    },
+    dependents: r() < 0.7 ? { daisy: { name: "Daisy", shifts: Array.from({ length: n(6) }, () => (r() < 0.7 ? { date: date(), shiftTypeId: pick(typeIds), label: "c" } : { date: date(), label: "trip" })) } } : undefined,
+    _migrations: [],
+  };
+  return JSON.parse(JSON.stringify(s)); // drop the undefineds, as Firestore would
+}
+
+test("300 random households convert without changing what they draw", () => {
+  let gaps = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    gaps += assertSameHousehold(randomState(seed), `seed ${seed}:`).legacyGaps.length;
+  }
+  assert.ok(gaps > 300, "random households should exercise the coverage engine");
+});
+
+// ── Any household ──────────────────────────────────────────────────────────
+
+function household(people, shifts) {
+  return {
+    root: { schemaVersion: 2, childcare: true, memberUids: [], memberNames: {}, roles: {}, createdBy: "u" },
+    settings: {}, people, shiftTypes: SHIFT_TYPES, shifts, events: [], coverageRequests: [],
+    caregiverRequests: [], scheduleBlocks: [], caregiverOff: [], occasions: [], shiftOffers: [], imports: [],
+  };
+}
+const adult = (id, order, days) => ({ id, name: id, role: "adult", order, weekly: { days } });
+const OFF = [null, null, null, null, null, null, null];
+const DAYS = ["d", "d", "d", "d", "d", "d", "d"];
+const on = (date, dayShift) => ({ id: `${date}_${dayShift}`, personId: "a", date, mode: "replace", shiftTypeId: dayShift });
+
+test("one parent: the kids need covering whenever they're away", () => {
+  const m = household([adult("a", 0, OFF)], [on("2026-09-15", "d")]);
+  const gaps = coverageGaps(m, resolveShifts(m, FROM, TO));
+  assert.deepEqual(gaps.map((g) => [g.date, g.startTime, g.endTime]), [["2026-09-15", "05:00", "19:30"]]);
+});
+
+test("three adults: a gap only when all three are away", () => {
+  const two = household([adult("a", 0, DAYS), adult("b", 1, DAYS)], []);
+  assert.ok(coverageGaps(two, resolveShifts(two, FROM, TO)).length > 0);
+  const three = household([adult("a", 0, DAYS), adult("b", 1, DAYS), adult("c", 2, OFF)], []);
+  assert.deepEqual(coverageGaps(three, resolveShifts(three, FROM, TO)), []);
+});
+
+test("a household without kids has no coverage gaps", () => {
+  const m = household([adult("a", 0, DAYS), adult("b", 1, DAYS)], []);
+  m.root.childcare = false;
+  assert.deepEqual(coverageGaps(m, resolveShifts(m, FROM, TO)), []);
+});
+
+test("children own no shifts", () => {
+  const m = household([adult("a", 0, OFF), { id: "kid", name: "Kid", role: "child", order: 1, weekly: { days: DAYS } }], []);
+  assert.deepEqual(resolveShifts(m, FROM, TO), {});
+});

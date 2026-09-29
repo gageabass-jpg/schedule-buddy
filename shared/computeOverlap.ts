@@ -67,7 +67,7 @@ function compactTime(hhmm: string): string {
   return `${h - 12}${mSuffix}p`;
 }
 
-interface UnavailableBlock extends MinuteRange {
+export interface UnavailableBlock extends MinuteRange {
   kind: "work" | "sleep";
 }
 
@@ -85,9 +85,9 @@ interface UnavailableBlock extends MinuteRange {
  * which is exactly why a night worker can cover the kid for an hour after a
  * shift before going down.
  */
-function shiftBlocksFor(
+export function shiftBlocksFor(
   shiftTypeId: string | undefined,
-  state: HouseholdState,
+  state: { shiftTypes: ShiftType[] },
   /** Offset (in minutes) to add to every range — used to shift yesterday's
    *  shifts into today's minute axis. */
   offsetMin = 0,
@@ -119,7 +119,7 @@ function shiftBlocksFor(
 }
 
 /** ISO date "YYYY-MM-DD" → previous local-day "YYYY-MM-DD". */
-function prevIsoDate(iso: string): string {
+export function prevIsoDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, (m || 1) - 1, d || 1);
   dt.setDate(dt.getDate() - 1);
@@ -130,7 +130,7 @@ function prevIsoDate(iso: string): string {
 }
 
 /** ISO date "YYYY-MM-DD" → next local-day "YYYY-MM-DD". */
-function nextIsoDate(iso: string): string {
+export function nextIsoDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, (m || 1) - 1, d || 1);
   dt.setDate(dt.getDate() + 1);
@@ -152,22 +152,33 @@ function unavailableBlocks(
   shifts: ShiftMap,
   state: HouseholdState,
 ): UnavailableBlock[] {
+  return unavailableBlocksFrom(
+    date,
+    (d) => (shifts[d] ?? []).filter((s) => s.who === who).map((s) => s.shiftTypeId),
+    state,
+  );
+}
+
+/** unavailableBlocks for any lane: `typeIdsOn(date)` gives the shift type ids
+ *  that one person works on a date. */
+export function unavailableBlocksFrom(
+  date: string,
+  typeIdsOn: (date: string) => Array<string | undefined>,
+  state: { shiftTypes: ShiftType[] },
+): UnavailableBlock[] {
   const out: UnavailableBlock[] = [];
-  const today = (shifts[date] ?? []).filter((s) => s.who === who);
-  for (const s of today) out.push(...shiftBlocksFor(s.shiftTypeId, state, 0));
+  for (const id of typeIdsOn(date)) out.push(...shiftBlocksFor(id, state, 0));
   const ydate = prevIsoDate(date);
-  const yesterday = (shifts[ydate] ?? []).filter((s) => s.who === who);
-  for (const s of yesterday) {
-    for (const b of shiftBlocksFor(s.shiftTypeId, state, -MIN_PER_DAY)) {
+  for (const id of typeIdsOn(ydate)) {
+    for (const b of shiftBlocksFor(id, state, -MIN_PER_DAY)) {
       // Only carry forward the portion that lands on today's axis.
       if (b.endMin <= 0) continue;
       out.push({ ...b, startMin: Math.max(b.startMin, 0) });
     }
   }
   const tdate = nextIsoDate(date);
-  const tomorrow = (shifts[tdate] ?? []).filter((s) => s.who === who);
-  for (const s of tomorrow) {
-    for (const b of shiftBlocksFor(s.shiftTypeId, state, MIN_PER_DAY)) {
+  for (const id of typeIdsOn(tdate)) {
+    for (const b of shiftBlocksFor(id, state, MIN_PER_DAY)) {
       // Only carry back the portion that reaches into today.
       if (b.startMin >= MIN_PER_DAY) continue;
       out.push({ ...b, endMin: Math.min(b.endMin, MIN_PER_DAY) });
@@ -349,17 +360,21 @@ export function daisyCoverageConflict(
   return null;
 }
 
-interface Intersection extends MinuteRange {
+export interface Intersection extends MinuteRange {
   reason: OverlapReason;
 }
 
-function intersectBlocks(a: UnavailableBlock, b: UnavailableBlock): Intersection | null {
+export function intersectBlocks(a: UnavailableBlock | Intersection, b: UnavailableBlock): Intersection | null {
   const startMin = Math.max(a.startMin, b.startMin);
   const endMin = Math.min(a.endMin, b.endMin);
   if (endMin <= startMin) return null;
+  // `a` may be an earlier intersection (three or more adults): it is all-work,
+  // all-sleep or mixed already, and adding one more lane can only keep that or
+  // make it mixed.
+  const aKind = "kind" in a ? a.kind : a.reason === "both-working" ? "work" : a.reason === "both-sleeping" ? "sleep" : "mixed";
   let reason: OverlapReason;
-  if (a.kind === "work" && b.kind === "work") reason = "both-working";
-  else if (a.kind === "sleep" && b.kind === "sleep") reason = "both-sleeping";
+  if (aKind === "work" && b.kind === "work") reason = "both-working";
+  else if (aKind === "sleep" && b.kind === "sleep") reason = "both-sleeping";
   else reason = "work-and-sleep";
   return { startMin, endMin, reason };
 }
@@ -418,56 +433,69 @@ export function computeOverlapCandidates(
         if (ix) hits.push(ix);
       }
     }
-    if (hits.length === 0) continue;
+    out.push(...coverageWindowsFrom(date, hits));
+  }
 
-    // … then merge overlapping/adjacent ones into contiguous windows.
-    // E.g. G leaving 6a meets K's work block (til 7a) and her sleep block
-    // (7a → recovery end) — two touching hits that are ONE coverage need.
-    hits.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-    const windows: Intersection[] = [];
-    for (const ix of hits) {
-      const last = windows[windows.length - 1];
-      if (last && ix.startMin <= last.endMin) {
-        last.endMin = Math.max(last.endMin, ix.endMin);
-        if (reasonRank(ix.reason) < reasonRank(last.reason)) last.reason = ix.reason;
-      } else {
-        windows.push({ ...ix });
-      }
-    }
+  return out;
+}
 
-    // Drop handoff slivers before folding — otherwise a 30-minute gap while
-    // one parent drives home after the other has already left would drag the
-    // day's whole window hours earlier than anyone actually needs a caregiver.
-    for (let i = windows.length - 1; i >= 0; i--) {
-      if (windows[i].endMin - windows[i].startMin < MIN_WINDOW_MIN) windows.splice(i, 1);
-    }
-    if (windows.length === 0) continue;
+/**
+ * Every overlap on one date → that date's coverage request candidates:
+ * merged into contiguous windows, handoff slivers dropped, then folded into
+ * one window per day. Shared by the two-parent engine above and the any-
+ * household one (shared/resolve.ts).
+ */
+export function coverageWindowsFrom(date: string, hits: Intersection[]): OverlapCandidate[] {
+  const out: OverlapCandidate[] = [];
+  if (hits.length === 0) return out;
 
-    // One coverage window per day. Disjoint overlaps on the same date (e.g. a
-    // morning work+sleep stretch, a couple of free hours, then a both-working
-    // evening) used to become two separate requests — but nobody sends a
-    // caregiver home for two hours and calls her back, so that's two asks for
-    // one shift. Fold them into a single continuous window: earliest start →
-    // latest end. The start is the earliest overlap, so the arrival lead
-    // applied downstream still lands 2h before the FIRST parent leaves.
-    if (windows.length > 1) {
-      const startMin = Math.min(...windows.map((w) => w.startMin));
-      const endMin = Math.max(...windows.map((w) => w.endMin));
-      // Keep the most "live" framing across the folded windows.
-      const reason = windows.reduce(
-        (best, w) => (reasonRank(w.reason) < reasonRank(best) ? w.reason : best),
-        windows[0].reason,
-      );
-      windows.splice(0, windows.length, { startMin, endMin, reason });
+  // Merge overlapping/adjacent overlaps into contiguous windows.
+  // E.g. G leaving 6a meets K's work block (til 7a) and her sleep block
+  // (7a → recovery end) — two touching hits that are ONE coverage need.
+  hits.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  const windows: Intersection[] = [];
+  for (const ix of hits) {
+    const last = windows[windows.length - 1];
+    if (last && ix.startMin <= last.endMin) {
+      last.endMin = Math.max(last.endMin, ix.endMin);
+      if (reasonRank(ix.reason) < reasonRank(last.reason)) last.reason = ix.reason;
+    } else {
+      windows.push({ ...ix });
     }
+  }
 
-    for (const w of windows) {
-      const endsNextDay = w.endMin >= MIN_PER_DAY;
-      const startTime = fmtHM(w.startMin);
-      const endTime = fmtHM(w.endMin);
-      const label = `${compactTime(startTime)} – ${compactTime(endTime)}${endsNextDay ? " (next day)" : ""}`;
-      out.push({ date, startTime, endTime, endsNextDay, label, reason: w.reason });
-    }
+  // Drop handoff slivers before folding — otherwise a 30-minute gap while
+  // one parent drives home after the other has already left would drag the
+  // day's whole window hours earlier than anyone actually needs a caregiver.
+  for (let i = windows.length - 1; i >= 0; i--) {
+    if (windows[i].endMin - windows[i].startMin < MIN_WINDOW_MIN) windows.splice(i, 1);
+  }
+  if (windows.length === 0) return out;
+
+  // One coverage window per day. Disjoint overlaps on the same date (e.g. a
+  // morning work+sleep stretch, a couple of free hours, then a both-working
+  // evening) used to become two separate requests — but nobody sends a
+  // caregiver home for two hours and calls her back, so that's two asks for
+  // one shift. Fold them into a single continuous window: earliest start →
+  // latest end. The start is the earliest overlap, so the arrival lead
+  // applied downstream still lands 2h before the FIRST parent leaves.
+  if (windows.length > 1) {
+    const startMin = Math.min(...windows.map((w) => w.startMin));
+    const endMin = Math.max(...windows.map((w) => w.endMin));
+    // Keep the most "live" framing across the folded windows.
+    const reason = windows.reduce(
+      (best, w) => (reasonRank(w.reason) < reasonRank(best) ? w.reason : best),
+      windows[0].reason,
+    );
+    windows.splice(0, windows.length, { startMin, endMin, reason });
+  }
+
+  for (const w of windows) {
+    const endsNextDay = w.endMin >= MIN_PER_DAY;
+    const startTime = fmtHM(w.startMin);
+    const endTime = fmtHM(w.endMin);
+    const label = `${compactTime(startTime)} – ${compactTime(endTime)}${endsNextDay ? " (next day)" : ""}`;
+    out.push({ date, startTime, endTime, endsNextDay, label, reason: w.reason });
   }
 
   return out;
