@@ -64,6 +64,77 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
     }
 
+    // ── The any-household model (docs/data-model.md, shared/store.ts) ──────
+    // One document per record, so access is per record: admin and partner
+    // read and write everything; a caregiver reads who's who, the shift
+    // types, and only what is theirs — their details, their shifts, their
+    // days off, the coverage requests addressed to them, the requests they
+    // sent. A caregiver writes nothing directly; their changes go through
+    // the caregiverAction function. Not yet used by any client.
+    function householdData(hid) {
+      return get(/databases/$(database)/documents/households/$(hid)).data;
+    }
+    function isHouseholdMember(hid) {
+      return request.auth != null && request.auth.uid in householdData(hid).memberUids;
+    }
+    function isHouseholdManager(hid) {
+      return request.auth != null
+        && householdData(hid).roles.get(request.auth.uid, '') in ['admin', 'partner'];
+    }
+    // The caller is this person (their people/ record names the caller's account).
+    function isPerson(hid, pid) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/households/$(hid)/people/$(pid)).data.get('uid', '') == request.auth.uid;
+    }
+
+    match /households/{hid}/people/{pid} {
+      allow read: if isHouseholdMember(hid);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/personDetails/{pid} {
+      allow read: if isHouseholdManager(hid) || isPerson(hid, pid);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/shiftTypes/{id} {
+      allow read: if isHouseholdMember(hid);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/shifts/{id} {
+      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.personId);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/caregiverOff/{id} {
+      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.personId);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/coverageRequests/{id} {
+      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.caregiverId);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/caregiverRequests/{id} {
+      allow read: if isHouseholdManager(hid)
+        || (isHouseholdMember(hid) && resource.data.createdBy == request.auth.uid);
+      allow write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/events/{id} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/scheduleBlocks/{id} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/occasions/{id} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/shiftOffers/{id} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/imports/{id} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+    match /households/{hid}/settings/{docId} {
+      allow read, write: if isHouseholdManager(hid);
+    }
+
     // The caregiver's slice of the schedule: coverage requests and names.
     // Written only by the mirrorCaregiverView / caregiverAction functions.
     match /households/{householdId}/caregiverView/{docId} {

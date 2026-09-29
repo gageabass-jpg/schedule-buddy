@@ -15,6 +15,7 @@ import type {
   ScheduleBlockDoc,
 } from "./model";
 import { SCHEMA_VERSION } from "./model";
+import { replaceShiftId } from "./store";
 import type { EventWho, HouseholdMeta, HouseholdState } from "./state";
 
 /** Where each legacy slot went, so callers can translate old references. */
@@ -148,11 +149,13 @@ export function fromLegacy(
   }
 
   // ── Dated shifts ──────────────────────────────────────────────────────────
-  // Ids are the person, date and position, so a re-run overwrites rather than
-  // duplicates, and sorting by id keeps each day's original order.
+  // Ids are the person, date and position (a replace shift is unique per
+  // person and date), so a re-run overwrites rather than duplicates, and
+  // sorting by id keeps each day's original order.
   const shifts: DatedShift[] = [];
   const seq = new Map<string, number>();
-  const shiftId = (person: string, date: string, mode: string) => {
+  const shiftId = (person: string, date: string, mode: "replace" | "add") => {
+    if (mode === "replace") return replaceShiftId(person, date);
     const k = `${person}_${date}_${mode}`;
     const n = seq.get(k) ?? 0;
     seq.set(k, n + 1);

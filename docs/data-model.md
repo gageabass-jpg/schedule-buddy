@@ -1,8 +1,17 @@
 # The any-household data model
 
-Status: **designed, converter built and tested; nothing reads or writes it yet.**
-Types: `shared/model.ts`. Converter: `shared/fromLegacy.ts`. Resolver:
-`shared/resolve.ts`. Tests: `tests/model.test.mjs`.
+Status: **data layer and rules built and tested; no screen uses them yet.**
+
+| Piece | Where |
+|---|---|
+| Types | `shared/model.ts` |
+| Converter | `shared/fromLegacy.ts` |
+| Resolver (shifts, coverage) | `shared/resolve.ts` |
+| Data layer | `shared/store.ts` |
+| Mac binding | `desktop/src/lib/modelStore.ts` |
+| Functions binding | `functions/src/modelStore.ts` |
+| Phone binding | `shared/phone.ts`, bundled to `public/js/nucleus-model.js` |
+| Tests | `tests/model.test.mjs`, `tests/store.test.mjs`, `tests/phoneModel.test.mjs`, `tests/rules.test.mjs` |
 
 ## Why
 
@@ -27,12 +36,15 @@ Each thing is its own document; each person is a record.
 | Path | What | Who can read |
 |---|---|---|
 | `households/{hid}` | name, time zone, `childcare`, `schemaVersion`, members and roles | every member |
-| `people/{pid}` | a person: name, role, account, colour, photo, employer, payday, weekly pattern, alternate weekends, blackouts | every member (caregiver: names only, see below) |
+| `people/{pid}` | who a person is: name, role, account, colour, photo, order | every member |
+| `personDetails/{pid}` | the rest of them: employer, payday, weekly pattern, alternate weekends, blackouts | admin/partner, and the person themself |
 | `shiftTypes/{id}` | shift presets | every member |
-| `shifts/{id}` | one person's shift on one date, `replace` or `add` | admin/partner; caregiver their own |
+| `shifts/{id}` | one person's shift on one date, `replace` or `add`. A replace shift's id is `{date}_{pid}_replace`, so there is one per person per date | admin/partner; caregiver their own |
 | `events/{id}` | life events, `personId` or the whole family | admin/partner |
 | `coverageRequests/{id}` | requests, now naming `caregiverId` | admin/partner; caregiver the ones addressed to them |
-| `caregiverRequests/{id}`, `scheduleBlocks/{id}`, `caregiverOff/{id}`, `occasions/{id}`, `shiftOffers/{id}`, `imports/{id}` | as today, one document each | admin/partner (+ caregiver where they are the author) |
+| `caregiverOff/{id}` | a caregiver's day off | admin/partner; the caregiver their own |
+| `caregiverRequests/{id}` | requests a caregiver sent | admin/partner; the caregiver the ones they sent |
+| `scheduleBlocks/{id}`, `occasions/{id}`, `shiftOffers/{id}`, `imports/{id}` | as today, one document each | admin/partner |
 | `settings/main` | calendar name, export range, public share | admin/partner |
 
 **People have a role**, which decides what the schedule does with them:
@@ -62,9 +74,21 @@ work, travelling or asleep):
 
 The math is shared with the existing engine (`computeOverlap.ts`), not copied.
 
-**Per-document rules replace the mirror.** A caregiver can be allowed to read
-exactly the coverage requests addressed to them (`caregiverId` → their person
-→ their `uid`), so `caregiverView` and the functions that maintain it can go.
+**Per-document rules replace the mirror.** A caregiver reads exactly the
+coverage requests addressed to them (`caregiverId` → their person → their
+`uid`), so `caregiverView` and the functions that maintain it can go. Only
+admin and partner write; a caregiver's changes keep going through the
+`caregiverAction` function, which checks each one.
+
+**The data layer** (`shared/store.ts`) is the only code that knows these paths.
+It is written once against a small store interface, with two adapters: the
+Mac's modular SDK, and the namespaced API that the phone's compat SDK and the
+functions' Admin SDK share.
+- **Reads:** `loadHousehold`, `watchHousehold` (live) and `watchCaregiver`.
+- **Writes:** `savePerson`, `removePerson`, `putRecord`, `removeRecord`,
+  `saveSettings` and `saveHouseholdInfo`, each touching single documents and
+  checking the record first.
+- **Migration:** `writeModel` and `setSchemaVersion`.
 
 ## Where every legacy field goes
 
@@ -106,10 +130,15 @@ households. Planting a bug in the new resolver fails it.
 ## Migration plan
 
 1. **Model, converter, equivalence tests.** Done.
-2. **Readers and writers.** One small data layer each for the Mac app, the
-   phone and the functions, reading the new collections and writing single
-   documents. Built on staging against a synthetic household seeded by the
-   converter.
+2. **Readers and writers.** Done:
+   - the data layer, bound for the Mac, the phone and the functions;
+   - rules for every new collection;
+   - tests against the local test database: a converted household written
+     through the Admin adapter reads back identically through the Mac's, as
+     each role.
+   The first staging household comes from the migration function (step 4)
+   run on a legacy test household. That exercises the real path rather than a
+   seed that skips it.
 3. **Clients move over, on staging.** The screens that assume G/K/D (the
    calendar, coverage, pickers, the widget snapshot, the wall, nucleusAI's
    tools) take people from `people/`.

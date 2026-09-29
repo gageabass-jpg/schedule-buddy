@@ -25,15 +25,16 @@ import vm from "node:vm";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STAMP = join(ROOT, ".firebase/deploy-gate.json");
 
-// Everything the tests read. functions/src/shared is left out: it's copied
-// from shared/ by the build the tests run, so hashing it would never settle.
+// Everything the tests read. functions/src/shared and the phone's model
+// bundle are left out: both are built from shared/ by the tests themselves,
+// so hashing them would never settle.
 const INPUTS = [
   "firestore.rules", "package.json", "desktop/src/state.ts",
   "functions/package.json", "functions/tsconfig.json", "functions/src",
   "shared", "tests", "scripts/contract-check.mjs", "scripts/predeploy-gate.mjs",
   "public",
 ];
-const SKIP = new Set([join(ROOT, "functions/src/shared")]);
+const SKIP = new Set([join(ROOT, "functions/src/shared"), join(ROOT, "public/js/nucleus-model.js")]);
 
 function files(p) {
   if (SKIP.has(p) || !existsSync(p)) return [];
