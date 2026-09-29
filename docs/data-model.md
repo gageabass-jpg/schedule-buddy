@@ -1,6 +1,8 @@
 # The any-household data model
 
-Status: **data layer and rules built and tested; no screen uses them yet.**
+Status: **data layer and rules built and tested. The Mac runs on the model
+through the legacy bridge once a household is migrated. No household is
+migrated yet.**
 
 | Piece | Where |
 |---|---|
@@ -11,7 +13,9 @@ Status: **data layer and rules built and tested; no screen uses them yet.**
 | Mac binding | `desktop/src/lib/modelStore.ts` |
 | Functions binding | `functions/src/modelStore.ts` |
 | Phone binding | `shared/phone.ts`, bundled to `public/js/nucleus-model.js` |
-| Tests | `tests/model.test.mjs`, `tests/store.test.mjs`, `tests/phoneModel.test.mjs`, `tests/rules.test.mjs` |
+| Legacy bridge | `shared/toLegacy.ts` (`toLegacy`, `bridgeEdit`), `bridgeWrites` in `store.ts` |
+| Mac bridge | `desktop/src/lib/householdState.ts`, `desktop/src/hooks/useHousehold.ts` |
+| Tests | `tests/model.test.mjs`, `tests/bridge.test.mjs`, `tests/store.test.mjs`, `tests/phoneModel.test.mjs`, `tests/rules.test.mjs` |
 
 ## Why
 
@@ -139,9 +143,23 @@ households. Planting a bug in the new resolver fails it.
    The first staging household comes from the migration function (step 4)
    run on a legacy test household. That exercises the real path rather than a
    seed that skips it.
-3. **Clients move over, on staging.** The screens that assume G/K/D (the
-   calendar, coverage, pickers, the widget snapshot, the wall, nucleusAI's
-   tools) take people from `people/`.
+3. **Clients move over.** In two halves:
+   - **The bridge (Mac: done).** For a migrated household, `toLegacy` builds
+     the old state/main shape from the records, so every screen keeps working
+     unchanged. Every save goes through `bridgeEdit`: the edit is the
+     difference between the state it started from and the result, and only
+     the records it changed are written, merged onto what's stored.
+     - All of the Mac's writers go through `desktop/src/lib/householdState.ts`,
+       and `useHousehold` watches the records.
+     - Model → legacy → model is exact (same records, same ids), checked on
+       the full household and 300 random ones.
+     - Partner edits made through the bridge are checked end to end under the
+       real rules.
+     - The phone and the functions get the same bridge next.
+   - **Native screens.** The screens that assume G/K/D (the calendar,
+     coverage, pickers, the widget snapshot, the wall, nucleusAI's tools)
+     take people from `people/`, one at a time. Until a screen moves, it shows
+     the first two adults and the first caregiver.
 4. **Migration function.** For one household:
    - take a manual backup;
    - convert;

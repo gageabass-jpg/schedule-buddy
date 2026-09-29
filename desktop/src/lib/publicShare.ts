@@ -12,6 +12,7 @@
 import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { buildShiftMap, type HouseholdState, type ShiftType } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 const SHARE_BASE = "https://schedule-buddy-dd2cf.web.app";
 const ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -31,12 +32,12 @@ function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.
 const WHO_OUT: Record<string, string> = { G: "G", K: "K", D: "Daisy" };
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const snap = await getDoc(doc(db, "households", householdId, "state", "main"));
-  if (!snap.exists()) throw new Error("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  const state = await readHouseholdState(householdId);
+  if (!state) throw new Error("Schedule document doesn't exist yet.");
+  return state;
 }
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  await setDoc(doc(db, "households", householdId, "state", "main"), next);
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  await writeHouseholdState(householdId, base, next);
 }
 
 /** Sanitized snapshot in the exact shape share.html + icsFeed expect. */
@@ -96,7 +97,7 @@ export async function enablePublicShare(householdId: string): Promise<string> {
   const state = await readState(householdId);
   const token = state.shareToken || genToken();
   const next: HouseholdState = { ...state, shareEnabled: true, shareToken: token };
-  await writeState(householdId, next);
+  await writeState(householdId, state, next);
   await publishPublicShare(householdId, next);
   return token;
 }
@@ -105,7 +106,7 @@ export async function enablePublicShare(householdId: string): Promise<string> {
 export async function disablePublicShare(householdId: string): Promise<void> {
   const state = await readState(householdId);
   const token = state.shareToken;
-  await writeState(householdId, { ...state, shareEnabled: false });
+  await writeState(householdId, state, { ...state, shareEnabled: false });
   if (token) { try { await deleteDoc(doc(db, "publicShares", token)); } catch { /* already gone */ } }
 }
 
@@ -116,7 +117,7 @@ export async function rotatePublicShare(householdId: string): Promise<string> {
   const oldToken = state.shareToken;
   const token = genToken();
   const next: HouseholdState = { ...state, shareEnabled: true, shareToken: token };
-  await writeState(householdId, next);
+  await writeState(householdId, state, next);
   if (oldToken && oldToken !== token) { try { await deleteDoc(doc(db, "publicShares", oldToken)); } catch { /* ignore */ } }
   await publishPublicShare(householdId, next);
   return token;

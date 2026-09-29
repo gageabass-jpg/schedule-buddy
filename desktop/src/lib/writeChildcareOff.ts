@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import type { ChildcareOffDay, HouseholdState } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteChildcareError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -15,17 +16,15 @@ export const DEFAULT_CHILDCARE_OFF_LABEL = "Daisy – Scheduled Off";
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new WriteChildcareError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new WriteChildcareError("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new WriteChildcareError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new WriteChildcareError("Couldn't save childcare days.", e); }
 }
 
@@ -47,7 +46,7 @@ export async function setChildcareOff(
     list.push({ date, label: text });
     have.add(date);
   }
-  await writeState(householdId, { ...current, childcareOff: list });
+  await writeState(householdId, current, { ...current, childcareOff: list });
 }
 
 /** Remove the no-childcare mark from a set of dates. */
@@ -58,7 +57,7 @@ export async function clearChildcareOff(
   const current = await readState(householdId);
   const drop = new Set(dates);
   const list = (current.childcareOff ?? []).filter((c) => !drop.has(c.date));
-  await writeState(householdId, { ...current, childcareOff: list });
+  await writeState(householdId, current, { ...current, childcareOff: list });
 }
 
 /** Toggle a single date's no-childcare mark on or off. */

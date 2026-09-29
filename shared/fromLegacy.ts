@@ -64,13 +64,22 @@ function clean<T extends object>(o: T): T {
   return out;
 }
 
+export interface ConvertOptions {
+  /** The people the slots already belong to (a household already on the new
+   *  model, seen through toLegacy). Without it, ids are derived afresh. */
+  people?: Partial<LegacyPeople>;
+}
+
 export function fromLegacy(
   householdId: string,
   state: HouseholdState & Record<string, unknown>,
   meta: Omit<HouseholdMeta, "id">,
+  options: ConvertOptions = {},
 ): ConvertResult {
   const notes: string[] = [];
-  const pid = (slot: string) => `p_${hash(`${householdId}:${slot}`)}`;
+  const pid = (slot: "G" | "K" | "D") => options.people?.[slot] || `p_${hash(`${householdId}:${slot}`)}`;
+  /** A legacy list entry's record id, when it came from the new model. */
+  const carried = (e: unknown) => trimmed((e as { _id?: unknown })?._id);
 
   for (const key of Object.keys(state)) {
     if (!MAPPED.has(key)) notes.push(`state/main field "${key}" has no place in the new model and was not copied`);
@@ -90,7 +99,10 @@ export function fromLegacy(
   const legacy: LegacyPeople = { G: pid("G") };
   const wt = state.weeklyTemplates ?? {};
 
-  const selfWeekly = wt.G ?? (Array.isArray(state.template)
+  // An all-off template with no end date is no pattern at all.
+  const hasTemplate = Array.isArray(state.template)
+    && (state.template.some((d) => d != null) || !!state.templateEndDate);
+  const selfWeekly = wt.G ?? (hasTemplate
     ? clean({ days: state.template, endDate: state.templateEndDate })
     : undefined);
   if (wt.G && Array.isArray(state.template)) {
@@ -107,7 +119,7 @@ export function fromLegacy(
     employer: trimmed(state.employers?.G),
     payday: state.paydays?.G,
     weekly: selfWeekly,
-    altWeekend: state.alt ? clean({
+    altWeekend: state.alt && (state.alt.enabled || state.alt.refSat) ? clean({
       enabled: !!state.alt.enabled, refSat: state.alt.refSat, sat: state.alt.sat ?? null, sun: state.alt.sun ?? null,
     }) : undefined,
   }));
@@ -154,8 +166,10 @@ export function fromLegacy(
   // sorting by id keeps each day's original order.
   const shifts: DatedShift[] = [];
   const seq = new Map<string, number>();
-  const shiftId = (person: string, date: string, mode: "replace" | "add") => {
+  const shiftId = (person: string, date: string, mode: "replace" | "add", entry?: unknown) => {
     if (mode === "replace") return replaceShiftId(person, date);
+    const own = carried(entry);
+    if (own) return own;
     const k = `${person}_${date}_${mode}`;
     const n = seq.get(k) ?? 0;
     seq.set(k, n + 1);
@@ -179,22 +193,24 @@ export function fromLegacy(
   for (const o of list(state.ot)) {
     if (!o?.date) continue;
     shifts.push(clean({
-      id: shiftId(legacy.G, o.date, "add"), personId: legacy.G, date: o.date, mode: "add" as const,
+      id: shiftId(legacy.G, o.date, "add", o), personId: legacy.G, date: o.date, mode: "add" as const,
       shiftTypeId: o.shiftTypeId ?? null, label: o.label || undefined, note: o.note || undefined,
-      where: where(o), overtime: true, coworkers: o.coworkers || undefined,
+      where: where(o), coworkers: o.coworkers || undefined,
+      // Everything in the legacy list was overtime, unless the bridge says not.
+      overtime: (o as { _overtime?: boolean })._overtime === false ? undefined : true,
     }));
   }
   for (const p of list(state.partner?.shifts)) {
     if (!p?.date || !legacy.K) continue;
     shifts.push(clean({
-      id: shiftId(legacy.K, p.date, "add"), personId: legacy.K, date: p.date, mode: "add" as const,
+      id: shiftId(legacy.K, p.date, "add", p), personId: legacy.K, date: p.date, mode: "add" as const,
       shiftTypeId: p.shiftTypeId ?? null, label: p.label || undefined, note: p.note || undefined, where: where(p),
     }));
   }
   for (const s of list(daisy?.shifts)) {
     if (!s?.date || !legacy.D) continue;
     shifts.push(clean({
-      id: shiftId(legacy.D, s.date, "add"), personId: legacy.D, date: s.date, mode: "add" as const,
+      id: shiftId(legacy.D, s.date, "add", s), personId: legacy.D, date: s.date, mode: "add" as const,
       shiftTypeId: s.shiftTypeId ?? null, label: s.label || undefined, note: s.note || undefined, where: where(s),
     }));
   }
@@ -212,7 +228,8 @@ export function fromLegacy(
   const caregiverByUid = new Map(people.filter((p) => p.uid).map((p) => [p.uid!, p.id]));
   const coverageRequests: CoverageRequestDoc[] = list(state.coverageRequests).map((r) => clean({
     ...r,
-    caregiverId: (r.caregiverUid && caregiverByUid.get(r.caregiverUid)) || legacy.D,
+    caregiverId: trimmed((r as CoverageRequestDoc).caregiverId)
+      || (r.caregiverUid && caregiverByUid.get(r.caregiverUid)) || legacy.D,
   }));
 
   const scheduleBlocks: ScheduleBlockDoc[] = list(state.scheduleBlocks).map((b, i) => {
@@ -222,11 +239,11 @@ export function fromLegacy(
   });
 
   const caregiverOff = list(state.childcareOff).filter((d) => d?.date).map((d) => clean({
-    id: `${d.date}_${legacy.D}`, personId: legacy.D!, date: d.date, label: d.label,
+    id: carried(d) ?? `${d.date}_${legacy.D}`, personId: legacy.D!, date: d.date, label: d.label,
   }));
 
   const shiftOffers = list(state.otOpportunities).filter((o) => o?.date).map((o, i) => ({
-    id: `${o.date}_${legacy.G}_${String(i).padStart(3, "0")}`, personId: legacy.G,
+    id: carried(o) ?? `${o.date}_${legacy.G}_${String(i).padStart(3, "0")}`, personId: legacy.G,
     date: o.date, shiftTypeId: o.shiftTypeId, coworkers: o.coworkers ?? "",
   }));
 
@@ -251,8 +268,8 @@ export function fromLegacy(
   });
 
   const settings = clean({
-    calName: state.calName,
-    range: state.range,
+    calName: state.calName || undefined,
+    range: state.range && (state.range.from || state.range.to) ? state.range : undefined,
     shareEnabled: state.shareEnabled,
     shareToken: state.shareToken,
     migrations: list(state._migrations).length ? state._migrations : undefined,

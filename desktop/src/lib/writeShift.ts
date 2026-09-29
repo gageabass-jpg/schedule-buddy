@@ -3,6 +3,7 @@ import { db } from "../firebase";
 import { compactTime, type HouseholdState, type OTShift, type PartnerShift, type DependentShift, type Override } from "../state";
 import type { ShiftSource } from "../data";
 import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 // "dependent-daisy" writes a childcare block on Daisy's timeline
 // (state.dependents.daisy.shifts) — a nested field, safe under the iOS
@@ -52,11 +53,9 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
   const { householdId, target, date } = input;
   const label = input.label?.trim() ?? "";
 
-  const ref = doc(db, "households", householdId, "state", "main");
   let current: HouseholdState | null;
   try {
-    const snap = await getDoc(ref);
-    current = (snap.exists() ? (snap.data() as HouseholdState) : null);
+    current = await readHouseholdState(householdId);
   } catch (e) {
     throw new WriteShiftError("Couldn't read the household schedule.", e);
   }
@@ -150,33 +149,23 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
   }
 
   try {
-    await setDoc(ref, next);
+    await writeHouseholdState(householdId, current, next);
   } catch (e) {
     throw new WriteShiftError("Couldn't save the new shift. Check your connection and try again.", e);
   }
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try {
-    snap = await getDoc(ref);
-  } catch (e) {
-    throw new WriteShiftError("Couldn't read the household schedule.", e);
-  }
-  if (!snap.exists()) {
-    throw new WriteShiftError("Schedule document doesn't exist yet — open the iOS app once to initialize it.");
-  }
-  return snap.data() as HouseholdState;
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
+  catch (e) { throw new WriteShiftError("Couldn't read the household schedule.", e); }
+  if (!state) throw new WriteShiftError("Schedule document doesn't exist yet — open the iOS app once to initialize it.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try {
-    await setDoc(ref, next);
-  } catch (e) {
-    throw new WriteShiftError("Couldn't save the change. Check your connection and try again.", e);
-  }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
+  catch (e) { throw new WriteShiftError("Couldn't save the change. Check your connection and try again.", e); }
 }
 
 /**
@@ -226,7 +215,7 @@ export async function deleteShift(
     }
   }
 
-  await writeState(householdId, next);
+  await writeState(householdId, current, next);
 }
 
 export interface EditShiftInput {
@@ -295,5 +284,5 @@ export async function editShift(
     }
   }
 
-  await writeState(householdId, next);
+  await writeState(householdId, current, next);
 }

@@ -11,3 +11,4 @@ export * from "./model";
 export * from "./store";
 export * from "./resolve";
 export { fromLegacy, PER_DEVICE } from "./fromLegacy";
+export { toLegacy, bridgeEdit } from "./toLegacy";

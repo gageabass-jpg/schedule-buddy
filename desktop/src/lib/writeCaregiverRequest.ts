@@ -7,6 +7,7 @@ import type {
   Event,
   HouseholdState,
 } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class CaregiverRequestError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -16,17 +17,15 @@ export class CaregiverRequestError extends Error {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new CaregiverRequestError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new CaregiverRequestError("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new CaregiverRequestError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new CaregiverRequestError("Couldn't save caregiver request.", e); }
 }
 
@@ -40,7 +39,7 @@ export async function updateCaregiverRequest(
   const idx = list.findIndex((r) => r.id === id);
   if (idx < 0) throw new CaregiverRequestError("That request no longer exists.");
   list[idx] = { ...list[idx], ...patch };
-  await writeState(householdId, { ...current, caregiverRequests: list });
+  await writeState(householdId, current, { ...current, caregiverRequests: list });
 }
 
 export async function acknowledgeCaregiverRequest(
@@ -80,7 +79,7 @@ export async function bulkAcknowledgeCaregiverRequests(
     updated++;
   }
   if (updated > 0) {
-    await writeState(householdId, { ...current, caregiverRequests: list });
+    await writeState(householdId, current, { ...current, caregiverRequests: list });
   }
   return updated;
 }
@@ -105,7 +104,7 @@ export async function deleteCaregiverRequest(
   // Also drop any still-pending event this request auto-posted (a confirmed
   // event has already lost its sourceRequestId, so it survives).
   const events = (current.events ?? []).filter((e) => !(e.pending && e.sourceRequestId === id));
-  await writeState(householdId, { ...current, caregiverRequests: list, events });
+  await writeState(householdId, current, { ...current, caregiverRequests: list, events });
 }
 
 /** True if a "Life" request still has an unconfirmed event on the calendar. */
@@ -133,7 +132,7 @@ export async function confirmLifeRequest(householdId: string, id: string): Promi
     void _p; void _s;
     return rest as Event;
   });
-  await writeState(householdId, { ...current, caregiverRequests: requests, events });
+  await writeState(householdId, current, { ...current, caregiverRequests: requests, events });
 }
 
 /** Reject a caregiver "Life" request: delete its auto-posted event and mark
@@ -150,7 +149,7 @@ export async function rejectLifeRequest(householdId: string, id: string): Promis
     ...(auth.currentUser?.uid ? { acknowledgedBy: auth.currentUser.uid } : {}),
   };
   const events = (current.events ?? []).filter((e) => e.sourceRequestId !== id);
-  await writeState(householdId, { ...current, caregiverRequests: requests, events });
+  await writeState(householdId, current, { ...current, caregiverRequests: requests, events });
 }
 
 export function caregiverRequestTypeLabel(t: CaregiverRequestType): string {

@@ -438,3 +438,78 @@ export async function writeModel(store: DocStore, hid: string, model: HouseholdM
 export async function setSchemaVersion(store: DocStore, hid: string, version: number): Promise<void> {
   await store.write([{ op: "merge", path: householdPath(hid), data: { schemaVersion: version } }]);
 }
+
+// ── The legacy bridge ──────────────────────────────────────────────────────
+// Screens written for state/main edit a legacy-shaped copy of the household
+// (toLegacy). bridgeWrites turns one such edit into record writes: convert the
+// copy before and after the edit (fromLegacy), and write only the records that
+// differ — each merged onto the stored record, so fields the legacy view never
+// showed, and anything someone else changed meanwhile, survive.
+
+/** The person fields a legacy edit can change. The rest (role, colour, account,
+ *  photo, order) the bridge never touches. */
+const PERSON_LEGACY_KEYS = ["name", "employer", "payday", "weekly", "altWeekend", "blackouts"];
+
+function stable(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stable).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v).filter((k) => (v as Data)[k] !== undefined).sort()
+      .map((k) => `${JSON.stringify(k)}:${stable((v as Data)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "undefined";
+}
+const same = (a: unknown, b: unknown) => stable(a) === stable(b);
+
+/** `live` with every key the edit changed (before → after) applied. */
+function applyEdit(live: Data | undefined, before: Data | undefined, after: Data, keys?: string[]): Data {
+  const out: Data = { ...(live ?? after) };
+  for (const k of keys ?? [...new Set([...Object.keys(before ?? {}), ...Object.keys(after)])]) {
+    if (same(before?.[k], after[k])) continue;
+    if (after[k] === undefined) delete out[k];
+    else out[k] = after[k];
+  }
+  return out;
+}
+
+export function bridgeWrites(hid: string, live: HouseholdModel, before: HouseholdModel, after: HouseholdModel): WriteOp[] {
+  const ops: WriteOp[] = [];
+  const index = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
+
+  const livePeople = index(live.people);
+  const beforePeople = index(before.people);
+  for (const p of after.people) {
+    const b = beforePeople.get(p.id) as Data | undefined;
+    if (b && PERSON_LEGACY_KEYS.every((k) => same(b[k], (p as unknown as Data)[k]))) continue;
+    const merged = applyEdit(livePeople.get(p.id) as Data | undefined, b, p as unknown as Data,
+      livePeople.has(p.id) ? PERSON_LEGACY_KEYS : undefined) as unknown as Person;
+    const { identity, details } = splitPerson({ ...merged, id: p.id });
+    ops.push({ op: "set", path: `${collectionPath(hid, "people")}/${p.id}`, data: identity });
+    ops.push({ op: "set", path: `${collectionPath(hid, "personDetails")}/${p.id}`, data: details });
+  }
+  // A legacy edit has no way to remove a person, so none is removed here.
+
+  for (const key of COLLECTIONS) {
+    const liveRecs = index(live[key] as Array<{ id: string }>);
+    const beforeRecs = index(before[key] as Array<{ id: string }>);
+    const afterRecs = index(after[key] as Array<{ id: string }>);
+    for (const [id, a] of afterRecs) {
+      const b = beforeRecs.get(id);
+      if (b && same(b, a)) continue;
+      const { id: _id, ...data } = applyEdit(liveRecs.get(id) as Data | undefined, b as Data | undefined, a as Data);
+      ops.push({ op: "set", path: `${collectionPath(hid, key)}/${id}`, data });
+    }
+    for (const id of beforeRecs.keys()) {
+      if (!afterRecs.has(id)) ops.push({ op: "delete", path: `${collectionPath(hid, key)}/${id}` });
+    }
+  }
+
+  if (!same(before.settings, after.settings)) {
+    ops.push({ op: "set", path: settingsPath(hid), data: applyEdit(live.settings as Data, before.settings as Data, after.settings as Data) });
+  }
+  const rootPatch: Data = {};
+  for (const k of ["name", "timeZone"] as const) {
+    if (!same(before.root[k], after.root[k])) rootPatch[k] = after.root[k] ?? null;
+  }
+  if (Object.keys(rootPatch).length) ops.push({ op: "merge", path: householdPath(hid), data: rootPatch });
+  return ops;
+}

@@ -133,6 +133,11 @@ describe("leaving and removing", () => {
   test("a partner can't promote themselves", async () => {
     await assertFails(updateDoc(doc(as("kaylene"), "households", HH), { "roles.kaylene": "admin" }));
   });
+  test("a partner may change the household's name or time zone, nothing else", async () => {
+    await assertSucceeds(updateDoc(doc(as("kaylene"), "households", HH), { name: "The Basses", timeZone: "America/Chicago" }));
+    await assertFails(updateDoc(doc(as("kaylene"), "households", HH), { name: "x", inviteCode: "ZZZ999" }));
+    await assertFails(updateDoc(doc(as("daisy"), "households", HH), { name: "x" }));
+  });
   test("nobody deletes a household", async () => {
     const { deleteDoc } = await import("firebase/firestore");
     await assertFails(deleteDoc(doc(as("gage"), "households", HH)));

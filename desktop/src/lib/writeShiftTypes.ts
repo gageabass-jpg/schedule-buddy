@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import type { HouseholdState, ShiftType } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class ShiftTypeError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -58,26 +59,16 @@ function cleanSleep(h: number | undefined): number | undefined {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try {
-    snap = await getDoc(ref);
-  } catch (e) {
-    throw new ShiftTypeError("Couldn't read the household schedule.", e);
-  }
-  if (!snap.exists()) {
-    throw new ShiftTypeError("Schedule document doesn't exist yet.");
-  }
-  return snap.data() as HouseholdState;
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
+  catch (e) { throw new ShiftTypeError("Couldn't read the household schedule.", e); }
+  if (!state) throw new ShiftTypeError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try {
-    await setDoc(ref, next);
-  } catch (e) {
-    throw new ShiftTypeError("Couldn't save the change. Check your connection.", e);
-  }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
+  catch (e) { throw new ShiftTypeError("Couldn't save the change. Check your connection.", e); }
 }
 
 export async function addShiftType(householdId: string, input: ShiftTypeInput): Promise<string> {
@@ -98,7 +89,7 @@ export async function addShiftType(householdId: string, input: ShiftTypeInput): 
     ...(sleep !== undefined ? { sleepHours: sleep } : {}),
     ...(preSleep !== undefined ? { preSleepHours: preSleep } : {}),
   });
-  await writeState(householdId, { ...current, shiftTypes: list });
+  await writeState(householdId, current, { ...current, shiftTypes: list });
   return id;
 }
 
@@ -128,7 +119,7 @@ export async function updateShiftType(
   // Drop the fields entirely when zero so Firestore docs stay clean.
   if (sleep === undefined) delete (list[idx] as Partial<ShiftType>).sleepHours;
   if (preSleep === undefined) delete (list[idx] as Partial<ShiftType>).preSleepHours;
-  await writeState(householdId, { ...current, shiftTypes: list });
+  await writeState(householdId, current, { ...current, shiftTypes: list });
 }
 
 export interface ShiftTypeUsage {
@@ -171,5 +162,5 @@ export async function deleteShiftType(householdId: string, id: string): Promise<
     );
   }
   const list = (current.shiftTypes ?? []).filter((t) => t.id !== id);
-  await writeState(householdId, { ...current, shiftTypes: list });
+  await writeState(householdId, current, { ...current, shiftTypes: list });
 }

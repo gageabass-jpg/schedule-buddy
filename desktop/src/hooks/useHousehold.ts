@@ -10,6 +10,10 @@ import {
 import type { User } from "firebase/auth";
 import { db } from "../firebase";
 import type { HouseholdMeta, HouseholdState } from "../state";
+import { isMigrated } from "../lib/householdState";
+import { modelStore } from "../lib/modelStore";
+import { watchHousehold } from "../../../shared/store";
+import { toLegacy } from "../../../shared/toLegacy";
 
 export type HouseholdStatus =
   | { status: "loading" }
@@ -20,6 +24,11 @@ export type HouseholdStatus =
  * Resolves the user's household (via memberUids array contains query) and
  * subscribes to its state/main document. Mirrors the iOS app's
  * initFirestoreSync — see BRIDGE.md §5.
+ *
+ * A household already on the any-household model (schemaVersion ≥ 2) has no
+ * state/main: its records are watched instead and handed to the screens in
+ * the same legacy shape (toLegacy), until each screen reads the model itself
+ * (docs/data-model.md, step 3).
  *
  * `refreshNonce` is a manual-refresh trigger: bumping it re-runs the effect,
  * which tears down the live listeners and re-subscribes, forcing a fresh read
@@ -35,6 +44,9 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
     }
 
     let stateUnsub: Unsubscribe | null = null;
+    let watching = ""; // "<householdId>:<legacy|model>" currently subscribed
+    let latestHousehold: HouseholdMeta | null = null;
+    let modelState: HouseholdState | null | undefined; // undefined = not loaded yet
 
     const householdsRef = collection(db, "households");
     const q = query(householdsRef, where("memberUids", "array-contains", user.uid));
@@ -57,8 +69,37 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
           createdBy: data.createdBy ?? "",
         };
 
+        latestHousehold = household;
+        if (isMigrated(data)) {
+          // The model's own listeners follow every record; resubscribe only
+          // when the household or its storage changes. Membership changes
+          // still reach the screens, with the state already loaded.
+          const key = `${doc0.id}:model`;
+          if (watching === key) {
+            if (modelState !== undefined) setResult({ status: "ready", household, state: modelState });
+            return;
+          }
+          if (stateUnsub) stateUnsub();
+          watching = key;
+          modelState = undefined;
+          stateUnsub = watchHousehold(
+            modelStore,
+            doc0.id,
+            (model) => {
+              modelState = model ? toLegacy(model).state : null;
+              setResult({ status: "ready", household: latestHousehold ?? household, state: modelState });
+            },
+            (err) => {
+              console.error("household model subscription error:", err);
+              setResult({ status: "ready", household, state: null });
+            },
+          );
+          return;
+        }
+
         // (Re)subscribe to state/main inside this household.
         if (stateUnsub) stateUnsub();
+        watching = `${doc0.id}:legacy`;
         const stateRef = doc(db, "households", doc0.id, "state", "main");
         stateUnsub = onSnapshot(
           stateRef,

@@ -14,6 +14,7 @@ import { deleteApp, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import storeMod from "../functions/lib/shared/store.js";
 import legacyMod from "../functions/lib/shared/fromLegacy.js";
+import toLegacyMod from "../functions/lib/shared/toLegacy.js";
 import resolveMod from "../functions/lib/shared/resolve.js";
 import { HH, META, fullState } from "./fixtures/household.mjs";
 
@@ -168,5 +169,54 @@ describe("writing records", () => {
     await removeRecord(as("uGage"), HH, "events", "e1");
     const loaded = await loadHousehold(as("uGage"), HH);
     assert.deepEqual(loaded.events.map((e) => e.id).sort(), ["e2", "e3", "e4"]);
+  });
+});
+
+describe("editing through the legacy bridge", () => {
+  const { toLegacy, bridgeEdit } = toLegacyMod;
+
+  /** What a Mac writer does on a migrated household: load, edit the legacy
+   *  view, write only what changed — as `uid`, under the rules. */
+  async function editAs(uid, edit) {
+    const store = as(uid);
+    const live = await loadHousehold(store, HH);
+    const base = JSON.parse(JSON.stringify(toLegacy(live).state));
+    const next = JSON.parse(JSON.stringify(base));
+    edit(next);
+    const ops = bridgeEdit(HH, live, META, base, next);
+    await store.write(ops);
+    return { ops, after: await loadHousehold(store, HH) };
+  }
+
+  test("a partner's everyday edits land as the right records", async () => {
+    const { people } = converted();
+    const { ops, after } = await editAs("uKay", (s) => {
+      s.ot.push({ date: "2026-10-28", shiftTypeId: "n", label: "OT" });
+      s.partner.name = "Kay";
+      s.events = s.events.filter((e) => e.id !== "e2");
+      s.occasions.push({ id: "o2", date: "2026-12-25", label: "Christmas", type: "holiday", annual: true });
+    });
+    assert.equal(ops.length, 5); // shift, Kaylene ×2, event delete, occasion
+    assert.ok(after.shifts.some((s) => s.personId === people.G && s.date === "2026-10-28" && s.overtime));
+    const kay = after.people.find((p) => p.id === people.K);
+    assert.deepEqual([kay.name, kay.uid, kay.employer], ["Kay", "uKay", "CAMC"]);
+    assert.ok(!after.events.some((e) => e.id === "e2"));
+    assert.ok(after.occasions.some((o) => o.id === "o2"));
+  });
+
+  test("the edited legacy view is what the screens then see", async () => {
+    const { after } = await editAs("uKay", (s) => { s.overrides.push({ date: "2026-11-11", shiftTypeId: null, label: "off" }); });
+    const view = toLegacy(after).state;
+    assert.deepEqual(view.overrides.find((o) => o.date === "2026-11-11").shiftTypeId, null);
+  });
+
+  test("the household's name goes to the household record", async () => {
+    const { after } = await editAs("uKay", (s) => { s.householdName = "The Basses"; });
+    assert.equal(after.root.name, "The Basses");
+  });
+
+  test("a caregiver can't edit through the bridge", async () => {
+    // They can't even load the household to edit it.
+    await assert.rejects(editAs("uDaisy", (s) => { s.calName = "x"; }));
   });
 });

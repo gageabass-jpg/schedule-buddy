@@ -2,6 +2,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import type { Event, EventWho, HouseholdState } from "../state";
 import { generateEventId, generateSeriesId } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteEventError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -28,17 +29,15 @@ function validate(input: EventInput): string | null {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new WriteEventError("Couldn't read the household schedule.", e); }
-  if (!snap.exists()) throw new WriteEventError("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new WriteEventError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new WriteEventError("Couldn't save the change.", e); }
 }
 
@@ -63,7 +62,7 @@ export async function addEvent(householdId: string, input: EventInput): Promise<
     ...current,
     events: [...(current.events ?? []), { id, ...cleanInput(input) }],
   };
-  await writeState(householdId, next);
+  await writeState(householdId, current, next);
   return id;
 }
 
@@ -75,20 +74,20 @@ export async function updateEvent(householdId: string, id: string, input: EventI
   const idx = list.findIndex((e) => e.id === id);
   if (idx < 0) throw new WriteEventError("That event no longer exists.");
   list[idx] = { id, ...cleanInput(input) };
-  await writeState(householdId, { ...current, events: list });
+  await writeState(householdId, current, { ...current, events: list });
 }
 
 export async function deleteEvent(householdId: string, id: string): Promise<void> {
   const current = await readState(householdId);
   const list = (current.events ?? []).filter((e) => e.id !== id);
-  await writeState(householdId, { ...current, events: list });
+  await writeState(householdId, current, { ...current, events: list });
 }
 
 export async function deleteSeries(householdId: string, seriesId: string): Promise<number> {
   const current = await readState(householdId);
   const before = (current.events ?? []).length;
   const list = (current.events ?? []).filter((e) => e.seriesId !== seriesId);
-  await writeState(householdId, { ...current, events: list });
+  await writeState(householdId, current, { ...current, events: list });
   return before - list.length;
 }
 
@@ -138,7 +137,7 @@ export async function addEvents(
     list.push(ev);
   }
 
-  await writeState(householdId, { ...current, events: list });
+  await writeState(householdId, current, { ...current, events: list });
   return { seriesId, ids };
 }
 

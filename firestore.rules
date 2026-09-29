@@ -4,11 +4,13 @@ service cloud.firestore {
 
     // Household document — who is in it and in what role.
     //
-    // Three writes happen to it, and only these are allowed:
+    // These writes happen to it, and only these are allowed:
     //   create — the creator alone, as admin;
     //   join   — someone adds only themselves, naming a real invite code for
     //            THIS household, in the role the code grants (never admin);
-    //   leave  — a member removes only themselves (leave, delete account).
+    //   leave  — a member removes only themselves (leave, delete account);
+    //   info   — admin or partner changes the household's name, time zone or
+    //            childcare flag, and nothing else.
     // An admin may otherwise change it (remove members, change roles). Nothing
     // deletes a household.
     match /households/{householdId} {
@@ -20,7 +22,7 @@ service cloud.firestore {
       allow read: if request.auth != null
         && request.auth.uid in resource.data.memberUids;
       allow update: if request.auth != null
-        && (isHouseholdAdmin() || isLeavingSelf() || isJoiningWithCode());
+        && (isHouseholdAdmin() || isLeavingSelf() || isJoiningWithCode() || isEditingInfo());
       allow delete: if false;
 
       function isHouseholdAdmin() {
@@ -34,6 +36,11 @@ service cloud.firestore {
             .hasOnly([request.auth.uid])
           && request.resource.data.get('memberNames', {}).diff(resource.data.get('memberNames', {})).affectedKeys()
             .hasOnly([request.auth.uid]);
+      }
+      function isEditingInfo() {
+        return resource.data.roles.get(request.auth.uid, '') == 'partner'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'timeZone', 'childcare']);
       }
       function isLeavingSelf() {
         return request.auth.uid in resource.data.memberUids
