@@ -13,11 +13,13 @@ import stateMod from "../functions/lib/shared/state.js";
 import overlapMod from "../functions/lib/shared/computeOverlap.js";
 import legacyMod from "../functions/lib/shared/fromLegacy.js";
 import resolveMod from "../functions/lib/shared/resolve.js";
+import verifyMod from "../functions/lib/shared/verify.js";
 
 const { buildShiftMap, expandCustomTemplateTypes } = stateMod;
 const { computeOverlapCandidates, daisyDayRanges } = overlapMod;
 const { fromLegacy, PER_DEVICE } = legacyMod;
 const { resolveShifts, coverageGaps, caregiverDayRanges } = resolveMod;
+const { compareDrawing, compareRecords } = verifyMod;
 
 import { HH, META, SHIFT_TYPES, fullState } from "./fixtures/household.mjs";
 import { FROM, TO, addDays, randomState } from "./fixtures/random.mjs";
@@ -79,13 +81,15 @@ function assertSameHousehold(state, label = "") {
       assert.deepEqual(caregiverDayRanges(model, shifts, people.D, d), daisyDayRanges(expanded, d), `${label} caregiver time differs on ${d}`);
     }
   }
+  // The check the migration runs must agree.
+  assert.deepEqual(compareDrawing(state, model, people, FROM, TO), [], `${label} the migration's check disagrees`);
   return { model, legacyGaps };
 }
 
 // ── The full household ─────────────────────────────────────────────────────
 
 test("every field of state/main lands somewhere, or is reported", () => {
-  const { model, notes, photos, people } = fromLegacy(HH, fullState(), META);
+  const { model, notes, people } = fromLegacy(HH, fullState(), META);
   assert.deepEqual(notes.sort(), [
     "duplicate override for 2026-09-17 ignored (the first one always won)",
     "legacy template/templateEndDate superseded by weeklyTemplates.G and not copied",
@@ -114,9 +118,8 @@ test("every field of state/main lands somewhere, or is reported", () => {
   assert.deepEqual(model.caregiverOff, [{ id: `2026-09-25_${people.D}`, personId: people.D, date: "2026-09-25", label: "Daisy – Scheduled Off" }]);
   assert.equal(model.shiftOffers[0].personId, people.G);
 
-  // Photos come out of the record, to be uploaded to Storage.
-  assert.deepEqual(photos, [{ importId: "imp1", dataUrl: "data:image/jpeg;base64,AAAA" }]);
-  assert.ok(!("photo" in model.imports[0]));
+  // An import keeps its photo: it has a document to itself now.
+  assert.equal(model.imports[0].photo, "data:image/jpeg;base64,AAAA");
 
   // 2 overrides (one duplicate dropped) + 2 OT + 2 partner + 2 caregiver.
   assert.equal(model.shifts.length, 8);
@@ -183,4 +186,34 @@ test("a household without kids has no coverage gaps", () => {
 test("children own no shifts", () => {
   const m = household([adult("a", 0, OFF), { id: "kid", name: "Kid", role: "child", order: 1, weekly: { days: DAYS } }], []);
   assert.deepEqual(resolveShifts(m, FROM, TO), {});
+});
+
+// ── The migration's own check ──────────────────────────────────────────────
+
+test("the migration's check catches a calendar that differs", () => {
+  const state = fullState();
+  const { model, people } = fromLegacy(HH, fullState(), META);
+  model.shifts.find((x) => x.mode === "replace" && x.shiftTypeId === "n").shiftTypeId = "d";
+  const problems = compareDrawing(state, model, people, FROM, TO);
+  assert.ok(problems.some((p) => p === "calendar differs on 2026-09-17"), problems.join("\n"));
+  assert.ok(problems.some((p) => p.startsWith("coverage gaps differ")), problems.join("\n"));
+});
+
+test("the migration's check catches caregiver time that differs", () => {
+  const state = fullState();
+  const { model, people } = fromLegacy(HH, fullState(), META);
+  model.people.find((p) => p.id === people.D).weekly = undefined;
+  assert.ok(compareDrawing(state, model, people, FROM, TO).some((p) => p.startsWith("caregiver time differs")));
+});
+
+test("the record check catches missing, extra and changed records", () => {
+  const { model } = fromLegacy(HH, fullState(), META);
+  assert.deepEqual(compareRecords(model, structuredClone(model)), []);
+  const read = structuredClone(model);
+  read.events = read.events.filter((e) => e.id !== "e1");
+  read.occasions.push({ id: "stray", date: "2026-01-01", label: "x", type: "holiday" });
+  read.coverageRequests[0].status = "declined";
+  assert.deepEqual(compareRecords(model, read).sort(), [
+    "coverageRequests/cov1 differs", "events/e1 is missing", "occasions/stray shouldn't be there",
+  ]);
 });

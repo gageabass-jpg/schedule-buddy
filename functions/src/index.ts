@@ -8,6 +8,7 @@ export { cleanSchedule } from "./cleanSchedule";
 export { placesAutocomplete } from "./placesAutocomplete";
 export { checkCommutes } from "./commute";
 export { mirrorCaregiverView, caregiverAction } from "./caregiver";
+export { migrateHousehold, unmigrateHousehold } from "./migrate";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";
 
@@ -299,11 +300,12 @@ async function sendToTokens(
 export const onCoverageRequestsChange = onDocumentUpdated(
   "households/{householdId}/state/main",
   async (event) => {
-    await notifyScheduleDiff(
-      event.params.householdId,
-      event.data?.before.data() ?? {},
-      event.data?.after.data() ?? {},
-    );
+    const before = event.data?.before.data() ?? {};
+    const after = event.data?.after.data() ?? {};
+    // A household moving back from the model rewrites state/main with all it
+    // gained meanwhile — each of which was announced when it happened.
+    if (after._movedBackAt && after._movedBackAt !== before._movedBackAt) return;
+    await notifyScheduleDiff(event.params.householdId, before, after);
   },
 );
 

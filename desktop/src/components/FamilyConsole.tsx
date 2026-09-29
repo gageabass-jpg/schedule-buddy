@@ -21,6 +21,7 @@ import { Button01 } from "@/components/ui/nextjsshop-button";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
+import { migrateToModel, moveBackFromModel, watchDataFormat, type MigrationReport } from "../lib/migrateHousehold";
 import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, setCommuteCushion, DEFAULT_CUSHION, type CommuteConfig, type CommutePlace } from "../lib/commute";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
@@ -539,6 +540,9 @@ function GeneralTab(p: {
       <Section t={t} label="Sharing" desc="A read-only web link and a calendar subscription (ICS / webcal). Shifts + event titles only. Revoke any time.">
         <ShareLinkSection householdId={p.householdId} state={p.state} t={t} palette={p.palette} />
       </Section>
+
+      {/* DATA FORMAT — the move to the any-household model. */}
+      {p.householdId && <DataFormatSection t={t} householdId={p.householdId} />}
 
       {/* APPEARANCE */}
       <Section t={t} label="Appearance" desc="Match macOS or pick a fixed mode.">
@@ -1334,6 +1338,88 @@ function CommuteCushion({ t, householdId, cushion }: { t: ThemeTokens; household
       </div>
       {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
     </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DATA FORMAT — moving the household to the any-household model and back
+// (docs/data-model.md step 4). Everyone sees which format it's in; only the
+// admin can move it.
+// ════════════════════════════════════════════════════════════════════════════
+
+function DataFormatSection({ t, householdId }: { t: ThemeTokens; householdId: string }) {
+  const [info, setInfo] = useState<{ migrated: boolean; isAdmin: boolean; last: MigrationReport | null } | null>(null);
+  const [busy, setBusy] = useState<"move" | "back" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => watchDataFormat(householdId, setInfo, auth.currentUser?.uid), [householdId]);
+  if (!info) return null;
+
+  const onMove = async () => {
+    const ok = window.confirm(
+      "Move your household to the new format?\n\n" +
+      "Nucleus copies your schedule to a backup, converts it, and checks the new version draws " +
+      "exactly the same calendar and coverage before switching. If anything differs, nothing " +
+      "changes and you'll see what.\n\n" +
+      "Every Mac, Windows PC and phone must be up to date first: an older app won't be able to save.",
+    );
+    if (!ok) return;
+    setErr(null);
+    setBusy("move");
+    try { await migrateToModel(householdId); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't move the household."); }
+    finally { setBusy(null); }
+  };
+  const onBack = async () => {
+    if (!window.confirm("Move your household back to the classic format? Everything done since the move is kept.")) return;
+    setErr(null);
+    setBusy("back");
+    try { await moveBackFromModel(householdId); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't move the household back."); }
+    finally { setBusy(null); }
+  };
+
+  const last = info.last;
+  const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <Section
+      t={t}
+      label="Data format"
+      desc={info.migrated
+        ? "New format: each shift, event and request is saved on its own, so edits from different devices never overwrite each other."
+        : "Classic format: the whole schedule is saved as one record. The new format saves each shift, event and request on its own."}
+    >
+      {last && (
+        <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10 }}>
+          {last.outcome === "migrated" && `Moved on ${when(last.at)}. The check found no differences.`}
+          {last.outcome === "moved back" && `Moved back on ${when(last.at)}.`}
+          {last.outcome === "refused" && (
+            <>
+              <div style={{ color: t.clayText }}>
+                On {when(last.at)} the check found differences, so the household stayed in the classic format:
+              </div>
+              <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                {last.problems.map((pr) => <li key={pr}>{pr}</li>)}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+      {info.isAdmin ? (
+        info.migrated ? (
+          <button type="button" onClick={onBack} disabled={!!busy} style={{ ...secondaryBtn(t), opacity: busy ? 0.5 : 1 }}>
+            {busy === "back" ? "Moving back…" : "Move back to classic"}
+          </button>
+        ) : (
+          <button type="button" onClick={onMove} disabled={!!busy} style={{ ...primaryBtn, opacity: busy ? 0.5 : 1 }}>
+            {busy === "move" ? "Moving and checking…" : "Move to the new format"}
+          </button>
+        )
+      ) : (
+        <div style={{ fontSize: 11.5, color: t.text3 }}>Only the household's admin can change this.</div>
+      )}
+      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
+    </Section>
   );
 }
 

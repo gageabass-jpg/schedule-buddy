@@ -24,9 +24,6 @@ export interface LegacyPeople { G: string; K?: string; D?: string }
 export interface ConvertResult {
   model: HouseholdModel;
   people: LegacyPeople;
-  /** Import photos held inline as data URLs; the migration uploads each to
-   *  Storage and sets the import's photoPath. */
-  photos: Array<{ importId: string; dataUrl: string }>;
   /** Anything worth reading in the migration log. */
   notes: string[];
 }
@@ -40,6 +37,8 @@ const MAPPED = new Set([
   "events", "householdName", "employers", "timeZone", "shareEnabled", "shareToken",
   "coverageRequests", "caregiverRequests", "childcareOff", "paydays", "occasions",
   "scheduleBlocks", "templateEndDate", "weeklyTemplates", "_migrations",
+  // Set when a household moves back from the model (shared/migrate.ts).
+  "_movedBackAt",
   ...PER_DEVICE,
 ]);
 
@@ -247,13 +246,11 @@ export function fromLegacy(
     date: o.date, shiftTypeId: o.shiftTypeId, coworkers: o.coworkers ?? "",
   }));
 
-  const photos: ConvertResult["photos"] = [];
-  const imports: ImportDoc[] = list(state.imports as unknown as Array<Record<string, unknown>>).map((rec, i) => {
-    const id = trimmed(rec.id) ?? `imp_${i}`;
-    const { photo, ...rest } = rec;
-    if (typeof photo === "string" && photo.startsWith("data:")) photos.push({ importId: id, dataUrl: photo });
-    return { ...rest, id };
-  });
+  // An import keeps its photo inline: it's one import per document now, well
+  // under the size limit that one shared record ran into.
+  const imports: ImportDoc[] = list(state.imports as unknown as Array<Record<string, unknown>>).map((rec, i) => ({
+    ...rec, id: trimmed(rec.id) ?? `imp_${i}`,
+  }));
 
   const root = clean({
     name: trimmed(state.householdName),
@@ -292,7 +289,6 @@ export function fromLegacy(
       imports,
     },
     people: legacy,
-    photos,
     notes,
   };
 }

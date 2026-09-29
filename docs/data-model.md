@@ -110,7 +110,7 @@ functions' Admin SDK share.
 | `events[].who` | `events/*.personId` (none = family) |
 | `coverageRequests` | `coverageRequests/*` + `caregiverId` |
 | `caregiverRequests`, `scheduleBlocks`, `occasions` | one document each |
-| `imports` | `imports/*`; inline photos move to Cloud Storage |
+| `imports` | `imports/*`, each with its photo inline (one import per document is well under the size limit) |
 | `shiftTypes` | `shiftTypes/*` |
 | `householdName`, `timeZone` | the household root |
 | `calName`, `range`, `shareEnabled`, `shareToken`, `_migrations` | `settings/main` |
@@ -175,13 +175,21 @@ households. Planting a bug in the new resolver fails it.
      coverage, pickers, the widget snapshot, the wall, nucleusAI's tools)
      take people from `people/`, one at a time. Until a screen moves, it shows
      the first two adults and the first caregiver.
-4. **Migration function.** For one household:
-   - take a manual backup;
-   - convert;
-   - write the collections;
-   - re-run the equivalence check server-side against the live record;
-   - only if it matches, set `schemaVersion: 2`.
-   `state/main` is kept, read-only, for 30 days.
+4. **Migration function (built).** `migrateHousehold` (`shared/migrate.ts`,
+   run by the function of the same name, admin only) for one household:
+   - copies state/main to `legacyBackups/{time}`;
+   - clears anything a failed earlier attempt left;
+   - converts and writes the records;
+   - reads them back and checks (`shared/verify.ts`) that they're exactly the
+     conversion and draw the same calendar, coverage gaps and caregiver time
+     as state/main, from 3 months back to a year ahead;
+   - only if that passes, sets `schemaVersion: 2`.
+   Every attempt leaves a report in `migrations/{time}`. Once switched,
+   state/main is read-only by rule, so an out-of-date app fails to save
+   rather than writing where nothing reads.
+   `unmigrateHousehold` moves back: it writes the household as it now stands
+   into state/main (nothing done since is lost) and clears the version.
+   Both run from the Mac: Family Console → General → Data format.
 5. **Cutover.** One coordinated release: functions, rules, phone, Mac and
    Windows together. Then retire `caregiverView` and `state/main`.
 
@@ -201,6 +209,7 @@ households. Planting a bug in the new resolver fails it.
 5. **One coordinated cutover** rather than running both formats in parallel.
    Only your household is live, so a single switch is far less work. It means
    the Windows app is rebuilt the same day.
-6. **Photos move to Cloud Storage**, set per person in the app. The bundled
-   Gage/Kaylene/Daisy photos are uploaded as your household's photos during
-   migration.
+6. **Person photos move to Cloud Storage** (`people/*.photoPath`), set per
+   person in the app, when the screens that show them move to the model.
+   Until then the bundled Gage/Kaylene/Daisy photos keep showing, and the
+   migration uploads nothing.

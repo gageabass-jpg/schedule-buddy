@@ -66,9 +66,29 @@ service cloud.firestore {
     // Schedule state — admin and partner only. A caregiver (supporting) sees
     // caregiverView/main instead, and changes things only through the
     // caregiverAction function, which applies one checked change at a time.
+    // Once a household has moved to the any-household model (schemaVersion
+    // ≥ 2) this is a read-only copy: an out-of-date app fails to save rather
+    // than writing where nothing reads.
     match /households/{householdId}/state/{docId} {
-      allow read, write: if request.auth != null
+      allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner']
+        && get(/databases/$(database)/documents/households/$(householdId)).data.get('schemaVersion', 1) < 2;
+    }
+
+    // What a migration kept and found (shared/migrate.ts): the copy of
+    // state/main taken first, and a report of each attempt. Written only by
+    // the migration functions.
+    match /households/{householdId}/legacyBackups/{id} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
+      allow write: if false;
+    }
+    match /households/{householdId}/migrations/{id} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
+      allow write: if false;
     }
 
     // ── The any-household model (docs/data-model.md, shared/store.ts) ──────
