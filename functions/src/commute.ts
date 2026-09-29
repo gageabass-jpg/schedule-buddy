@@ -27,6 +27,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
 import { buildShiftMap, expandCustomTemplateTypes, type HouseholdState } from "./shared/state";
+import { readLegacyState } from "./householdState";
 
 const GOOGLE_API_KEY = defineSecret("GOOGLE_PLACES_API_KEY");
 
@@ -215,9 +216,8 @@ export const checkCommutes = onSchedule(
           max: clampMin(cfg.cushion?.max, DEFAULT_CUSHION.max),
         };
         if (cushion.max < cushion.min) cushion.max = cushion.min;
-        const stateSnap = await hhDoc.ref.collection("state").doc("main").get();
-        if (!stateSnap.exists) continue;
-        const state = stateSnap.data() as HouseholdState;
+        const state = await readLegacyState(hhDoc.id);
+        if (!state) continue;
         const tz = state.timeZone || "America/New_York";
         const view = expandCustomTemplateTypes(state);
         const types = new Map(view.shiftTypes.map((t) => [t.id, t]));

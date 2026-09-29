@@ -9,12 +9,17 @@
 //     transaction (update, not set: nothing else in state/main is touched).
 //     `sync` rebuilds the view on demand, for a household whose view doesn't
 //     exist yet.
+//
+// A household on the any-household model has no state/main to trigger on:
+// onHouseholdEdit (index.ts) calls refreshCaregiverView after each save, and
+// caregiverAction's change goes through editLegacyState like any other edit.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { applyCaregiverAction, buildCaregiverView, CaregiverInputError } from "./caregiverLogic";
+import { editLegacyState, readLegacyState } from "./householdState";
 
 const viewRef = (householdId: string) =>
   getFirestore().collection("households").doc(householdId).collection("caregiverView").doc("main");
@@ -34,6 +39,15 @@ export const mirrorCaregiverView = onDocumentWritten(
     await viewRef(householdId).set(next);
   },
 );
+
+/** Rewrite the caregiver's view from `state` if what it shows has changed. */
+export async function refreshCaregiverView(householdId: string, state: Record<string, unknown> | null): Promise<void> {
+  const ref = viewRef(householdId);
+  const next = buildCaregiverView(state ?? undefined);
+  const cur = (await ref.get()).data();
+  if (cur && JSON.stringify(cur) === JSON.stringify(next)) return;
+  await ref.set(next);
+}
 
 interface CaregiverActionRequest {
   householdId?: string;
@@ -58,26 +72,23 @@ export const caregiverAction = onCall<CaregiverActionRequest, Promise<{ ok: true
       throw new HttpsError("permission-denied", "You're not in this household.");
     }
 
-    const stateRef = db.collection("households").doc(householdId).collection("state").doc("main");
-
     if (request.data.action === "sync") {
-      const snap = await stateRef.get();
-      await viewRef(householdId).set(buildCaregiverView(snap.data()));
+      const state = await readLegacyState(householdId);
+      await viewRef(householdId).set(buildCaregiverView((state ?? undefined) as Record<string, unknown> | undefined));
       return { ok: true };
     }
 
     const now = new Date();
     try {
-      await db.runTransaction(async (tx) => {
-        const snap = await tx.get(stateRef);
-        if (!snap.exists) throw new CaregiverInputError("The schedule isn't set up yet.");
-        const patch = applyCaregiverAction(snap.data() ?? {}, request.data, {
+      if (!(await readLegacyState(householdId))) throw new CaregiverInputError("The schedule isn't set up yet.");
+      await editLegacyState(householdId, uid, (fresh) => {
+        const patch = applyCaregiverAction(fresh as unknown as Record<string, unknown>, request.data, {
           uid,
           nowIso: now.toISOString(),
           nowMs: now.getTime(),
           newId: `ev_${now.getTime().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
         });
-        tx.update(stateRef, patch);
+        return { result: null, next: { ...fresh, ...patch } };
       });
     } catch (e) {
       if (e instanceof CaregiverInputError) throw new HttpsError("invalid-argument", e.message);

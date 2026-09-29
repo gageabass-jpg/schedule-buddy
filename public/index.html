@@ -7330,6 +7330,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<!-- The any-household model, built from shared/ (npm run build:phone-model). -->
+<script src="/js/nucleus-model.js"></script>
 
 <!-- ==================== CAPACITOR NATIVE BRIDGE (only present in iOS app) ==================== -->
 <script>
@@ -10050,10 +10052,7 @@ function renderManagerInboxSection(caregiverRequests) {
 async function handleManagerInboxConvert(id) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const cgList = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
     const idx = cgList.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -10094,7 +10093,7 @@ async function handleManagerInboxConvert(id) {
       acknowledgedBy: currentUser.uid,
     };
 
-    await ref.set({ ...data, coverageRequests: covList, caregiverRequests: cgList });
+    await writeHouseholdStateOnce(data, { ...data, coverageRequests: covList, caregiverRequests: cgList });
   } catch (e) {
     console.error("convert failed:", e);
     alert("Couldn't convert. Check your connection.");
@@ -10160,10 +10159,7 @@ function mcInboxRowHTML(r) {
 async function handleManagerInboxAction(id, nextStatus) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
     const idx = list.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -10192,7 +10188,7 @@ async function handleManagerInboxAction(id, nextStatus) {
         nextData.events = data.events.filter(e => !(e && e.sourceRequestId === id));
       }
     }
-    await ref.set(nextData);
+    await writeHouseholdStateOnce(data, nextData);
   } catch (e) {
     console.error("inbox action failed:", e);
     alert("Couldn't update that request. Check your connection.");
@@ -10202,10 +10198,7 @@ async function handleManagerInboxAction(id, nextStatus) {
 async function handleManagerClear(id) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
     const idx = list.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -10215,7 +10208,7 @@ async function handleManagerClear(id) {
       managerReviewedAt: Date.now(),
       managerReviewedBy: currentUser.uid,
     };
-    await ref.set({ ...data, coverageRequests: list });
+    await writeHouseholdStateOnce(data, { ...data, coverageRequests: list });
   } catch (e) {
     console.error("manager clear failed:", e);
     alert("Couldn't mark reviewed. Check your connection.");
@@ -11052,9 +11045,17 @@ async function saveStateToFirestore() {
   // changes go through caregiverCall().
   if (userRole === "supporting") return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    await ref.set(JSON.parse(JSON.stringify(state)));
+    if (householdMigrated()) {
+      // Only what changed since the state was last received.
+      if (!_liveModel || !_syncedBase) return;
+      const next = _plain(state);
+      await commitBridgedEdit(_liveModel, _syncedBase, next);
+      _syncedBase = next;
+    } else {
+      const ref = db.collection("households").doc(householdId)
+        .collection("state").doc("main");
+      await ref.set(JSON.parse(JSON.stringify(state)));
+    }
     updateSyncStatus("synced");
   } catch (e) {
     console.error("Firestore write error:", e);
@@ -11206,9 +11207,83 @@ function updateSyncStatus(status) {
   }
 }
 
+// ==================== ANY-HOUSEHOLD MODEL ====================
+// A household on the any-household model (schemaVersion ≥ 2, see
+// docs/data-model.md) has no state/main. Its records are watched and handed
+// to the screens in the old shape (toLegacy), and a save writes only the
+// records this phone's edit changed (bridgeEdit) — the same bridge the Mac
+// uses. _syncedBase is the state as last received: the difference between it
+// and `state` at save time is exactly the edit.
+let _modelStore = null;
+let _liveModel = null;
+let _syncedBase = null;
+const _plain = (v) => JSON.parse(JSON.stringify(v));
+
+// Decided by the household record alone: if the model code failed to load,
+// a migrated household fails loudly rather than falling back to state/main.
+function householdMigrated() {
+  return !!(householdData && typeof householdData.schemaVersion === "number"
+    && householdData.schemaVersion >= 2);
+}
+function modelStore() {
+  return _modelStore || (_modelStore = NucleusModel.namespacedStore(db));
+}
+function householdMeta() {
+  const d = householdData || {};
+  return {
+    memberUids: d.memberUids || [], memberNames: d.memberNames || {}, roles: d.roles || {},
+    inviteCode: d.inviteCode || "", createdBy: d.createdBy || "",
+  };
+}
+// One edit of the state (base → next) as record writes, with its edit-log
+// entry (which the functions turn into notifications).
+async function commitBridgedEdit(live, base, next) {
+  const ops = NucleusModel.bridgeEdit(householdId, live, householdMeta(), base, next);
+  if (ops.length) {
+    await NucleusModel.commitEdit(modelStore(), householdId, live, ops, currentUser ? currentUser.uid : "");
+  }
+}
+// The whole state, read once — for the handlers that edit it outside the
+// live sync — and saved as an edit of what was read.
+async function readHouseholdStateOnce() {
+  if (!householdMigrated()) {
+    const snap = await db.collection("households").doc(householdId).collection("state").doc("main").get();
+    return snap.exists ? (snap.data() || {}) : {};
+  }
+  const live = await NucleusModel.loadHousehold(modelStore(), householdId);
+  return live ? _plain(NucleusModel.toLegacy(live).state) : {};
+}
+async function writeHouseholdStateOnce(base, next) {
+  if (!householdMigrated()) {
+    await db.collection("households").doc(householdId).collection("state").doc("main").set(next);
+    return;
+  }
+  const live = await NucleusModel.loadHousehold(modelStore(), householdId);
+  if (!live) throw new Error("The household has no records.");
+  await commitBridgedEdit(live, base, next);
+}
+
 // ==================== FIRESTORE SYNC ====================
 function initFirestoreSync() {
   if (!householdId) return;
+  if (householdMigrated()) {
+    stateUnsubscribe = NucleusModel.watchHousehold(modelStore(), householdId, (model) => {
+      if (!model) return;
+      _liveModel = model;
+      _remoteUpdate = true;
+      state = mergeStateFromFirestore(_plain(NucleusModel.toLegacy(model).state));
+      _syncedBase = _plain(state);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      _remoteUpdate = false;
+      updateSyncStatus("synced");
+    }, (err) => {
+      console.warn("household model listener:", err);
+      updateSyncStatus("offline");
+      renderAll();
+    });
+    return;
+  }
   const ref = db.collection("households").doc(householdId)
     .collection("state").doc("main");
 

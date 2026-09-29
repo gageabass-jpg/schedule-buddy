@@ -220,3 +220,60 @@ describe("editing through the legacy bridge", () => {
     await assert.rejects(editAs("uDaisy", (s) => { s.calName = "x"; }));
   });
 });
+
+describe("the edit log", () => {
+  const { toLegacy, bridgeEdit } = toLegacyMod;
+  const { commitEdit, revertChanges } = storeMod;
+
+  /** A save through the bridge with its edit-log entry, as `uid`. */
+  async function saveAs(uid, edit) {
+    const store = as(uid);
+    const live = await loadHousehold(store, HH);
+    const base = JSON.parse(JSON.stringify(toLegacy(live).state));
+    const next = JSON.parse(JSON.stringify(base));
+    edit(next);
+    await commitEdit(store, HH, live, bridgeEdit(HH, live, META, base, next), uid);
+    return { live, base };
+  }
+  const entries = async () => (await admin.list(`households/${HH}/edits`)).map((d) => d.data);
+
+  test("one save writes one entry, naming who made it and what changed", async () => {
+    const { people } = converted();
+    await saveAs("uKay", (s) => {
+      s.ot.push({ date: "2026-10-28", shiftTypeId: "n", label: "OT" });
+      s.events = s.events.filter((e) => e.id !== "e2");
+    });
+    const [entry, ...more] = await entries();
+    assert.equal(more.length, 0);
+    assert.equal(entry.by, "uKay");
+    const summary = entry.changes.map((c) => `${c.col}/${c.id}:${c.before ? "b" : "-"}${c.after ? "a" : "-"}`).sort();
+    assert.deepEqual(summary, [`events/e2:b-`, `shifts/2026-10-28_${people.G}_add_000:-a`]);
+  });
+
+  test("an edit that changes nothing writes no entry", async () => {
+    await saveAs("uKay", () => {});
+    assert.deepEqual(await entries(), []);
+  });
+
+  test("rewinding the entry gives back the state the save started from", async () => {
+    const { live } = await saveAs("uKay", (s) => {
+      s.partner.name = "Kay";
+      s.coverageRequests[0].status = "declined";
+      s.overrides.push({ date: "2026-11-11", shiftTypeId: null, label: "off" });
+    });
+    const [entry] = await entries();
+    const after = await loadHousehold(admin, HH);
+    const rewound = revertChanges(after, entry.changes);
+    // What the notification trigger compares: the legacy view before and after.
+    assert.deepEqual(JSON.parse(JSON.stringify(toLegacy(rewound).state)), JSON.parse(JSON.stringify(toLegacy(live).state)));
+    assert.equal(toLegacy(after).state.coverageRequests[0].status, "declined");
+  });
+
+  test("only a manager writes an entry, and only in their own name", async () => {
+    const entry = (by) => [{ op: "set", path: `households/${HH}/edits/x_${by}`, data: { by, at: 1, changes: [] } }];
+    await as("uKay").write(entry("uKay"));
+    await assert.rejects(as("uKay").write(entry("uGage")));
+    await assert.rejects(as("uDaisy").write(entry("uDaisy")));
+    await assert.rejects(as("uKay").write([{ op: "delete", path: `households/${HH}/edits/x_uKay` }]));
+  });
+});

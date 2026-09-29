@@ -18,6 +18,12 @@ import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/fire
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { logger } from "firebase-functions";
+import { readLegacyState } from "./householdState";
+import type { HouseholdState } from "./shared/state";
+import { loadHousehold, revertChanges, type EditEntry } from "./shared/store";
+import { toLegacy } from "./shared/toLegacy";
+import { modelStore } from "./modelStore";
+import { refreshCaregiverView } from "./caregiver";
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
@@ -189,9 +195,7 @@ async function badgeCountFor(householdId: string, uid: string): Promise<number> 
     const hh = await db.collection("households").doc(householdId).get();
     const role = (hh.data()?.roles ?? {})[uid] ?? "partner";
 
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    const st = stateSnap.data() ?? {};
+    const st = (await readLegacyState(householdId)) ?? ({} as Partial<HouseholdState>);
     const coverage = (st.coverageRequests ?? []) as CoverageRequest[];
 
     let count = 0;
@@ -295,255 +299,296 @@ async function sendToTokens(
 export const onCoverageRequestsChange = onDocumentUpdated(
   "households/{householdId}/state/main",
   async (event) => {
-    const householdId = event.params.householdId;
-    const beforeDoc = event.data?.before.data() ?? {};
-    const afterDoc  = event.data?.after.data()  ?? {};
+    await notifyScheduleDiff(
+      event.params.householdId,
+      event.data?.before.data() ?? {},
+      event.data?.after.data() ?? {},
+    );
+  },
+);
 
-    // --- Broadcast: anything ADDED to the schedule notifies the whole
-    // household (no approval, no role routing). Identity-keyed by date/id so
-    // the ~300ms whole-doc rewrites and in-place edits don't fire — only
-    // genuinely new items do. Coverage requests are handled separately below
-    // (with richer detail) so they're excluded here to avoid a double push.
-    const scheduleKeys = (d: Record<string, unknown>): Set<string> => {
-      const keys = new Set<string>();
-      const arr = (v: unknown): Record<string, unknown>[] =>
-        Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
-      for (const e of arr(d.events))    if (e?.id)   keys.add(`ev:${e.id}`);
-      for (const o of arr(d.overrides)) if (o?.date) keys.add(`ov:${o.date}`);
-      const partner = d.partner as { shifts?: unknown } | undefined;
-      for (const s of arr(partner?.shifts)) if (s?.date) keys.add(`pk:${s.date}`);
-      const daisy = (d.dependents as { daisy?: { shifts?: unknown } } | undefined)?.daisy;
-      for (const s of arr(daisy?.shifts)) if (s?.date) keys.add(`dz:${s.date}`);
-      for (const op of arr(d.otOpportunities)) if (op?.date) keys.add(`ot:${op.date}:${op.shiftTypeId ?? ""}`);
-      return keys;
-    };
-    const beforeKeys = scheduleKeys(beforeDoc);
-    const afterKeys  = scheduleKeys(afterDoc);
-    const added: string[] = [];
-    for (const k of afterKeys) if (!beforeKeys.has(k)) added.push(k);
-    if (added.length > 0) {
-      const first = describeAddition(added[0], afterDoc);
-      await recordNotification(householdId, {
-        kind: "schedule_added",
-        title: added.length === 1 ? "Added to the schedule" : `${added.length} things added to the schedule`,
-        body: added.length === 1 ? first.text : `${first.text} and ${added.length - 1} more`,
-        roles: ["admin", "partner", "supporting"],
-        date: first.date,
-      });
-      const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
-      logger.info("Schedule additions → broadcast", { householdId, added: added.length, tokens: tokens.length });
-      if (tokens.length > 0) {
-        const body = added.length === 1
-          ? "A new item was added to the schedule."
-          : `${added.length} new items were added to the schedule.`;
-        await sendToTokens(tokens, { title: "Schedule updated", body }, {
-          kind: "schedule_added",
-          householdId,
-          count: String(added.length),
-        }, householdId);
-      }
-    }
-
-    // --- Caregiver inbox (caregiverRequests): deliberately does NOT push.
-    //
-    // These used to notify managers whenever Daisy raised something. They now
-    // arrive silently: the Inbox tray shows them live, and badgeCountFor()
-    // still counts "new" entries, so they surface on the app icon at the next
-    // push or app open — just without interrupting.
-    //
-    // Push is reserved for Daisy answering us (status_change, change_resolved)
-    // and In-Basket Messages.
-    const cgBefore = byId<CaregiverRequest>((beforeDoc.caregiverRequests ?? []) as CaregiverRequest[]);
-    const cgAfter  = (afterDoc.caregiverRequests ?? []) as CaregiverRequest[];
-    const newCaregiverEntries = cgAfter.filter(
-      (r) => r && r.id && !cgBefore.has(r.id) && r.status === "new");
-    if (newCaregiverEntries.length > 0) {
-      logger.info("New caregiver requests (no push by design)", {
-        householdId, count: newCaregiverEntries.length,
-      });
-    }
-
-    // --- Coverage requests (caregivers receive new pending; managers
-    // receive status transitions). Same path as before.
-    const before = (beforeDoc.coverageRequests ?? []) as CoverageRequest[];
-    const after  = (afterDoc.coverageRequests  ?? []) as CoverageRequest[];
-
-    const beforeMap = byId(before);
-    const afterMap  = byId(after);
-
-    const newPending: CoverageRequest[] = [];
-    const statusChanges: { req: CoverageRequest; from: CoverageStatus; to: CoverageStatus }[] = [];
-    // Change proposals move no status, so they need their own diff.
-    const newProposals: CoverageRequest[] = [];
-    const resolvedProposals: { req: CoverageRequest; approved: boolean }[] = [];
-
-    for (const [id, req] of afterMap) {
-      const prev = beforeMap.get(id);
-      if (!prev) {
-        if (req.status === "pending") newPending.push(req);
-        continue;
-      }
-      if (prev.status !== req.status) {
-        statusChanges.push({ req, from: prev.status, to: req.status });
-      }
-      // Proposal appeared → tell the caregiver.
-      if (!prev.proposedChange && req.proposedChange) {
-        newProposals.push(req);
-      }
-      // Proposal cleared → tell the managers whether she took it. If the
-      // request now sits on the proposed window, she approved it.
-      if (prev.proposedChange && !req.proposedChange) {
-        const approved = req.startTime === prev.proposedChange.startTime
-          && req.endTime === prev.proposedChange.endTime;
-        resolvedProposals.push({ req, approved });
-      }
-    }
-
-    if (newPending.length === 0 && statusChanges.length === 0
-      && newProposals.length === 0 && resolvedProposals.length === 0) {
-      logger.info("No coverage diff to push", { householdId });
-      return;
-    }
-
-    logger.info("Coverage diff detected", {
-      householdId,
-      newPending: newPending.length,
-      statusChanges: statusChanges.length,
-      newProposals: newProposals.length,
-      resolvedProposals: resolvedProposals.length,
-      statusChangeSummary: statusChanges.map((c) => `${c.req.id}:${c.from}->${c.to}`),
+/**
+ * The notifications one save deserves, from the household's state before and
+ * after it. Called by the state/main trigger above, and by onHouseholdEdit for
+ * a household on the any-household model (which rebuilds the two states from
+ * its edit log).
+ */
+async function notifyScheduleDiff(
+  householdId: string,
+  beforeDoc: Record<string, unknown>,
+  afterDoc: Record<string, unknown>,
+): Promise<void> {
+  // --- Broadcast: anything ADDED to the schedule notifies the whole
+  // household (no approval, no role routing). Identity-keyed by date/id so
+  // the ~300ms whole-doc rewrites and in-place edits don't fire — only
+  // genuinely new items do. Coverage requests are handled separately below
+  // (with richer detail) so they're excluded here to avoid a double push.
+  const scheduleKeys = (d: Record<string, unknown>): Set<string> => {
+    const keys = new Set<string>();
+    const arr = (v: unknown): Record<string, unknown>[] =>
+      Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+    for (const e of arr(d.events))    if (e?.id)   keys.add(`ev:${e.id}`);
+    for (const o of arr(d.overrides)) if (o?.date) keys.add(`ov:${o.date}`);
+    const partner = d.partner as { shifts?: unknown } | undefined;
+    for (const s of arr(partner?.shifts)) if (s?.date) keys.add(`pk:${s.date}`);
+    const daisy = (d.dependents as { daisy?: { shifts?: unknown } } | undefined)?.daisy;
+    for (const s of arr(daisy?.shifts)) if (s?.date) keys.add(`dz:${s.date}`);
+    for (const op of arr(d.otOpportunities)) if (op?.date) keys.add(`ot:${op.date}:${op.shiftTypeId ?? ""}`);
+    return keys;
+  };
+  const beforeKeys = scheduleKeys(beforeDoc);
+  const afterKeys  = scheduleKeys(afterDoc);
+  const added: string[] = [];
+  for (const k of afterKeys) if (!beforeKeys.has(k)) added.push(k);
+  if (added.length > 0) {
+    const first = describeAddition(added[0], afterDoc);
+    await recordNotification(householdId, {
+      kind: "schedule_added",
+      title: added.length === 1 ? "Added to the schedule" : `${added.length} things added to the schedule`,
+      body: added.length === 1 ? first.text : `${first.text} and ${added.length - 1} more`,
+      roles: ["admin", "partner", "supporting"],
+      date: first.date,
     });
-
-    // 1. New pending requests → everyone (adds notify the whole household)
-    if (newPending.length > 0) {
-      const one = newPending[0];
-      await recordNotification(householdId, {
-        kind: "new_pending",
-        title: newPending.length === 1 ? "New coverage request" : "New coverage requests",
-        body: newPending.length === 1
-          ? `${friendlyDate(one.date)} · ${fmtWindow(one)}${one.arriveBy ? ` · arrive ${one.arriveBy}` : ""}`
-          : `${newPending.length} new coverage requests`,
-        roles: ["admin", "partner", "supporting"],
-        date: one.date,
-        requestId: newPending.length === 1 ? one.id : undefined,
-      });
-      const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
-      logger.info("Caregiver tokens resolved", { householdId, tokens: tokens.length });
-      if (tokens.length > 0) {
-        const single = newPending[0];
-        const body = newPending.length === 1
-          ? `${friendlyDate(single.date)} · ${fmtWindow(single)}${single.arriveBy ? ` · arrive ${single.arriveBy}` : ""}`
-          : `${newPending.length} new coverage requests`;
-        await sendToTokens(tokens, {
-          title: newPending.length === 1 ? "New coverage request" : "New coverage requests",
-          body,
-        }, {
-          kind: "new_pending",
-          householdId,
-          requestId: newPending.length === 1 ? single.id : "",
-        }, householdId);
-      }
+    const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
+    logger.info("Schedule additions → broadcast", { householdId, added: added.length, tokens: tokens.length });
+    if (tokens.length > 0) {
+      const body = added.length === 1
+        ? "A new item was added to the schedule."
+        : `${added.length} new items were added to the schedule.`;
+      await sendToTokens(tokens, { title: "Schedule updated", body }, {
+        kind: "schedule_added",
+        householdId,
+        count: String(added.length),
+      }, householdId);
     }
+  }
 
-    // 2. Status changes → managers (admin + partner)
-    if (statusChanges.length > 0) {
+  // --- Caregiver inbox (caregiverRequests): deliberately does NOT push.
+  //
+  // These used to notify managers whenever Daisy raised something. They now
+  // arrive silently: the Inbox tray shows them live, and badgeCountFor()
+  // still counts "new" entries, so they surface on the app icon at the next
+  // push or app open — just without interrupting.
+  //
+  // Push is reserved for Daisy answering us (status_change, change_resolved)
+  // and In-Basket Messages.
+  const cgBefore = byId<CaregiverRequest>((beforeDoc.caregiverRequests ?? []) as CaregiverRequest[]);
+  const cgAfter  = (afterDoc.caregiverRequests ?? []) as CaregiverRequest[];
+  const newCaregiverEntries = cgAfter.filter(
+    (r) => r && r.id && !cgBefore.has(r.id) && r.status === "new");
+  if (newCaregiverEntries.length > 0) {
+    logger.info("New caregiver requests (no push by design)", {
+      householdId, count: newCaregiverEntries.length,
+    });
+  }
+
+  // --- Coverage requests (caregivers receive new pending; managers
+  // receive status transitions). Same path as before.
+  const before = (beforeDoc.coverageRequests ?? []) as CoverageRequest[];
+  const after  = (afterDoc.coverageRequests  ?? []) as CoverageRequest[];
+
+  const beforeMap = byId(before);
+  const afterMap  = byId(after);
+
+  const newPending: CoverageRequest[] = [];
+  const statusChanges: { req: CoverageRequest; from: CoverageStatus; to: CoverageStatus }[] = [];
+  // Change proposals move no status, so they need their own diff.
+  const newProposals: CoverageRequest[] = [];
+  const resolvedProposals: { req: CoverageRequest; approved: boolean }[] = [];
+
+  for (const [id, req] of afterMap) {
+    const prev = beforeMap.get(id);
+    if (!prev) {
+      if (req.status === "pending") newPending.push(req);
+      continue;
+    }
+    if (prev.status !== req.status) {
+      statusChanges.push({ req, from: prev.status, to: req.status });
+    }
+    // Proposal appeared → tell the caregiver.
+    if (!prev.proposedChange && req.proposedChange) {
+      newProposals.push(req);
+    }
+    // Proposal cleared → tell the managers whether she took it. If the
+    // request now sits on the proposed window, she approved it.
+    if (prev.proposedChange && !req.proposedChange) {
+      const approved = req.startTime === prev.proposedChange.startTime
+        && req.endTime === prev.proposedChange.endTime;
+      resolvedProposals.push({ req, approved });
+    }
+  }
+
+  if (newPending.length === 0 && statusChanges.length === 0
+    && newProposals.length === 0 && resolvedProposals.length === 0) {
+    logger.info("No coverage diff to push", { householdId });
+    return;
+  }
+
+  logger.info("Coverage diff detected", {
+    householdId,
+    newPending: newPending.length,
+    statusChanges: statusChanges.length,
+    newProposals: newProposals.length,
+    resolvedProposals: resolvedProposals.length,
+    statusChangeSummary: statusChanges.map((c) => `${c.req.id}:${c.from}->${c.to}`),
+  });
+
+  // 1. New pending requests → everyone (adds notify the whole household)
+  if (newPending.length > 0) {
+    const one = newPending[0];
+    await recordNotification(householdId, {
+      kind: "new_pending",
+      title: newPending.length === 1 ? "New coverage request" : "New coverage requests",
+      body: newPending.length === 1
+        ? `${friendlyDate(one.date)} · ${fmtWindow(one)}${one.arriveBy ? ` · arrive ${one.arriveBy}` : ""}`
+        : `${newPending.length} new coverage requests`,
+      roles: ["admin", "partner", "supporting"],
+      date: one.date,
+      requestId: newPending.length === 1 ? one.id : undefined,
+    });
+    const tokens = await tokensForRoles(householdId, ["admin", "partner", "supporting"]);
+    logger.info("Caregiver tokens resolved", { householdId, tokens: tokens.length });
+    if (tokens.length > 0) {
+      const single = newPending[0];
+      const body = newPending.length === 1
+        ? `${friendlyDate(single.date)} · ${fmtWindow(single)}${single.arriveBy ? ` · arrive ${single.arriveBy}` : ""}`
+        : `${newPending.length} new coverage requests`;
+      await sendToTokens(tokens, {
+        title: newPending.length === 1 ? "New coverage request" : "New coverage requests",
+        body,
+      }, {
+        kind: "new_pending",
+        householdId,
+        requestId: newPending.length === 1 ? single.id : "",
+      }, householdId);
+    }
+  }
+
+  // 2. Status changes → managers (admin + partner)
+  if (statusChanges.length > 0) {
+    for (const ch of statusChanges) {
+      const verb =
+        ch.to === "confirmed" ? "accepted" :
+        ch.to === "declined"  ? "declined" :
+        ch.to === "issue"     ? "reported an issue with" :
+                                "updated";
+      await recordNotification(householdId, {
+        kind: `status_${ch.to}`,
+        title: `Caregiver ${verb} coverage`,
+        body: `${friendlyDate(ch.req.date)} · ${fmtWindow(ch.req)}` +
+          (ch.to === "issue" && ch.req.caregiverNote ? ` — “${ch.req.caregiverNote}”` : ""),
+        roles: ["admin", "partner"],
+        date: ch.req.date,
+        requestId: ch.req.id,
+      });
+    }
+    const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
+    logger.info("Manager tokens resolved", { householdId, tokens: tokens.length });
+    if (tokens.length > 0) {
       for (const ch of statusChanges) {
         const verb =
           ch.to === "confirmed" ? "accepted" :
           ch.to === "declined"  ? "declined" :
           ch.to === "issue"     ? "reported an issue with" :
                                   "updated";
-        await recordNotification(householdId, {
-          kind: `status_${ch.to}`,
-          title: `Caregiver ${verb} coverage`,
-          body: `${friendlyDate(ch.req.date)} · ${fmtWindow(ch.req)}` +
-            (ch.to === "issue" && ch.req.caregiverNote ? ` — “${ch.req.caregiverNote}”` : ""),
-          roles: ["admin", "partner"],
-          date: ch.req.date,
+        const title = `Caregiver ${verb} coverage`;
+        const body = `${friendlyDate(ch.req.date)} · ${fmtWindow(ch.req)}` +
+          (ch.to === "issue" && ch.req.caregiverNote ? ` — “${ch.req.caregiverNote}”` : "");
+        await sendToTokens(tokens, { title, body }, {
+          kind: "status_change",
+          householdId,
           requestId: ch.req.id,
-        });
-      }
-      const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
-      logger.info("Manager tokens resolved", { householdId, tokens: tokens.length });
-      if (tokens.length > 0) {
-        for (const ch of statusChanges) {
-          const verb =
-            ch.to === "confirmed" ? "accepted" :
-            ch.to === "declined"  ? "declined" :
-            ch.to === "issue"     ? "reported an issue with" :
-                                    "updated";
-          const title = `Caregiver ${verb} coverage`;
-          const body = `${friendlyDate(ch.req.date)} · ${fmtWindow(ch.req)}` +
-            (ch.to === "issue" && ch.req.caregiverNote ? ` — “${ch.req.caregiverNote}”` : "");
-          await sendToTokens(tokens, { title, body }, {
-            kind: "status_change",
-            householdId,
-            requestId: ch.req.id,
-            status: ch.to,
-          }, householdId);
-        }
+          status: ch.to,
+        }, householdId);
       }
     }
+  }
 
-    // 3. New change proposals → caregivers. She already agreed to this day,
-    //    so this is a "can we move it?" not a new assignment.
-    if (newProposals.length > 0) {
+  // 3. New change proposals → caregivers. She already agreed to this day,
+  //    so this is a "can we move it?" not a new assignment.
+  if (newProposals.length > 0) {
+    for (const req of newProposals) {
+      const pc = req.proposedChange!;
+      await recordNotification(householdId, {
+        kind: "change_proposed",
+        title: "Coverage time change requested",
+        body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime} (was ${req.startTime} → ${req.endTime})`,
+        roles: ["supporting"],
+        date: req.date,
+        requestId: req.id,
+      });
+    }
+    const tokens = await tokensForRoles(householdId, ["supporting"]);
+    if (tokens.length > 0) {
       for (const req of newProposals) {
         const pc = req.proposedChange!;
-        await recordNotification(householdId, {
-          kind: "change_proposed",
+        await sendToTokens(tokens, {
           title: "Coverage time change requested",
-          body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime} (was ${req.startTime} → ${req.endTime})`,
-          roles: ["supporting"],
-          date: req.date,
+          body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime}`
+            + ` (was ${req.startTime} → ${req.endTime})`,
+        }, {
+          kind: "change_proposed",
+          householdId,
           requestId: req.id,
-        });
-      }
-      const tokens = await tokensForRoles(householdId, ["supporting"]);
-      if (tokens.length > 0) {
-        for (const req of newProposals) {
-          const pc = req.proposedChange!;
-          await sendToTokens(tokens, {
-            title: "Coverage time change requested",
-            body: `${friendlyDate(req.date)} · now ${pc.startTime} → ${pc.endTime}`
-              + ` (was ${req.startTime} → ${req.endTime})`,
-          }, {
-            kind: "change_proposed",
-            householdId,
-            requestId: req.id,
-          }, householdId);
-        }
+        }, householdId);
       }
     }
+  }
 
-    // 4. Resolved proposals → managers.
-    if (resolvedProposals.length > 0) {
+  // 4. Resolved proposals → managers.
+  if (resolvedProposals.length > 0) {
+    for (const rp of resolvedProposals) {
+      await recordNotification(householdId, {
+        kind: "change_resolved",
+        title: rp.approved ? "Caregiver approved the new time" : "Caregiver kept the original time",
+        body: `${friendlyDate(rp.req.date)} · ${fmtWindow(rp.req)}`,
+        roles: ["admin", "partner"],
+        date: rp.req.date,
+        requestId: rp.req.id,
+      });
+    }
+    const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
+    if (tokens.length > 0) {
       for (const rp of resolvedProposals) {
-        await recordNotification(householdId, {
-          kind: "change_resolved",
-          title: rp.approved ? "Caregiver approved the new time" : "Caregiver kept the original time",
+        await sendToTokens(tokens, {
+          title: rp.approved
+            ? "Caregiver approved the new time"
+            : "Caregiver kept the original time",
           body: `${friendlyDate(rp.req.date)} · ${fmtWindow(rp.req)}`,
-          roles: ["admin", "partner"],
-          date: rp.req.date,
+        }, {
+          kind: "change_resolved",
+          householdId,
           requestId: rp.req.id,
-        });
+          approved: rp.approved ? "1" : "0",
+        }, householdId);
       }
-      const tokens = await tokensForRoles(householdId, ["admin", "partner"]);
-      if (tokens.length > 0) {
-        for (const rp of resolvedProposals) {
-          await sendToTokens(tokens, {
-            title: rp.approved
-              ? "Caregiver approved the new time"
-              : "Caregiver kept the original time",
-            body: `${friendlyDate(rp.req.date)} · ${fmtWindow(rp.req)}`,
-          }, {
-            kind: "change_resolved",
-            householdId,
-            requestId: rp.req.id,
-            approved: rp.approved ? "1" : "0",
-          }, householdId);
-        }
-      }
+    }
+  }
+}
+
+// ──────────── Saves on the any-household model ────────────
+//
+// A household on the any-household model has no state/main to trigger on.
+// Each save instead writes one edits/{id} entry with the records it changed,
+// before and after (commitEdit in shared/store.ts). This rebuilds the
+// household's state before and after that save, sends exactly what the
+// state/main trigger would, refreshes the caregiver's view, and removes the
+// entry. One save, one notification, however many records it touched.
+export const onHouseholdEdit = onDocumentCreated(
+  "households/{householdId}/edits/{editId}",
+  async (event) => {
+    const householdId = event.params.householdId;
+    const entry = event.data?.data() as EditEntry | undefined;
+    try {
+      if (!entry?.changes?.length) return;
+      const model = await loadHousehold(modelStore(), householdId);
+      if (!model) return;
+      const plainState = (m: typeof model) => JSON.parse(JSON.stringify(toLegacy(m).state)) as Record<string, unknown>;
+      const after = plainState(model);
+      await notifyScheduleDiff(householdId, plainState(revertChanges(model, entry.changes)), after);
+      await refreshCaregiverView(householdId, after);
+    } finally {
+      await event.data?.ref.delete().catch(() => undefined);
     }
   },
 );
@@ -630,9 +675,7 @@ export const checkScheduleCadence = onSchedule(
     for (const hh of households.docs) {
       const householdId = hh.id;
       try {
-        const stateSnap = await db.collection("households").doc(householdId)
-          .collection("state").doc("main").get();
-        const st = stateSnap.data() as { alt?: { refSat?: string } } | undefined;
+        const st = (await readLegacyState(householdId)) as { alt?: { refSat?: string } } | null;
         const refSat = st?.alt?.refSat;
         if (!refSat || !/^\d{4}-\d{2}-\d{2}$/.test(refSat)) {
           logger.info("cadence: no usable refSat anchor", { householdId });

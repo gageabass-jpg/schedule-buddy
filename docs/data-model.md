@@ -144,13 +144,28 @@ households. Planting a bug in the new resolver fails it.
    run on a legacy test household. That exercises the real path rather than a
    seed that skips it.
 3. **Clients move over.** In two halves:
-   - **The bridge (Mac: done).** For a migrated household, `toLegacy` builds
+   - **The bridge (Mac, phone, functions: done).** For a migrated household, `toLegacy` builds
      the old state/main shape from the records, so every screen keeps working
      unchanged. Every save goes through `bridgeEdit`: the edit is the
      difference between the state it started from and the result, and only
      the records it changed are written, merged onto what's stored.
      - All of the Mac's writers go through `desktop/src/lib/householdState.ts`,
        and `useHousehold` watches the records.
+     - The phone watches the records for a migrated household, and each save
+       writes the difference from the state it last received. The inbox
+       handlers that edit outside the live sync go through
+       `readHouseholdStateOnce` / `writeHouseholdStateOnce`.
+     - Every function reads and edits through `functions/src/householdState.ts`
+       (`readLegacyState`, `editLegacyState`). nucleusAI's changes and undo,
+       the health calendar and caregiver actions all use it. An edit to a
+       migrated household is not one transaction: it's worked out from a fresh
+       read and merged onto it.
+     - **The edit log.** Each bridged save writes an `edits/{id}` entry in the
+       same batch: the records it changed, before and after. `onHouseholdEdit`
+       rebuilds the state before and after that save and runs the same
+       notification code as the state/main trigger, so one save sends one
+       notification however many records it touched. It then refreshes the
+       caregiver's view and removes the entry.
      - Model → legacy → model is exact (same records, same ids), checked on
        the full household and 300 random ones.
      - Partner edits made through the bridge are checked end to end under the

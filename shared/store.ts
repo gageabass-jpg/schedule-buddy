@@ -513,3 +513,109 @@ export function bridgeWrites(hid: string, live: HouseholdModel, before: Househol
   if (Object.keys(rootPatch).length) ops.push({ op: "merge", path: householdPath(hid), data: rootPatch });
   return ops;
 }
+
+// ── The edit log ───────────────────────────────────────────────────────────
+// Every save that writes several records also writes one edits/{id} entry in
+// the same batch: which records it changed, before and after. A single
+// function trigger on that entry then does what the state/main trigger does
+// for an unmigrated household — one notification for one save, however many
+// records it touched — and removes the entry.
+
+export interface RecordChange {
+  col: CollectionKey | "people" | "personDetails";
+  id: string;
+  before: Data | null;
+  after: Data | null;
+}
+
+export interface EditEntry {
+  by: string;
+  at: number;
+  changes: RecordChange[];
+}
+
+const LOGGED = new Set<string>([...COLLECTIONS, "people", "personDetails"]);
+
+/** The record changes a set of writes makes to `live`. */
+export function changesOf(hid: string, live: HouseholdModel, ops: WriteOp[]): RecordChange[] {
+  const prefix = `${householdPath(hid)}/`;
+  const out: RecordChange[] = [];
+  for (const o of ops) {
+    if (!o.path.startsWith(prefix)) continue;
+    const [col, id, ...rest] = o.path.slice(prefix.length).split("/");
+    if (!id || rest.length || !LOGGED.has(col)) continue;
+    let before: Data | null = null;
+    if (col === "people" || col === "personDetails") {
+      const p = live.people.find((x) => x.id === id);
+      if (p) {
+        const { identity, details } = splitPerson(p);
+        before = col === "people" ? identity : details;
+      }
+    } else {
+      const rec = (live[col as CollectionKey] as Array<{ id: string }>).find((r) => r.id === id);
+      if (rec) {
+        const { id: _id, ...data } = rec as unknown as Data;
+        before = data;
+      }
+    }
+    const after = o.op === "delete" ? null : o.op === "merge" ? { ...(before ?? {}), ...o.data } : o.data;
+    if (same(before, after)) continue;
+    out.push({ col: col as RecordChange["col"], id, before, after });
+  }
+  return out;
+}
+
+/** The household as it was before `changes` (records only). */
+export function revertChanges(model: HouseholdModel, changes: RecordChange[]): HouseholdModel {
+  const out: HouseholdModel = { ...model };
+  for (const key of COLLECTIONS) (out as unknown as Record<string, unknown>)[key] = (model[key] as unknown[]).slice();
+  out.people = model.people.slice();
+  for (const c of changes) {
+    if (c.col === "people" || c.col === "personDetails") {
+      const i = out.people.findIndex((p) => p.id === c.id);
+      const cur = i >= 0 ? out.people[i] : undefined;
+      if (!c.before) {
+        if (c.col === "people" && i >= 0) out.people.splice(i, 1);
+        continue;
+      }
+      const { identity, details } = cur ? splitPerson(cur) : { identity: {}, details: {} };
+      const restored = c.col === "people" ? joinPerson(c.id, c.before, details) : joinPerson(c.id, identity, c.before);
+      if (i >= 0) out.people[i] = restored;
+      else out.people.push(restored);
+      continue;
+    }
+    const list = out[c.col] as Array<{ id: string }>;
+    const i = list.findIndex((r) => r.id === c.id);
+    const restored = c.before ? { ...c.before, id: c.id } : undefined;
+    if (i >= 0 && restored) list[i] = restored;
+    else if (i >= 0) list.splice(i, 1);
+    else if (restored) {
+      // Back where the store would list it: records come in id order.
+      const at = list.findIndex((r) => r.id > c.id);
+      list.splice(at < 0 ? list.length : at, 0, restored);
+    }
+  }
+  return out;
+}
+
+export const editPath = (hid: string, id: string) => `${householdPath(hid)}/edits/${id}`;
+
+/**
+ * Write a save's record ops with its edit-log entry, in batches that each
+ * carry their own entry. `by` is who made the change (a uid, or a function's
+ * name).
+ */
+export async function commitEdit(store: DocStore, hid: string, live: HouseholdModel,
+  ops: WriteOp[], by: string, now = Date.now()): Promise<void> {
+  for (let i = 0; i < ops.length; i += MAX_BATCH - 1) {
+    const chunk = ops.slice(i, i + MAX_BATCH - 1);
+    const changes = changesOf(hid, live, chunk);
+    const batch = chunk.slice();
+    if (changes.length) {
+      const id = `${now.toString(36)}_${Math.random().toString(36).slice(2, 8)}_${i}`;
+      const entry: EditEntry = { by, at: now, changes };
+      batch.push({ op: "set", path: editPath(hid, id), data: entry as unknown as Data });
+    }
+    await store.write(batch);
+  }
+}

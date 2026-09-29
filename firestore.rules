@@ -141,6 +141,13 @@ service cloud.firestore {
     match /households/{hid}/settings/{docId} {
       allow read, write: if isHouseholdManager(hid);
     }
+    // The edit log: one entry per save, naming who made it. The onHouseholdEdit
+    // function sends the notifications for it and removes it.
+    match /households/{hid}/edits/{editId} {
+      allow read: if isHouseholdManager(hid);
+      allow create: if isHouseholdManager(hid) && request.resource.data.by == request.auth.uid;
+      allow update, delete: if false;
+    }
 
     // The caregiver's slice of the schedule: coverage requests and names.
     // Written only by the mirrorCaregiverView / caregiverAction functions.

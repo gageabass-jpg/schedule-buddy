@@ -7,13 +7,22 @@
 // are tagged `healthId` (the VEVENT UID) so a re-sync updates in place, drops
 // cancelled future appointments, and never duplicates. `who: "G"` — only Gage
 // and Kaylene see the family calendar (the caregiver is on a separate screen).
+//
+// The feed is one person's medical calendar, so it syncs into exactly one
+// household — HEALTH_CAL_HOUSEHOLD, set per project in functions/.env.<project>
+// — and only for that household's admin. Without this, anyone signed in could
+// name a household of their own and have the appointments copied into it.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
+import { editLegacyState, readLegacyState } from "./householdState";
 
 const HEALTH_CAL_URL = defineSecret("HEALTH_CAL_URL");
+const HEALTH_CAL_HOUSEHOLD = defineString("HEALTH_CAL_HOUSEHOLD", {
+  description: "The one household the health calendar feed belongs to ('none' to disable).",
+});
 
 interface IcsEvent { uid: string; summary: string; start: string; end: string | null; location: string; }
 
@@ -114,6 +123,13 @@ export const syncHealthCalendar = onCall(
     const householdId = String((req.data as { householdId?: string } | undefined)?.householdId || "");
     const tz = String((req.data as { tz?: string } | undefined)?.tz || "America/New_York");
     if (!householdId) throw new HttpsError("invalid-argument", "householdId required.");
+    if (householdId !== HEALTH_CAL_HOUSEHOLD.value()) {
+      throw new HttpsError("permission-denied", "The health calendar isn't set up for this household.");
+    }
+    const hh = await getFirestore().collection("households").doc(householdId).get();
+    if (hh.data()?.roles?.[req.auth.uid] !== "admin") {
+      throw new HttpsError("permission-denied", "Only the household's admin can sync the health calendar.");
+    }
 
     let url = HEALTH_CAL_URL.value();
     if (!url) throw new HttpsError("failed-precondition", "Health calendar URL not configured.");
@@ -134,45 +150,46 @@ export const syncHealthCalendar = onCall(
     const todayLocal = localDateStr(now, tz);
     const horizonLocal = localDateStr(new Date(now.getTime() + 180 * 86400000), tz);
 
-    const db = getFirestore();
-    const ref = db.collection("households").doc(householdId).collection("state").doc("main");
-    const snap = await ref.get();
-    if (!snap.exists) throw new HttpsError("not-found", "No schedule doc.");
-    const data = snap.data() || {};
-    const existing: EventRec[] = Array.isArray(data.events) ? (data.events as EventRec[]) : [];
+    if (!(await readLegacyState(householdId))) throw new HttpsError("not-found", "No schedule doc.");
 
-    const idByHealthId = new Map<string, string>();
-    for (const e of existing) if (e && e.healthId) idByHealthId.set(e.healthId, e.id);
+    // Worked out from the events as they are at the moment of saving, so an
+    // event added meanwhile is kept.
+    const { added, updated } = await editLegacyState(householdId, "healthCalendar", (fresh) => {
+      const existing: EventRec[] = Array.isArray(fresh.events) ? (fresh.events as unknown as EventRec[]) : [];
 
-    // Keep non-health events, and PAST health events (history the feed may drop);
-    // rebuild only today-forward health events from the feed.
-    const next: EventRec[] = existing.filter(
-      (e) => !e || !e.healthId || (e.date && e.date < todayLocal));
+      const idByHealthId = new Map<string, string>();
+      for (const e of existing) if (e && e.healthId) idByHealthId.set(e.healthId, e.id);
 
-    let added = 0, updated = 0;
-    for (const ev of parsed) {
-      const s = toLocal(ev.start, tz);
-      if (!s) continue;
-      if (s.date < todayLocal || s.date > horizonLocal) continue;
-      const e = ev.end ? toLocal(ev.end, tz) : null;
-      const { title, provider } = splitAppt(ev.summary || "Appointment");
-      const rec: EventRec = {
-        id: idByHealthId.get(ev.uid) || `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-        date: s.date,
-        title: title || "Appointment",
-        who: "G",
-        healthId: ev.uid,
-      };
-      if (s.time) rec.startTime = s.time;
-      if (e && e.time && e.date === s.date) rec.endTime = e.time;
-      // Provider (from the summary's "with …" clause) → subtitle. The feed's
-      // LOCATION is the clinic address, which the day card deliberately omits.
-      if (provider) rec.notes = provider;
-      if (idByHealthId.has(ev.uid)) updated++; else added++;
-      next.push(rec);
-    }
+      // Keep non-health events, and PAST health events (history the feed may drop);
+      // rebuild only today-forward health events from the feed.
+      const next: EventRec[] = existing.filter(
+        (e) => !e || !e.healthId || (e.date && e.date < todayLocal));
 
-    await ref.update({ events: next });
+      let added = 0, updated = 0;
+      for (const ev of parsed) {
+        const s = toLocal(ev.start, tz);
+        if (!s) continue;
+        if (s.date < todayLocal || s.date > horizonLocal) continue;
+        const e = ev.end ? toLocal(ev.end, tz) : null;
+        const { title, provider } = splitAppt(ev.summary || "Appointment");
+        const rec: EventRec = {
+          id: idByHealthId.get(ev.uid) || `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          date: s.date,
+          title: title || "Appointment",
+          who: "G",
+          healthId: ev.uid,
+        };
+        if (s.time) rec.startTime = s.time;
+        if (e && e.time && e.date === s.date) rec.endTime = e.time;
+        // Provider (from the summary's "with …" clause) → subtitle. The feed's
+        // LOCATION is the clinic address, which the day card deliberately omits.
+        if (provider) rec.notes = provider;
+        if (idByHealthId.has(ev.uid)) updated++; else added++;
+        next.push(rec);
+      }
+
+      return { result: { added, updated }, next: { ...fresh, events: next as unknown as typeof fresh.events } };
+    });
     logger.info("health calendar synced", { householdId, parsed: parsed.length, added, updated });
     return { ok: true, added, updated, total: parsed.length };
   },

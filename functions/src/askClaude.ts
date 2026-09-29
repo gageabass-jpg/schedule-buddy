@@ -34,6 +34,7 @@ import {
 import { dayKindFromShifts, type ShiftMap } from "./shared/schedule";
 import { holidayOn } from "./shared/holidays";
 import { computeOverlapCandidates, parentDaySegments } from "./shared/computeOverlap";
+import { editLegacyState, readLegacyState } from "./householdState";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
@@ -427,16 +428,14 @@ async function commitNow(
   tool: string,
   build: (fresh: HouseholdState) => Built,
 ): Promise<unknown> {
-  const db = getFirestore();
-  const hh = db.collection("households").doc(ctx.householdId);
-  const ref = hh.collection("state").doc("main");
-  const changeRef = hh.collection("nucleusChanges").doc(ctx.change.id);
+  const changePath = `households/${ctx.householdId}/nucleusChanges/${ctx.change.id}`;
 
-  const out = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const fresh = (snap.data() ?? {}) as HouseholdState;
+  type Out =
+    | { result: unknown; wrote: false }
+    | { result: unknown; wrote: true; before: Record<string, unknown>; after: Record<string, unknown>; tools: string[] };
+  const out = await editLegacyState<Out>(ctx.householdId, ctx.uid, (fresh) => {
     const { result, patch } = build(fresh);
-    if (!patch) return { result, wrote: false as const };
+    if (!patch) return { result: { result, wrote: false } };
 
     // Worked on copies: the transaction may run more than once.
     const before = { ...ctx.change.before };
@@ -447,15 +446,19 @@ async function commitNow(
     }
     const tools = [...ctx.change.tools, tool];
 
-    tx.set(ref, { ...fresh, ...patch });
-    tx.set(changeRef, {
-      uid: ctx.uid,
-      userMessage: ctx.userMessage.slice(0, 500),
-      tools, before, after,
-      undone: false,
-      at: FieldValue.serverTimestamp(),
-    });
-    return { result, wrote: true as const, before, after, tools };
+    return {
+      result: { result, wrote: true, before, after, tools },
+      next: { ...fresh, ...patch },
+      also: [{
+        op: "set", path: changePath, data: {
+          uid: ctx.uid,
+          userMessage: ctx.userMessage.slice(0, 500),
+          tools, before, after,
+          undone: false,
+          at: FieldValue.serverTimestamp(),
+        },
+      }],
+    };
   });
 
   if (out.wrote) {
@@ -471,11 +474,7 @@ async function execTool(
   input: Record<string, unknown>,
   ctx: ExecCtx,
 ): Promise<unknown> {
-  const db = getFirestore();
-  const ref = db.collection("households").doc(ctx.householdId)
-    .collection("state").doc("main");
-  const snap = await ref.get();
-  const state = (snap.data() ?? {}) as HouseholdState;
+  const state = ((await readLegacyState(ctx.householdId)) ?? {}) as HouseholdState;
   // A template slot can hold an inline custom time rather than a catalog id.
   // The app expands those into synthetic shift types before it renders; without
   // the same step the day has no resolvable type and silently disappears —
@@ -926,9 +925,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     }
 
     // 2. Load current state for system-prompt context.
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    const state = (stateSnap.data() ?? {}) as HouseholdState;
+    const state = ((await readLegacyState(householdId)) ?? {}) as HouseholdState;
     const today = isoToday();
     const memberNames = householdData.memberNames ?? {};
     const userName = String(memberNames[uid] ?? "the user");
@@ -1122,16 +1119,16 @@ export const undoNucleusChange = onCall<UndoRequest, Promise<UndoResponse>>(
     if ((hh.data().roles?.[uid] ?? "partner") === "supporting") {
       throw new HttpsError("permission-denied", "Caregivers can't edit the schedule.");
     }
-    const ref = hh.ref.collection("state").doc("main");
     const changeRef = hh.ref.collection("nucleusChanges").doc(changeId);
+    const changeSnap = await changeRef.get();
+    if (!changeSnap.exists) throw new HttpsError("not-found", "That change isn't on record.");
+    const change = changeSnap.data() as { before?: Record<string, unknown>; after?: Record<string, unknown>; undone?: boolean };
+    if (change.undone) throw new HttpsError("failed-precondition", "That change was already undone.");
 
-    return db.runTransaction(async (tx) => {
-      const [changeSnap, stateSnap] = await Promise.all([tx.get(changeRef), tx.get(ref)]);
-      if (!changeSnap.exists) throw new HttpsError("not-found", "That change isn't on record.");
-      const change = changeSnap.data() as { before?: Record<string, unknown>; after?: Record<string, unknown>; undone?: boolean };
-      if (change.undone) throw new HttpsError("failed-precondition", "That change was already undone.");
-
-      const current = (stateSnap.data() ?? {}) as Record<string, unknown>;
+    // A second undo racing this one finds the fields no longer as nucleusAI
+    // left them, and stops at the check below.
+    return editLegacyState<UndoResponse>(hh.id, uid, (fresh) => {
+      const current = fresh as unknown as Record<string, unknown>;
       const before = change.before ?? {};
       const after = change.after ?? {};
       const moved = Object.keys(after).filter((k) => stableJson(current[k] ?? null) !== stableJson(after[k]));
@@ -1148,9 +1145,11 @@ export const undoNucleusChange = onCall<UndoRequest, Promise<UndoResponse>>(
         if (before[k] === null || before[k] === undefined) delete next[k];
         else next[k] = before[k];
       }
-      tx.set(ref, next);
-      tx.update(changeRef, { undone: true, undoneBy: uid, undoneAt: FieldValue.serverTimestamp() });
-      return { ok: true as const, restored: Object.keys(after) };
+      return {
+        result: { ok: true as const, restored: Object.keys(after) },
+        next: next as unknown as HouseholdState,
+        also: [{ op: "merge", path: changeRef.path, data: { undone: true, undoneBy: uid, undoneAt: FieldValue.serverTimestamp() } }],
+      };
     });
   },
 );
