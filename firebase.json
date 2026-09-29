@@ -2,7 +2,7 @@
   "hosting": {
     "public": "public",
     "predeploy": [
-      "npm test"
+      "node scripts/predeploy-gate.mjs"
     ],
     "ignore": [
       "firebase.json",
@@ -80,7 +80,10 @@
     ]
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "predeploy": [
+      "node scripts/predeploy-gate.mjs"
+    ]
   },
   "storage": {
     "rules": "storage.rules"
@@ -97,6 +100,7 @@
         "*.local"
       ],
       "predeploy": [
+        "node scripts/predeploy-gate.mjs",
         "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
