@@ -3,8 +3,9 @@
 //   npm run test:rules
 //
 // (which is `firebase emulators:exec --only firestore "node --test tests/"`).
-// Each test starts from an empty database with one household: Gage (admin)
-// and Kaylene (partner), a partner invite code and a caregiver invite code.
+// Each test starts from an empty database with one household: Gage (admin),
+// Kaylene (partner) and Daisy (supporting), a partner invite code and a
+// caregiver invite code.
 
 import { readFileSync } from "node:fs";
 import { after, before, beforeEach, describe, test } from "node:test";
@@ -32,9 +33,9 @@ beforeEach(async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, "households", HH), {
-      memberUids: ["gage", "kaylene"],
-      memberNames: { gage: "Gage", kaylene: "Kaylene" },
-      roles: { gage: "admin", kaylene: "partner" },
+      memberUids: ["gage", "kaylene", "daisy"],
+      memberNames: { gage: "Gage", kaylene: "Kaylene", daisy: "Daisy" },
+      roles: { gage: "admin", kaylene: "partner", daisy: "supporting" },
       inviteCode: "PART22",
       createdBy: "gage",
     });
@@ -81,7 +82,7 @@ describe("joining a household", () => {
     await assertSucceeds(join("newbie", { "roles.newbie": "partner", joinCode: "PART22" }));
   });
   test("a caregiver code joins as supporting", async () => {
-    await assertSucceeds(join("daisy", { "roles.daisy": "supporting", joinCode: "CARE22" }));
+    await assertSucceeds(join("carer", { "roles.carer": "supporting", joinCode: "CARE22" }));
   });
   test("no code, no entry", async () => {
     await assertFails(join("stranger", { "roles.stranger": "partner" }));
@@ -96,7 +97,7 @@ describe("joining a household", () => {
     await assertFails(join("stranger", { "roles.stranger": "admin", joinCode: "PART22" }));
   });
   test("a caregiver code can't be used to join as partner", async () => {
-    await assertFails(join("daisy", { "roles.daisy": "partner", joinCode: "CARE22" }));
+    await assertFails(join("carer", { "roles.carer": "partner", joinCode: "CARE22" }));
   });
   test("a joiner can't change anyone else's role", async () => {
     await assertFails(join("stranger", {
@@ -153,9 +154,32 @@ describe("creating a household", () => {
   });
 });
 
-describe("unchanged: members and their schedule", () => {
-  test("members read and write the schedule", async () => {
+describe("the schedule record", () => {
+  test("admin and partner read and write it", async () => {
     await assertSucceeds(getDoc(doc(as("kaylene"), "households", HH, "state", "main")));
     await assertSucceeds(setDoc(doc(as("gage"), "households", HH, "state", "main"), { selfName: "Gage" }));
+  });
+  test("a caregiver can neither read nor write it", async () => {
+    await assertFails(getDoc(doc(as("daisy"), "households", HH, "state", "main")));
+    await assertFails(setDoc(doc(as("daisy"), "households", HH, "state", "main"), { selfName: "x" }));
+    await assertFails(updateDoc(doc(as("daisy"), "households", HH, "state", "main"), { coverageRequests: [] }));
+  });
+  test("a caregiver can't see overtime approvals", async () => {
+    await assertFails(getDoc(doc(as("daisy"), "households", HH, "otApprovals", "0")));
+    await assertSucceeds(getDoc(doc(as("gage"), "households", HH, "otApprovals", "0")));
+  });
+});
+
+describe("the caregiver view", () => {
+  test("every member can read it", async () => {
+    await assertSucceeds(getDoc(doc(as("daisy"), "households", HH, "caregiverView", "main")));
+    await assertSucceeds(getDoc(doc(as("gage"), "households", HH, "caregiverView", "main")));
+  });
+  test("nobody writes it but the functions", async () => {
+    await assertFails(setDoc(doc(as("daisy"), "households", HH, "caregiverView", "main"), { coverageRequests: [] }));
+    await assertFails(setDoc(doc(as("gage"), "households", HH, "caregiverView", "main"), { coverageRequests: [] }));
+  });
+  test("a stranger can't read it", async () => {
+    await assertFails(getDoc(doc(as("stranger"), "households", HH, "caregiverView", "main")));
   });
 });

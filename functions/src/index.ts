@@ -7,6 +7,7 @@ export { wvuSchedule } from "./wvuSchedule";
 export { cleanSchedule } from "./cleanSchedule";
 export { placesAutocomplete } from "./placesAutocomplete";
 export { checkCommutes } from "./commute";
+export { mirrorCaregiverView, caregiverAction } from "./caregiver";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";
 

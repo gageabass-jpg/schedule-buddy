@@ -56,16 +56,26 @@ service cloud.firestore {
       }
     }
 
-    // Schedule state — scoped to household, only members
+    // Schedule state — admin and partner only. A caregiver (supporting) sees
+    // caregiverView/main instead, and changes things only through the
+    // caregiverAction function, which applies one checked change at a time.
     match /households/{householdId}/state/{docId} {
       allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
+    }
+
+    // The caregiver's slice of the schedule: coverage requests and names.
+    // Written only by the mirrorCaregiverView / caregiverAction functions.
+    match /households/{householdId}/caregiverView/{docId} {
+      allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow write: if false;
     }
 
     // OT approvals — scoped to household
     match /households/{householdId}/otApprovals/{approvalId} {
       allow read, write: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
     }
 
     // Feedback messages

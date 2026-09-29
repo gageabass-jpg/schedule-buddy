@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node scripts/contract-check.mjs",
     "check:contract": "node scripts/contract-check.mjs",
-    "test:rules": "PATH=\"/opt/homebrew/opt/openjdk/bin:$PATH\" firebase emulators:exec --only firestore --project nucleus-rules-test \"node --test tests/*.test.mjs\""
+    "test:rules": "npm --prefix functions run build && PATH=\"/opt/homebrew/opt/openjdk/bin:$PATH\" firebase emulators:exec --only firestore --project nucleus-rules-test \"node --test tests/*.test.mjs\""
   },
   "keywords": [],
   "author": "",

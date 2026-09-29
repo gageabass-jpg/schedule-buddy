@@ -8194,39 +8194,22 @@ async function submitCaregiverRequest() {
 
   if (submit) submit.disabled = true;
   try {
-    // Read-modify-write so we don't clobber concurrent state edits. Posts
-    // straight to the calendar — no approval. The Cloud Function's
-    // schedule-additions trigger notifies the household on new events.
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-
+    // Posts straight to the calendar — no approval — through the
+    // caregiverAction function. Its schedule-additions trigger notifies the
+    // household of new events.
     if (_cgrType === "block") {
       // Schedule Block → a red-striped day (household-wide). Person is folded
       // into the label since blocks aren't per-person in the model.
-      const blocks = Array.isArray(data.scheduleBlocks) ? data.scheduleBlocks.slice() : [];
       const label = (_cgrWho !== "family" ? `${whoName}: ` : "") + (comments || "Schedule block");
-      blocks.push({ startDate: date, endDate: date, label });
-      await ref.set({ ...data, scheduleBlocks: blocks });
+      await caregiverCall({ action: "addBlock", date, label });
     } else {
       // Life Event → state.events, attributed to the chosen person.
-      const events = Array.isArray(data.events) ? data.events.slice() : [];
-      const evt = {
-        id: `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-        date,
-        title: comments,
-        who: _cgrWho,
-      };
-      if (startTime) evt.startTime = startTime;
-      if (endTime)   evt.endTime = endTime;
-      events.push(evt);
-      await ref.set({ ...data, events });
+      await caregiverCall({ action: "addEvent", date, title: comments, who: _cgrWho, startTime, endTime });
     }
     closeCaregiverRequestModal();
   } catch (e) {
     console.error("request-event submit failed:", e);
-    showErr("Couldn't add it. Check your connection and try again.");
+    showErr(caregiverCallError(e, "Couldn't add it. Check your connection and try again."));
   } finally {
     if (submit) submit.disabled = false;
   }
@@ -8256,17 +8239,20 @@ function setCaregiverTab(tab) {
   }
 }
 
-// Caregivers only need to read/write `coverageRequests`. We still load the
-// whole state/main doc (it's a single doc), but we only render that slice
-// and never push back unrelated keys — the write helper does a read‑modify‑
-// write so we don't clobber the desktop's edits.
+// A caregiver can't read state/main (firestore.rules). They read
+// caregiverView/main — the coverage requests and the names — which the
+// mirrorCaregiverView function keeps in step, and they change things only
+// through caregiverCall() below.
 function initCaregiverFirestoreSync() {
   if (!householdId) return;
   const ref = db.collection("households").doc(householdId)
-    .collection("state").doc("main");
+    .collection("caregiverView").doc("main");
+  let asked = false;
   stateUnsubscribe = ref.onSnapshot(doc => {
     if (!doc.exists) {
       renderCaregiverScreen([]);
+      // A household set up before the view existed: have it built once.
+      if (!asked) { asked = true; caregiverCall({ action: "sync" }).catch(e => console.warn("caregiver sync:", e)); }
       return;
     }
     const data = doc.data() || {};
@@ -9890,28 +9876,23 @@ async function handleCaregiverAction(id, action) {
   }
   if (!nextStatus) return;
 
-  // Read-modify-write: don't clobber the desktop's edits to other state keys.
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
-    const idx = list.findIndex(r => r && r.id === id);
-    if (idx < 0) return;
-    const updated = {
-      ...list[idx],
-      status: nextStatus,
-      caregiverUid: currentUser.uid,
-      caregiverActedAt: new Date().toISOString(),
-    };
-    if (caregiverNote != null) updated.caregiverNote = caregiverNote;
-    list[idx] = updated;
-    await ref.set({ ...data, coverageRequests: list });
+    await caregiverCall({ action: "respond", id, status: nextStatus, note: caregiverNote });
   } catch (e) {
     console.error("caregiver action failed:", e);
-    alert("Couldn't update that request. Check your connection.");
+    alert(caregiverCallError(e, "Couldn't update that request. Check your connection."));
   }
+}
+
+// The one way a caregiver changes anything: the caregiverAction function
+// checks they're in the household and applies that single change.
+function caregiverCall(payload) {
+  const fn = firebase.functions().httpsCallable("caregiverAction");
+  return fn({ householdId, ...payload });
+}
+// The function's own words for bad input ("A reason is required."), else a fallback.
+function caregiverCallError(e, fallback) {
+  return (e && e.code === "functions/invalid-argument" && e.message) ? e.message : fallback;
 }
 
 /**
@@ -9923,39 +9904,10 @@ async function handleCaregiverAction(id, action) {
  */
 async function handleCaregiverChangeResponse(id, approve) {
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
-    const idx = list.findIndex(r => r && r.id === id);
-    if (idx < 0) return;
-
-    const cur = list[idx];
-    const pc = cur.proposedChange;
-    if (!pc) return;                      // already resolved elsewhere
-
-    const updated = { ...cur };
-    delete updated.proposedChange;
-    updated.caregiverUid = currentUser.uid;
-    updated.caregiverActedAt = new Date().toISOString();
-
-    if (approve) {
-      updated.startTime = pc.startTime;
-      updated.endTime = pc.endTime;
-      if (pc.endsNextDay) updated.endsNextDay = true;
-      else delete updated.endsNextDay;
-      if (pc.reason) updated.reason = pc.reason;
-      // Stamp so the manager side can tell an amended request from an
-      // original one without keeping the (now-applied) proposal around.
-      updated.changeAppliedAt = Date.now();
-    }
-
-    list[idx] = updated;
-    await ref.set({ ...data, coverageRequests: list });
+    await caregiverCall({ action: "resolveChange", id, approve });
   } catch (e) {
     console.error("caregiver change response failed:", e);
-    alert("Couldn't update that request. Check your connection.");
+    alert(caregiverCallError(e, "Couldn't update that request. Check your connection."));
   }
 }
 
@@ -11096,6 +11048,9 @@ function debouncedFirestoreWrite() {
 
 async function saveStateToFirestore() {
   if (!householdId) return;
+  // Caregivers hold only the caregiver view and can't write state/main; their
+  // changes go through caregiverCall().
+  if (userRole === "supporting") return;
   try {
     const ref = db.collection("households").doc(householdId)
       .collection("state").doc("main");
