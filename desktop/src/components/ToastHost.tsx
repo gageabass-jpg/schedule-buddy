@@ -3,6 +3,9 @@ import type { ThemeTokens } from "../theme";
 import { subscribeToasts, type Toast } from "../lib/toast";
 import { BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 
+/** Toasts shown at once. */
+const MAX_ON_SCREEN = 4;
+
 /**
  * Where transient notices land: the bottom-left of the calendar, clear of the
  * sidebar so it never covers the schedule list. Newest sits lowest, nearest
@@ -19,7 +22,8 @@ export function ToastHost({ t, dark, sidebarWidth = 240 }: {
 
   useEffect(() => {
     return subscribeToasts((toast) => {
-      setItems((prev) => [...prev.slice(-3), toast]);   // at most four on screen
+      // The newest MAX_ON_SCREEN stay; older ones make room.
+      setItems((prev) => [...prev.slice(-(MAX_ON_SCREEN - 1)), toast]);
       const handle = setTimeout(() => {
         setItems((prev) => prev.filter((x) => x.id !== toast.id));
         timers.current.delete(toast.id);

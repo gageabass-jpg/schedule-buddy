@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { HouseholdState } from "../state";
 import { MONTHS_LONG } from "../data";
 import { changeNoticesMuted, notify } from "../lib/toast";
+import { coverageAnswered, coverageAnswerText, shiftKeyDate, shiftKeysOf } from "../lib/changeNotices";
 
 /**
  * Announce changes to the schedule as they land.
@@ -30,11 +31,7 @@ interface Snapshot {
 
 function snapshotOf(state: HouseholdState | null): Snapshot | null {
   if (!state) return null;
-  const shiftKeys = new Set<string>();
-  for (const o of state.ot ?? []) shiftKeys.add(`ot:${o.date}:${o.shiftTypeId}`);
-  for (const p of state.partner?.shifts ?? []) shiftKeys.add(`k:${p.date}:${p.shiftTypeId}`);
-  for (const d of state.dependents?.daisy?.shifts ?? []) shiftKeys.add(`d:${d.date}:${d.shiftTypeId ?? d.label}`);
-  for (const ov of state.overrides ?? []) shiftKeys.add(`ov:${ov.date}:${ov.shiftTypeId ?? "off"}`);
+  const shiftKeys = shiftKeysOf(state);
 
   const eventKeys = new Map<string, { date: string; title: string; who: string }>();
   for (const e of state.events ?? []) eventKeys.set(e.id, { date: e.date, title: e.title, who: String(e.who) });
@@ -80,7 +77,7 @@ export function useScheduleChangeToasts(state: HouseholdState | null, nav: Nav):
     // ── Shifts ────────────────────────────────────────────────────────────
     const addedShifts = [...next.shiftKeys].filter((k) => !before.shiftKeys.has(k));
     const removedShifts = [...before.shiftKeys].filter((k) => !next.shiftKeys.has(k));
-    const dateOf = (key: string) => key.split(":")[1];
+    const dateOf = shiftKeyDate;
 
     if (addedShifts.length > 0) {
       const dates = addedShifts.map(dateOf).sort();
@@ -111,22 +108,12 @@ export function useScheduleChangeToasts(state: HouseholdState | null, nav: Nav):
     }
 
     // ── Coverage answers ──────────────────────────────────────────────────
-    // Only announce once the caregiver has actually answered something new.
-    const answeredNow = [...next.coverage].filter(([id, status]) => {
-      const was = before.coverage.get(id);
-      return was !== status && (status === "confirmed" || status === "declined");
-    });
-    if (answeredNow.length > 0) {
-      const caregiver = state?.dependents?.daisy?.name?.trim() || "Daisy";
-      const thisMonth = (state?.coverageRequests ?? []).filter((r) => r.date.slice(0, 7) === new Date().toISOString().slice(0, 7));
-      const approved = thisMonth.filter((r) => r.status === "confirmed").length;
-      const declined = answeredNow.filter(([, s]) => s === "declined").length;
-      notify(
-        declined > 0 && approved === 0
-          ? `${caregiver} declined ${declined} coverage request${declined === 1 ? "" : "s"}. Review coverage matrix now.`
-          : `${caregiver} approved ${approved}/${thisMonth.length} coverage requests this month. Review coverage matrix now.`,
-        { actionLabel: "Review coverage", onAction: () => navRef.current.showCoverage() },
-      );
+    // What the caregiver answered in this snapshot, and nothing older.
+    const { confirmed, declined } = coverageAnswered(before.coverage, next.coverage);
+    const caregiver = state?.dependents?.daisy?.name?.trim() || "Daisy";
+    const answer = coverageAnswerText(caregiver, confirmed, declined);
+    if (answer) {
+      notify(answer, { actionLabel: "Review coverage", onAction: () => navRef.current.showCoverage() });
     }
   }, [state]);
 }
