@@ -29,6 +29,9 @@ import { useAuth } from "./hooks/useAuth";
 import { useHousehold } from "./hooks/useHousehold";
 import { useScheduleReminder } from "./hooks/useScheduleReminder";
 import { useWvuGames } from "./hooks/useWvuGames";
+import type { WvuGame } from "./lib/wvuSchedule";
+
+const NO_WVU_GAMES: Map<string, WvuGame> = new Map();
 import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
 import { buildShiftMap, compactTime, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
 
@@ -41,6 +44,7 @@ import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
 import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
+import { SetupWizard } from "./components/SetupWizard";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
@@ -154,6 +158,10 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const householdStatus = useHousehold(user, refreshNonce);
+  // Setting up a new household. Kept here, not in the join screen: the
+  // household exists (and the join screen goes away) before the wizard has
+  // shown the invite codes.
+  const [settingUp, setSettingUp] = useState(false);
   useEffect(() => {
     if (householdStatus.status !== "loading") onReady();
   }, [householdStatus.status, onReady]);
@@ -591,7 +599,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // The "Update the schedule" card stays calendar-driven (4-week cadence).
   // See functions/src/index.ts::checkScheduleCadence.
   const scheduleReminder = useScheduleReminder(householdId, coverageNeedsSig, today);
-  const wvuGames = useWvuGames();
+  const allWvuGames = useWvuGames();
+  const wvuGames = householdStatus.status === "ready" && householdStatus.household.wvuFootball === false
+    ? NO_WVU_GAMES : allWvuGames;
 
   const handleEditShift = (date: string, shift: Shift) => {
     // Daisy's cells are read-only (no source); editing is for Gage/Kaylene.
@@ -636,8 +646,11 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     }
   };
 
+  if (settingUp) {
+    return <SetupWizard dark={dark} onCancel={() => setSettingUp(false)} onDone={() => setSettingUp(false)} />;
+  }
   if (householdStatus.status === "no-household") {
-    return <JoinHousehold dark={dark} />;
+    return <JoinHousehold dark={dark} onCreate={() => setSettingUp(true)} />;
   }
 
   return (

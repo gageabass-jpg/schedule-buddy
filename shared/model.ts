@@ -159,6 +159,8 @@ export interface HouseholdRoot {
   roles: Record<string, "admin" | "partner" | "supporting">;
   inviteCode?: string;
   createdBy: string;
+  /** false = don't show WVU football game days (see HouseholdMeta). */
+  wvuFootball?: boolean;
 }
 
 /** households/{hid}/settings/main — admin/partner only. */

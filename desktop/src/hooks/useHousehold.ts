@@ -67,6 +67,7 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
           roles: data.roles ?? {},
           inviteCode: data.inviteCode ?? "",
           createdBy: data.createdBy ?? "",
+          ...(data.wvuFootball === false ? { wvuFootball: false } : {}),
         };
 
         latestHousehold = household;

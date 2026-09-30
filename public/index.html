@@ -4260,6 +4260,65 @@
     height: 0.5px;
     background: var(--sep);
   }
+  /* Setup wizard */
+  /* Stepper: square milestones joined by a line. Done = filled with a check,
+     current = heavier outline, upcoming = hairline — readable without colour. */
+  .wiz-steps { display: flex; align-items: center; margin: 0 4px 6px; list-style: none; padding: 0; }
+  .wiz-steps li { display: flex; align-items: center; flex: 1; }
+  .wiz-steps li:last-child { flex: none; }
+  .wiz-sq {
+    width: 26px; height: 26px; flex: none; box-sizing: border-box; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+    border: 1px solid var(--sep); color: var(--text-3); background: transparent;
+  }
+  .wiz-sq.done { background: var(--brand-fill); border-color: var(--brand-fill); color: #fff; }
+  .wiz-sq.now { border: 2px solid var(--brand); color: var(--brand); }
+  .wiz-link { flex: 1; height: 1px; background: var(--sep); margin: 0 4px; }
+  .wiz-link.done { background: var(--brand); }
+  .wiz-step-label { font-size: 12px; color: var(--text-2); margin: 0 4px 10px; }
+  .wiz-step-label strong { color: var(--text); font-weight: 600; }
+  .wiz-title { font-size: 17px; font-weight: 600; color: var(--text); margin: 0 0 4px; letter-spacing: -0.01em; }
+  .wiz-help { font-size: 13px; color: var(--text-2); margin: 0 0 14px; line-height: 1.4; }
+  .wiz-field { display: block; margin-bottom: 12px; }
+  .wiz-field > span { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .wiz-input, .wiz-select {
+    width: 100%; box-sizing: border-box; height: 44px; padding: 0 12px;
+    border: 1px solid var(--sep); border-radius: 10px; background: var(--bg-elev2);
+    color: var(--text); font-family: var(--font); font-size: 16px;
+  }
+  .wiz-input:focus, .wiz-select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(15,110,100,0.14); }
+  .wiz-row { display: flex; gap: 8px; align-items: center; }
+  .wiz-row > * { flex: 1; min-width: 0; }
+  .wiz-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--text); cursor: pointer; }
+  .wiz-check input { width: 22px; height: 22px; accent-color: var(--brand); flex: none; }
+  .wiz-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .wiz-chip {
+    min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--sep);
+    background: transparent; color: var(--text); font-family: var(--font); font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .wiz-chip[aria-pressed="true"] { border-color: var(--brand); background: rgba(15,110,100,0.12); font-weight: 600; }
+  .wiz-chip .wiz-chip-mark { width: 10px; height: 10px; border-radius: 50%; border: 1.6px solid currentColor; flex: none; }
+  .wiz-chip[aria-pressed="true"] .wiz-chip-mark { background: var(--brand); border-color: var(--brand); }
+  .wiz-week { display: grid; grid-template-columns: 52px 1fr; gap: 6px 10px; align-items: center; margin-bottom: 8px; }
+  .wiz-week > span { font-size: 14px; color: var(--text-2); }
+  .wiz-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .wiz-list li { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text); }
+  .wiz-list li > span { flex: 1; }
+  .wiz-remove { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--text-2); cursor: pointer; font-size: 13px; }
+  .wiz-suggest { list-style: none; margin: -6px 0 12px; padding: 0; border: 1px solid var(--sep); border-radius: 10px; overflow: hidden; }
+  .wiz-suggest button {
+    width: 100%; min-height: 44px; text-align: left; padding: 8px 12px; border: 0; border-bottom: 0.5px solid var(--sep);
+    background: var(--bg-elev); color: var(--text); font-family: var(--font); font-size: 14px; cursor: pointer;
+  }
+  .wiz-suggest button small { display: block; color: var(--text-2); font-size: 12px; }
+  .wiz-nav { display: flex; gap: 10px; margin-top: 16px; }
+  .wiz-nav > * { flex: 1; }
+  .wiz-review { font-size: 14px; color: var(--text); line-height: 1.5; margin: 0 0 6px; }
+  .wiz-review dt { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 10px; }
+  .wiz-review dd { margin: 2px 0 0; }
+  .wiz-code-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-align: center; margin-top: 8px; }
   .hh-error {
     color: var(--ot);
     font-size: 13px;
@@ -6419,6 +6478,9 @@
       </div>
     </div>
 
+    <!-- Setup wizard: a new household, filled in before the app opens. -->
+    <div id="hhWizard" style="display:none;"></div>
+
     <!-- Shown after creating household -->
     <div id="hhCreatedView" style="display:none;">
       <div class="hh-card" style="text-align:center;">
@@ -7616,6 +7678,8 @@ document.getElementById("googleSignInBtn").addEventListener("click", async () =>
       await auth.signInWithCredential(credential);
     } else {
       const provider = new firebase.auth.GoogleAuthProvider();
+      // Always offer the account picker rather than reusing the last account.
+      provider.setCustomParameters({ prompt: "select_account" });
       await webOAuthSignIn(provider);
     }
   } catch (e) {
@@ -7741,30 +7805,433 @@ function generateInviteCode() {
   return code;
 }
 
-document.getElementById("hhCreateBtn").addEventListener("click", async () => {
-  const errEl = document.getElementById("hhError");
-  errEl.textContent = "";
-  const code = generateInviteCode();
-  try {
-    const docRef = await db.collection("households").add({
-      memberUids: [currentUser.uid],
-      memberNames: { [currentUser.uid]: currentUser.displayName || "Admin" },
-      roles: { [currentUser.uid]: "admin" },
-      inviteCode: code,
-      createdBy: currentUser.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    // Also store invite code lookup
-    await db.collection("inviteCodes").doc(code).set({
-      householdId: docRef.id,
-    });
-    householdId = docRef.id;
-    document.getElementById("hhInviteDisplay").textContent = code;
-    document.getElementById("hhChoiceView").style.display = "none";
-    document.getElementById("hhCreatedView").style.display = "block";
-  } catch (e) {
-    errEl.textContent = "Error creating household: " + e.message;
+// ==================== SETUP WIZARD ====================
+// A new household is filled in before the app opens: its name and time zone,
+// who's in it, the shifts they work and their usual week, work details, and
+// a home address for "leave by" times. It's created on the any-household
+// model (shared/onboarding.ts) holding exactly what was entered — no starter
+// data. The partner and caregiver get invite codes at the end.
+const WIZ_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+let wiz = null;
+
+function wizStart() {
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || "America/New_York";
+  const first = ((currentUser && currentUser.displayName) || "").trim().split(/\s+/)[0] || "";
+  wiz = {
+    step: 0,
+    householdName: "",
+    timeZone: tz,
+    me: { name: first, employer: "", payFreq: "", payAnchor: "", changing: false, days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null },
+    hasPartner: false,
+    partner: { name: "", employer: "", payFreq: "", payAnchor: "", changing: false, days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null },
+    hasCaregiver: false, caregiverName: "",
+    kids: [], kidDraft: "",
+    presets: new Set(), custom: [], customDraft: { name: "", start: "", end: "" },
+    home: null, homeQuery: "", homeSuggestions: [], homeSession: Math.random().toString(36).slice(2),
+    creating: false, codes: null, error: "",
+  };
+  document.getElementById("hhChoiceView").style.display = "none";
+  document.getElementById("hhWizard").style.display = "block";
+  document.querySelector("#householdScreen .hh-hero h2").textContent = "Set up your household";
+  document.getElementById("hhGreeting").textContent = "A few questions so Nucleus knows who's who and when you work. You can change any of it later.";
+  wizRender();
+}
+
+function wizShiftTypes() {
+  const presets = NucleusModel.SHIFT_PRESETS.filter((t) => wiz.presets.has(t.id)).map((t) => ({ ...t }));
+  return presets.concat(wiz.custom.map((t) => ({ ...t })));
+}
+
+// The steps, in order; the partner's week only when there's a partner, the
+// weeks only when anyone works shifts.
+function wizSteps() {
+  const steps = ["household", "you", "people", "shifts"];
+  if (wizShiftTypes().length) steps.push("myWeek");
+  if (wiz.hasPartner) steps.push("partner");
+  steps.push("home", "review");
+  return steps;
+}
+
+function wizStepTitle(step) {
+  return ({
+    household: "Household", you: "You", people: "People", shifts: "Shifts", myWeek: "Your week",
+    partner: (wiz.partner.name.trim() || "Partner") + "'s work", home: "Home", review: "Review",
+  })[step] || "";
+}
+
+function wizTimeZones() {
+  let zones = [];
+  try { zones = Intl.supportedValuesOf("timeZone"); } catch (_) { /* older WebKit */ }
+  if (!zones.length) zones = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu"];
+  if (!zones.includes(wiz.timeZone)) zones = [wiz.timeZone].concat(zones);
+  return zones;
+}
+
+function wizAdultAnswer(a) {
+  const out = { name: a.name, employer: a.employer || undefined };
+  if (a.payFreq && a.payAnchor) out.payday = { anchor: a.payAnchor, freq: a.payFreq };
+  if (!a.changing && wizShiftTypes().length) {
+    out.week = { days: a.days.slice() };
+    if (a.alt && a.altSat) out.week.altWeekend = { refSat: a.altSat, sat: a.altSatShift, sun: a.altSunShift };
   }
+  return out;
+}
+
+function wizAnswers() {
+  return {
+    householdName: wiz.householdName,
+    timeZone: wiz.timeZone,
+    me: wizAdultAnswer(wiz.me),
+    partner: wiz.hasPartner ? wizAdultAnswer(wiz.partner) : undefined,
+    caregiver: wiz.hasCaregiver ? { name: wiz.caregiverName } : undefined,
+    kids: wiz.kids.slice(),
+    shiftTypes: wizShiftTypes(),
+    integrations: wiz.home ? { commuteHome: wiz.home } : {},
+  };
+}
+
+// What must be right before leaving a step. Returns a message, or "".
+function wizCheckStep(step) {
+  const need = (v, msg) => (String(v || "").trim() ? "" : msg);
+  if (step === "household") return need(wiz.householdName, "Give your household a name.");
+  if (step === "you") {
+    return need(wiz.me.name, "Add your name.")
+      || (wiz.me.payFreq && !wiz.me.payAnchor ? "Pick a recent payday, or choose Not now." : "");
+  }
+  if (step === "people") {
+    return (wiz.hasPartner ? need(wiz.partner.name, "Add your partner's name.") : "")
+      || (wiz.hasCaregiver ? need(wiz.caregiverName, "Add your caregiver's name.") : "")
+      || (wiz.kidDraft.trim() ? "Tap Add to include " + wiz.kidDraft.trim() + ", or clear the box." : "");
+  }
+  if (step === "shifts") {
+    const d = wiz.customDraft;
+    return (d.name || d.start || d.end) ? "Tap Add shift to keep the custom shift, or clear it." : "";
+  }
+  if (step === "myWeek" || step === "partner") {
+    const a = step === "myWeek" ? wiz.me : wiz.partner;
+    if (step === "partner" && a.payFreq && !a.payAnchor) return "Pick a recent payday, or choose Not now.";
+    if (!a.changing && a.alt) {
+      if (!a.altSat) return "Pick a Saturday you work, for the every-other-weekend pattern.";
+      const [y, m, dd] = a.altSat.split("-").map(Number);
+      if (new Date(y, m - 1, dd).getDay() !== 6) return "That date isn't a Saturday.";
+    }
+    return "";
+  }
+  return "";
+}
+
+function wizOptions(selected) {
+  return '<option value="">Off</option>' + wizShiftTypes().map((t) =>
+    `<option value="${escapeHtml(t.id)}"${t.id === selected ? " selected" : ""}>${escapeHtml(t.name)} · ${escapeHtml(compactTime(t.start))}–${escapeHtml(compactTime(t.end))}</option>`).join("");
+}
+
+function wizPaydayHtml(who, a) {
+  return `
+    <label class="wiz-field"><span>How often ${who === "me" ? "are you" : "are they"} paid?</span>
+      <select class="wiz-select" data-wiz="${who}.payFreq">
+        <option value=""${!a.payFreq ? " selected" : ""}>Not now</option>
+        <option value="weekly"${a.payFreq === "weekly" ? " selected" : ""}>Every week</option>
+        <option value="biweekly"${a.payFreq === "biweekly" ? " selected" : ""}>Every two weeks</option>
+      </select></label>
+    ${a.payFreq ? `<label class="wiz-field"><span>A recent payday</span>
+      <input class="wiz-input" type="date" data-wiz="${who}.payAnchor" value="${escapeHtml(a.payAnchor)}"></label>` : ""}`;
+}
+
+function wizWeekHtml(who, a, label) {
+  return `
+    <label class="wiz-check"><input type="checkbox" data-wiz="${who}.changing"${a.changing ? " checked" : ""}>
+      ${label} schedule changes every week</label>
+    ${a.changing ? `<p class="wiz-help">No usual week, then. Shifts get added as they're scheduled.</p>` : `
+      <div class="wiz-week">
+        ${WIZ_DAYS.map((d, i) => `<span>${d}</span>
+          <select class="wiz-select" data-wiz="${who}.day.${i}" aria-label="${d}">${wizOptions(a.days[i])}</select>`).join("")}
+      </div>
+      <label class="wiz-check"><input type="checkbox" data-wiz="${who}.alt"${a.alt ? " checked" : ""}>
+        Every other weekend</label>
+      ${a.alt ? `
+        <p class="wiz-help">On working weekends these replace Saturday and Sunday above; the weekends between are off.</p>
+        <label class="wiz-field"><span>A Saturday ${who === "me" ? "you work" : "they work"}</span>
+          <input class="wiz-input" type="date" data-wiz="${who}.altSat" value="${escapeHtml(a.altSat)}"></label>
+        <div class="wiz-row">
+          <label class="wiz-field"><span>Saturday</span><select class="wiz-select" data-wiz="${who}.altSatShift">${wizOptions(a.altSatShift)}</select></label>
+          <label class="wiz-field"><span>Sunday</span><select class="wiz-select" data-wiz="${who}.altSunShift">${wizOptions(a.altSunShift)}</select></label>
+        </div>` : ""}`}`;
+}
+
+function wizStepHtml(step) {
+  const a = wiz;
+  switch (step) {
+    case "household": return `
+      <h3 class="wiz-title">Your household</h3>
+      <p class="wiz-help">What should Nucleus call it? Once it's saved, the name can't be changed.</p>
+      <label class="wiz-field"><span>Household name</span>
+        <input class="wiz-input" data-wiz="householdName" value="${escapeHtml(a.householdName)}" placeholder="The Rivera household" maxlength="60" autocomplete="off"></label>
+      <label class="wiz-field"><span>Time zone</span>
+        <select class="wiz-select" data-wiz="timeZone">${wizTimeZones().map((z) => `<option${z === a.timeZone ? " selected" : ""}>${escapeHtml(z)}</option>`).join("")}</select></label>`;
+    case "you": return `
+      <h3 class="wiz-title">About you</h3>
+      <label class="wiz-field"><span>Your name</span>
+        <input class="wiz-input" data-wiz="me.name" value="${escapeHtml(a.me.name)}" maxlength="60" autocomplete="given-name"></label>
+      <label class="wiz-field"><span>Where you work (optional)</span>
+        <input class="wiz-input" data-wiz="me.employer" value="${escapeHtml(a.me.employer)}" maxlength="120"></label>
+      ${wizPaydayHtml("me", a.me)}`;
+    case "people": return `
+      <h3 class="wiz-title">Who else is in your household?</h3>
+      <label class="wiz-check"><input type="checkbox" data-wiz="hasPartner"${a.hasPartner ? " checked" : ""}> A partner</label>
+      ${a.hasPartner ? `<label class="wiz-field"><span>Their name</span>
+        <input class="wiz-input" data-wiz="partner.name" value="${escapeHtml(a.partner.name)}" maxlength="60"></label>` : ""}
+      <label class="wiz-check"><input type="checkbox" data-wiz="hasCaregiver"${a.hasCaregiver ? " checked" : ""}> A caregiver who helps with the kids</label>
+      ${a.hasCaregiver ? `<label class="wiz-field"><span>Their name</span>
+        <input class="wiz-input" data-wiz="caregiverName" value="${escapeHtml(a.caregiverName)}" maxlength="60"></label>` : ""}
+      <div class="wiz-field"><span>Kids</span>
+        ${a.kids.length ? `<ul class="wiz-list">${a.kids.map((k, i) => `<li><span>${escapeHtml(k)}</span>
+          <button type="button" class="wiz-remove" data-wiz-act="removeKid" data-i="${i}" aria-label="Remove ${escapeHtml(k)}">Remove</button></li>`).join("")}</ul>` : ""}
+        <div class="wiz-row">
+          <input class="wiz-input" data-wiz="kidDraft" value="${escapeHtml(a.kidDraft)}" placeholder="Child's name" maxlength="60" aria-label="Child's name">
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 88px" data-wiz-act="addKid">Add</button>
+        </div>
+      </div>
+      <p class="wiz-help">Nucleus plans who has the kids when there are kids in the household.</p>`;
+    case "shifts": return `
+      <h3 class="wiz-title">Which shifts does anyone work?</h3>
+      <p class="wiz-help">Pick the usual ones, and add any others. Skip this if nobody works shifts.</p>
+      <div class="wiz-chips">${NucleusModel.SHIFT_PRESETS.map((t) => `<button type="button" class="wiz-chip" data-wiz-act="preset" data-id="${t.id}" aria-pressed="${a.presets.has(t.id)}">
+        <span class="wiz-chip-mark" aria-hidden="true"></span>${escapeHtml(t.name)} · ${compactTime(t.start)}–${compactTime(t.end)}</button>`).join("")}</div>
+      ${a.custom.length ? `<ul class="wiz-list">${a.custom.map((t, i) => `<li><span>${escapeHtml(t.name)} · ${compactTime(t.start)}–${compactTime(t.end)}</span>
+        <button type="button" class="wiz-remove" data-wiz-act="removeCustom" data-i="${i}" aria-label="Remove ${escapeHtml(t.name)}">Remove</button></li>`).join("")}</ul>` : ""}
+      <div class="wiz-field"><span>Another shift</span>
+        <input class="wiz-input" data-wiz="customDraft.name" value="${escapeHtml(a.customDraft.name)}" placeholder="Name, e.g. Weekend day" maxlength="40" aria-label="Shift name" style="margin-bottom:6px">
+        <div class="wiz-row">
+          <input class="wiz-input" type="time" data-wiz="customDraft.start" value="${escapeHtml(a.customDraft.start)}" aria-label="Starts">
+          <input class="wiz-input" type="time" data-wiz="customDraft.end" value="${escapeHtml(a.customDraft.end)}" aria-label="Ends">
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 100px" data-wiz-act="addCustom">Add shift</button>
+        </div>
+      </div>`;
+    case "myWeek": return `
+      <h3 class="wiz-title">Your usual week</h3>
+      <p class="wiz-help">Pick a shift for each day you normally work.</p>
+      ${wizWeekHtml("me", a.me, "My")}`;
+    case "partner": return `
+      <h3 class="wiz-title">${escapeHtml(a.partner.name)}'s work</h3>
+      <label class="wiz-field"><span>Where they work (optional)</span>
+        <input class="wiz-input" data-wiz="partner.employer" value="${escapeHtml(a.partner.employer)}" maxlength="120"></label>
+      ${wizPaydayHtml("partner", a.partner)}
+      ${wizShiftTypes().length ? wizWeekHtml("partner", a.partner, "Their") : ""}`;
+    case "home": return `
+      <h3 class="wiz-title">Leave-by times</h3>
+      <p class="wiz-help">With your home address, Nucleus works out when to leave for each shift and warns about heavy traffic. Optional — you can add it later.</p>
+      ${a.home ? `<ul class="wiz-list"><li><span>${escapeHtml(a.home.label)}</span>
+        <button type="button" class="wiz-remove" data-wiz-act="clearHome">Change</button></li></ul>` : `
+        <label class="wiz-field"><span>Home address</span>
+          <input class="wiz-input" data-wiz="homeQuery" value="${escapeHtml(a.homeQuery)}" placeholder="Start typing your address" autocomplete="off"></label>
+        ${a.homeSuggestions.length ? `<ul class="wiz-suggest">${a.homeSuggestions.map((sug, i) => `<li><button type="button" data-wiz-act="pickHome" data-i="${i}">
+          ${escapeHtml(sug.name)}<small>${escapeHtml(sug.detail || "")}</small></button></li>`).join("")}</ul>` : ""}`}`;
+    case "review": {
+      const ans = wizAnswers();
+      const who = [ans.me.name, ans.partner && ans.partner.name, ans.caregiver && `${ans.caregiver.name} (caregiver)`]
+        .concat(ans.kids.map((k) => `${k} (child)`)).filter(Boolean).join(", ");
+      const at = (id) => { const t = ans.shiftTypes.find((st) => st.id === id); return t ? compactTime(t.start) : "off"; };
+      const weekText = (x) => {
+        if (!x.week) return "Changes every week";
+        const alt = x.week.altWeekend;
+        const days = WIZ_DAYS.map((d, i) => {
+          if (alt && (i === 0 || i === 6)) return null;
+          return x.week.days[i] ? `${d} ${at(x.week.days[i])}` : null;
+        }).filter(Boolean).join(", ") || "No usual shifts";
+        return alt ? `${days}; every other weekend Sat ${at(alt.sat)}, Sun ${at(alt.sun)}` : days;
+      };
+      return `
+        <h3 class="wiz-title">Look right?</h3>
+        <dl class="wiz-review">
+          <dt>Household</dt><dd>${escapeHtml(ans.householdName)} · ${escapeHtml(ans.timeZone)}</dd>
+          <dt>People</dt><dd>${escapeHtml(who)}</dd>
+          <dt>Shifts</dt><dd>${escapeHtml(ans.shiftTypes.map((t) => t.name).join(", ") || "None")}</dd>
+          ${ans.shiftTypes.length ? `<dt>${escapeHtml(ans.me.name)}'s week</dt><dd>${escapeHtml(weekText(ans.me))}</dd>` : ""}
+          ${ans.partner && ans.shiftTypes.length ? `<dt>${escapeHtml(ans.partner.name)}'s week</dt><dd>${escapeHtml(weekText(ans.partner))}</dd>` : ""}
+          <dt>Home</dt><dd>${escapeHtml(ans.integrations.commuteHome ? ans.integrations.commuteHome.label : "Not set")}</dd>
+        </dl>`;
+    }
+  }
+  return "";
+}
+
+function wizRender() {
+  const box = document.getElementById("hhWizard");
+  if (!box || !wiz) return;
+  if (wiz.codes) {
+    box.innerHTML = `<div class="hh-card" style="text-align:center;">
+      <h3 class="wiz-title">${escapeHtml(wiz.householdName.trim())} is ready</h3>
+      <p class="wiz-help">Share these so the others can join from their own phone or Mac.</p>
+      ${wiz.hasPartner ? `<div class="wiz-code-label">${escapeHtml(wiz.partner.name.trim())}'s code</div>` : `<div class="wiz-code-label">Code for a partner</div>`}
+      <div class="invite-code-display">${escapeHtml(wiz.codes.partner)}</div>
+      ${wiz.codes.caregiver ? `<div class="wiz-code-label">${escapeHtml(wiz.caregiverName.trim())}'s code (caregiver)</div>
+        <div class="invite-code-display">${escapeHtml(wiz.codes.caregiver)}</div>` : ""}
+      <button type="button" class="hh-cta-primary" data-wiz-act="finish">Open Nucleus</button>
+    </div>`;
+    return;
+  }
+  const steps = wizSteps();
+  wiz.step = Math.min(wiz.step, steps.length - 1);
+  const step = steps[wiz.step];
+  const last = wiz.step === steps.length - 1;
+  const CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  box.innerHTML = `
+    <ol class="wiz-steps" aria-label="Setup steps">${steps.map((st, i) => {
+      const state = i < wiz.step ? "done" : i === wiz.step ? "now" : "";
+      return `<li${i === wiz.step ? ' aria-current="step"' : ""}>
+        <span class="wiz-sq ${state}" aria-label="${escapeHtml(wizStepTitle(st))}${i < wiz.step ? ", done" : ""}">${i < wiz.step ? CHECK : i + 1}</span>
+        ${i < steps.length - 1 ? `<span class="wiz-link ${i < wiz.step ? "done" : ""}" aria-hidden="true"></span>` : ""}</li>`;
+    }).join("")}</ol>
+    <div class="wiz-step-label">Step ${wiz.step + 1} of ${steps.length} · <strong>${escapeHtml(wizStepTitle(step))}</strong></div>
+    <div class="hh-card">
+      ${wizStepHtml(step)}
+      <div class="hh-error" role="alert">${escapeHtml(wiz.error)}</div>
+      <div class="wiz-nav">
+        <button type="button" class="hh-cta-secondary" data-wiz-act="back">${wiz.step === 0 ? "Cancel" : "Back"}</button>
+        <button type="button" class="hh-cta-primary" data-wiz-act="next"${wiz.creating ? " disabled" : ""}>${last ? (wiz.creating ? "Creating…" : "Create household") : "Continue"}</button>
+      </div>
+    </div>`;
+}
+
+// Inputs write straight into `wiz`; only fields that change what's shown
+// re-render (so typing never loses focus).
+const WIZ_RERENDER = /^(hasPartner|hasCaregiver|me\.payFreq|partner\.payFreq|me\.changing|partner\.changing|me\.alt|partner\.alt)$/;
+function wizSet(key, el) {
+  const v = el.type === "checkbox" ? el.checked : el.value;
+  const parts = key.split(".");
+  if (parts[1] === "day") { wiz[parts[0]].days[Number(parts[2])] = v || null; return; }
+  if (/Shift$/.test(parts[1] || "")) { wiz[parts[0]][parts[1]] = v || null; return; }
+  let o = wiz;
+  for (const k of parts.slice(0, -1)) o = o[k];
+  o[parts[parts.length - 1]] = v;
+  if (WIZ_RERENDER.test(key)) wizRender();
+}
+
+let _wizHomeTimer = null;
+function wizSearchHome() {
+  clearTimeout(_wizHomeTimer);
+  const q = wiz.homeQuery.trim();
+  if (q.length < 3) { wiz.homeSuggestions = []; return; }
+  _wizHomeTimer = setTimeout(async () => {
+    try {
+      const r = await firebase.functions().httpsCallable("placesAutocomplete")({ input: q, sessionToken: wiz.homeSession });
+      if (!wiz || wiz.homeQuery.trim() !== q) return;
+      wiz.homeSuggestions = (r.data && r.data.suggestions) || [];
+      const input = document.querySelector('#hhWizard [data-wiz="homeQuery"]');
+      const pos = input ? input.selectionStart : null;
+      wizRender();
+      const again = document.querySelector('#hhWizard [data-wiz="homeQuery"]');
+      if (again) { again.focus(); if (pos != null) again.setSelectionRange(pos, pos); }
+    } catch (e) { console.warn("address search:", e); }
+  }, 300);
+}
+
+async function wizCreate() {
+  const answers = wizAnswers();
+  try { NucleusModel.checkAnswers(answers); }
+  catch (e) { wiz.error = e.message; wizRender(); return; }
+  wiz.creating = true; wiz.error = ""; wizRender();
+  try {
+    const hid = db.collection("households").doc().id;
+    const built = NucleusModel.buildHousehold(answers, {
+      householdId: hid,
+      uid: currentUser.uid,
+      accountName: (currentUser.displayName || answers.me.name || "").trim(),
+      now: Date.now(),
+      personId: () => NucleusModel.newPersonId(),
+      inviteCode: () => NucleusModel.randomInviteCode(),
+    });
+    await NucleusModel.createHousehold(modelStore(), hid, built, Date.now());
+    householdId = hid;
+    wiz.codes = built.codes;
+  } catch (e) {
+    console.error("create household:", e);
+    wiz.error = "Couldn't create the household: " + (e.message || e);
+  }
+  wiz.creating = false;
+  wizRender();
+}
+
+(function wireWizard() {
+  const box = document.getElementById("hhWizard");
+  box.addEventListener("input", (e) => {
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (!key || !wiz) return;
+    wizSet(key, e.target);
+    if (key === "homeQuery") wizSearchHome();
+  });
+  box.addEventListener("change", (e) => {
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (key && wiz && (e.target.type === "checkbox" || e.target.tagName === "SELECT")) wizSet(key, e.target);
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || !wiz) return;
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (key === "kidDraft") { e.preventDefault(); box.querySelector('[data-wiz-act="addKid"]').click(); }
+  });
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest("[data-wiz-act]");
+    if (!btn || !wiz) return;
+    const act = btn.getAttribute("data-wiz-act");
+    const i = Number(btn.getAttribute("data-i"));
+    wiz.error = "";
+    if (act === "next") {
+      const steps = wizSteps();
+      const msg = wizCheckStep(steps[wiz.step]);
+      if (msg) { wiz.error = msg; wizRender(); return; }
+      if (wiz.step === steps.length - 1) { wizCreate(); return; }
+      wiz.step++;
+    } else if (act === "back") {
+      if (wiz.step === 0) {
+        wiz = null;
+        box.style.display = "none";
+        box.innerHTML = "";
+        document.getElementById("hhChoiceView").style.display = "flex";
+        document.querySelector("#householdScreen .hh-hero h2").textContent = "Join a household";
+        document.getElementById("hhGreeting").textContent = "Create a new household, or join with an invite code from your partner.";
+        return;
+      }
+      wiz.step--;
+    } else if (act === "addKid") {
+      const k = wiz.kidDraft.trim();
+      if (k) { wiz.kids.push(k); wiz.kidDraft = ""; }
+    } else if (act === "removeKid") {
+      wiz.kids.splice(i, 1);
+    } else if (act === "preset") {
+      const id = btn.getAttribute("data-id");
+      if (wiz.presets.has(id)) wiz.presets.delete(id); else wiz.presets.add(id);
+    } else if (act === "addCustom") {
+      const d = wiz.customDraft;
+      if (!d.name.trim() || !d.start || !d.end) { wiz.error = "Give the shift a name, a start and an end."; }
+      else if (d.start === d.end) { wiz.error = "The shift starts and ends at the same time."; }
+      else {
+        wiz.custom.push({ id: "custom_" + Date.now().toString(36), name: d.name.trim(), start: d.start, end: d.end, crossesMidnight: d.end <= d.start });
+        wiz.customDraft = { name: "", start: "", end: "" };
+      }
+    } else if (act === "removeCustom") {
+      const [gone] = wiz.custom.splice(i, 1);
+      for (const a of [wiz.me, wiz.partner]) {
+        a.days = a.days.map((d) => (d === gone.id ? null : d));
+        if (a.altSatShift === gone.id) a.altSatShift = null;
+        if (a.altSunShift === gone.id) a.altSunShift = null;
+      }
+    } else if (act === "pickHome") {
+      const sug = wiz.homeSuggestions[i];
+      if (sug) wiz.home = { placeId: sug.placeId, label: sug.detail ? `${sug.name}, ${sug.detail}` : sug.name };
+      wiz.homeSuggestions = [];
+    } else if (act === "clearHome") {
+      wiz.home = null; wiz.homeQuery = "";
+    } else if (act === "finish") {
+      resolveHousehold(currentUser);
+      return;
+    }
+    wizRender();
+  });
+})();
+
+document.getElementById("hhCreateBtn").addEventListener("click", () => {
+  document.getElementById("hhError").textContent = "";
+  wizStart();
 });
 
 document.getElementById("hhContinueBtn").addEventListener("click", async () => {
@@ -10997,7 +11464,10 @@ function mergeStateFromFirestore(data) {
     if (view.ui && typeof view.ui === "object") merged.ui = { ...(merged.ui || {}), ...view.ui };
     if (typeof view.activeTab === "string") merged.activeTab = view.activeTab;
   }
-  return applyMigrations(merged);
+  // The built-in fix-ups rewrite a schedule the old way (and seed one family's
+  // shifts). A household on the any-household model never gets them: it holds
+  // exactly what was entered in setup.
+  return householdMigrated() ? merged : applyMigrations(merged);
 }
 
 let saveTimer = null;
@@ -13039,6 +13509,9 @@ function loadWvuSchedule() {
     });
 }
 function wvuGameOn(dateISO) {
+  // WVU game days were built for one family; a household that set
+  // wvuFootball: false (every new one does) doesn't see them.
+  if (householdData && householdData.wvuFootball === false) return null;
   return _wvuGames[dateISO] || null;
 }
 // Human-readable game label, e.g. "WVU vs Kansas · 12:00 PM" / "WVU at Utah".

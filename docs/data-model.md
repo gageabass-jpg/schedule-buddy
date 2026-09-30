@@ -190,6 +190,15 @@ households. Planting a bug in the new resolver fails it.
    `unmigrateHousehold` moves back: it writes the household as it now stands
    into state/main (nothing done since is lost) and clears the version.
    Both run from the Mac: Family Console → General → Data format.
+**New households start on the model.** The setup wizard (phone:
+`public/index.html` "SETUP WIZARD"; Mac: `components/SetupWizard.tsx`) asks
+for the household's name and time zone, its people (partner, caregiver,
+kids), the shifts anyone works, each adult's usual week and work details,
+and a home address. It then creates the household with
+`shared/onboarding.ts`: `schemaVersion: 2`, exactly those records, no
+starter data, and invite codes for the partner and caregiver. The phone never
+runs its old built-in fix-ups on a household on the model.
+
 5. **Cutover.** One coordinated release: functions, rules, phone, Mac and
    Windows together. Then retire `caregiverView` and `state/main`.
 

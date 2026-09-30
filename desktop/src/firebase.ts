@@ -48,6 +48,9 @@ export const db = initializeFirestore(app, {
 });
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+// Always offer Google's account picker, rather than silently reusing the last
+// account — so someone with several accounts (or a shared Mac) can choose.
+googleProvider.setCustomParameters({ prompt: "select_account" });
 
 export const appleProvider = new OAuthProvider("apple.com");
 appleProvider.addScope("email");

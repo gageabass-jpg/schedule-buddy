@@ -387,6 +387,9 @@ export interface HouseholdMeta {
   roles: Record<string, "admin" | "partner" | "supporting">;
   inviteCode: string;
   createdBy: string;
+  /** false = don't show WVU football game days. Absent means show them (the
+   *  household they were built for); new households set it false. */
+  wvuFootball?: boolean;
 }
 
 // Compact a "HH:MM" timestamp like the iOS app's compactTime: "07:00" → "7a"
