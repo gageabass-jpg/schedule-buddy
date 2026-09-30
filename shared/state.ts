@@ -390,6 +390,11 @@ export interface HouseholdMeta {
   /** false = don't show WVU football game days. Absent means show them (the
    *  household they were built for); new households set it false. */
   wvuFootball?: boolean;
+  /** false = don't show the bundled family photos; initials instead. Same
+   *  rule as wvuFootball. */
+  familyPhotos?: boolean;
+  /** false = no kids, so no childcare planning. Absent means yes. */
+  childcare?: boolean;
 }
 
 // Compact a "HH:MM" timestamp like the iOS app's compactTime: "07:00" → "7a"

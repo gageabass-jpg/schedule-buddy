@@ -19,6 +19,7 @@ import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
 import type { CommuteResult } from "../lib/commute";
 import { FLAG_RED } from "./DayFlagPopover";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   selected: string;
@@ -68,6 +69,7 @@ export function Inspector({
   reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
   onDismissReminder, onSendCaregiverRequests, onAsk, wvuGames,
 }: Props) {
+  const look = useHouseholdLook();
   const [y, m, d] = selected.split("-").map(Number);
   const shifts = allShifts[selected];
   const wvuGame = wvuGames.get(selected);
@@ -180,7 +182,7 @@ export function Inspector({
         </div>
         <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
           {kind === "off"
-            ? "Both off"
+            ? (look.hasPartner ? "Both off" : "Day off")
             : kind === "both"
               ? "Both working"
               : kind === "g"
@@ -309,7 +311,7 @@ export function Inspector({
             );
           })}
           {(!shifts || shifts.length === 0) && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `1px solid ${t.sep}` }}>Free day. Plan something together.</div>
+            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `1px solid ${t.sep}` }}>{look.hasPartner ? "Free day. Plan something together." : "Nothing scheduled."}</div>
           )}
         </div>
 
@@ -473,7 +475,7 @@ export function Inspector({
             const k = dayKindFromShifts(allShifts[ev.date]);
             const cover =
               k === "both" ? "Nobody is off." :
-              k === "off" ? "Both off." :
+              k === "off" ? (look.hasPartner ? "Both off." : "Day off.") :
               k === "g" ? `${selfName} works · ${partnerName} off.` :
               k === "k" ? `${partnerName} works · ${selfName} off.` : "";
             const desc = ev.notes && ev.notes.trim() ? ev.notes : cover;

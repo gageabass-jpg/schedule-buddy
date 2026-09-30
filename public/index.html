@@ -4261,6 +4261,12 @@
     background: var(--sep);
   }
   /* Setup wizard */
+  .household-screen.hh-setup {
+    background:
+      radial-gradient(900px 520px at 10% -8%, rgba(15,110,100,0.34), transparent 62%),
+      radial-gradient(700px 520px at 105% 108%, rgba(10,79,72,0.42), transparent 62%),
+      var(--bg);
+  }
   /* Stepper: square milestones joined by a line. Done = filled with a check,
      current = heavier outline, upcoming = hairline — readable without colour. */
   .wiz-steps { display: flex; align-items: center; margin: 0 4px 6px; list-style: none; padding: 0; }
@@ -7807,12 +7813,18 @@ function generateInviteCode() {
 
 // ==================== SETUP WIZARD ====================
 // A new household is filled in before the app opens: its name and time zone,
-// who's in it, the shifts they work and their usual week, work details, and
+// who you are and who else lives there, the shifts anyone works and the usual
+// week of you and any partner (with where you work and when you're paid), and
 // a home address for "leave by" times. It's created on the any-household
 // model (shared/onboarding.ts) holding exactly what was entered — no starter
-// data. The partner and caregiver get invite codes at the end.
+// data. The household's invite codes come at the end.
 const WIZ_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 let wiz = null;
+
+function wizWork() {
+  return { employer: "", workplace: null, payFreq: "", payAnchor: "", changing: false,
+    days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null };
+}
 
 function wizStart() {
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || "America/New_York";
@@ -7821,17 +7833,21 @@ function wizStart() {
     step: 0,
     householdName: "",
     timeZone: tz,
-    me: { name: first, employer: "", payFreq: "", payAnchor: "", changing: false, days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null },
-    hasPartner: false,
-    partner: { name: "", employer: "", payFreq: "", payAnchor: "", changing: false, days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null },
-    hasCaregiver: false, caregiverName: "",
-    kids: [], kidDraft: "",
+    zones: NucleusModel.timeZoneChoices(tz),
+    meName: first, describes: "",
+    me: wizWork(),
+    others: [], draftKind: "partner", draftName: "",
+    kids: 0,
     presets: new Set(), custom: [], customDraft: { name: "", start: "", end: "" },
-    home: null, homeQuery: "", homeSuggestions: [], homeSession: Math.random().toString(36).slice(2),
+    home: null, homeQuery: "",
+    // Address searches: which box is searching, and what it found.
+    search: { field: null, results: [] },
+    session: Math.random().toString(36).slice(2),
     creating: false, codes: null, error: "",
   };
   document.getElementById("hhChoiceView").style.display = "none";
   document.getElementById("hhWizard").style.display = "block";
+  document.getElementById("householdScreen").classList.add("hh-setup");
   document.querySelector("#householdScreen .hh-hero h2").textContent = "Set up your household";
   document.getElementById("hhGreeting").textContent = "A few questions so Nucleus knows who's who and when you work. You can change any of it later.";
   wizRender();
@@ -7842,37 +7858,34 @@ function wizShiftTypes() {
   return presets.concat(wiz.custom.map((t) => ({ ...t })));
 }
 
-// The steps, in order; the partner's week only when there's a partner, the
-// weeks only when anyone works shifts.
+function wizPartners() { return wiz.others.filter((o) => o.kind === "partner"); }
+
+// The steps, in order: a week step only when anyone works shifts, and a work
+// step for each partner.
 function wizSteps() {
   const steps = ["household", "you", "people", "shifts"];
   if (wizShiftTypes().length) steps.push("myWeek");
-  if (wiz.hasPartner) steps.push("partner");
+  for (const p of wizPartners()) steps.push("partner:" + p.key);
   steps.push("home", "review");
   return steps;
 }
 
+function wizPartnerOf(step) {
+  return step.indexOf("partner:") === 0 ? wiz.others.find((o) => "partner:" + o.key === step) : null;
+}
+
 function wizStepTitle(step) {
-  return ({
-    household: "Household", you: "You", people: "People", shifts: "Shifts", myWeek: "Your week",
-    partner: (wiz.partner.name.trim() || "Partner") + "'s work", home: "Home", review: "Review",
-  })[step] || "";
+  const p = wizPartnerOf(step);
+  if (p) return (p.name || "Partner") + "'s work";
+  return ({ household: "Household", you: "You", people: "People", shifts: "Shifts", myWeek: "Your week", home: "Home", review: "Review" })[step] || "";
 }
 
-function wizTimeZones() {
-  let zones = [];
-  try { zones = Intl.supportedValuesOf("timeZone"); } catch (_) { /* older WebKit */ }
-  if (!zones.length) zones = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu"];
-  if (!zones.includes(wiz.timeZone)) zones = [wiz.timeZone].concat(zones);
-  return zones;
-}
-
-function wizAdultAnswer(a) {
-  const out = { name: a.name, employer: a.employer || undefined };
-  if (a.payFreq && a.payAnchor) out.payday = { anchor: a.payAnchor, freq: a.payFreq };
-  if (!a.changing && wizShiftTypes().length) {
-    out.week = { days: a.days.slice() };
-    if (a.alt && a.altSat) out.week.altWeekend = { refSat: a.altSat, sat: a.altSatShift, sun: a.altSunShift };
+function wizWorkAnswer(w) {
+  const out = { employer: w.employer || undefined, workplace: w.workplace || undefined };
+  if (w.payFreq && w.payAnchor) out.payday = { anchor: w.payAnchor, freq: w.payFreq };
+  if (!w.changing && wizShiftTypes().length) {
+    out.week = { days: w.days.slice() };
+    if (w.alt && w.altSat) out.week.altWeekend = { refSat: w.altSat, sat: w.altSatShift, sun: w.altSunShift };
   }
   return out;
 }
@@ -7881,10 +7894,9 @@ function wizAnswers() {
   return {
     householdName: wiz.householdName,
     timeZone: wiz.timeZone,
-    me: wizAdultAnswer(wiz.me),
-    partner: wiz.hasPartner ? wizAdultAnswer(wiz.partner) : undefined,
-    caregiver: wiz.hasCaregiver ? { name: wiz.caregiverName } : undefined,
-    kids: wiz.kids.slice(),
+    me: Object.assign({ name: wiz.meName, describes: wiz.describes }, wizWorkAnswer(wiz.me)),
+    others: wiz.others.map((o) => Object.assign({ kind: o.kind, name: o.name }, o.kind === "partner" ? wizWorkAnswer(o.work) : {})),
+    kids: wiz.kids,
     shiftTypes: wizShiftTypes(),
     integrations: wiz.home ? { commuteHome: wiz.home } : {},
   };
@@ -7893,30 +7905,23 @@ function wizAnswers() {
 // What must be right before leaving a step. Returns a message, or "".
 function wizCheckStep(step) {
   const need = (v, msg) => (String(v || "").trim() ? "" : msg);
+  const work = (w, withPay) => {
+    if (withPay && w.payFreq && !w.payAnchor) return "Pick a recent payday, or choose Not now.";
+    if (w.changing || !w.alt) return "";
+    if (!w.altSat) return "Pick a Saturday for the every-other-weekend pattern.";
+    const [y, m, dd] = w.altSat.split("-").map(Number);
+    return new Date(y, m - 1, dd).getDay() === 6 ? "" : "That date isn't a Saturday.";
+  };
   if (step === "household") return need(wiz.householdName, "Give your household a name.");
-  if (step === "you") {
-    return need(wiz.me.name, "Add your name.")
-      || (wiz.me.payFreq && !wiz.me.payAnchor ? "Pick a recent payday, or choose Not now." : "");
-  }
-  if (step === "people") {
-    return (wiz.hasPartner ? need(wiz.partner.name, "Add your partner's name.") : "")
-      || (wiz.hasCaregiver ? need(wiz.caregiverName, "Add your caregiver's name.") : "")
-      || (wiz.kidDraft.trim() ? "Tap Add to include " + wiz.kidDraft.trim() + ", or clear the box." : "");
-  }
+  if (step === "you") return need(wiz.meName, "Add your name.") || (wiz.describes ? "" : "Pick what best describes you.") || work(wiz.me, true);
+  if (step === "people") return wiz.draftName.trim() ? "Tap Add to include " + wiz.draftName.trim() + ", or clear the box." : "";
   if (step === "shifts") {
     const d = wiz.customDraft;
     return (d.name || d.start || d.end) ? "Tap Add shift to keep the custom shift, or clear it." : "";
   }
-  if (step === "myWeek" || step === "partner") {
-    const a = step === "myWeek" ? wiz.me : wiz.partner;
-    if (step === "partner" && a.payFreq && !a.payAnchor) return "Pick a recent payday, or choose Not now.";
-    if (!a.changing && a.alt) {
-      if (!a.altSat) return "Pick a Saturday you work, for the every-other-weekend pattern.";
-      const [y, m, dd] = a.altSat.split("-").map(Number);
-      if (new Date(y, m - 1, dd).getDay() !== 6) return "That date isn't a Saturday.";
-    }
-    return "";
-  }
+  if (step === "myWeek") return work(wiz.me, false);
+  const p = wizPartnerOf(step);
+  if (p) return work(p.work, true);
   return "";
 }
 
@@ -7925,41 +7930,69 @@ function wizOptions(selected) {
     `<option value="${escapeHtml(t.id)}"${t.id === selected ? " selected" : ""}>${escapeHtml(t.name)} · ${escapeHtml(compactTime(t.start))}–${escapeHtml(compactTime(t.end))}</option>`).join("");
 }
 
-function wizPaydayHtml(who, a) {
+// A box that searches addresses (a workplace or home). `field` names it for
+// the search state; `key` is its data-wiz path.
+function wizPlaceHtml(field, key, value, picked, placeholder) {
+  const results = wiz.search.field === field ? wiz.search.results : [];
   return `
-    <label class="wiz-field"><span>How often ${who === "me" ? "are you" : "are they"} paid?</span>
-      <select class="wiz-select" data-wiz="${who}.payFreq">
-        <option value=""${!a.payFreq ? " selected" : ""}>Not now</option>
-        <option value="weekly"${a.payFreq === "weekly" ? " selected" : ""}>Every week</option>
-        <option value="biweekly"${a.payFreq === "biweekly" ? " selected" : ""}>Every two weeks</option>
-      </select></label>
-    ${a.payFreq ? `<label class="wiz-field"><span>A recent payday</span>
-      <input class="wiz-input" type="date" data-wiz="${who}.payAnchor" value="${escapeHtml(a.payAnchor)}"></label>` : ""}`;
+    <input class="wiz-input" data-wiz="${key}" data-place="${field}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
+    ${picked ? `<p class="wiz-help" style="margin:6px 0 0">${escapeHtml(picked.label)} — used for leave-by times</p>` : ""}
+    ${results.length ? `<ul class="wiz-suggest" style="margin-top:6px">${results.map((sug, i) => `<li><button type="button" data-wiz-act="pickPlace" data-field="${field}" data-i="${i}">
+      ${escapeHtml(sug.name)}<small>${escapeHtml(sug.detail || "")}</small></button></li>`).join("")}</ul>` : ""}`;
 }
 
-function wizWeekHtml(who, a, label) {
+function wizWorkHtml(who, w) {
+  const you = who === "me";
   return `
-    <label class="wiz-check"><input type="checkbox" data-wiz="${who}.changing"${a.changing ? " checked" : ""}>
+    <label class="wiz-field"><span>Where ${you ? "you work" : "they work"} (optional)</span>
+      ${wizPlaceHtml("work:" + who, who + ".employer", w.employer, w.workplace, "Start typing to search")}</label>
+    <label class="wiz-field"><span>How often ${you ? "are you" : "are they"} paid?</span>
+      <select class="wiz-select" data-wiz="${who}.payFreq">
+        <option value=""${!w.payFreq ? " selected" : ""}>Not now</option>
+        <option value="weekly"${w.payFreq === "weekly" ? " selected" : ""}>Every week</option>
+        <option value="biweekly"${w.payFreq === "biweekly" ? " selected" : ""}>Every two weeks</option>
+      </select></label>
+    ${w.payFreq ? `<label class="wiz-field"><span>A recent payday</span>
+      <input class="wiz-input" type="date" data-wiz="${who}.payAnchor" value="${escapeHtml(w.payAnchor)}"></label>` : ""}`;
+}
+
+function wizWeekHtml(who, w, label) {
+  const you = who === "me";
+  return `
+    <label class="wiz-check"><input type="checkbox" data-wiz="${who}.changing"${w.changing ? " checked" : ""}>
       ${label} schedule changes every week</label>
-    ${a.changing ? `<p class="wiz-help">No usual week, then. Shifts get added as they're scheduled.</p>` : `
+    ${w.changing ? `<p class="wiz-help">No usual week, then. Shifts get added as they're scheduled.</p>` : `
       <div class="wiz-week">
         ${WIZ_DAYS.map((d, i) => `<span>${d}</span>
-          <select class="wiz-select" data-wiz="${who}.day.${i}" aria-label="${d}">${wizOptions(a.days[i])}</select>`).join("")}
+          <select class="wiz-select" data-wiz="${who}.day.${i}" aria-label="${d}">${wizOptions(w.days[i])}</select>`).join("")}
       </div>
-      <label class="wiz-check"><input type="checkbox" data-wiz="${who}.alt"${a.alt ? " checked" : ""}>
+      <label class="wiz-check"><input type="checkbox" data-wiz="${who}.alt"${w.alt ? " checked" : ""}>
         Every other weekend</label>
-      ${a.alt ? `
+      ${w.alt ? `
         <p class="wiz-help">On working weekends these replace Saturday and Sunday above; the weekends between are off.</p>
-        <label class="wiz-field"><span>A Saturday ${who === "me" ? "you work" : "they work"}</span>
-          <input class="wiz-input" type="date" data-wiz="${who}.altSat" value="${escapeHtml(a.altSat)}"></label>
+        <label class="wiz-field"><span>A Saturday ${you ? "you work" : "they work"}</span>
+          <input class="wiz-input" type="date" data-wiz="${who}.altSat" value="${escapeHtml(w.altSat)}"></label>
         <div class="wiz-row">
-          <label class="wiz-field"><span>Saturday</span><select class="wiz-select" data-wiz="${who}.altSatShift">${wizOptions(a.altSatShift)}</select></label>
-          <label class="wiz-field"><span>Sunday</span><select class="wiz-select" data-wiz="${who}.altSunShift">${wizOptions(a.altSunShift)}</select></label>
+          <label class="wiz-field"><span>Saturday</span><select class="wiz-select" data-wiz="${who}.altSatShift">${wizOptions(w.altSatShift)}</select></label>
+          <label class="wiz-field"><span>Sunday</span><select class="wiz-select" data-wiz="${who}.altSunShift">${wizOptions(w.altSunShift)}</select></label>
         </div>` : ""}`}`;
+}
+
+function wizKindLabel(k) {
+  const o = NucleusModel.OTHER_KINDS.find((x) => x.value === k);
+  return o ? o.label : k;
 }
 
 function wizStepHtml(step) {
   const a = wiz;
+  const partner = wizPartnerOf(step);
+  if (partner) {
+    const who = "other." + partner.key;
+    return `
+      <h3 class="wiz-title">${escapeHtml(partner.name)}'s work</h3>
+      ${wizWorkHtml(who, partner.work)}
+      ${wizShiftTypes().length ? wizWeekHtml(who, partner.work, "Their") : ""}`;
+  }
   switch (step) {
     case "household": return `
       <h3 class="wiz-title">Your household</h3>
@@ -7967,31 +8000,36 @@ function wizStepHtml(step) {
       <label class="wiz-field"><span>Household name</span>
         <input class="wiz-input" data-wiz="householdName" value="${escapeHtml(a.householdName)}" placeholder="The Rivera household" maxlength="60" autocomplete="off"></label>
       <label class="wiz-field"><span>Time zone</span>
-        <select class="wiz-select" data-wiz="timeZone">${wizTimeZones().map((z) => `<option${z === a.timeZone ? " selected" : ""}>${escapeHtml(z)}</option>`).join("")}</select></label>`;
+        <select class="wiz-select" data-wiz="timeZone">${a.zones.map((z) => `<option value="${escapeHtml(z.value)}"${z.value === a.timeZone ? " selected" : ""}>${escapeHtml(z.label)}</option>`).join("")}</select></label>`;
     case "you": return `
       <h3 class="wiz-title">About you</h3>
       <label class="wiz-field"><span>Your name</span>
-        <input class="wiz-input" data-wiz="me.name" value="${escapeHtml(a.me.name)}" maxlength="60" autocomplete="given-name"></label>
-      <label class="wiz-field"><span>Where you work (optional)</span>
-        <input class="wiz-input" data-wiz="me.employer" value="${escapeHtml(a.me.employer)}" maxlength="120"></label>
-      ${wizPaydayHtml("me", a.me)}`;
+        <input class="wiz-input" data-wiz="meName" value="${escapeHtml(a.meName)}" maxlength="60" autocomplete="given-name"></label>
+      <label class="wiz-field"><span>What best describes you?</span>
+        <select class="wiz-select" data-wiz="describes">
+          <option value="" disabled${!a.describes ? " selected" : ""}>Choose one</option>
+          ${NucleusModel.DESCRIBES.map((d) => `<option value="${d.value}"${d.value === a.describes ? " selected" : ""}>${escapeHtml(d.label)}</option>`).join("")}
+        </select></label>
+      ${wizWorkHtml("me", a.me)}`;
     case "people": return `
-      <h3 class="wiz-title">Who else is in your household?</h3>
-      <label class="wiz-check"><input type="checkbox" data-wiz="hasPartner"${a.hasPartner ? " checked" : ""}> A partner</label>
-      ${a.hasPartner ? `<label class="wiz-field"><span>Their name</span>
-        <input class="wiz-input" data-wiz="partner.name" value="${escapeHtml(a.partner.name)}" maxlength="60"></label>` : ""}
-      <label class="wiz-check"><input type="checkbox" data-wiz="hasCaregiver"${a.hasCaregiver ? " checked" : ""}> A caregiver who helps with the kids</label>
-      ${a.hasCaregiver ? `<label class="wiz-field"><span>Their name</span>
-        <input class="wiz-input" data-wiz="caregiverName" value="${escapeHtml(a.caregiverName)}" maxlength="60"></label>` : ""}
-      <div class="wiz-field"><span>Kids</span>
-        ${a.kids.length ? `<ul class="wiz-list">${a.kids.map((k, i) => `<li><span>${escapeHtml(k)}</span>
-          <button type="button" class="wiz-remove" data-wiz-act="removeKid" data-i="${i}" aria-label="Remove ${escapeHtml(k)}">Remove</button></li>`).join("")}</ul>` : ""}
-        <div class="wiz-row">
-          <input class="wiz-input" data-wiz="kidDraft" value="${escapeHtml(a.kidDraft)}" placeholder="Child's name" maxlength="60" aria-label="Child's name">
-          <button type="button" class="hh-cta-secondary" style="flex:0 0 88px" data-wiz-act="addKid">Add</button>
+      <h3 class="wiz-title">Who else lives there?</h3>
+      <p class="wiz-help">Add everyone else in the household. Skip this if it's just you.</p>
+      ${a.others.length ? `<ul class="wiz-list">${a.others.map((o) => `<li><span>${escapeHtml(o.name)} <small style="color:var(--text-2)">· ${escapeHtml(wizKindLabel(o.kind))}</small></span>
+        <button type="button" class="wiz-remove" data-wiz-act="removeOther" data-key="${o.key}" aria-label="Remove ${escapeHtml(o.name)}">Remove</button></li>`).join("")}</ul>` : ""}
+      <label class="wiz-field"><span>Who they are</span>
+        <select class="wiz-select" data-wiz="draftKind">${NucleusModel.OTHER_KINDS.map((k) => `<option value="${k.value}"${k.value === a.draftKind ? " selected" : ""}>${escapeHtml(k.label)}</option>`).join("")}</select></label>
+      <div class="wiz-row" style="margin-bottom:16px">
+        <input class="wiz-input" data-wiz="draftName" value="${escapeHtml(a.draftName)}" placeholder="Their name" maxlength="60" aria-label="Their name">
+        <button type="button" class="hh-cta-secondary" style="flex:0 0 88px" data-wiz-act="addOther">Add</button>
+      </div>
+      <div class="wiz-field"><span>How many kids live there?</span>
+        <div class="wiz-row" style="justify-content:flex-start">
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 52px" data-wiz-act="kidsDown" aria-label="One fewer">−</button>
+          <strong aria-live="polite" style="flex:0 0 40px;text-align:center;font-size:18px">${a.kids}</strong>
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 52px" data-wiz-act="kidsUp" aria-label="One more">+</button>
         </div>
       </div>
-      <p class="wiz-help">Nucleus plans who has the kids when there are kids in the household.</p>`;
+      <p class="wiz-help">With kids in the household, Nucleus plans who has them while the adults work.</p>`;
     case "shifts": return `
       <h3 class="wiz-title">Which shifts does anyone work?</h3>
       <p class="wiz-help">Pick the usual ones, and add any others. Skip this if nobody works shifts.</p>
@@ -8011,25 +8049,18 @@ function wizStepHtml(step) {
       <h3 class="wiz-title">Your usual week</h3>
       <p class="wiz-help">Pick a shift for each day you normally work.</p>
       ${wizWeekHtml("me", a.me, "My")}`;
-    case "partner": return `
-      <h3 class="wiz-title">${escapeHtml(a.partner.name)}'s work</h3>
-      <label class="wiz-field"><span>Where they work (optional)</span>
-        <input class="wiz-input" data-wiz="partner.employer" value="${escapeHtml(a.partner.employer)}" maxlength="120"></label>
-      ${wizPaydayHtml("partner", a.partner)}
-      ${wizShiftTypes().length ? wizWeekHtml("partner", a.partner, "Their") : ""}`;
     case "home": return `
       <h3 class="wiz-title">Leave-by times</h3>
       <p class="wiz-help">With your home address, Nucleus works out when to leave for each shift and warns about heavy traffic. Optional — you can add it later.</p>
       ${a.home ? `<ul class="wiz-list"><li><span>${escapeHtml(a.home.label)}</span>
         <button type="button" class="wiz-remove" data-wiz-act="clearHome">Change</button></li></ul>` : `
         <label class="wiz-field"><span>Home address</span>
-          <input class="wiz-input" data-wiz="homeQuery" value="${escapeHtml(a.homeQuery)}" placeholder="Start typing your address" autocomplete="off"></label>
-        ${a.homeSuggestions.length ? `<ul class="wiz-suggest">${a.homeSuggestions.map((sug, i) => `<li><button type="button" data-wiz-act="pickHome" data-i="${i}">
-          ${escapeHtml(sug.name)}<small>${escapeHtml(sug.detail || "")}</small></button></li>`).join("")}</ul>` : ""}`}`;
+          ${wizPlaceHtml("home", "homeQuery", a.homeQuery, null, "Start typing your address")}</label>`}`;
     case "review": {
       const ans = wizAnswers();
-      const who = [ans.me.name, ans.partner && ans.partner.name, ans.caregiver && `${ans.caregiver.name} (caregiver)`]
-        .concat(ans.kids.map((k) => `${k} (child)`)).filter(Boolean).join(", ");
+      const describes = (NucleusModel.DESCRIBES.find((d) => d.value === ans.me.describes) || {}).label || "";
+      const who = [`${ans.me.name} (${describes.toLowerCase()})`]
+        .concat(ans.others.map((o) => `${o.name} (${wizKindLabel(o.kind).toLowerCase()})`)).join(", ");
       const at = (id) => { const t = ans.shiftTypes.find((st) => st.id === id); return t ? compactTime(t.start) : "off"; };
       const weekText = (x) => {
         if (!x.week) return "Changes every week";
@@ -8043,11 +8074,12 @@ function wizStepHtml(step) {
       return `
         <h3 class="wiz-title">Look right?</h3>
         <dl class="wiz-review">
-          <dt>Household</dt><dd>${escapeHtml(ans.householdName)} · ${escapeHtml(ans.timeZone)}</dd>
+          <dt>Household</dt><dd>${escapeHtml(ans.householdName)} · ${escapeHtml(NucleusModel.timeZoneLabel(ans.timeZone))}</dd>
           <dt>People</dt><dd>${escapeHtml(who)}</dd>
+          <dt>Kids</dt><dd>${ans.kids || "None"}</dd>
           <dt>Shifts</dt><dd>${escapeHtml(ans.shiftTypes.map((t) => t.name).join(", ") || "None")}</dd>
           ${ans.shiftTypes.length ? `<dt>${escapeHtml(ans.me.name)}'s week</dt><dd>${escapeHtml(weekText(ans.me))}</dd>` : ""}
-          ${ans.partner && ans.shiftTypes.length ? `<dt>${escapeHtml(ans.partner.name)}'s week</dt><dd>${escapeHtml(weekText(ans.partner))}</dd>` : ""}
+          ${ans.shiftTypes.length ? ans.others.filter((o) => o.kind === "partner").map((o) => `<dt>${escapeHtml(o.name)}'s week</dt><dd>${escapeHtml(weekText(o))}</dd>`).join("") : ""}
           <dt>Home</dt><dd>${escapeHtml(ans.integrations.commuteHome ? ans.integrations.commuteHome.label : "Not set")}</dd>
         </dl>`;
     }
@@ -8062,9 +8094,9 @@ function wizRender() {
     box.innerHTML = `<div class="hh-card" style="text-align:center;">
       <h3 class="wiz-title">${escapeHtml(wiz.householdName.trim())} is ready</h3>
       <p class="wiz-help">Share these so the others can join from their own phone or Mac.</p>
-      ${wiz.hasPartner ? `<div class="wiz-code-label">${escapeHtml(wiz.partner.name.trim())}'s code</div>` : `<div class="wiz-code-label">Code for a partner</div>`}
+      <div class="wiz-code-label">Household code (partner, roommate or family)</div>
       <div class="invite-code-display">${escapeHtml(wiz.codes.partner)}</div>
-      ${wiz.codes.caregiver ? `<div class="wiz-code-label">${escapeHtml(wiz.caregiverName.trim())}'s code (caregiver)</div>
+      ${wiz.codes.caregiver ? `<div class="wiz-code-label">Caregiver's code</div>
         <div class="invite-code-display">${escapeHtml(wiz.codes.caregiver)}</div>` : ""}
       <button type="button" class="hh-cta-primary" data-wiz-act="finish">Open Nucleus</button>
     </div>`;
@@ -8088,42 +8120,64 @@ function wizRender() {
       <div class="hh-error" role="alert">${escapeHtml(wiz.error)}</div>
       <div class="wiz-nav">
         <button type="button" class="hh-cta-secondary" data-wiz-act="back">${wiz.step === 0 ? "Cancel" : "Back"}</button>
-        <button type="button" class="hh-cta-primary" data-wiz-act="next"${wiz.creating ? " disabled" : ""}>${last ? (wiz.creating ? "Creating…" : "Create household") : "Continue"}</button>
+        <button type="button" class="hh-cta-primary wiz-next" data-wiz-act="next"${wiz.creating ? " disabled" : ""}>${last ? (wiz.creating ? "Creating…" : "Create household") : "Next"}</button>
       </div>
     </div>`;
 }
 
+// The draft behind a data-wiz path: "me", "other.<key>" (a partner's work),
+// or the wizard itself.
+function wizTarget(path) {
+  if (path[0] === "me") return { obj: wiz.me, rest: path.slice(1) };
+  if (path[0] === "other") {
+    const o = wiz.others.find((x) => x.key === path[1]);
+    return { obj: o ? o.work : {}, rest: path.slice(2) };
+  }
+  return { obj: wiz, rest: path };
+}
+
 // Inputs write straight into `wiz`; only fields that change what's shown
 // re-render (so typing never loses focus).
-const WIZ_RERENDER = /^(hasPartner|hasCaregiver|me\.payFreq|partner\.payFreq|me\.changing|partner\.changing|me\.alt|partner\.alt)$/;
+const WIZ_RERENDER = /(^|\.)(payFreq|changing|alt)$/;
 function wizSet(key, el) {
   const v = el.type === "checkbox" ? el.checked : el.value;
-  const parts = key.split(".");
-  if (parts[1] === "day") { wiz[parts[0]].days[Number(parts[2])] = v || null; return; }
-  if (/Shift$/.test(parts[1] || "")) { wiz[parts[0]][parts[1]] = v || null; return; }
-  let o = wiz;
-  for (const k of parts.slice(0, -1)) o = o[k];
-  o[parts[parts.length - 1]] = v;
+  const { obj, rest } = wizTarget(key.split("."));
+  if (rest[0] === "day") { obj.days[Number(rest[1])] = v || null; return; }
+  if (/Shift$/.test(rest[0] || "")) { obj[rest[0]] = v || null; return; }
+  let o = obj;
+  for (const k of rest.slice(0, -1)) o = o[k];
+  o[rest[rest.length - 1]] = v;
+  // Typing over a picked workplace unpicks it.
+  if (rest[0] === "employer") obj.workplace = null;
   if (WIZ_RERENDER.test(key)) wizRender();
 }
 
-let _wizHomeTimer = null;
-function wizSearchHome() {
-  clearTimeout(_wizHomeTimer);
-  const q = wiz.homeQuery.trim();
-  if (q.length < 3) { wiz.homeSuggestions = []; return; }
-  _wizHomeTimer = setTimeout(async () => {
+let _wizPlaceTimer = null;
+function wizSearchPlace(field, query) {
+  clearTimeout(_wizPlaceTimer);
+  const q = String(query || "").trim();
+  if (q.length < 3) {
+    if (wiz.search.field === field && wiz.search.results.length) { wiz.search = { field: null, results: [] }; wizRenderKeepingFocus(); }
+    return;
+  }
+  _wizPlaceTimer = setTimeout(async () => {
     try {
-      const r = await firebase.functions().httpsCallable("placesAutocomplete")({ input: q, sessionToken: wiz.homeSession });
-      if (!wiz || wiz.homeQuery.trim() !== q) return;
-      wiz.homeSuggestions = (r.data && r.data.suggestions) || [];
-      const input = document.querySelector('#hhWizard [data-wiz="homeQuery"]');
-      const pos = input ? input.selectionStart : null;
-      wizRender();
-      const again = document.querySelector('#hhWizard [data-wiz="homeQuery"]');
-      if (again) { again.focus(); if (pos != null) again.setSelectionRange(pos, pos); }
+      const r = await firebase.functions().httpsCallable("placesAutocomplete")({ input: q, sessionToken: wiz.session });
+      if (!wiz) return;
+      wiz.search = { field, results: (r.data && r.data.suggestions) || [] };
+      wizRenderKeepingFocus();
     } catch (e) { console.warn("address search:", e); }
   }, 300);
+}
+
+function wizRenderKeepingFocus() {
+  const el = document.activeElement;
+  const key = el && el.getAttribute && el.getAttribute("data-wiz");
+  const pos = el && typeof el.selectionStart === "number" ? el.selectionStart : null;
+  wizRender();
+  if (!key) return;
+  const again = document.querySelector(`#hhWizard [data-wiz="${key}"]`);
+  if (again) { again.focus(); if (pos != null && again.setSelectionRange) again.setSelectionRange(pos, pos); }
 }
 
 async function wizCreate() {
@@ -8158,7 +8212,8 @@ async function wizCreate() {
     const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
     if (!key || !wiz) return;
     wizSet(key, e.target);
-    if (key === "homeQuery") wizSearchHome();
+    const field = e.target.getAttribute("data-place");
+    if (field) wizSearchPlace(field, e.target.value);
   });
   box.addEventListener("change", (e) => {
     const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
@@ -8167,7 +8222,7 @@ async function wizCreate() {
   box.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || !wiz) return;
     const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
-    if (key === "kidDraft") { e.preventDefault(); box.querySelector('[data-wiz-act="addKid"]').click(); }
+    if (key === "draftName") { e.preventDefault(); box.querySelector('[data-wiz-act="addOther"]').click(); }
   });
   box.addEventListener("click", (e) => {
     const btn = e.target.closest && e.target.closest("[data-wiz-act]");
@@ -8180,23 +8235,35 @@ async function wizCreate() {
       const msg = wizCheckStep(steps[wiz.step]);
       if (msg) { wiz.error = msg; wizRender(); return; }
       if (wiz.step === steps.length - 1) { wizCreate(); return; }
+      wiz.search = { field: null, results: [] };
       wiz.step++;
     } else if (act === "back") {
       if (wiz.step === 0) {
         wiz = null;
         box.style.display = "none";
         box.innerHTML = "";
+        document.getElementById("householdScreen").classList.remove("hh-setup");
         document.getElementById("hhChoiceView").style.display = "flex";
         document.querySelector("#householdScreen .hh-hero h2").textContent = "Join a household";
         document.getElementById("hhGreeting").textContent = "Create a new household, or join with an invite code from your partner.";
         return;
       }
+      wiz.search = { field: null, results: [] };
       wiz.step--;
-    } else if (act === "addKid") {
-      const k = wiz.kidDraft.trim();
-      if (k) { wiz.kids.push(k); wiz.kidDraft = ""; }
-    } else if (act === "removeKid") {
-      wiz.kids.splice(i, 1);
+    } else if (act === "addOther") {
+      const n = wiz.draftName.trim();
+      if (!n) { wiz.error = "Add their name."; }
+      else {
+        wiz.others.push({ key: Math.random().toString(36).slice(2, 8), kind: wiz.draftKind, name: n, work: wizWork() });
+        wiz.draftName = "";
+      }
+    } else if (act === "removeOther") {
+      const key = btn.getAttribute("data-key");
+      wiz.others = wiz.others.filter((o) => o.key !== key);
+    } else if (act === "kidsUp") {
+      wiz.kids = Math.min(20, wiz.kids + 1);
+    } else if (act === "kidsDown") {
+      wiz.kids = Math.max(0, wiz.kids - 1);
     } else if (act === "preset") {
       const id = btn.getAttribute("data-id");
       if (wiz.presets.has(id)) wiz.presets.delete(id); else wiz.presets.add(id);
@@ -8210,18 +8277,29 @@ async function wizCreate() {
       }
     } else if (act === "removeCustom") {
       const [gone] = wiz.custom.splice(i, 1);
-      for (const a of [wiz.me, wiz.partner]) {
-        a.days = a.days.map((d) => (d === gone.id ? null : d));
-        if (a.altSatShift === gone.id) a.altSatShift = null;
-        if (a.altSunShift === gone.id) a.altSunShift = null;
+      for (const w of [wiz.me].concat(wiz.others.map((o) => o.work))) {
+        w.days = w.days.map((d) => (d === gone.id ? null : d));
+        if (w.altSatShift === gone.id) w.altSatShift = null;
+        if (w.altSunShift === gone.id) w.altSunShift = null;
       }
-    } else if (act === "pickHome") {
-      const sug = wiz.homeSuggestions[i];
-      if (sug) wiz.home = { placeId: sug.placeId, label: sug.detail ? `${sug.name}, ${sug.detail}` : sug.name };
-      wiz.homeSuggestions = [];
+    } else if (act === "pickPlace") {
+      const field = btn.getAttribute("data-field");
+      const sug = wiz.search.field === field ? wiz.search.results[i] : null;
+      if (sug) {
+        const place = { placeId: sug.placeId, label: sug.detail ? `${sug.name}, ${sug.detail}` : sug.name };
+        if (field === "home") { wiz.home = place; }
+        else {
+          const who = field.slice("work:".length);
+          const { obj } = wizTarget(who.split("."));
+          obj.employer = sug.name;
+          obj.workplace = place;
+        }
+      }
+      wiz.search = { field: null, results: [] };
     } else if (act === "clearHome") {
       wiz.home = null; wiz.homeQuery = "";
     } else if (act === "finish") {
+      document.getElementById("householdScreen").classList.remove("hh-setup");
       resolveHousehold(currentUser);
       return;
     }

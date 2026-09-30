@@ -160,7 +160,8 @@ function withCustomTypes(model: HouseholdModel): { shiftTypes: ShiftType[] } {
  */
 export function coverageGaps(model: HouseholdModel, shifts: PersonShiftMap): OverlapCandidate[] {
   if (!model.root.childcare) return [];
-  const adults = model.people.filter((p) => p.role === "adult").sort(byOrder);
+  // The adults the kids can be left with (a roommate, say, isn't one).
+  const adults = model.people.filter((p) => p.role === "adult" && p.watchesKids !== false).sort(byOrder);
   if (adults.length === 0) return [];
   const engine = withCustomTypes(model);
 

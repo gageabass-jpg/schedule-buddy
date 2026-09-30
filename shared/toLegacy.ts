@@ -39,9 +39,15 @@ export function toLegacy(model: HouseholdModel): LegacyView {
   const hidden: string[] = [];
   const adults = model.people.filter((p) => p.role === "adult").sort(byOrder);
   const caregivers = model.people.filter((p) => p.role === "caregiver").sort(byOrder);
-  const [g, k] = adults;
+  // "Self" is the first adult; the partner slot takes the first partner (a
+  // person with no relation is from before relations, so a partner too) —
+  // never a roommate or other adult, whatever order they were added in.
+  const g = adults[0];
+  const k = adults.find((p) => p !== g && (p.relation === "partner" || p.relation === undefined));
   const d = caregivers[0];
-  for (const p of [...adults.slice(2), ...caregivers.slice(1)]) hidden.push(`${p.name} (${p.role}) has no legacy slot`);
+  for (const p of [...adults.filter((a) => a !== g && a !== k), ...caregivers.slice(1)]) {
+    hidden.push(`${p.name} (${p.relation ?? p.role}) has no legacy slot`);
+  }
 
   const people: LegacyPeople = { G: g?.id ?? "", ...(k ? { K: k.id } : {}), ...(d ? { D: d.id } : {}) };
   const slotOf = new Map<string, "G" | "K" | "D">();

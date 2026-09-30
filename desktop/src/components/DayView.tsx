@@ -8,6 +8,7 @@ import { EventAvatar } from "./EventAvatar";
 import { BlockTip } from "./BlockTip";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 import { assignLanes, laneBox, type Span } from "../lib/lanes";
+import { useHouseholdLook } from "../lib/householdLook";
 
 const COVERAGE_COLOR = "#0F6E64";
 
@@ -118,6 +119,7 @@ export function DayView({
   palette, t, dark, shifts, state, selected, today, selfName, partnerName,
   events, onEditEvent, wvuGames,
 }: Props) {
+  const look = useHouseholdLook();
   const [y, m, d] = selected.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   const isToday = selected === today;
@@ -204,7 +206,7 @@ export function DayView({
             {DAYS_LONG[date.getDay()]}
           </div>
           <div style={{ fontSize: 12, color: t.text2 }}>
-            {list.length === 0 ? "Both off — free day." : `${list.length} shift${list.length === 1 ? "" : "s"}`}
+            {list.length === 0 ? (look.hasPartner ? "Both off — free day." : "Day off.") : `${list.length} shift${list.length === 1 ? "" : "s"}`}
           </div>
           {wvuGame && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>

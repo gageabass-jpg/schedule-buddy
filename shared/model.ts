@@ -41,6 +41,14 @@ export type PersonRole = "adult" | "caregiver" | "child";
  */
 export type PersonColor = "teal" | "clay" | "ink" | string;
 
+/** Who a person is to the household. `role` decides what the schedule does
+ *  with them; this is how the household describes them. */
+export type Relation = "self" | "partner" | "roommate" | "family" | "caregiver" | "other";
+
+/** How the person who set the household up describes themself. Stored so
+ *  the app can tailor its questions and views later. */
+export type Describes = "head" | "manager" | "parent" | "caregiver" | "roommate" | "other";
+
 export interface Person {
   /** Stable id (p_…). Never a name: names change and aren't unique. */
   id: string;
@@ -53,6 +61,11 @@ export interface Person {
   photoPath?: string;
   /** Display order, lowest first. */
   order: number;
+  relation?: Relation;
+  describes?: Describes;
+  /** Counts as someone who can watch the kids when coverage is planned.
+   *  Absent = yes for an adult. */
+  watchesKids?: boolean;
   /** Where they work; a shift's "where" when the shift doesn't name one. */
   employer?: string;
   payday?: PaydaySchedule;
@@ -161,6 +174,10 @@ export interface HouseholdRoot {
   createdBy: string;
   /** false = don't show WVU football game days (see HouseholdMeta). */
   wvuFootball?: boolean;
+  /** false = don't show the bundled family photos (see HouseholdMeta). */
+  familyPhotos?: boolean;
+  /** How many kids live there (only the number is asked). */
+  childCount?: number;
 }
 
 /** households/{hid}/settings/main — admin/partner only. */

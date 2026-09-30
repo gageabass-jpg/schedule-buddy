@@ -3,7 +3,9 @@
 // household holds exactly what its admin entered. Firebase-free; the apps
 // write the result with createHousehold (tests/onboarding.test.mjs).
 
-import { SCHEMA_VERSION, type HouseholdModel, type HouseholdRoot, type Person } from "./model";
+import {
+  SCHEMA_VERSION, type Describes, type HouseholdModel, type HouseholdRoot, type Person, type Relation,
+} from "./model";
 import { writeModel, type DocStore } from "./store";
 import type { PaydaySchedule, ShiftType, TemplateSlot } from "./state";
 
@@ -17,28 +19,56 @@ export interface WeekAnswer {
   altWeekend?: { refSat: string; sat: string | null; sun: string | null };
 }
 
-export interface AdultAnswer {
-  name: string;
+/** A place picked from the address search. */
+export interface PlaceAnswer { placeId: string; label: string }
+
+export interface WorkAnswer {
   employer?: string;
+  /** Where they work, from the address search — for leave-by times. */
+  workplace?: PlaceAnswer;
   payday?: PaydaySchedule;
   /** Absent = their schedule changes week to week; they add shifts as they come. */
   week?: WeekAnswer;
+}
+
+/** Someone else in the household. Partners get the work questions. */
+export type OtherKind = Exclude<Relation, "self">;
+export interface OtherAnswer extends WorkAnswer {
+  kind: OtherKind;
+  name: string;
 }
 
 export interface SetupAnswers {
   householdName: string;
   /** IANA id, e.g. "America/New_York". */
   timeZone: string;
-  me: AdultAnswer;
-  partner?: AdultAnswer;
-  caregiver?: { name: string };
-  kids: string[];
+  me: WorkAnswer & { name: string; describes: Describes };
+  others: OtherAnswer[];
+  /** How many kids live there. Only the number is asked. */
+  kids: number;
   shiftTypes: ShiftType[];
   integrations: {
     /** Home address for "leave by" times and traffic alerts. */
-    commuteHome?: { placeId: string; label: string };
+    commuteHome?: PlaceAnswer;
   };
 }
+
+export const DESCRIBES: Array<{ value: Describes; label: string }> = [
+  { value: "head", label: "Head of household" },
+  { value: "manager", label: "I manage the household's schedule" },
+  { value: "parent", label: "Parent or guardian" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "roommate", label: "Roommate" },
+  { value: "other", label: "Something else" },
+];
+
+export const OTHER_KINDS: Array<{ value: OtherKind; label: string }> = [
+  { value: "partner", label: "Partner" },
+  { value: "roommate", label: "Roommate" },
+  { value: "family", label: "Family member" },
+  { value: "caregiver", label: "Caregiver" },
+  { value: "other", label: "Someone else" },
+];
 
 // ── Shift type presets ─────────────────────────────────────────────────────
 
@@ -53,6 +83,38 @@ export const SHIFT_PRESETS: ShiftType[] = [
   { id: "night8", name: "Night 8h", start: "23:00", end: "07:30", crossesMidnight: true, sleepHours: 7 },
   { id: "office", name: "9 to 5", start: "09:00", end: "17:00", crossesMidnight: false },
 ];
+
+// ── Time zones, readably ───────────────────────────────────────────────────
+
+/** "New York · Eastern Time" for "America/New_York". */
+export function timeZoneLabel(tz: string): string {
+  const city = (tz.split("/").pop() ?? tz).replace(/_/g, " ");
+  let zone = "";
+  try {
+    zone = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longGeneric" })
+      .formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? "";
+  } catch { /* an engine without longGeneric: the city alone */ }
+  return zone && zone !== city ? `${city} · ${zone}` : city;
+}
+
+const US_ZONES = [
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+  "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+];
+
+/** The choices for the time zone picker: the detected zone and the US zones
+ *  first, then the rest of the world by name. */
+export function timeZoneChoices(detected: string): Array<{ value: string; label: string }> {
+  let all: string[] = [];
+  try {
+    all = (Intl as unknown as { supportedValuesOf(k: string): string[] }).supportedValuesOf("timeZone");
+  } catch { /* older engines: the short list */ }
+  const first = [...new Set([detected, ...US_ZONES])].filter((z) => isValidTimeZone(z));
+  const rest = all.filter((z) => !first.includes(z))
+    .map((z) => ({ value: z, label: timeZoneLabel(z) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  return [...first.map((z) => ({ value: z, label: timeZoneLabel(z) })), ...rest];
+}
 
 // ── Checks ─────────────────────────────────────────────────────────────────
 
@@ -86,6 +148,12 @@ export function isValidTimeZone(tz: string): boolean {
 function isSaturday(iso: string): boolean {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).getDay() === 6;
+}
+
+function place(p: PlaceAnswer | undefined, what: string): PlaceAnswer | undefined {
+  if (!p) return undefined;
+  if (!optionalText(p.placeId, 300) || !optionalText(p.label, 300)) throw new SetupError(`Pick ${what} from the list.`);
+  return { placeId: p.placeId, label: p.label };
 }
 
 /** The answers, checked and tidied. Throws SetupError with what to fix. */
@@ -125,28 +193,35 @@ export function checkAnswers(a: SetupAnswers): SetupAnswers {
     }
     return { anchor: p.anchor, freq: p.freq };
   };
-  const adult = (x: AdultAnswer, what: string): AdultAnswer => {
-    const n = name(x.name, what);
-    return { name: n, employer: optionalText(x.employer), payday: payday(x.payday, n), week: week(x.week, n) };
-  };
+  const work = (x: WorkAnswer, who: string): WorkAnswer => ({
+    employer: optionalText(x.employer),
+    workplace: place(x.workplace, `${who}'s workplace`),
+    payday: payday(x.payday, who),
+    week: week(x.week, who),
+  });
 
-  const kids = (a.kids ?? []).map((k) => name(k, "Each child's name"));
-  if (kids.length > 12) throw new SetupError("That's a lot of kids — add the rest later.");
+  const meName = name(a.me?.name, "Your name");
+  if (!DESCRIBES.some((d) => d.value === a.me?.describes)) throw new SetupError("Pick what best describes you.");
+  const kinds = new Set(OTHER_KINDS.map((k) => k.value));
+  const others = (a.others ?? []).map((o): OtherAnswer => {
+    if (!kinds.has(o.kind)) throw new SetupError("Pick who each person is.");
+    const n = name(o.name, "Each person's name");
+    // Only partners are asked about work (for now); anything else is dropped.
+    return o.kind === "partner" ? { kind: o.kind, name: n, ...work(o, n) } : { kind: o.kind, name: n };
+  });
+  if (others.length > 20) throw new SetupError("That's a lot of people — add the rest later.");
 
-  const home = a.integrations?.commuteHome;
-  if (home && (!optionalText(home.placeId, 300) || !optionalText(home.label, 300))) {
-    throw new SetupError("Pick your home address from the list.");
-  }
+  const kids = Number(a.kids ?? 0);
+  if (!Number.isInteger(kids) || kids < 0 || kids > 20) throw new SetupError("How many kids live there?");
 
   return {
     householdName,
     timeZone: a.timeZone,
-    me: adult(a.me, "Your name"),
-    partner: a.partner ? adult(a.partner, "Your partner's name") : undefined,
-    caregiver: a.caregiver ? { name: name(a.caregiver.name, "Your caregiver's name") } : undefined,
+    me: { name: meName, describes: a.me.describes, ...work(a.me, meName) },
+    others,
     kids,
     shiftTypes: types.map((t) => ({ ...t, name: t.name.trim(), crossesMidnight: t.end <= t.start })),
-    integrations: { commuteHome: home },
+    integrations: { commuteHome: place(a.integrations?.commuteHome, "your home address") },
   };
 }
 
@@ -155,11 +230,12 @@ export function checkAnswers(a: SetupAnswers): SetupAnswers {
 export interface NewHousehold {
   root: HouseholdRoot;
   model: HouseholdModel;
-  /** The partner's invite code (the household's own) and, when there's a
-   *  caregiver, theirs. */
+  /** The household's code (for a partner, roommate or family member) and,
+   *  when there's a caregiver, theirs. */
   codes: { partner: string; caregiver?: string };
-  /** For private/commute. */
-  commuteHome?: { placeId: string; label: string };
+  /** For private/commute: home, and each adult's workplace by legacy slot
+   *  (G = you, K = your partner), which is how the leave-by times key them. */
+  commute?: { home?: PlaceAnswer; work?: { G?: PlaceAnswer; K?: PlaceAnswer } };
 }
 
 export interface SetupContext {
@@ -182,41 +258,75 @@ export function randomInviteCode(rand: () => number = Math.random): string {
   return s;
 }
 
+/**
+ * Who counts toward childcare coverage, until the household says otherwise:
+ * partners and family members do, roommates and anyone else don't.
+ */
+const WATCHES_KIDS: Record<OtherKind, boolean> = {
+  partner: true, family: true, roommate: false, other: false, caregiver: true,
+};
+
 export function buildHousehold(answers: SetupAnswers, ctx: SetupContext): NewHousehold {
   const a = checkAnswers(answers);
   let n = 0;
   const people: Person[] = [];
   const clean = <T extends object>(o: T): T =>
     Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
-
-  const adult = (x: AdultAnswer, color: string, uid?: string): Person => clean({
-    id: ctx.personId(n), name: x.name, role: "adult" as const, uid, color, order: n++,
+  const workFields = (x: WorkAnswer) => ({
     employer: x.employer, payday: x.payday,
     weekly: x.week ? { days: x.week.days as TemplateSlot[] } : undefined,
     altWeekend: x.week?.altWeekend ? { enabled: true, ...x.week.altWeekend } : undefined,
   });
-  people.push(adult(a.me, "teal", ctx.uid));
-  if (a.partner) people.push(adult(a.partner, "clay"));
-  if (a.caregiver) people.push({ id: ctx.personId(n), name: a.caregiver.name, role: "caregiver", color: "ink", order: n++ });
-  for (const kid of a.kids) people.push({ id: ctx.personId(n), name: kid, role: "child", order: n++ });
+
+  people.push(clean({
+    id: ctx.personId(n), name: a.me.name, role: "adult" as const, relation: "self" as const,
+    describes: a.me.describes, uid: ctx.uid, color: "teal", order: n++, ...workFields(a.me),
+  }));
+  let partnerSeen = false;
+  let caregiverSeen = false;
+  for (const o of a.others) {
+    if (o.kind === "caregiver") {
+      people.push(clean({
+        id: ctx.personId(n), name: o.name, role: "caregiver" as const, relation: "caregiver" as const,
+        color: caregiverSeen ? undefined : "ink", order: n++,
+      }));
+      caregiverSeen = true;
+      continue;
+    }
+    // The first partner gets Clay; anyone else has no colour of their own yet.
+    const color = o.kind === "partner" && !partnerSeen ? "clay" : undefined;
+    if (o.kind === "partner") partnerSeen = true;
+    people.push(clean({
+      id: ctx.personId(n), name: o.name, role: "adult" as const, relation: o.kind,
+      watchesKids: WATCHES_KIDS[o.kind] ? undefined : false, color, order: n++,
+      ...(o.kind === "partner" ? workFields(o) : {}),
+    }));
+  }
 
   const partnerCode = ctx.inviteCode();
-  let caregiverCode = a.caregiver ? ctx.inviteCode() : undefined;
+  let caregiverCode = caregiverSeen ? ctx.inviteCode() : undefined;
   while (caregiverCode === partnerCode) caregiverCode = ctx.inviteCode();
 
   const root: HouseholdRoot = {
     name: a.householdName,
     timeZone: a.timeZone,
     schemaVersion: SCHEMA_VERSION,
-    childcare: a.kids.length > 0,
+    childcare: a.kids > 0,
+    childCount: a.kids,
     memberUids: [ctx.uid],
     memberNames: { [ctx.uid]: name(ctx.accountName || a.me.name, "Your name") },
     roles: { [ctx.uid]: "admin" },
     inviteCode: partnerCode,
     createdBy: ctx.uid,
-    // WVU game days were built for one family; a new household doesn't get them.
+    // WVU game days and the bundled photos were built for one family; a new
+    // household doesn't get them.
     wvuFootball: false,
+    familyPhotos: false,
   };
+
+  const firstPartner = a.others.find((o) => o.kind === "partner");
+  const work = clean({ G: a.me.workplace, K: firstPartner?.workplace });
+  const commute = clean({ home: a.integrations.commuteHome, work: Object.keys(work).length ? work : undefined });
 
   return {
     root,
@@ -229,14 +339,14 @@ export function buildHousehold(answers: SetupAnswers, ctx: SetupContext): NewHou
       caregiverOff: [], occasions: [], shiftOffers: [], imports: [],
     },
     codes: clean({ partner: partnerCode, caregiver: caregiverCode }),
-    commuteHome: a.integrations.commuteHome,
+    commute: Object.keys(commute).length ? commute : undefined,
   };
 }
 
 /**
  * Create the household: the household record first (which makes the caller
  * its admin, so the rules allow the rest), then its invite codes, records
- * and commute home.
+ * and commute settings.
  */
 export async function createHousehold(store: DocStore, householdId: string, h: NewHousehold,
   now: number): Promise<void> {
@@ -250,7 +360,7 @@ export async function createHousehold(store: DocStore, householdId: string, h: N
   ];
   await store.write(codes);
   await writeModel(store, householdId, h.model);
-  if (h.commuteHome) {
-    await store.write([{ op: "merge", path: `${hh}/private/commute`, data: { home: h.commuteHome } }]);
+  if (h.commute) {
+    await store.write([{ op: "merge", path: `${hh}/private/commute`, data: h.commute as unknown as Record<string, unknown> }]);
   }
 }

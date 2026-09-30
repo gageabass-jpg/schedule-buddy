@@ -156,7 +156,7 @@ export const collectionPath = (hid: string, key: CollectionKey | "people" | "per
  * every member may read, and their details (personDetails/{pid}) — pay,
  * employer, their week — which only admin/partner and the person themself may.
  */
-const IDENTITY = ["name", "role", "uid", "color", "photoPath", "order"] as const;
+const IDENTITY = ["name", "role", "relation", "uid", "color", "photoPath", "order"] as const;
 
 export function splitPerson(p: Person): { identity: Data; details: Data } {
   const identity: Data = {};

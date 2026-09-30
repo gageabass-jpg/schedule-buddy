@@ -44,6 +44,7 @@ import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
 import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
+import { HouseholdLookContext, lookOf } from "./lib/householdLook";
 import { SetupWizard } from "./components/SetupWizard";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { NewShiftModal } from "./components/NewShiftModal";
@@ -305,6 +306,12 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   const rawState: HouseholdState | null =
     householdStatus.status === "ready" ? householdStatus.state : null;
   const state: HouseholdState | null = rawState ? expandCustomTemplateTypes(rawState) : null;
+  // Who's really in the household, for the screens first built for one family.
+  const look = useMemo(
+    () => lookOf(householdStatus.status === "ready" ? householdStatus.household : null, state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [householdStatus, rawState],
+  );
 
   // A notice whenever the schedule changes — including changes someone else
   // made, which arrive here as a new snapshot.
@@ -654,6 +661,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   }
 
   return (
+    <HouseholdLookContext.Provider value={look}>
     <div
       style={{
         display: "flex",
@@ -1068,6 +1076,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         )}
       </ModalPresence>
     </div>
+    </HouseholdLookContext.Provider>
   );
 }
 

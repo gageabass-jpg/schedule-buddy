@@ -16,6 +16,7 @@ import { HolidayPayTag } from "./HolidayPayTag";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
 import { TriangleAlertIcon, type TriangleAlertIconHandle } from "@/components/ui/triangle-alert";
+import { useHouseholdLook } from "../lib/householdLook";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -63,6 +64,7 @@ export function DayDetailPopover({
   onClose, date, dayShifts, events, anchor, t, palette, dark, state,
   selfName, partnerName, isCoverageGap, careConfirmed, flag, onFlag, wvuGame, stretch, onOpenShift, onNewShift, onAsk,
 }: Props) {
+  const look = useHouseholdLook();
   const cardRef = useRef<HTMLDivElement>(null);
   // Position from an estimate so the card is visible on the first paint, then
   // refine once the real height is known (it varies with the shift count).
@@ -82,7 +84,7 @@ export function DayDetailPopover({
   const block = (state?.scheduleBlocks ?? []).find((b) => b.startDate <= date && date <= b.endDate);
   const holiday = holidayOn(date);
   const title =
-    kind === "off" ? "Both off"
+    kind === "off" ? (look.hasPartner ? "Both off" : "Day off")
       : kind === "both" ? "Both working"
         : kind === "g" ? `${selfName} works`
           : `${partnerName} works`;

@@ -7,6 +7,7 @@ import { PhotoAv } from "./PhotoAv";
 import { BrandMark, BRAND_FONT, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./BrandMark";
 import { TwinOrbit } from "./ui/twin-orbit";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface SidebarProps {
   palette: Palette;
@@ -43,6 +44,7 @@ export function Sidebar({
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
   onOpenFamilyConsole, onSendCoverage, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
+  const look = useHouseholdLook();
   return (
     <div
       style={{
@@ -137,21 +139,25 @@ export function Sidebar({
           onClick={onToggleThisWeek}
           t={t}
         />
-        <ListRow
-          label="Both working"
-          count={viewCounts.both}
-          active={viewFilter === "both"}
-          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-          t={t}
-        />
-        <ListRow
-          label="Couple time"
-          count={viewCounts.couple}
-          active={viewFilter === "couple"}
-          onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
-          t={t}
-        />
-        <ListRow
+        {look.hasPartner && (
+          <>
+            <ListRow
+              label="Both working"
+              count={viewCounts.both}
+              active={viewFilter === "both"}
+              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+              t={t}
+            />
+            <ListRow
+              label="Couple time"
+              count={viewCounts.couple}
+              active={viewFilter === "couple"}
+              onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
+              t={t}
+            />
+          </>
+        )}
+        {look.childcare && <ListRow
           label="Coverage"
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           active={viewFilter === "coverage"}
@@ -159,50 +165,60 @@ export function Sidebar({
           onContextMenu={(e) => { e.preventDefault(); onOpenCoverageRequests(); }}
           title="Right-click to see the coverage requests list"
           t={t}
-        />
+        />}
       </SidebarSection>
 
       <SidebarSection label="People" t={t}>
         <ListRow
           color={palette.G}
-          label="Gage"
+          label={look.names.G}
           count={viewCounts.g}
           active={viewFilter === "g"}
           onClick={() => onSetViewFilter(viewFilter === "g" ? "all" : "g")}
           t={t}
         />
-        <ListRow
-          color={palette.K}
-          label="Kaylene"
-          count={viewCounts.k}
-          active={viewFilter === "k"}
-          onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
-          t={t}
-        />
-        <ListRow
-          color={palette.BOTH}
-          label="Overlap"
-          count={viewCounts.both}
-          active={viewFilter === "both"}
-          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-          onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
-          title="Right-click to send coverage requests to caregiver"
-          t={t}
-        />
+        {look.hasPartner && (
+          <>
+            <ListRow
+              color={palette.K}
+              label={look.names.K}
+              count={viewCounts.k}
+              active={viewFilter === "k"}
+              onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
+              t={t}
+            />
+            <ListRow
+              color={palette.BOTH}
+              label="Overlap"
+              count={viewCounts.both}
+              active={viewFilter === "both"}
+              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+              onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
+              title="Right-click to send coverage requests to caregiver"
+              t={t}
+            />
+          </>
+        )}
       </SidebarSection>
 
       <SidebarSection label="Schedules" t={t}>
-        {SCHEDULE_IMPORTS.map((s) => (
-          <ListRow
-            key={s.id}
-            label={s.label}
-            tag={s.target === "dependent-daisy" ? "SCHOOL" : "WORK"}
-            onClick={() => onOpenScheduleImport(s.id)}
-            onContextMenu={(e) => { e.preventDefault(); onEditSchedule(s.id); }}
-            title={`Click to import ${s.personLabel}'s schedule · right-click to edit their week`}
-            t={t}
-          />
-        ))}
+        {SCHEDULE_IMPORTS.filter((s) =>
+          s.target === "partner" ? look.hasPartner : s.target === "dependent-daisy" ? look.hasCaregiver : true,
+        ).map((s) => {
+          const name = s.target === "partner" ? look.names.K : s.target === "dependent-daisy" ? look.names.D : look.names.G;
+          return (
+            <ListRow
+              key={s.id}
+              label={name}
+              // Daisy's is her class schedule; anyone else's caregiver's is just theirs.
+              tag={s.target === "dependent-daisy" ? (look.familyPhotos ? "SCHOOL" : "SCHEDULE") : "WORK"}
+              onClick={() => onOpenScheduleImport(s.id)}
+              onContextMenu={(e) => { e.preventDefault(); onEditSchedule(s.id); }}
+              title={`Click to import ${name}'s schedule · right-click to edit their week`}
+              t={t}
+            />
+          );
+        })}
       </SidebarSection>
 
       </div>{/* /scrollable middle */}
