@@ -82,7 +82,7 @@ export function ShiftDetailPopover({
   if (!open) return null;
 
   const personCol = personColor(who, palette);
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const personName = who === "G" ? selfName : who === "K" ? partnerName : daisyName;
 
   const [y, mo, d] = date.split("-").map(Number);

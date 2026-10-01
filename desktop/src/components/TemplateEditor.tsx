@@ -5,6 +5,7 @@ import { compactTime, isCustomType } from "../state";
 import { saveWeeklyTemplates, type TemplatePerson, type WeeklyTemplates } from "../lib/writeTemplate";
 import { DAYS_LONG } from "../data";
 import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   open: boolean;
@@ -59,6 +60,7 @@ function dayToSlot(d: DraftDay): TemplateSlot {
 }
 
 export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark, householdId, state }: Props) {
+  const look = useHouseholdLook();
   const presets = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
   const defaultPreset = presets[0]?.id ?? "";
 
@@ -91,9 +93,9 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
   if (!open) return null;
 
   const names: Record<TemplatePerson, string> = {
-    G: state?.selfName || "Gage",
-    K: state?.partner?.name || "Kaylene",
-    daisy: state?.dependents?.daisy?.name || "Daisy",
+    G: state?.selfName || "You",
+    K: state?.partner?.name || "Partner",
+    daisy: state?.dependents?.daisy?.name || "Caregiver",
   };
   const draft = drafts[person];
   const setDraft = (patch: Partial<PersonDraft>) =>
@@ -173,7 +175,7 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
 
         {/* Person tabs */}
         <div style={{ display: "flex", gap: 4, padding: 3, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 10 }}>
-          {PEOPLE.map((p) => (
+          {PEOPLE.filter((p) => (p === "K" ? look.hasPartner : p === "daisy" ? look.hasCaregiver : true)).map((p) => (
             <button key={p} type="button" onClick={() => setPerson(p)}
               style={{
                 flex: 1, padding: "7px 10px", border: 0, borderRadius: 7, cursor: "pointer", fontFamily: "inherit",

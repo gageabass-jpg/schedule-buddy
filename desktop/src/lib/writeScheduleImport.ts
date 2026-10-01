@@ -129,7 +129,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
       }));
       next.dependents = {
         ...next.dependents,
-        daisy: { name: existing.name || "Daisy", shifts: [...kept, ...additions] },
+        daisy: { name: existing.name || "Caregiver", shifts: [...kept, ...additions] },
       };
       break;
     }

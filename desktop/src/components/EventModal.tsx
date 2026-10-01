@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { Event, EventWho, HouseholdState } from "../state";
 import { addEvent, addEvents, updateEvent, deleteEvent, deleteSeries } from "../lib/writeEvent";
 import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   open: boolean;
@@ -31,6 +32,7 @@ const PEOPLE: Array<{ value: EventWho; label: string }> = [
 export function EventModal({
   open, onClose, palette, t, dark, householdId, state, defaultDate, editing, prefill, onSaved,
 }: Props) {
+  const look = useHouseholdLook();
   const isEdit = !!editing;
   // For a new event, `prefill` seeds the fields; `editing` always wins if present.
   const seed = editing ?? prefill ?? null;
@@ -276,7 +278,7 @@ export function EventModal({
 
           <Field label="For" t={t}>
             <div style={{ display: "flex", gap: 4, padding: 2, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 8 }}>
-              {PEOPLE.map((p) => {
+              {PEOPLE.filter((p) => (p.value === "K" ? look.hasPartner : p.value === "Daisy" ? look.hasCaregiver : true)).map((p) => {
                 const active = who === p.value;
                 return (
                   <button

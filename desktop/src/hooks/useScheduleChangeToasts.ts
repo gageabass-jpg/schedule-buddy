@@ -51,9 +51,9 @@ function monthPhrase(dates: string[]): string {
 }
 
 function personLabel(who: string, state: HouseholdState | null): string {
-  if (who === "G") return state?.selfName?.trim() || "Gage";
-  if (who === "K") return state?.partner?.name?.trim() || "Kaylene";
-  if (who === "Daisy" || who === "D") return state?.dependents?.daisy?.name?.trim() || "Daisy";
+  if (who === "G") return state?.selfName?.trim() || "You";
+  if (who === "K") return state?.partner?.name?.trim() || "Partner";
+  if (who === "Daisy" || who === "D") return state?.dependents?.daisy?.name?.trim() || "Caregiver";
   return "Someone";
 }
 
@@ -110,7 +110,7 @@ export function useScheduleChangeToasts(state: HouseholdState | null, nav: Nav):
     // ── Coverage answers ──────────────────────────────────────────────────
     // What the caregiver answered in this snapshot, and nothing older.
     const { confirmed, declined } = coverageAnswered(before.coverage, next.coverage);
-    const caregiver = state?.dependents?.daisy?.name?.trim() || "Daisy";
+    const caregiver = state?.dependents?.daisy?.name?.trim() || "Caregiver";
     const answer = coverageAnswerText(caregiver, confirmed, declined);
     if (answer) {
       notify(answer, { actionLabel: "Review coverage", onAction: () => navRef.current.showCoverage() });

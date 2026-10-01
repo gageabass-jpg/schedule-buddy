@@ -45,7 +45,7 @@ export function AgendaView({ palette, t, dark: _dark, shifts, state, today, self
     return m;
   }, [state?.shiftTypes]);
 
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
   const colorFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
 

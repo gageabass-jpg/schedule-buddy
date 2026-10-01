@@ -398,7 +398,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     return { all, both, couple, week, g, k };
   }, [shifts, viewYear, viewMonth, tY, tM, tD]);
 
-  const householdName = state?.householdName || "Bass Household";
+  const householdName = state?.householdName || "Your household";
   const selfName = state?.selfName ?? "Self";
   const partnerName = state?.partner?.name ?? "Partner";
   const memberCount = householdStatus.status === "ready" ? householdStatus.household.memberUids.length : 0;
@@ -521,7 +521,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
 
   // What Ask on a popover tells nucleusAI: the day as the popover shows it.
   const nameOf = (who: Shift["who"]) =>
-    who === "G" ? selfName : who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Daisy");
+    who === "G" ? selfName : who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Caregiver");
   const hoursOf = (s: Shift) => {
     const st = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
     return st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;

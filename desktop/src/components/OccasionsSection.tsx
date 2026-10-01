@@ -92,7 +92,7 @@ export function OccasionsSection({ householdId, state, t, palette }: Props) {
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Daisy's birthday"
+          placeholder="A birthday"
           style={inputStyle(t)}
         />
         <select

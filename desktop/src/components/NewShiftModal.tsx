@@ -5,6 +5,7 @@ import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
 import { compactTime, isCustomType } from "../state";
 import { BRAND_FONT } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function NewShiftModal({ open, onClose, palette, t, dark, householdId, state, defaultDate }: Props) {
+  const look = useHouseholdLook();
   const types = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
 
   const [target, setTarget] = useState<ShiftTarget>("self-ot");
@@ -91,9 +93,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
 
   const householdLabel = state?.householdName?.trim() || "Your household";
   const dateLabel = fmtLongDate(date);
-  const selfName = state?.selfName?.trim() || "Gage";
-  const partnerName = state?.partner?.name?.trim() || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name?.trim() || "Daisy";
+  const selfName = state?.selfName?.trim() || "You";
+  const partnerName = state?.partner?.name?.trim() || "Partner";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || "Caregiver";
 
   // The dates a submit will write, from the Repeats choice.
   const occurrenceDates = (): string[] => {
@@ -209,9 +211,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <FieldLabel t={t}>Who works it</FieldLabel>
               <div style={{ display: "flex", gap: 8 }}>
-                <PersonCard name={selfName} initial="G" color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
-                <PersonCard name={partnerName} initial="K" color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />
-                <PersonCard name={daisyName} initial="D" color={personColor("D", palette)} active={isDaisy} onClick={() => setTarget("dependent-daisy")} t={t} />
+                <PersonCard name={selfName} initial={selfName.charAt(0).toUpperCase() || "Y"} color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
+                {look.hasPartner && <PersonCard name={partnerName} initial={partnerName.charAt(0).toUpperCase() || "P"} color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />}
+                {look.hasCaregiver && <PersonCard name={daisyName} initial={daisyName.charAt(0).toUpperCase() || "C"} color={personColor("D", palette)} active={isDaisy} onClick={() => setTarget("dependent-daisy")} t={t} />}
               </div>
             </div>
 
@@ -296,7 +298,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             {/* WHERE + NOTE */}
             <div style={{ display: "flex", gap: 14 }}>
               <Field label="Where" t={t}>
-                <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Thomas Hospital" style={inputStyle(t)} />
+                <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Where it's worked" style={inputStyle(t)} />
               </Field>
               <Field label="Note (optional)" t={t}>
                 <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the household should know" style={inputStyle(t)} />

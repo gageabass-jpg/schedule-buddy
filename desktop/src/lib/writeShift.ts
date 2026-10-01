@@ -78,7 +78,7 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
     const existing = current.dependents?.daisy;
     next.dependents = {
       ...next.dependents,
-      daisy: { name: existing?.name || "Daisy", shifts: [...(existing?.shifts ?? [])] },
+      daisy: { name: existing?.name || "Caregiver", shifts: [...(existing?.shifts ?? [])] },
     };
   }
 

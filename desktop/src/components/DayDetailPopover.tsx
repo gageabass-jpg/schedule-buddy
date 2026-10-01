@@ -78,7 +78,7 @@ export function DayDetailPopover({
 
   const [y, mo, d] = date.split("-").map(Number);
   const dow = new Date(y, mo - 1, d).getDay();
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
 
   const kind = dayKindFromShifts(dayShifts);
   const block = (state?.scheduleBlocks ?? []).find((b) => b.startDate <= date && date <= b.endDate);

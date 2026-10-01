@@ -127,8 +127,8 @@ function colorForScore(score: number, hasShift: boolean, offFill: string): strin
 }
 
 export function FatigueHeatmap({ shifts, state, anchorDate, t, onSelectDate }: Props) {
-  const selfName = state?.selfName || "Gage";
-  const partnerName = state?.partner?.name || "Kaylene";
+  const selfName = state?.selfName || "You";
+  const partnerName = state?.partner?.name || "Partner";
   const { days, todayScore } = useMemo(() => {
     if (!state) return { days: [], todayScore: 0 };
     const sel = parseIsoDate(anchorDate);

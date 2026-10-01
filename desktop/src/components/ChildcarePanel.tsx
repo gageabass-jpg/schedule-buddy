@@ -92,8 +92,8 @@ export function ChildcarePanel({
   useClickOutside(monthMenuRef, monthMenuOpen, () => setMonthMenuOpen(false));
 
   const selfName = state?.selfName || "You";
-  const partnerName = state?.partner?.name || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const partnerName = state?.partner?.name || "Partner";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const requests = state?.coverageRequests ?? [];
 
   const monthPrefix = useMemo(() => {

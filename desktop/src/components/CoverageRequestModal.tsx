@@ -76,8 +76,8 @@ export function CoverageRequestModal({
   }, [open, state, today]);
 
   const selfName = state?.selfName || "You";
-  const partnerName = state?.partner?.name || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const partnerName = state?.partner?.name || "Partner";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
 
   // Per-parent availability by date — depends only on the schedule, not on the
   // per-row time edits, so it doesn't rebuild on every keystroke.

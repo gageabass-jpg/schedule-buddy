@@ -25,6 +25,7 @@ import type { StretchDay } from "../lib/stretch";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
 import { IS_WINDOWS } from "../lib/platform";
+import { useHouseholdLook } from "../lib/householdLook";
 
 /** The arrow the New shift button slides in on hover. */
 const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
@@ -89,6 +90,7 @@ export function MonthGrid({
   viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
+  const look = useHouseholdLook();
   // Two-finger swipe (horizontal trackpad scroll) moves a month (a week in
   // week view, a day in day view), anywhere in the window: over a chip, the
   // rail, the toolbar,
@@ -651,10 +653,10 @@ export function MonthGrid({
                       if (!cover && shiftSlice.length === 0 && eventSlice.length === 0) return null;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={state?.dependents?.daisy?.name || "Daisy"} />}
+                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={state?.dependents?.daisy?.name || "Caregiver"} />}
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
-                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Daisy");
+                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Caregiver");
                             const st = state?.shiftTypes?.find((x) => x.id === s.shiftTypeId);
                             const hours = st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
                             // White chip with the person's hue as a left-edge bar
@@ -741,7 +743,7 @@ export function MonthGrid({
                             </div>
                             </TooltipTrigger>
                             <TooltipContent side="top" size="sm" className="max-w-64">
-                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Daisy"} t={t} />
+                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Caregiver"} t={t} />
                             </TooltipContent>
                             </Tooltip>
                           ))}
@@ -814,10 +816,10 @@ export function MonthGrid({
           {viewFilter === "coverage" && (["has", "waiting", "nobody"] as const).map((k) => (
             <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
               <CoverageDot kind={k} dark={dark} />
-              {k === "has" ? `${state?.dependents?.daisy?.name || "Daisy"} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
+              {k === "has" ? `${state?.dependents?.daisy?.name || "Caregiver"} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
             </span>
           ))}
-          {viewFilter !== "coverage" && (<>
+          {viewFilter !== "coverage" && look.childcare && (<>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
             <CircleCheckIcon size={15} color={CARE_CHECK} isAnimated={false} />
             Care confirmed

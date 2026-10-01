@@ -5,6 +5,7 @@ import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
 import { shortcut } from "../lib/platform";
+import { useHouseholdLook } from "../lib/householdLook";
 
 /** A day (or shift) the panel was opened about, from Ask on a popover. */
 export interface AskContext {
@@ -36,12 +37,15 @@ interface UIMessage {
   about?: string;
 }
 
-const SUGGESTIONS = [
-  "What does my next 2 weeks look like?",
-  "I picked up an OT shift this Friday night",
-  "Move my Monday shift next week to Wednesday",
-  "Kaylene is off the rest of this week",
-];
+/** The opening suggestions; the last is about the partner when there is one. */
+function suggestionsFor(look: { hasPartner: boolean; names: { K: string } }): string[] {
+  return [
+    "What does my next 2 weeks look like?",
+    "I picked up an OT shift this Friday night",
+    "Move my Monday shift next week to Wednesday",
+    look.hasPartner ? `${look.names.K} is off the rest of this week` : "I'm off the rest of this week",
+  ];
+}
 
 /** Read-only is the default: the panel answers until you let it write. */
 const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Allow Edits" };
@@ -60,6 +64,7 @@ function modelLabel(id: string | null): string {
 }
 
 export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Props) {
+  const look = useHouseholdLook();
   const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
   // Full conversation that gets passed back to the function — includes the
   // raw tool_use/tool_result blocks the UI doesn't render.
@@ -358,7 +363,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
             >
               {uiMessages.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {SUGGESTIONS.map((s, i) => (
+                  {suggestionsFor(look).map((s, i) => (
                     <button
                       key={i}
                       type="button"

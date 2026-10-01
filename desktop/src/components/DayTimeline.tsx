@@ -147,7 +147,7 @@ export function DayTimeline({
           <div style={{ width: 92, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: DAISY_COLOR, flexShrink: 0 }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: t.text2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {daisyName || "Daisy"}
+              {daisyName || "Caregiver"}
             </span>
           </div>
           <div style={{ position: "relative", flex: 1, height: 20, background: trackBg, borderRadius: 7 }}>

@@ -47,6 +47,38 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
     let watching = ""; // "<householdId>:<legacy|model>" currently subscribed
     let latestHousehold: HouseholdMeta | null = null;
     let modelState: HouseholdState | null | undefined; // undefined = not loaded yet
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    let generation = 0; // the current watchModel attempt; older ones are ignored
+
+    // Watch a migrated household's records. A brand-new household is seen
+    // here the moment its record is saved on this Mac, before the server has
+    // it, so the first subscriptions can be refused; try again shortly rather
+    // than showing no schedule until a refresh.
+    const watchModel = (id: string, attempt = 0) => {
+      const gen = ++generation;
+      stateUnsub = watchHousehold(
+        modelStore,
+        id,
+        (model) => {
+          if (gen !== generation) return;
+          modelState = model ? toLegacy(model).state : null;
+          if (latestHousehold) setResult({ status: "ready", household: latestHousehold, state: modelState });
+        },
+        (err) => {
+          // Several listeners can fail together; act once per attempt.
+          if (gen !== generation) return;
+          generation++;
+          if (stateUnsub) { stateUnsub(); stateUnsub = null; }
+          if (!cancelled && attempt < 5) {
+            retry = setTimeout(() => { if (!cancelled && watching === `${id}:model`) watchModel(id, attempt + 1); }, 800 * (attempt + 1));
+            return;
+          }
+          console.error("household model subscription error:", err);
+          if (latestHousehold) setResult({ status: "ready", household: latestHousehold, state: null });
+        },
+      );
+    };
 
     const householdsRef = collection(db, "households");
     const q = query(householdsRef, where("memberUids", "array-contains", user.uid));
@@ -83,20 +115,10 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
             return;
           }
           if (stateUnsub) stateUnsub();
+          if (retry) { clearTimeout(retry); retry = null; }
           watching = key;
           modelState = undefined;
-          stateUnsub = watchHousehold(
-            modelStore,
-            doc0.id,
-            (model) => {
-              modelState = model ? toLegacy(model).state : null;
-              setResult({ status: "ready", household: latestHousehold ?? household, state: modelState });
-            },
-            (err) => {
-              console.error("household model subscription error:", err);
-              setResult({ status: "ready", household, state: null });
-            },
-          );
+          watchModel(doc0.id);
           return;
         }
 
@@ -123,6 +145,8 @@ export function useHousehold(user: User | null, refreshNonce = 0): HouseholdStat
     );
 
     return () => {
+      cancelled = true;
+      if (retry) clearTimeout(retry);
       householdUnsub();
       if (stateUnsub) stateUnsub();
     };

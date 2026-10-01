@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState, ShiftType } from "../state";
 import { compactTime, isCustomType } from "../state";
-import { findScheduleImport, type ImportTarget } from "../scheduleImports";
+import { findScheduleImport, importFor, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
 import { parseScheduleXlsx, parseTimeRange, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { normalizeImage } from "../lib/normalizeImage";
@@ -12,6 +12,7 @@ import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
+import { useHouseholdLook } from "../lib/householdLook";
 
 const CLAY = "#8A4B38";
 const TEAL_TINT = "#D8E7E4";
@@ -80,7 +81,9 @@ export function ScheduleImportModal({
   // The sidebar row that opened the modal fixes which schedule is being
   // imported — the person is named in the header, not re-chosen in here.
   const [activeId, setActiveId] = useState<string | null>(scheduleId);
-  const def = activeId ? findScheduleImport(activeId) : undefined;
+  const look = useHouseholdLook();
+  const found = activeId ? findScheduleImport(activeId) : undefined;
+  const def = found ? importFor(found, look) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
   const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string; name: string; size: number } | null>(null);
   /** A spreadsheet export, read locally — no model and no API key involved. */

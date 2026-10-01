@@ -88,7 +88,7 @@ export function Inspector({
   // red striped notice card right under the Selected Day header.
   const dayBlock = blockForDate(state?.scheduleBlocks, selected);
   // Daisy's (caregiver) school time on the selected day — when she can't cover.
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
 
   // Overview rail tabs (design boards): the header stays tied to the tapped
   // day; the tabs below switch the broader view (Month / Childcare / Life).
@@ -402,7 +402,7 @@ export function Inspector({
       )}
 
       {/* Childcare tab — who has the kids this week, and what nobody holds. */}
-      {railTab === "childcare" && (
+      {railTab === "childcare" && look.childcare && (
         <ChildcareCard
           selected={selected}
           state={state}
@@ -470,7 +470,7 @@ export function Inspector({
             const personName =
               ev.who === "G" ? selfName :
               ev.who === "K" ? partnerName :
-              ev.who === "Daisy" ? (state?.dependents?.daisy?.name || "Daisy") : "Family";
+              ev.who === "Daisy" ? (state?.dependents?.daisy?.name || "Caregiver") : "Family";
             const timeLabel = ev.startTime ? compactTime(ev.startTime) : "All day";
             const k = dayKindFromShifts(allShifts[ev.date]);
             const cover =
@@ -595,9 +595,10 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
   lifeCount: number;
   t: ThemeTokens;
 }) {
+  const look = useHouseholdLook();
   const tabs: Array<{ key: "month" | "childcare" | "life"; label: string; count: number }> = [
     { key: "month", label: "Month", count: 0 },
-    { key: "childcare", label: "Childcare", count: childcareCount },
+    ...(look.childcare ? [{ key: "childcare" as const, label: "Childcare", count: childcareCount }] : []),
     { key: "life", label: "Life", count: lifeCount },
   ];
   return (
@@ -1027,6 +1028,7 @@ function ChildcareCard({
   onRequestCover?: () => void;
   onAsk?: () => void;
 }) {
+  const look = useHouseholdLook();
   if (!state) return null;
   const pad = (n: number) => String(n).padStart(2, "0");
   const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
@@ -1165,7 +1167,9 @@ function ChildcareCard({
 
       {!anyGap ? (
         <div style={{ fontSize: 13.5, color: t.text2, lineHeight: 1.45 }}>
-          Someone&rsquo;s home all week. {selfName} and {partnerName} are never both out at once.
+          {look.hasPartner
+            ? <>Someone&rsquo;s home all week. {selfName} and {partnerName} are never both out at once.</>
+            : <>{selfName} is home whenever the kids need someone this week.</>}
         </div>
       ) : (
         <>
@@ -1247,7 +1251,9 @@ function ChildcareCard({
         )}
       </div>
       <div style={{ fontSize: 11, color: t.text2, lineHeight: 1.5 }}>
-        A gap is time when neither {selfName} nor {partnerName} is home.
+        {look.hasPartner
+          ? <>A gap is time when neither {selfName} nor {partnerName} is home.</>
+          : <>A gap is time when {selfName} isn&rsquo;t home.</>}
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ export function CoverageRequestsPanel({
 
   if (!open) return null;
 
-  const daisy = state?.dependents?.daisy?.name || "Daisy";
+  const daisy = state?.dependents?.daisy?.name || "Caregiver";
   const all = (state?.coverageRequests ?? []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const reqs = all.filter((r) => r.date.startsWith(month));
 

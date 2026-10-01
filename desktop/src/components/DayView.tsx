@@ -125,7 +125,7 @@ export function DayView({
   const isToday = selected === today;
   const list = shifts[selected] ?? [];
   const wvuGame = wvuGames.get(selected);
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const whoName = (who: string) => who === "G" ? selfName : who === "K" ? partnerName : daisyName;
   // Hover cards: avatar, name, then the hours.
   const hours = (a: string, b: string) => `${compactTime(a)} – ${compactTime(b)}`;

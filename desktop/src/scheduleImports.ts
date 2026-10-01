@@ -49,3 +49,19 @@ export const SCHEDULE_IMPORTS: ScheduleImportDef[] = [
 export function findScheduleImport(id: string): ScheduleImportDef | undefined {
   return SCHEDULE_IMPORTS.find((s) => s.id === id);
 }
+
+/**
+ * An import slot for this household: its people's names, and — for any
+ * household but the one the hints above were tuned for — a plain hint.
+ */
+export function importFor(
+  def: ScheduleImportDef,
+  look: { names: { G: string; K: string; D: string }; familyPhotos: boolean },
+): ScheduleImportDef {
+  if (look.familyPhotos) return def;
+  const name = def.target === "partner" ? look.names.K : def.target === "dependent-daisy" ? look.names.D : look.names.G;
+  const parserHint = def.target === "dependent-daisy"
+    ? `This is ${name}'s schedule. Extract every date they're busy, with the start and end times where shown.`
+    : `This is a work schedule for ${name}. Extract every shift with its date and the shift's start time / shift code.`;
+  return { ...def, label: name, personLabel: name, parserHint };
+}

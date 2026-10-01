@@ -23,7 +23,15 @@ const ORIGINAL: HouseholdLook = {
 };
 
 export function lookOf(household: HouseholdMeta | null, state: HouseholdState | null): HouseholdLook {
-  if (!household || !state) return ORIGINAL;
+  if (!household) return ORIGINAL;
+  // A new household whose schedule is still loading: nobody's name but yours,
+  // never the original family's.
+  if (!state) {
+    return household.familyPhotos === false
+      ? { names: { G: "You", K: "Partner", D: "Caregiver" }, hasPartner: false, hasCaregiver: false,
+          childcare: household.childcare !== false, familyPhotos: false }
+      : ORIGINAL;
+  }
   const partner = state.partner?.name?.trim() ?? "";
   const caregiver = state.dependents?.daisy?.name?.trim() ?? "";
   return {

@@ -23,6 +23,7 @@ import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
 import { migrateToModel, moveBackFromModel, watchDataFormat, type MigrationReport } from "../lib/migrateHousehold";
 import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, setCommuteCushion, DEFAULT_CUSHION, type CommuteConfig, type CommutePlace } from "../lib/commute";
+import { useHouseholdLook } from "../lib/householdLook";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -450,7 +451,7 @@ function GeneralTab(p: {
               type="text"
               value={p.draftName}
               onChange={(e) => p.setDraftName(e.target.value)}
-              placeholder="Bass Household"
+              placeholder="Your household's name"
               style={inputStyle(t)}
             />
             <button
@@ -597,8 +598,8 @@ function personKeyFor(name: string): PersonKey | null {
 }
 
 const EMPLOYER_PLACEHOLDER: Record<PersonKey, string> = {
-  G: "Thomas Hospital",
-  K: "Thomas Hospital",
+  G: "Where they work",
+  K: "Where they work",
   D: "School or college",
 };
 
@@ -803,18 +804,18 @@ function PeopleTab(p: {
             <div style={rowCard(t)}>
               <PhotoAv who="D" size={34} palette={palette} dark={dark} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{p.daisy.name || "Daisy"}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{p.daisy.name || "Caregiver"}</div>
                 <div style={{ fontSize: 12, color: t.text2 }}>
                   School schedule · {p.daisy.shifts?.length ?? 0} class day{(p.daisy.shifts?.length ?? 0) === 1 ? "" : "s"} on file
                 </div>
               </div>
               <RoleChip t={t} role="dependent" />
-              {editBtn("dependent:daisy", p.daisy.name || "Daisy")}
+              {editBtn("dependent:daisy", p.daisy.name || "Caregiver")}
               <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: t.clayText }}>
                 <RedTrash />
               </button>
             </div>
-            {editing === "dependent:daisy" && editor("D", p.daisy.name || "Daisy", null)}
+            {editing === "dependent:daisy" && editor("D", p.daisy.name || "Caregiver", null)}
           </div>
         ) : (
           <div style={{ fontSize: 12.5, color: t.text3 }}>
@@ -898,7 +899,7 @@ function AppsSubTab({ t }: { t: ThemeTokens }) {
   const [connected, setConnected] = useState<Record<string, boolean>>({});
   const connectors = [
     { key: "slack", name: "Slack", desc: "Posts open shifts to #bass-household", icon: <SlackIcon /> },
-    { key: "apple", name: "Apple Calendar", desc: "Writes shifts to the Bass Household calendar", icon: <CalendarIcon /> },
+    { key: "apple", name: "Apple Calendar", desc: "Writes shifts to your household's calendar", icon: <CalendarIcon /> },
     { key: "google", name: "Google Calendar", desc: "Two-way, for anyone not on an iPhone", icon: <CalendarIcon /> },
   ];
 
@@ -979,7 +980,9 @@ interface FeedRow { id: string; name: string; url: string; where: "WALL" | "WALL
 // RSS/Atom feeds that surface on the wall beside the schedule. Local/placeholder
 // list (TODO wire to a real feed reader) — reads title + date only, never a shift.
 function FeedsSubTab({ t }: { t: ThemeTokens }) {
-  const [feeds, setFeeds] = useState<FeedRow[]>([
+  // These placeholder feeds are one family's local ones; anyone else starts empty.
+  const look = useHouseholdLook();
+  const [feeds, setFeeds] = useState<FeedRow[]>(() => !look.familyPhotos ? [] : [
     { id: "kcs", name: "Kanawha County Schools", url: "kcs.k12.wv.us/feed/closings.xml", where: "WALL & CALENDAR", checked: "checked 6 minutes ago" },
     { id: "th", name: "Thomas Hospital notices", url: "thomashealth.org/news/rss", where: "WALL", checked: "checked 6 minutes ago" },
     { id: "wx", name: "Weather alerts · Charleston", url: "alerts.weather.gov/cap/wv.php", where: "WALL", checked: "checked 2 minutes ago" },
@@ -1737,7 +1740,7 @@ function codeBox(t: ThemeTokens): React.CSSProperties {
 }
 
 function defaultHouseholdName(_household: HouseholdMeta | null): string {
-  return "Bass Household";
+  return "Your household";
 }
 
 // ── PaydayRow (reskinned to the console tokens; logic unchanged) ─────────────

@@ -98,10 +98,10 @@ function endLabel(typ: { start: string; end: string }): string {
 
 export function WeekView({
   palette, t, dark, shifts, state, selected, today, onSelectDate,
-  eventsByDate, onEditEvent, wvuGames, selfName = "Gage", partnerName = "Kaylene",
+  eventsByDate, onEditEvent, wvuGames, selfName = "You", partnerName = "Partner",
 }: Props) {
   // Hover cards: avatar, name, then the hours.
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const nameOf = (who: string) => (who === "G" ? selfName : who === "K" ? partnerName : who === "D" || who === "Daisy" ? daisyName : "Family");
   const hours = (a: string, b: string) => `${compactTime(a)} – ${compactTime(b)}`;
   const typeOf = (s: Shift) => state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
