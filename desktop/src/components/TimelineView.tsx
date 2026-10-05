@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Shift, ShiftMap } from "../data";
+import type { Shift } from "../data";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { DAISY_COLOR, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
 import {
-  MAX_PX_PER_DAY, MIN_PER_DAY, MIN_PX_PER_DAY, blockTextFor, clampPpd, coverageBlocks,
-  dayAtViewportX, dayIndex, eventBlocks, fitPpd, isoFromDayIndex, lodFor, monthSpans,
-  packRows, personBlocks, schoolBlocks, scrollLeftFor, shiftsForWindow, weekdayOf,
-  zoomedScrollLeft, type TlBlock,
+  MAX_PX_PER_DAY, MIN_PER_DAY, MIN_PX_PER_DAY, blockTextFor, clampPpd,
+  dayAtViewportX, dayIndex, fitPpd, isoFromDayIndex, lodFor, monthSpans,
+  packRows, scrollLeftFor, timelineData, weekdayOf, zoomedScrollLeft, type TlBlock,
 } from "../lib/timelineAxis";
 
 /**
@@ -285,19 +284,10 @@ export function TimelineView({
   const bFrom = Math.floor((origin + visFrom) / 14) * 14 - 14;
   const bTo = Math.ceil((origin + visTo) / 14) * 14 + 14;
 
-  const data = useMemo(() => {
-    if (!state) return null;
-    const shifts: ShiftMap = shiftsForWindow(state, bFrom, bTo);
-    const hasDaisy = !!state.dependents?.daisy;
-    return {
-      shifts,
-      G: personBlocks(state, shifts, "G", bFrom, bTo),
-      K: personBlocks(state, shifts, "K", bFrom, bTo),
-      D: hasDaisy ? [...schoolBlocks(state, bFrom, bTo), ...personBlocks(state, shifts, "D", bFrom, bTo)] : null,
-      cov: coverageBlocks(state, bFrom, bTo),
-      ev: eventBlocks(events, bFrom, bTo),
-    };
-  }, [state, events, bFrom, bTo]);
+  const data = useMemo(
+    () => (state ? timelineData(state, events, bFrom, bTo) : null),
+    [state, events, bFrom, bTo],
+  );
 
   const evPack = useMemo(() => packRows(data?.ev ?? [], 45), [data]);
 

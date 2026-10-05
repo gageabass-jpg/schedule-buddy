@@ -278,6 +278,36 @@ export function packRows(
   return { rows, count: Math.max(1, rowEnds.length) };
 }
 
+export interface TimelineData {
+  shifts: ShiftMap;
+  G: TlBlock[];
+  K: TlBlock[];
+  /** Null when the household has no dependent. */
+  D: TlBlock[] | null;
+  cov: TlBlock[];
+  ev: TlBlock[];
+}
+
+/** Every lane's blocks for the days [fromIdx, toIdx].
+ *
+ *  Daisy's lane is her school time from the coverage engine only. buildShiftMap
+ *  also lists her school as "D" shifts, and those cover the same hours — drawing
+ *  both would stack two blocks on every school day. The engine's ranges also
+ *  include custom start/end slots that never become a "D" shift. */
+export function timelineData(
+  state: HouseholdState, events: SbEvent[], fromIdx: number, toIdx: number,
+): TimelineData {
+  const shifts = shiftsForWindow(state, fromIdx, toIdx);
+  return {
+    shifts,
+    G: personBlocks(state, shifts, "G", fromIdx, toIdx),
+    K: personBlocks(state, shifts, "K", fromIdx, toIdx),
+    D: state.dependents?.daisy ? schoolBlocks(state, fromIdx, toIdx) : null,
+    cov: coverageBlocks(state, fromIdx, toIdx),
+    ev: eventBlocks(events, fromIdx, toIdx),
+  };
+}
+
 /** Shifts for a window straight from household state — the app's own map only
  *  covers the visible month, and the timeline pans past it. */
 export function shiftsForWindow(

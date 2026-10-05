@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_PX_PER_DAY, MIN_PX_PER_DAY, clampPpd, dayAtViewportX, dayIndex, eventBlocks,
   fitPpd, isoFromDayIndex, lodFor, monthSpans, packRows, personBlocks, scrollLeftFor,
-  weekdayOf, zoomedScrollLeft, type TlBlock,
+  timelineData, weekdayOf, zoomedScrollLeft, type TlBlock,
 } from "./timelineAxis";
 import type { HouseholdState } from "../state";
 import type { ShiftMap } from "../data";
@@ -161,5 +161,43 @@ describe("monthSpans", () => {
     expect(spans.map((s) => s.days)).toEqual([4, 3]);
     expect(spans[0].label).toBe("October 2026");
     expect(spans[1].startIdx).toBe(dayIndex("2026-11-01"));
+  });
+});
+
+describe("timelineData — Daisy's lane", () => {
+  const SCHOOL = { id: "school", name: "School", start: "08:00", end: "15:00", crossesMidnight: false };
+  const withDaisy = (extra: object) => ({
+    ...state,
+    shiftTypes: [NIGHT, SCHOOL],
+    partner: { name: "Kaylene", shifts: [] },
+    dependents: { daisy: { name: "Daisy", shifts: [] } },
+    ...extra,
+  }) as unknown as HouseholdState;
+  const idx = dayIndex("2026-10-06");   // a Tuesday
+
+  it("draws one block for a school day that is also a D shift", () => {
+    // A typed template slot makes buildShiftMap emit a "D" shift AND
+    // daisyDayRanges report the same hours.
+    const st = withDaisy({ weeklyTemplates: { daisy: { days: [null, null, "school", null, null, null, null] } } });
+    const d = timelineData(st, [], idx, idx);
+    expect(Object.values(d.shifts).flat().some((s) => s.who === "D")).toBe(true);
+    expect(d.D).toHaveLength(1);
+    expect(d.D![0].kind).toBe("school");
+  });
+
+  it("draws one block for a dated school entry", () => {
+    const st = withDaisy({ dependents: { daisy: { name: "Daisy", shifts: [{ date: "2026-10-06", shiftTypeId: "school", label: "School" }] } } });
+    expect(timelineData(st, [], idx, idx).D).toHaveLength(1);
+  });
+
+  it("still draws a custom start/end slot, which is never a D shift", () => {
+    const st = withDaisy({ weeklyTemplates: { daisy: { days: [null, null, { start: "09:00", end: "14:00" }, null, null, null, null] } } });
+    const d = timelineData(st, [], idx, idx);
+    expect(d.D).toHaveLength(1);
+    expect(d.D![0].endMin - d.D![0].startMin).toBe(300);
+  });
+
+  it("has no Daisy lane without a dependent", () => {
+    expect(timelineData(state, [], idx, idx).D).toBeNull();
   });
 });
