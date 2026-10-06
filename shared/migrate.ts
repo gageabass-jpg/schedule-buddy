@@ -4,24 +4,32 @@
 // tests/migrate.test.mjs runs it against the emulator.
 //
 // Migrating, in order — the household switches only at the very end, and
-// only if the check passes:
+// only if the check passes and state/main is still what was copied:
 //   1. copy state/main to legacyBackups/{time}
 //   2. clear any records a failed earlier attempt left
 //   3. convert (fromLegacy) and write the records (writeModel)
 //   4. read them back and check: the records are exactly what the conversion
 //      produced, and they draw the same calendar, coverage gaps and caregiver
 //      time as state/main over the check window (shared/verify.ts)
-//   5. set schemaVersion — from here every app reads and writes the records
+//   5. set schemaVersion — from here every app reads and writes the records.
+//      Done in a transaction that reads state/main and refuses if it changed
+//      since step 1: an edit made meanwhile is in state/main but not in the
+//      records, and once the switch is made nothing reads state/main again.
+//      The caller just runs the move again.
 // Every attempt leaves a report in migrations/{time}. state/main is kept; the
 // rules make it read-only once the household has moved.
 //
 // Moving back writes the household as it now stands (toLegacy) into
-// state/main and clears schemaVersion, so nothing done since is lost.
+// state/main and clears schemaVersion, so nothing done since is lost. The
+// records are read again just before the switch and the copy is rebuilt if
+// they changed; an edit landing in the last instants after that re-read is
+// the one window left (the records are many documents, so there is no single
+// transaction to put the switch in).
 
 import { fromLegacy } from "./fromLegacy";
 import { SCHEMA_VERSION, type HouseholdModel } from "./model";
 import {
-  COLLECTIONS, collectionPath, householdPath, loadHousehold, MAX_BATCH, setSchemaVersion,
+  COLLECTIONS, collectionPath, householdPath, loadHousehold, MAX_BATCH,
   writeModel, type Data, type DocStore, type WriteOp,
 } from "./store";
 import { toLegacy } from "./toLegacy";
@@ -68,6 +76,26 @@ function metaOf(root: Data): Omit<HouseholdMeta, "id"> {
     inviteCode: (root.inviteCode as string) ?? "",
     createdBy: (root.createdBy as string) ?? "",
   };
+}
+
+/** Fields that are one device's screen state, not household data: the model
+ *  doesn't carry them, so a write to only these doesn't count as an edit. */
+const SCREEN_STATE = ["calView", "ui", "activeTab"];
+
+/** Stable text for a value: keys sorted, undefined dropped. */
+function canon(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canon).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).filter((k) => o[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canon(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
+/** True when two copies of state/main hold the same household data. */
+export function sameState(a: Data | undefined, b: Data | undefined): boolean {
+  const data = (d: Data | undefined) => Object.fromEntries(Object.entries(d ?? {}).filter(([k]) => !SCREEN_STATE.includes(k)));
+  return canon(data(a)) === canon(data(b));
 }
 
 async function writeAll(store: DocStore, ops: WriteOp[]): Promise<void> {
@@ -130,8 +158,26 @@ export async function migrateHousehold(store: DocStore, hid: string, by: string,
     window: { from: opts.from, to: opts.to },
   };
 
-  // 5. Switch — only when everything matched.
-  if (report.ok) await setSchemaVersion(store, hid, SCHEMA_VERSION);
+  // 5. Switch — only when everything matched and state/main hasn't moved.
+  if (report.ok) {
+    const switchOp: WriteOp = { op: "merge", path: householdPath(hid), data: { schemaVersion: SCHEMA_VERSION } };
+    const unchanged = (current: Data | undefined) => sameState(current, state);
+    // The guarded write reads state/main inside the switch itself. A store
+    // without one (not the Admin SDK) re-reads first: still caught, just not
+    // down to the last instant.
+    let switched: boolean;
+    if (store.writeIfUnchanged) {
+      switched = await store.writeIfUnchanged(statePath(hid), unchanged, [switchOp]);
+    } else {
+      switched = unchanged(await store.get(statePath(hid)));
+      if (switched) await store.write([switchOp]);
+    }
+    if (!switched) {
+      report.ok = false;
+      report.outcome = "refused";
+      report.problems = ["state/main changed while the household was being moved (an edit from a phone, the Mac app or nucleusAI). Nothing was switched; run the move again."];
+    }
+  }
   await store.write([{ op: "set", path: reportPath(hid, opts.now), data: report as unknown as Data }]);
   return report;
 }
@@ -147,18 +193,36 @@ export async function unmigrateHousehold(store: DocStore, hid: string, by: strin
   const root = await store.get(householdPath(hid));
   if (!root) throw new Error(`No household ${hid}.`);
   if (!isMigratedRoot(root)) return { ...base, ok: true, outcome: "already" };
-  const model = await loadHousehold(store, hid);
+  let model = await loadHousehold(store, hid);
   if (!model) throw new Error("The household's records couldn't be read.");
 
   const old = (await store.get(statePath(hid))) ?? {};
-  const next = { ...old, ...JSON.parse(JSON.stringify(toLegacy(model).state)) };
-  // Screen state belongs to the device that saved it, not the model's defaults.
-  for (const k of ["calView", "ui", "activeTab"]) if (k in old) next[k] = old[k];
-  // Marks this write for the state/main notification trigger, which skips it:
-  // everything in it was announced when it happened.
-  next._movedBackAt = now;
+  const build = (m: HouseholdModel) => {
+    const next = { ...old, ...JSON.parse(JSON.stringify(toLegacy(m).state)) };
+    // Screen state belongs to the device that saved it, not the model's defaults.
+    for (const k of SCREEN_STATE) if (k in old) next[k] = old[k];
+    // Marks this write for the state/main notification trigger, which skips it:
+    // everything in it was announced when it happened.
+    next._movedBackAt = now;
+    return next;
+  };
 
-  await store.write([{ op: "set", path: statePath(hid), data: next }]);
+  // Write the copy, then read the records again: an edit made meanwhile is in
+  // the records but not in the copy. If they changed, rebuild and write again.
+  // Only when they hold still is the household switched back.
+  for (let attempt = 0; ; attempt++) {
+    await store.write([{ op: "set", path: statePath(hid), data: build(model) }]);
+    const again = await loadHousehold(store, hid);
+    if (!again) throw new Error("The household's records couldn't be read.");
+    if (canon(again) === canon(model)) break;
+    if (attempt >= 4) {
+      return {
+        ...base, ok: false, outcome: "refused", counts: countsOf(model),
+        problems: ["The household kept changing while it was being moved back. Nothing was switched; run the move again."],
+      };
+    }
+    model = again;
+  }
   await store.write([{ op: "merge", path: householdPath(hid), data: { schemaVersion: 1 } }]);
   const report: MigrationReport = { ...base, ok: true, outcome: "moved back", counts: countsOf(model) };
   await store.write([{ op: "set", path: reportPath(hid, now), data: report as unknown as Data }]);

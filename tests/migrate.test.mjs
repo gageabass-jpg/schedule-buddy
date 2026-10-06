@@ -115,6 +115,48 @@ describe("migrating", () => {
     assert.ok(!model.events.some((e) => e.id === "e3"));
   });
 
+  // An edit that lands while the move is running — here, while the records
+  // are being read back for the check — is in state/main but not in the
+  // records. The switch must refuse rather than leave it behind.
+  const racing = (inject, base = admin) => {
+    let fired = false;
+    return {
+      ...base,
+      async list(path, where) {
+        const r = await base.list(path, where);
+        if (!fired && path.endsWith("/shifts")) { fired = true; await inject(); }
+        return r;
+      },
+    };
+  };
+  const editStateMain = (data) => () => admin.write([{ op: "merge", path: `households/${HH}/state/main`, data }]);
+
+  test("refuses to switch when state/main is edited during the move, and a rerun then picks the edit up", async () => {
+    const store = racing(editStateMain({ calName: "edited mid-move" }));
+    const report = await migrateHousehold(store, HH, "uGage", OPTS);
+    assert.equal(report.outcome, "refused");
+    assert.ok(report.problems.some((p) => p.includes("state/main changed")), report.problems.join("\n"));
+    assert.equal((await admin.get(`households/${HH}`)).schemaVersion, undefined, "not switched");
+    assert.equal((await admin.get(`households/${HH}/state/main`)).calName, "edited mid-move", "the edit is still where apps read");
+    assert.equal((await admin.get(`households/${HH}/migrations/${OPTS.now}`)).outcome, "refused", "and the refusal is on record");
+
+    const again = await migrateHousehold(admin, HH, "uGage", { ...OPTS, now: OPTS.now + 1 });
+    assert.equal(again.outcome, "migrated", again.problems.join("\n"));
+  });
+
+  test("the same holds for a store that can't guard the switch (it re-reads instead)", async () => {
+    const store = { ...racing(editStateMain({ calName: "edited mid-move" })), writeIfUnchanged: undefined };
+    const report = await migrateHousehold(store, HH, "uGage", OPTS);
+    assert.equal(report.outcome, "refused");
+    assert.equal((await admin.get(`households/${HH}`)).schemaVersion, undefined, "not switched");
+  });
+
+  test("a write to screen state alone (calView, ui, activeTab) doesn't stop the move", async () => {
+    const store = racing(editStateMain({ activeTab: "coverage", ui: { x: 1 }, calView: "week" }));
+    const report = await migrateHousehold(store, HH, "uGage", OPTS);
+    assert.equal(report.outcome, "migrated", report.problems.join("\n"));
+  });
+
   test("afterwards the old record is read-only, so an out-of-date app can't save to it", async () => {
     await migrateHousehold(admin, HH, "uGage", OPTS);
     await assertSucceeds(fs.getDoc(stateDoc("uKay")));
@@ -155,6 +197,45 @@ describe("moving back", () => {
     assert.equal(state._movedBackAt, OPTS.now + 5, "marked so notifications skip it");
     // And the apps can save to it again.
     await assertSucceeds(fs.setDoc(stateDoc("uKay"), { ...state, calName: "back" }));
+  });
+
+  test("an edit to the records while moving back is in the copy, not lost", async () => {
+    let fired = false;
+    const store = {
+      ...admin,
+      async write(ops) {
+        await admin.write(ops);
+        // Right after the first copy of the household is written to state/main,
+        // someone adds an event to the records, which are still the live ones.
+        if (!fired && ops.some((o) => o.path === `households/${HH}/state/main`)) {
+          fired = true;
+          const [one] = await admin.list(`households/${HH}/events`);
+          await admin.write([{ op: "set", path: `households/${HH}/events/ev-race`, data: { ...one.data, id: "ev-race", title: "Added mid-move" } }]);
+        }
+      },
+    };
+    const report = await unmigrateHousehold(store, HH, "uGage", OPTS.now + 5);
+    assert.equal(report.outcome, "moved back");
+    const state = await admin.get(`households/${HH}/state/main`);
+    assert.ok(state.events.some((e) => e.title === "Added mid-move"), "the event added mid-move is in state/main");
+    assert.equal((await admin.get(`households/${HH}`)).schemaVersion, 1);
+  });
+
+  test("refuses to move back while the records keep changing, and leaves the household as it was", async () => {
+    let n = 0;
+    const store = {
+      ...admin,
+      async write(ops) {
+        await admin.write(ops);
+        if (ops.some((o) => o.path === `households/${HH}/state/main`)) {
+          const [one] = await admin.list(`households/${HH}/events`);
+          await admin.write([{ op: "set", path: `households/${HH}/events/ev-churn${n}`, data: { ...one.data, id: `ev-churn${n++}`, title: "churn" } }]);
+        }
+      },
+    };
+    const report = await unmigrateHousehold(store, HH, "uGage", OPTS.now + 5);
+    assert.equal(report.outcome, "refused");
+    assert.equal((await admin.get(`households/${HH}`)).schemaVersion, 2, "still on the records");
   });
 
   test("the household moved back converts to the same model again", async () => {

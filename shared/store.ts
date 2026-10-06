@@ -31,6 +31,13 @@ export interface DocStore {
   list(path: string, where?: Where): Promise<DocSnap[]>;
   /** Applied atomically. At most MAX_BATCH ops. */
   write(ops: WriteOp[]): Promise<void>;
+  /**
+   * Apply `ops` only if the doc at `path` still satisfies `unchanged`, read
+   * and written in one transaction: a write to that doc in between makes it
+   * run again rather than slip past. Returns false, writing nothing, when the
+   * doc no longer satisfies it. Optional: only the Admin-SDK store has it.
+   */
+  writeIfUnchanged?(path: string, unchanged: (current: Data | undefined) => boolean, ops: WriteOp[]): Promise<boolean>;
   watchDoc(path: string, onData: (data: Data | undefined) => void, onError: (e: unknown) => void): Unsubscribe;
   watchList(path: string, where: Where | undefined, onDocs: (docs: DocSnap[]) => void, onError: (e: unknown) => void): Unsubscribe;
 }
@@ -74,6 +81,19 @@ export function namespacedStore(db: any): DocStore {
         else b.set(db.doc(o.path), stripUndefined(o.data));
       }
       await b.commit();
+    },
+    async writeIfUnchanged(path, unchanged, ops) {
+      if (ops.length > MAX_BATCH) throw new Error(`writeIfUnchanged: ${ops.length} ops is over the ${MAX_BATCH} batch limit`);
+      return db.runTransaction(async (tx: any) => {
+        const s = await tx.get(db.doc(path));
+        if (!unchanged(s.exists ? s.data() : undefined)) return false;
+        for (const o of ops) {
+          if (o.op === "delete") tx.delete(db.doc(o.path));
+          else if (o.op === "merge") tx.set(db.doc(o.path), stripUndefined(o.data), { merge: true });
+          else tx.set(db.doc(o.path), stripUndefined(o.data));
+        }
+        return true;
+      });
     },
     watchDoc(path, onData, onError) {
       return db.doc(path).onSnapshot((s: any) => onData(s.exists ? s.data() : undefined), onError);
