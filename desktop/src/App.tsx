@@ -352,6 +352,15 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // Kaylene's stretches (runs of consecutive days she works), for the fire
   // mark. Built two weeks wider than the shift window so a run crossing its
   // edge still counts every day ("3/4", not "1/2").
+  // The popover can open on any date the timeline pans to, far outside the
+  // month the stretches above are built for, so it gets its own window.
+  const shiftDetailStretch = useMemo(() => {
+    if (!state || !shiftDetail || shiftDetail.shift.who !== "K") return undefined;
+    const [y, m, d] = shiftDetail.date.split("-").map(Number);
+    const iso = (dt: Date) => fmtDate(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    return stretchesFor(buildShiftMap(state, iso(new Date(y, m - 1, d - 14)), iso(new Date(y, m - 1, d + 14))), "K").get(shiftDetail.date);
+  }, [state, shiftDetail]);
+
   const kStretches = useMemo(() => {
     if (!state) return stretchesFor(DEMO_SHIFTS, "K");
     const iso = (d: Date) => fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1074,6 +1083,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
             selfName={selfName}
             partnerName={partnerName}
             isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
+            stretch={shiftDetailStretch}
             onAsk={() => { const target = shiftDetail; setShiftDetail(null); openAsk(shiftAskContext(target.date, target.shift)); }}
             onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
             onHandOff={() => {
