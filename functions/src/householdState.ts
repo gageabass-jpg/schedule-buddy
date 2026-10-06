@@ -2,7 +2,12 @@
 // whichever way the household is stored (docs/data-model.md, step 3) — the
 // server side of desktop/src/lib/householdState.ts.
 //
-//   Not migrated — state/main, read directly and edited in a transaction.
+//   Not migrated — state/main, read directly and edited in a transaction
+//     that also reads the household doc, so a household that switches to the
+//     records partway through makes the transaction run again (and the edit
+//     then goes to the records) instead of landing in a state/main nothing
+//     reads any more. The Admin SDK skips the read-only rule that stops the
+//     apps doing the same.
 //   Migrated (schemaVersion ≥ 2) — the state is built from the records
 //     (toLegacy), and an edit writes only the records it changed, with an
 //     edit-log entry (commitEdit) that onHouseholdEdit turns into
@@ -70,11 +75,16 @@ export async function editLegacyState<R>(
   edit: (fresh: HouseholdState) => LegacyEdit<R>,
 ): Promise<R> {
   const db = getFirestore();
-  const root = (await hhRef(hid).get()).data();
+  let root = (await hhRef(hid).get()).data();
 
   if (!isMigrated(root)) {
     const ref = hhRef(hid).collection("state").doc("main");
-    return db.runTransaction(async (tx) => {
+    const done = await db.runTransaction(async (tx) => {
+      // The household doc is read here, inside the transaction, not before it:
+      // the switch to the records writes it, which is what makes a switch
+      // between this read and the commit retry the transaction.
+      const rootSnap = await tx.get(hhRef(hid));
+      if (isMigrated(rootSnap.data())) return { moved: true as const, root: rootSnap.data() };
       const snap = await tx.get(ref);
       const out = edit((snap.data() ?? {}) as HouseholdState);
       if (out.next) tx.set(ref, out.next);
@@ -84,8 +94,10 @@ export async function editLegacyState<R>(
         else if (o.op === "merge") tx.set(r, o.data, { merge: true });
         else tx.set(r, o.data);
       }
-      return out.result;
+      return { moved: false as const, result: out.result };
     });
+    if (!done.moved) return done.result;
+    root = done.root; // switched since the first look: edit the records instead
   }
 
   const store = modelStore();
