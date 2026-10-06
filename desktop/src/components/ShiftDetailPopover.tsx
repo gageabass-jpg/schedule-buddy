@@ -6,6 +6,8 @@ import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
+import { StretchBadge } from "./StretchBadge";
+import type { StretchDay } from "../lib/stretch";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -35,6 +37,8 @@ interface Props {
   selfName: string;
   partnerName: string;
   isCoverageGap: boolean;
+  /** Where the day sits in Kaylene's stretch of consecutive work days, if it's in one. */
+  stretch?: StretchDay;
   onEdit: () => void;
   onHandOff: () => void;
   onAsk: () => void;
@@ -62,7 +66,7 @@ function durStr(min: number): string { const h = Math.floor(min / 60), m = min %
  */
 export function ShiftDetailPopover({
   open, onClose, shift, date, who, dayShifts, anchor, t, palette, dark, state, events,
-  householdName, selfName, partnerName, isCoverageGap,
+  householdName, selfName, partnerName, isCoverageGap, stretch,
   onEdit, onHandOff, onAsk, onDelete,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -182,8 +186,11 @@ export function ShiftDetailPopover({
                 </span>
               )}
             </div>
-            <div style={{ fontFamily: BRAND_FONT, fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 10, color: t.text }}>
-              {bigLine}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
+              <span style={{ fontFamily: BRAND_FONT, fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
+                {bigLine}
+              </span>
+              {who === "K" && stretch && <StretchBadge stretch={stretch} name={partnerName} size={16} fontSize={14} />}
             </div>
             <div style={{ fontSize: 13, color: t.text2, marginTop: 4 }}>{subtitle} · {householdName}</div>
           </div>

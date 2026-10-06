@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Shift } from "../data";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { DAISY_COLOR, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
+import { ModalPresence } from "../lib/modalMotion";
+import { TimelineBlockPopover } from "./TimelineBlockPopover";
 import {
   MAX_PX_PER_DAY, MIN_PER_DAY, MIN_PX_PER_DAY, blockTextFor, clampPpd,
   dayAtViewportX, dayIndex, fitPpd, isoFromDayIndex, lodFor, monthSpans,
@@ -39,7 +41,10 @@ const HEAD_TOP = 24;
 const HEAD_BOTTOM = 28;
 const DAYS_BACK = 540;          // the axis runs ~18 months each side of today
 const DAYS_TOTAL = DAYS_BACK * 2 + 1;
-const COVERAGE_FILL = "linear-gradient(180deg, #56B7A9, #0F6E64)";
+// Daisy's row: school is grey, coverage is blue.
+const SCHOOL_GREY = "#8A9693";
+const COVERAGE_BLUE = "#2F6FB5";
+const COVERAGE_FILL = "linear-gradient(180deg, #4F8FD6, #2F6FB5)";
 const DRAG_PX = 4;
 const EASE_MS = 260;
 
@@ -73,6 +78,8 @@ export function TimelineView({
   const [ppd, setPpd] = useState(() => fitPpd(7, 1100 - GUTTER));
   const [scrollLeft, setScrollLeft] = useState(0);
   const [now, setNow] = useState(() => new Date());
+  // The block whose popover is open (Daisy's school and coverage).
+  const [blockPop, setBlockPop] = useState<{ b: TlBlock; anchor: DOMRect } | null>(null);
 
   // Mirrors of the numbers above that event handlers need synchronously — a
   // fast wheel burst fires several events before React re-renders.
@@ -308,8 +315,9 @@ export function TimelineView({
   const lanes: { key: string; name: string; color: string; h: number }[] = [
     { key: "G", name: selfName, color: personColor("G", palette), h: 54 },
     { key: "K", name: partnerName, color: personColor("K", palette), h: 54 },
-    ...(data?.D ? [{ key: "D", name: daisyName, color: DAISY_COLOR, h: 40 }] : []),
-    { key: "cov", name: "Coverage", color: "#0F6E64", h: 32 },
+    // Daisy's row carries both her school day (grey) and the coverage asked for
+    // her (blue), so one row answers "who has her, and when".
+    { key: "D", name: daisyName, color: DAISY_COLOR, h: 44 },
     { key: "ev", name: "Events", color: t.text2, h: Math.max(40, evPack.count * 24 + 12) },
   ];
   const lanesH = lanes.reduce((s, l) => s + l.h, 0);
@@ -334,20 +342,25 @@ export function TimelineView({
       return <div key={b.id} title={`${b.who === "K" ? partnerName : selfName} resting · ${b.sub}`}
         style={{ ...common, top: 6, bottom: 6, background: hatch(color), opacity: 0.75, pointerEvents: "none" }} />;
     }
+    const openBlock = (e: React.MouseEvent<HTMLElement>) => {
+      if (wasDrag()) return;
+      setBlockPop({ b, anchor: e.currentTarget.getBoundingClientRect() });
+    };
     if (b.kind === "school") {
-      return <div key={b.id} title={`${daisyName} at school · ${b.sub}`}
-        style={{ ...common, top: 6, bottom: 6, background: rgba(color, 0.28), border: `1px dashed ${rgba(color, 0.7)}`,
-          padding: `0 6px 0 ${6 + lead}px`, fontSize: 10.5, color: t.text2, display: "flex", alignItems: "center" }}>
+      return <button key={b.id} type="button" title={`${daisyName} at school · ${b.sub}`} onClick={openBlock}
+        style={{ ...common, top: 6, bottom: 6, background: rgba(SCHOOL_GREY, 0.3), border: `1px dashed ${rgba(SCHOOL_GREY, 0.8)}`,
+          padding: `0 6px 0 ${6 + lead}px`, fontSize: 10.5, color: t.text2, display: "flex", alignItems: "center",
+          textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
         {text !== "none" ? "School" : ""}
-      </div>;
+      </button>;
     }
     if (b.kind === "coverage") {
-      return <div key={b.id} title={tip}
+      return <button key={b.id} type="button" title={tip} onClick={openBlock}
         style={{ ...common, top: 5, bottom: 5, background: COVERAGE_FILL, color: "#fff", opacity: b.pending ? 0.7 : 1,
-          border: b.pending ? "1px dashed #fff" : undefined, padding: `0 7px 0 ${7 + lead}px`, fontSize: 11, fontWeight: 600,
-          display: "flex", alignItems: "center" }}>
+          border: b.pending ? "1px dashed #fff" : 0, padding: `0 7px 0 ${7 + lead}px`, fontSize: 11, fontWeight: 600,
+          display: "flex", alignItems: "center", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
         {text === "full" ? `${b.label} · ${b.sub}` : text === "chip" ? "Cov" : ""}
-      </div>;
+      </button>;
     }
     if (b.kind === "event") {
       const evColor = eventColor(b.event!.who, palette);
@@ -377,8 +390,9 @@ export function TimelineView({
 
   const laneBlocks = (key: string): { b: TlBlock; row?: number }[] => {
     if (!data) return [];
+    // School first, coverage after, so coverage paints over school where they meet.
     const list =
-      key === "G" ? data.G : key === "K" ? data.K : key === "D" ? data.D ?? [] : key === "cov" ? data.cov : data.ev;
+      key === "G" ? data.G : key === "K" ? data.K : key === "D" ? [...(data.D ?? []), ...data.cov] : data.ev;
     // Rest first so solid blocks draw over it.
     const ordered = key === "ev" ? list : [...list].sort((a, b) => (a.kind === "rest" ? 0 : 1) - (b.kind === "rest" ? 0 : 1));
     return ordered.filter(visible).map((b) => ({ b, row: key === "ev" ? evPack.rows.get(b.id) : undefined }));
@@ -466,6 +480,7 @@ export function TimelineView({
         <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 11, color: t.text3 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 14, height: 9, borderRadius: 3, background: palette.G }} />Working</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 14, height: 9, borderRadius: 3, background: hatch(t.text2) }} />Resting</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 14, height: 9, borderRadius: 3, background: rgba(SCHOOL_GREY, 0.3), border: `1px dashed ${rgba(SCHOOL_GREY, 0.8)}`, boxSizing: "border-box" }} />School</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 14, height: 9, borderRadius: 3, background: COVERAGE_FILL }} />Coverage</span>
         </div>
       </div>
@@ -574,6 +589,35 @@ export function TimelineView({
           </div>
         )}
       </div>
+
+      <ModalPresence open={!!blockPop}>
+        {blockPop && (() => {
+          const { b, anchor } = blockPop;
+          const request = b.kind === "coverage" ? state?.coverageRequests?.find((r) => `c-${r.id}` === b.id) : undefined;
+          const works = (who: "G" | "K") => !!data?.shifts[b.date]?.some((s) => s.who === who);
+          return (
+            <TimelineBlockPopover
+              open
+              onClose={() => setBlockPop(null)}
+              kind={b.kind === "coverage" ? "coverage" : "school"}
+              range={b.sub ?? ""}
+              minutes={b.endMin - b.startMin}
+              date={b.date}
+              request={request}
+              accent={b.kind === "coverage" ? COVERAGE_BLUE : SCHOOL_GREY}
+              anchor={anchor}
+              t={t}
+              dark={dark}
+              state={state}
+              householdName={state?.householdName || "Your household"}
+              selfName={selfName}
+              partnerName={partnerName}
+              gWorks={works("G")}
+              kWorks={works("K")}
+            />
+          );
+        })()}
+      </ModalPresence>
 
       <div style={{ fontSize: 11, color: t.text3 }}>
         Pinch or ⌘-scroll to zoom · drag or scroll to pan · double-click a day to open it · + / − and ← / → work too
