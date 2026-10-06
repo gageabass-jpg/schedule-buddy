@@ -4,7 +4,7 @@
 // (shared/onboarding.ts). The steps run down a timeline on the left; the
 // questions sit on the right. The invite codes come at the end.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { collection, doc } from "firebase/firestore";
 import { ArrowRight } from "lucide-react";
 import { auth, db } from "../firebase";
@@ -70,7 +70,7 @@ export function SetupWizard({ dark = true, onCancel, onDone }: {
   const [home, setHome] = useState<PlaceAnswer | null>(null);
   const [homeQuery, setHomeQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const session = useRef(Math.random().toString(36).slice(2));
+  const [session] = useState(() => Math.random().toString(36).slice(2));
   const [err, setErr] = useState("");
   const [creating, setCreating] = useState(false);
   const [codes, setCodes] = useState<{ partner: string; caregiver?: string } | null>(null);
@@ -110,7 +110,7 @@ export function SetupWizard({ dark = true, onCancel, onDone }: {
     if (home || homeQuery.trim().length < 3) { setSuggestions([]); return; }
     const q = homeQuery.trim();
     const timer = setTimeout(() => {
-      searchPlaces(q, session.current).then(setSuggestions).catch(() => setSuggestions([]));
+      searchPlaces(q, session).then(setSuggestions).catch(() => setSuggestions([]));
     }, 300);
     return () => clearTimeout(timer);
   }, [homeQuery, home]);

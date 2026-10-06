@@ -11,7 +11,6 @@ import { useHouseholdLook } from "../lib/householdLook";
 // (independent of the person-hue tokens on `palette`).
 const TEAL = "#0F6E64";       // primary / selection
 const TEAL_TINT = "#D8E7E4";  // selected fill (segments, cards, childcare note)
-const CLAY = "#8A4B38";       // attention / error text
 
 type RepeatMode = "none" | "weekly" | "biweekly" | "custom";
 

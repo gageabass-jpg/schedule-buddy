@@ -6,7 +6,7 @@ import { BrandMark } from "./BrandMark";
 import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import {
-  computeOverlapCandidates, parentDayRanges, parentDaySegments,
+  computeOverlapCandidates, parentDayRanges,
   hmToMin, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
 } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";

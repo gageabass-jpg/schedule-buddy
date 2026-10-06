@@ -4,8 +4,7 @@
 // rows against the current household state.
 
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { app as firebaseApp, db } from "../firebase";
+import { app as firebaseApp } from "../firebase";
 import type { HouseholdState } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";
 

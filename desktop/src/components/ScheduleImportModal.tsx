@@ -15,8 +15,6 @@ import { RedTrash } from "./RedTrash";
 import { useHouseholdLook } from "../lib/householdLook";
 
 const CLAY = "#8A4B38";
-const TEAL_TINT = "#D8E7E4";
-const CLAY_TINT = "#EFDFDB";
 
 interface Props {
   scheduleId: string | null;

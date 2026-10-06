@@ -108,7 +108,7 @@ export function MonthGrid({
   // slows, so a sustained rise is fingers on the pad; one doubled event from a
   // busy frame isn't) or turns round, and the next swipe counts straight away.
   const nav = useRef({ onNext, onPrev });
-  nav.current = { onNext, onPrev };
+  useEffect(() => { nav.current = { onNext, onPrev }; });
 
   // Windows: the mouse wheel over the toolbar steps back (up) or forward
   // (down), one step per notch. A notch is ~100px of deltaY; a precision
@@ -1013,8 +1013,6 @@ function WvuGameTip({ game }: { game: WvuGame }) {
   );
 }
 
-/** The app icon's tile colour. */
-const APP_ICON_TEAL = "#0F6E64";
 
 /** Teal, the house "fine": the same colour the confirmed-care line used. */
 const CARE_CHECK = "#0F6E64";

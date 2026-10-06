@@ -8,7 +8,7 @@
 //  - the pixels' random delays are picked once, not on every render, so the
 //    pattern doesn't reshuffle when a parent re-renders.
 
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 
 interface Button01Props {
   /** Where the button goes. Without one it renders as a plain mark. */
@@ -20,8 +20,8 @@ interface Button01Props {
 }
 
 export const Button01 = ({ href, label, children, className }: Button01Props) => {
-  const pixels = useMemo(() => Array.from({ length: 25 }, () => Math.floor(Math.random() * 4)), []);
-  const overlay = useMemo(() => Array.from({ length: 11 }, () => 4 + Math.floor(Math.random() * 4)), []);
+  const [pixels] = useState(() => Array.from({ length: 25 }, () => Math.floor(Math.random() * 4)));
+  const [overlay] = useState(() => Array.from({ length: 11 }, () => 4 + Math.floor(Math.random() * 4)));
   const external = !!href && /^https?:/.test(href);
 
   return (

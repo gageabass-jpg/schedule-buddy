@@ -87,7 +87,7 @@ const CircleCheckIcon = forwardRef<CircleCheckIconHandle, CircleCheckIconProps>(
      controls.start("animate");
      tickControls.start("animate");
     } else {
-     onMouseEnter?.(e as any);
+     onMouseEnter?.(e as React.MouseEvent<HTMLDivElement>);
     }
    },
    [controls, tickControls, reduced, onMouseEnter, isAnimated],
@@ -99,7 +99,7 @@ const CircleCheckIcon = forwardRef<CircleCheckIconHandle, CircleCheckIconProps>(
      controls.start("normal");
      tickControls.start("normal");
     } else {
-     onMouseLeave?.(e as any);
+     onMouseLeave?.(e as React.MouseEvent<HTMLDivElement>);
     }
    },
    [controls, tickControls, onMouseLeave],

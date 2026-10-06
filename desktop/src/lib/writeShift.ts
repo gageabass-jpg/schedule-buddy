@@ -1,5 +1,3 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import { compactTime, type HouseholdState, type OTShift, type PartnerShift, type DependentShift, type Override } from "../state";
 import type { ShiftSource } from "../data";
 import { crossesMidnight, generateShiftTypeId } from "./writeShiftTypes";

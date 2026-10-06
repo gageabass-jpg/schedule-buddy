@@ -2,8 +2,7 @@
 // render as red diagonal stripes on calendar cells. Drawn from the
 // Inspector's Utilities → Schedule Block tool.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type { HouseholdState, ScheduleBlock } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";
 

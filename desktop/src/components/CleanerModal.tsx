@@ -30,7 +30,7 @@ type Phase = "pick" | "analyzing" | "review" | "applying" | "done"
   | "rw-review" | "rw-applying";
 
 export function CleanerModal({
-  open, onClose, palette, t, dark, householdId, state, selfName, partnerName,
+  open, onClose, palette, t, dark: _dark, householdId, state, selfName, partnerName,
 }: Props) {
   const [phase, setPhase]   = useState<Phase>("pick");
   const [who, setWho]       = useState<"G" | "K">("G");

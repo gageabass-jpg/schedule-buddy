@@ -581,6 +581,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // being LATE keeps it on screen instead of it vanishing with its Friday.
   // `today` is an explicit dependency so the count can't outlive the day it
   // was computed on — and so this and the modal always resolve the same date.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the compiler skips this component; the explicit memo keeps the dependency stable
   const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
   const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
   // The Coverage view: every day in the loaded months that involves childcare
