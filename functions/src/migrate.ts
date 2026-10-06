@@ -7,10 +7,8 @@ import { logger } from "firebase-functions";
 import {
   migrateHousehold as migrate, unmigrateHousehold as unmigrate, type MigrationReport,
 } from "./shared/migrate";
-import { loadHousehold } from "./shared/store";
-import { toLegacy } from "./shared/toLegacy";
 import { modelStore } from "./modelStore";
-import { refreshCaregiverView } from "./caregiver";
+import { dropCaregiverView } from "./caregiver";
 
 interface Request { householdId?: string }
 
@@ -36,10 +34,8 @@ export const migrateHousehold = onCall<Request, Promise<MigrationReport>>(
       now, from: iso(now - 90 * 86_400_000), to: iso(now + 365 * 86_400_000),
     });
     logger.info("migrateHousehold", { householdId, outcome: report.outcome, problems: report.problems.length, notes: report.notes });
-    if (report.outcome === "migrated") {
-      const model = await loadHousehold(modelStore(), householdId);
-      if (model) await refreshCaregiverView(householdId, JSON.parse(JSON.stringify(toLegacy(model).state)));
-    }
+    // Caregivers now read their own records; the view held every request.
+    if (report.outcome === "migrated") await dropCaregiverView(householdId);
     return report;
   },
 );
