@@ -24,7 +24,6 @@ import type { HouseholdState } from "./shared/state";
 import { loadHousehold, revertChanges, type EditEntry } from "./shared/store";
 import { toLegacy } from "./shared/toLegacy";
 import { modelStore } from "./modelStore";
-import { refreshCaregiverView } from "./caregiver";
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
@@ -588,7 +587,6 @@ export const onHouseholdEdit = onDocumentCreated(
       const plainState = (m: typeof model) => JSON.parse(JSON.stringify(toLegacy(m).state)) as Record<string, unknown>;
       const after = plainState(model);
       await notifyScheduleDiff(householdId, plainState(revertChanges(model, entry.changes)), after);
-      await refreshCaregiverView(householdId, after);
     } finally {
       await event.data?.ref.delete().catch(() => undefined);
     }

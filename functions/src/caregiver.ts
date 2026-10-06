@@ -11,9 +11,10 @@
 //     `sync` rebuilds the view on demand, for a household whose view doesn't
 //     exist yet.
 //
-// A household on the any-household model has no state/main to trigger on:
-// onHouseholdEdit (index.ts) calls refreshCaregiverView after each save, and
-// caregiverAction's change goes through editLegacyState like any other edit.
+// A household on the any-household model has no caregiver view at all: its
+// caregivers read the records addressed to them (shared/store.ts
+// watchCaregiver), and migrateHousehold drops the view. caregiverAction's change
+// goes through editLegacyState like any other edit.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -43,13 +44,12 @@ export const mirrorCaregiverView = onDocumentWritten(
   },
 );
 
-/** Rewrite the caregiver's view from `state` if what it shows has changed. */
-export async function refreshCaregiverView(householdId: string, state: Record<string, unknown> | null): Promise<void> {
-  const ref = viewRef(householdId);
-  const next = buildCaregiverView(state ?? undefined);
-  const cur = (await ref.get()).data();
-  if (cur && JSON.stringify(cur) === JSON.stringify(next)) return;
-  await ref.set(next);
+/** Remove the caregiver view. A household on the model has none: it held every
+ *  coverage request, so a caregiver there reads their own requests from the
+ *  records instead. (Moving back to state/main rebuilds it, through the
+ *  state/main write mirrorCaregiverView listens to.) */
+export async function dropCaregiverView(householdId: string): Promise<void> {
+  await viewRef(householdId).delete().catch(() => {});
 }
 
 /** The people records that are this account, on a household on the any-household
@@ -84,6 +84,8 @@ export const caregiverAction = onCall<CaregiverActionRequest, Promise<{ ok: true
     }
 
     if (request.data.action === "sync") {
+      // Nothing to build for a household on the model.
+      if (isMigrated(hh.data())) return { ok: true };
       const state = await readLegacyState(householdId);
       await viewRef(householdId).set(buildCaregiverView((state ?? undefined) as Record<string, unknown> | undefined));
       return { ok: true };

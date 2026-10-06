@@ -13,7 +13,7 @@
 
 import type { HouseholdModel, Person } from "./model";
 import { fromLegacy, type LegacyPeople } from "./fromLegacy";
-import { bridgeWrites, type WriteOp } from "./store";
+import { bridgeWrites, type CaregiverModel, type WriteOp } from "./store";
 import type {
   CoverageRequest, DependentShift, EventWho, HouseholdMeta, HouseholdState, OTOpportunity, OTShift,
   Override, PartnerShift,
@@ -35,17 +35,43 @@ function clean<T extends object>(o: T): T {
   return out;
 }
 
-export function toLegacy(model: HouseholdModel): LegacyView {
-  const hidden: string[] = [];
-  const adults = model.people.filter((p) => p.role === "adult").sort(byOrder);
-  const caregivers = model.people.filter((p) => p.role === "caregiver").sort(byOrder);
+/** Who fills the legacy slots: self (G), partner (K), the first caregiver (D),
+ *  and the people left over that no slot can hold. */
+export function legacySlots(allPeople: Person[]) {
+  const adults = allPeople.filter((p) => p.role === "adult").sort(byOrder);
+  const caregivers = allPeople.filter((p) => p.role === "caregiver").sort(byOrder);
   // "Self" is the first adult; the partner slot takes the first partner (a
   // person with no relation is from before relations, so a partner too) —
   // never a roommate or other adult, whatever order they were added in.
   const g = adults[0];
   const k = adults.find((p) => p !== g && (p.relation === "partner" || p.relation === undefined));
   const d = caregivers[0];
-  for (const p of [...adults.filter((a) => a !== g && a !== k), ...caregivers.slice(1)]) {
+  const leftOver = [...adults.filter((a) => a !== g && a !== k), ...caregivers.slice(1)];
+  return { g, k, d, leftOver };
+}
+
+/**
+ * What a caregiver's screen reads, in the shape of caregiverView/main (names
+ * and coverage requests), built from the records the caregiver is allowed to
+ * read: people, and only the requests addressed to them. This is why the
+ * household needs no caregiverView once it has moved to the model — that
+ * document held every request in the household, for any member to read.
+ */
+export function caregiverLegacyState(m: CaregiverModel) {
+  const { g, k, d } = legacySlots(m.people);
+  return {
+    ...(m.root.name ? { householdName: m.root.name } : {}),
+    ...(g?.name ? { selfName: g.name } : {}),
+    ...(k?.name ? { partner: { name: k.name } } : {}),
+    ...(d?.name ? { dependents: { daisy: { name: d.name } } } : {}),
+    coverageRequests: m.coverageRequests as CoverageRequest[],
+  };
+}
+
+export function toLegacy(model: HouseholdModel): LegacyView {
+  const hidden: string[] = [];
+  const { g, k, d, leftOver } = legacySlots(model.people);
+  for (const p of leftOver) {
     hidden.push(`${p.name} (${p.relation ?? p.role}) has no legacy slot`);
   }
 

@@ -170,10 +170,15 @@ service cloud.firestore {
     }
 
     // The caregiver's slice of the schedule: coverage requests and names.
-    // Written only by the mirrorCaregiverView / caregiverAction functions.
+    // Written only by the mirrorCaregiverView / caregiverAction functions, and
+    // only for a household still on state/main: it holds EVERY coverage
+    // request, so once the household is on the model (schemaVersion >= 2) it
+    // is closed, and a caregiver reads only the requests addressed to them,
+    // from coverageRequests/*.
     match /households/{householdId}/caregiverView/{docId} {
       allow read: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
+        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
+        && get(/databases/$(database)/documents/households/$(householdId)).data.get('schemaVersion', 1) < 2;
       allow write: if false;
     }
 

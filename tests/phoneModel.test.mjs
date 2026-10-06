@@ -22,7 +22,7 @@ test("the bundle defines the model API", () => {
   const M = loadBundle();
   for (const name of [
     "fromLegacy", "resolveShifts", "coverageGaps", "caregiverDayRanges", "namespacedStore",
-    "loadHousehold", "watchHousehold", "watchCaregiver", "putRecord", "removeRecord",
+    "loadHousehold", "watchHousehold", "watchCaregiver", "caregiverLegacyState", "putRecord", "removeRecord",
     "savePerson", "removePerson", "saveSettings", "saveHouseholdInfo", "replaceShiftId",
   ]) {
     assert.equal(typeof M[name], "function", `NucleusModel.${name}`);

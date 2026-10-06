@@ -401,3 +401,20 @@ describe("household meta docs", () => {
     await assertFails(setDoc(meta("other", "cadence"), { ackCoverage: "x" }, { merge: true }));  // another household's admin
   });
 });
+
+describe("the caregiver view", () => {
+  const view = (uid) => doc(as(uid), "households", HH, "caregiverView", "main");
+  beforeEach(() => env.withSecurityRulesDisabled((ctx) =>
+    setDoc(doc(ctx.firestore(), "households", HH, "caregiverView", "main"), { coverageRequests: [{ id: "r1" }] })));
+
+  test("while the household is on state/main, every member reads it and nobody writes it", async () => {
+    for (const uid of ["gage", "kaylene", "daisy"]) await assertSucceeds(getDoc(view(uid)));
+    await assertFails(setDoc(view("gage"), { coverageRequests: [] }));
+    await assertFails(getDoc(view("stranger")));
+  });
+
+  test("once the household is on the model it's closed to everyone: it held every request, and caregivers read their own from the records", async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "households", HH), { schemaVersion: 2 }));
+    for (const uid of ["gage", "kaylene", "daisy", "stranger"]) await assertFails(getDoc(view(uid)));
+  });
+});

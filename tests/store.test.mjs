@@ -23,6 +23,7 @@ const {
   setSchemaVersion, putRecord, removeRecord, removePerson, savePerson, ModelInputError,
 } = storeMod;
 const { fromLegacy } = legacyMod;
+const { caregiverLegacyState } = toLegacyMod;
 const { resolveShifts } = resolveMod;
 
 const PROJECT = "nucleus-store-test";
@@ -128,6 +129,47 @@ describe("the caregiver's view", () => {
     assert.ok(view.shifts.length > 0 && view.shifts.every((s) => s.personId === people.D));
     assert.equal(view.caregiverOff.length, 1);
     assert.ok(!("events" in view));
+  });
+});
+
+describe("a household with two caregivers", () => {
+  // A second caregiver, with an account, and a request addressed to them.
+  beforeEach(async () => {
+    await admin.write([
+      { op: "merge", path: `households/${HH}`, data: {
+        memberUids: [...META.memberUids, "uOther"],
+        memberNames: { ...META.memberNames, uOther: "Olive" },
+        roles: { ...META.roles, uOther: "supporting" },
+      } },
+      { op: "set", path: `households/${HH}/people/pOther`, data: { id: "pOther", name: "Olive", role: "caregiver", uid: "uOther", order: 9 } },
+      { op: "set", path: `households/${HH}/coverageRequests/cov-olive`, data: {
+        id: "cov-olive", date: "2026-10-14", startTime: "07:00", endTime: "19:00", status: "pending",
+        caregiverId: "pOther", createdAt: 1, reason: "both-working",
+      } },
+    ]);
+  });
+
+  const mine = (uid, personId) => next((onModel, onError) => watchCaregiver(as(uid), HH, personId, onModel, onError));
+
+  test("each caregiver is shown only the requests addressed to them", async () => {
+    const { people } = converted();
+    const daisy = await mine("uDaisy", people.D);
+    assert.deepEqual(daisy.coverageRequests.map((r) => r.id).sort(), ["cov1", "cov2"]);
+    assert.ok(!JSON.stringify(daisy).includes("cov-olive"), "nothing of Olive's request reaches Daisy");
+    const olive = await mine("uOther", "pOther");
+    assert.deepEqual(olive.coverageRequests.map((r) => r.id), ["cov-olive"]);
+  });
+
+  test("the page state built from their records carries the names and only their requests", async () => {
+    const { people } = converted();
+    const page = caregiverLegacyState(await mine("uDaisy", people.D));
+    assert.equal(page.householdName, "Bass Household");
+    assert.equal(page.selfName, "Gage");
+    assert.deepEqual(page.partner, { name: "Kaylene" });
+    assert.deepEqual(page.dependents, { daisy: { name: "Daisy" } });
+    assert.deepEqual(page.coverageRequests.map((r) => r.id).sort(), ["cov1", "cov2"]);
+    assert.deepEqual(Object.keys(page).sort(), ["coverageRequests", "dependents", "householdName", "partner", "selfName"],
+      "the same fields as caregiverView/main, nothing more");
   });
 });
 

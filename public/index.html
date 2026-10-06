@@ -8786,16 +8786,44 @@ function setCaregiverTab(tab) {
   }
 }
 
-// A caregiver can't read state/main (firestore.rules). They read
-// caregiverView/main — the coverage requests and the names — which the
-// mirrorCaregiverView function keeps in step, and they change things only
-// through caregiverCall() below.
+// A caregiver can't read state/main (firestore.rules), and they change things
+// only through caregiverCall() below. What they read depends on how the
+// household is stored:
+//   on the model (schemaVersion >= 2) — their own records: the people, and
+//     only the coverage requests addressed to them (NucleusModel.watchCaregiver);
+//   still on state/main — caregiverView/main, the requests and the names,
+//     which the mirrorCaregiverView function keeps in step.
 function initCaregiverFirestoreSync() {
   if (!householdId) return;
+  stateUnsubscribe = householdMigrated() ? watchCaregiverRecords() : watchCaregiverView();
+}
+
+// The caregiver's person record names their account; the rules show them
+// only the requests that record is addressed in.
+function watchCaregiverRecords() {
+  let stop = null, dead = false;
+  db.collection("households").doc(householdId).collection("people")
+    .where("uid", "==", currentUser.uid).limit(1).get().then(found => {
+      if (dead) return;
+      if (found.empty) {
+        console.warn("caregiver: no person record for this account");
+        renderCaregiverScreen([]);
+        return;
+      }
+      stop = NucleusModel.watchCaregiver(modelStore(), householdId, found.docs[0].id, model => {
+        if (!model) { renderCaregiverScreen([]); return; }
+        state = mergeStateFromFirestore(_plain(NucleusModel.caregiverLegacyState(model)));
+        renderCaregiverScreen(state.coverageRequests || []);
+      }, err => console.warn("caregiver records listener:", err));
+    }).catch(err => console.warn("caregiver person lookup:", err));
+  return () => { dead = true; if (stop) stop(); };
+}
+
+function watchCaregiverView() {
   const ref = db.collection("households").doc(householdId)
     .collection("caregiverView").doc("main");
   let asked = false;
-  stateUnsubscribe = ref.onSnapshot(doc => {
+  return ref.onSnapshot(doc => {
     if (!doc.exists) {
       renderCaregiverScreen([]);
       // A household set up before the view existed: have it built once.
