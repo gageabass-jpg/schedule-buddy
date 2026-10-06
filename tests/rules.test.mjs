@@ -359,3 +359,45 @@ describe("public shares", () => {
     await assertSucceeds(setDoc(ref("gage"), share("gage")));
   });
 });
+
+describe("household meta docs", () => {
+  const meta = (uid, id) => doc(as(uid), "households", HH, "meta", id);
+  beforeEach(() => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "households", HH, "meta", "cadence"), { dueCycle: "2026-10-30" });
+    await setDoc(doc(db, "households", HH, "meta", "piCommand"), { nonce: "n1", command: "scene" });
+  }));
+
+  test("admin and partner read and write the cadence flags", async () => {
+    for (const uid of ["gage", "kaylene"]) {
+      await assertSucceeds(getDoc(meta(uid, "cadence")));
+      await assertSucceeds(setDoc(meta(uid, "cadence"), { ackCoverage: "2026-10-12" }, { merge: true }));
+    }
+  });
+
+  test("a caregiver can't write any of them, the wall remote included", async () => {
+    await assertFails(setDoc(meta("daisy", "cadence"), { ackCoverage: "x" }, { merge: true }));
+    await assertFails(setDoc(meta("daisy", "piCommand"), { nonce: "n2", command: "reboot" }));
+    await assertFails(setDoc(meta("daisy", "nowPlaying"), { title: "x" }));
+    await assertFails(deleteDoc(meta("daisy", "piCommand")));
+  });
+
+  test("a caregiver doesn't read them either", async () => {
+    await assertFails(getDoc(meta("daisy", "cadence")));
+    await assertFails(getDoc(meta("daisy", "piCommand")));
+  });
+
+  test("the wall remote and now-playing are the functions' alone: no client writes them", async () => {
+    for (const uid of ["gage", "kaylene"]) {
+      await assertFails(setDoc(meta(uid, "piCommand"), { nonce: "n2", command: "reboot" }));
+      await assertFails(setDoc(meta(uid, "nowPlaying"), { title: "x" }));
+      await assertFails(setDoc(meta(uid, "anythingElse"), { x: 1 }));
+    }
+  });
+
+  test("a stranger reads and writes nothing", async () => {
+    await assertFails(getDoc(meta("stranger", "cadence")));
+    await assertFails(setDoc(meta("stranger", "cadence"), { ackCoverage: "x" }, { merge: true }));
+    await assertFails(setDoc(meta("other", "cadence"), { ackCoverage: "x" }, { merge: true }));  // another household's admin
+  });
+});
