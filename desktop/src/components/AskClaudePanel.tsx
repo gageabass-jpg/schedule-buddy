@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
-import { askClaude, type AskMessage, type AskMode } from "../lib/askClaude";
+import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/askClaude";
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
+import { shortcut } from "../lib/platform";
+import { useHouseholdLook } from "../lib/householdLook";
+
+/** A day (or shift) the panel was opened about, from Ask on a popover. */
+export interface AskContext {
+  /** Changes when a different day is attached, so the panel re-attaches. */
+  id: string;
+  /** Shown on the chip, e.g. "Tue, Oct 6 · Gage works". */
+  label: string;
+  /** What nucleusAI is told, sent ahead of the next message. */
+  details: string;
+}
 
 interface Props {
   open: boolean;
@@ -10,25 +23,35 @@ interface Props {
   palette: Palette;
   t: ThemeTokens;
   dark: boolean;
+  /** Attach this day to the next question. */
+  context?: AskContext | null;
 }
 
 interface UIMessage {
   role: "user" | "assistant";
   text: string;
+  /** This reply changed the schedule; carries what undo needs. */
+  change?: { id: string; tools: string[] };
+  undo?: { state: "busy" | "done" } | { state: "error"; message: string };
+  /** The day this question was asked about, shown above it. */
+  about?: string;
 }
 
-const SUGGESTIONS = [
-  "What does my next 2 weeks look like?",
-  "I picked up an OT shift this Friday night",
-  "Move my Monday shift next week to Wednesday",
-  "Kaylene is off the rest of this week",
-];
+/** The opening suggestions; the last is about the partner when there is one. */
+function suggestionsFor(look: { hasPartner: boolean; names: { K: string } }): string[] {
+  return [
+    "What does my next 2 weeks look like?",
+    "I picked up an OT shift this Friday night",
+    "Move my Monday shift next week to Wednesday",
+    look.hasPartner ? `${look.names.K} is off the rest of this week` : "I'm off the rest of this week",
+  ];
+}
 
 /** Read-only is the default: the panel answers until you let it write. */
-const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Can change" };
+const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Allow Edits" };
 const MODE_CAPTION: Record<AskMode, string> = {
   read: "Read only: nucleusAI answers. It changes nothing.",
-  write: "Can change: nucleusAI confirms with you before it writes.",
+  write: "Allow Edits: nucleusAI confirms with you before it writes.",
 };
 
 /** Pretty name for the model id the function reports. */
@@ -40,7 +63,8 @@ function modelLabel(id: string | null): string {
   return `Claude ${family} ${m[2]}${m[3] ? `.${m[3]}` : ""}`;
 }
 
-export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
+export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Props) {
+  const look = useHouseholdLook();
   const [uiMessages, setUiMessages] = useState<UIMessage[]>([]);
   // Full conversation that gets passed back to the function — includes the
   // raw tool_use/tool_result blocks the UI doesn't render.
@@ -57,6 +81,20 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  // An undo happens outside the conversation, so nucleusAI would otherwise
+  // go on believing its change is in place. The next message carries a note.
+  const undoNoteRef = useRef<string | null>(null);
+  // The day the panel was opened about. It rides along with the next message,
+  // then stays in the conversation's history for follow-ups.
+  const [attached, setAttached] = useState<AskContext | null>(null);
+  useEffect(() => {
+    if (open) setAttached(context ?? null);
+  }, [open, context?.id]);
+  // Where the panel has been dragged to; null = its home in the bottom-right.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Reset when reopened.
   useEffect(() => {
@@ -67,6 +105,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     setErr(null);
     setMinimized(false);
     setModeOpen(false);
+    setPos(null);
     setTimeout(() => inputRef.current?.focus(), 80);
   }, [open]);
 
@@ -77,26 +116,49 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
   // Stop dictation if the panel goes away mid-listen.
   useEffect(() => () => recognitionRef.current?.stop(), []);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const send = async (text: string) => {
     const message = text.trim();
     if (!message || busy) return;
     setErr(null);
-    setUiMessages((prev) => [...prev, { role: "user", text: message }]);
+    const about = attached;
+    setAttached(null);
+    setUiMessages((prev) => [...prev, { role: "user", text: message, about: about?.label }]);
     setDraft("");
     setBusy(true);
     try {
-      const res = await askClaude(message, history, mode);
+      const note = undoNoteRef.current;
+      undoNoteRef.current = null;
+      const outgoing = [note, about?.details, message].filter(Boolean).join("\n\n");
+      const res = await askClaude(outgoing, history, mode);
       setHistory(res.messages);
       if (res.model) setModel(res.model);
-      setUiMessages((prev) => [...prev, { role: "assistant", text: res.reply }]);
+      setUiMessages((prev) => [...prev, { role: "assistant", text: res.reply, change: res.change }]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setErr(msg);
       setUiMessages((prev) => [...prev, { role: "assistant", text: `(Error) ${msg}` }]);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onUndo = async (index: number) => {
+    const target = uiMessages[index];
+    if (!target?.change || target.undo?.state === "busy" || target.undo?.state === "done") return;
+    const setUndo = (undo: UIMessage["undo"]) =>
+      setUiMessages((prev) => prev.map((m, i) => (i === index ? { ...m, undo } : m)));
+    setUndo({ state: "busy" });
+    try {
+      await undoChange(target.change.id);
+      setUndo({ state: "done" });
+      undoNoteRef.current = `(Note: I undid your earlier change to the schedule — the one that ran ${target.change.tools.join(", ")}. It is no longer in effect.)`;
+    } catch (e) {
+      setUndo({ state: "error", message: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -182,17 +244,48 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
     color: t.text3, flexShrink: 0, borderRadius: 4,
   };
 
+  // Drag by the titlebar. Clamped so the titlebar can't leave the window.
+  const clampPos = (x: number, y: number) => {
+    const w = panelRef.current?.offsetWidth ?? 420;
+    const h = panelRef.current?.offsetHeight ?? 60;
+    return {
+      x: Math.min(Math.max(8, x), window.innerWidth - w - 8),
+      y: Math.min(Math.max(8, y), window.innerHeight - Math.min(h, 60) - 8),
+    };
+  };
+  const onDragStart = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    e.preventDefault();
+  };
+  const onDragMove = (e: React.PointerEvent<HTMLElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    setPos(clampPos(e.clientX - d.dx, e.clientY - d.dy));
+  };
+  const onDragEnd = () => { dragRef.current = null; setDragging(false); };
+  const newConversation = () => {
+    setUiMessages([]);
+    setHistory([]);
+    setErr(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1100 }} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-label="nucleusAI"
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
-          right: 24,
-          bottom: 24,
+          ...(pos ? { left: pos.x, top: pos.y } : { right: 24, bottom: 24 }),
           width: "min(420px, calc(100vw - 32px))",
           maxHeight: "min(640px, calc(100vh - 48px))",
           background: t.bgElev,
@@ -209,30 +302,41 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
       >
         {/* Titlebar */}
         <header
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button")) setPos(null); }}
+          title="Drag to move · double-click to put it back"
           style={{
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
             padding: "10px 12px",
+            cursor: dragging ? "grabbing" : "grab",
+            userSelect: "none",
+            touchAction: "none",
             borderBottom: minimized ? "none" : `1px solid ${t.sep}`,
             background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3",
           }}
         >
-          <button
-            type="button"
-            aria-label="Conversation menu"
-            title="Conversation menu"
-            onClick={() => setUiMessages([])}
-            style={{ ...iconBtn, marginRight: 2 }}
-          >
-            <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 8h16M4 14h16" stroke={t.text2} strokeWidth={1.8} strokeLinecap="round" />
+          {/* Grip: the whole titlebar drags; this just says so. */}
+          <span aria-hidden="true" style={{ width: 18, display: "inline-flex", justifyContent: "center", marginRight: 2, flexShrink: 0 }}>
+            <svg width={12} height={18} viewBox="0 0 12 18">
+              {[3, 9, 15].flatMap((y) => [3, 9].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.4} fill={t.text2} />))}
             </svg>
-          </button>
+          </span>
           <div style={{ width: 30, height: 30, borderRadius: 6, background: BRAND_TEAL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <BrandMark size={18} color="#fff" />
           </div>
           <div style={{ flex: 1, minWidth: 0, fontFamily: BRAND_FONT, fontSize: 17, fontWeight: 600, letterSpacing: "-0.02em", color: t.text }}>
             nucleus<span style={{ opacity: 0.5 }}>AI</span>
           </div>
+          {uiMessages.length > 0 && (
+            <button type="button" aria-label="New conversation" title="New conversation" onClick={newConversation} style={iconBtn}>
+              <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke={t.text2} strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           <button type="button" aria-label={minimized ? "Expand" : "Minimise"} onClick={() => setMinimized((v) => !v)} style={iconBtn}>
             <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
               {minimized
@@ -259,7 +363,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
             >
               {uiMessages.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {SUGGESTIONS.map((s, i) => (
+                  {suggestionsFor(look).map((s, i) => (
                     <button
                       key={i}
                       type="button"
@@ -289,7 +393,44 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                         whiteSpace: "pre-wrap", wordBreak: "break-word",
                         border: mine ? "0" : `1px solid ${t.sep}`,
                       }}
-                    >{m.text}</div>
+                    >
+                      {m.about && (
+                        <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 3 }}>About {m.about}</div>
+                      )}
+                      {m.text}
+                      {m.change && (
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${t.sep}`, whiteSpace: "normal" }}>
+                          {m.undo?.state === "done" ? (
+                            <span style={{ fontSize: 12, color: t.text2 }}>Undone. The schedule is back how it was.</span>
+                          ) : (
+                            <>
+                              <span style={{ flex: 1, fontSize: 12, color: t.text2 }}>Changed the schedule</span>
+                              <button
+                                type="button"
+                                onClick={() => onUndo(i)}
+                                disabled={m.undo?.state === "busy"}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 5,
+                                  height: 30, padding: "0 10px", borderRadius: 4,
+                                  border: `1px solid ${t.sep}`, background: t.bgElev, color: t.text,
+                                  fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
+                                  cursor: m.undo?.state === "busy" ? "default" : "pointer",
+                                  opacity: m.undo?.state === "busy" ? 0.6 : 1,
+                                }}
+                              >
+                                <svg width={13} height={13} viewBox="0 0 24 24" aria-hidden="true">
+                                  <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                {m.undo?.state === "busy" ? "Undoing…" : "Undo"}
+                              </button>
+                            </>
+                          )}
+                          {m.undo?.state === "error" && (
+                            <div style={{ flexBasis: "100%", fontSize: 12, color: t.clayText, lineHeight: 1.4 }}>{m.undo.message}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               )}
@@ -305,12 +446,48 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
             </div>
 
             {err && (
-              <div style={{ flexShrink: 0, padding: "6px 14px", fontSize: 12, color: "#8A4B38", lineHeight: 1.4 }}>{err}</div>
+              <div style={{ flexShrink: 0, padding: "6px 14px", fontSize: 12, color: t.clayText, lineHeight: 1.4 }}>{err}</div>
             )}
 
             {/* Composer — one box holding the text and its controls. */}
             <div style={{ flexShrink: 0, padding: "8px 12px 10px" }}>
-              <div style={{ border: `1px solid ${t.sep}`, borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", padding: "10px 10px 8px" }}>
+              {/* Allow Edits draws the box in Clay, the house colour for "this can
+                  change things", so the mode is visible where you type, not
+                  only on the mode button. */}
+              <div
+                style={{
+                  border: `1px solid ${mode === "write" ? "#8A4B38" : t.sep}`,
+                  boxShadow: mode === "write" ? `0 0 0 3px ${dark ? "rgba(138,75,56,0.28)" : "rgba(138,75,56,0.14)"}` : "none",
+                  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                  borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", padding: "10px 10px 8px",
+                }}
+              >
+                {/* The day this question is about (from Ask on a popover). */}
+                {attached && (
+                  <div
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%",
+                      margin: "0 0 8px", padding: "3px 4px 3px 8px", borderRadius: 4,
+                      border: `1px solid ${t.sep}`, background: t.bgElev, fontSize: 12, color: t.text,
+                    }}
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+                      <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="none" stroke={BRAND_TEAL} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attached.label}</span>
+                    <button
+                      type="button"
+                      aria-label="Remove the attached day"
+                      title="Remove"
+                      onClick={() => setAttached(null)}
+                      style={{ width: 20, height: 20, padding: 0, border: 0, borderRadius: 3, background: "transparent", color: t.text2, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                    >
+                      <svg width={10} height={10} viewBox="0 0 14 14" aria-hidden="true">
+                        <path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
                 <textarea
                   ref={inputRef}
                   value={draft}
@@ -440,7 +617,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark }: Props) {
                 <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: t.text3, lineHeight: 1.35 }}>
                   {MODE_CAPTION[mode]}
                 </span>
-                <span style={{ fontSize: 12, color: t.text3, flexShrink: 0 }}>⌘K</span>
+                <span style={{ fontSize: 12, color: t.text3, flexShrink: 0 }}>{shortcut("K")}</span>
               </div>
             </div>
           </>

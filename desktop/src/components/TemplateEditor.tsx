@@ -4,6 +4,8 @@ import type { HouseholdState, PersonWeeklyTemplate, TemplateSlot } from "../stat
 import { compactTime, isCustomType } from "../state";
 import { saveWeeklyTemplates, type TemplatePerson, type WeeklyTemplates } from "../lib/writeTemplate";
 import { DAYS_LONG } from "../data";
+import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   open: boolean;
@@ -58,6 +60,7 @@ function dayToSlot(d: DraftDay): TemplateSlot {
 }
 
 export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark, householdId, state }: Props) {
+  const look = useHouseholdLook();
   const presets = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
   const defaultPreset = presets[0]?.id ?? "";
 
@@ -84,12 +87,15 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
     setErr(null);
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const names: Record<TemplatePerson, string> = {
-    G: state?.selfName || "Gage",
-    K: state?.partner?.name || "Kaylene",
-    daisy: state?.dependents?.daisy?.name || "Daisy",
+    G: state?.selfName || "You",
+    K: state?.partner?.name || "Partner",
+    daisy: state?.dependents?.daisy?.name || "Caregiver",
   };
   const draft = drafts[person];
   const setDraft = (patch: Partial<PersonDraft>) =>
@@ -149,10 +155,10 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog" aria-modal="true" aria-label="Weekly template"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(560px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: t.bgElev, color: t.text, borderRadius: 16, padding: "20px 22px 16px",
@@ -169,7 +175,7 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
 
         {/* Person tabs */}
         <div style={{ display: "flex", gap: 4, padding: 3, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 10 }}>
-          {PEOPLE.map((p) => (
+          {PEOPLE.filter((p) => (p === "K" ? look.hasPartner : p === "daisy" ? look.hasCaregiver : true)).map((p) => (
             <button key={p} type="button" onClick={() => setPerson(p)}
               style={{
                 flex: 1, padding: "7px 10px", border: 0, borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
@@ -238,7 +244,7 @@ export function TemplateEditor({ open, initialPerson, onClose, palette, t, dark,
             </div>
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>Cancel</button>
@@ -275,15 +281,15 @@ function DateRow({ label, hint, enabled, date, onToggle, onDate, palette, t }: {
 
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
-    padding: "7px 10px", background: t.bg === "#000" ? "#000" : t.bg,
+    padding: "7px 10px", background: t.bg,
     border: `0.5px solid ${t.sep}`, borderRadius: 7, color: t.text, fontSize: 13,
     fontFamily: "inherit", letterSpacing: "-0.01em", outline: "none", width: "100%",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
 function selectStyle(t: ThemeTokens): React.CSSProperties {
-  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const stroke = "%23" + (t.scheme === "dark" ? "8E8E93" : "6E6E73");
   const chevron =
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {

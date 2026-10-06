@@ -2,9 +2,13 @@ import { fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } fro
 import type { EventMap } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
 import { dayColors, eventColor, personColor, rgba, MANAGER_ORANGE, type Palette, type ThemeTokens } from "../theme";
-import { eventInitial } from "./EventAvatar";
+import { EventAvatar, eventInitial } from "./EventAvatar";
+import { PhotoAv } from "./PhotoAv";
+import { BlockTip } from "./BlockTip";
+import { compactTime } from "../state";
 import { parentDaySegments } from "../lib/computeOverlap";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+import { assignLanes, laneBox, type Span } from "../lib/lanes";
 
 const COVERAGE_COLOR = "#0F6E64";
 
@@ -25,6 +29,8 @@ interface Props {
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
   wvuGames: Map<string, WvuGame>;
+  selfName?: string;
+  partnerName?: string;
 }
 
 const HOUR_START = 6;        // 6am
@@ -61,6 +67,20 @@ function blockForShift(shift: Shift, state: HouseholdState | null, offsetMin = 0
   };
 }
 
+/** Where a coverage window sits in a day column (px), or null if it's outside it. */
+function coverageSpan(r: { startTime: string; endTime: string; endsNextDay?: boolean }): { top: number; height: number } | null {
+  const startMin = parseHM(r.startTime);
+  let endMin = parseHM(r.endTime);
+  if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
+  const winStart = HOUR_START * 60;
+  const winEnd = HOUR_END * 60;
+  if (endMin <= winStart || startMin >= winEnd) return null;
+  return {
+    top: (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR,
+    height: (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR,
+  };
+}
+
 /** ISO "YYYY-MM-DD" one day earlier. */
 function prevDayKey(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -78,8 +98,18 @@ function endLabel(typ: { start: string; end: string }): string {
 
 export function WeekView({
   palette, t, dark, shifts, state, selected, today, onSelectDate,
-  eventsByDate, onEditEvent, wvuGames,
+  eventsByDate, onEditEvent, wvuGames, selfName = "You", partnerName = "Partner",
 }: Props) {
+  // Hover cards: avatar, name, then the hours.
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
+  const nameOf = (who: string) => (who === "G" ? selfName : who === "K" ? partnerName : who === "D" || who === "Daisy" ? daisyName : "Family");
+  const hours = (a: string, b: string) => `${compactTime(a)} – ${compactTime(b)}`;
+  const typeOf = (s: Shift) => state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+  const shiftDetail = (s: Shift) => {
+    const typ = typeOf(s);
+    return typ ? `${hours(typ.start, typ.end)} · ${typ.name}` : s.label;
+  };
+  const av = (who: Shift["who"]) => <PhotoAv who={who} size={30} palette={palette} dark={dark} />;
   const [sy, sm, sd] = selected.split("-").map(Number);
   const sel = new Date(sy, sm - 1, sd);
   const weekStart = new Date(sel);
@@ -205,6 +235,38 @@ export function WeekView({
           {/* Day columns */}
           {days.map(({ key }) => {
             const isSel = key === selected;
+            // Overlapping blocks (a shift, Daisy's class, the coverage window,
+            // an event) share the column side by side instead of stacking, so
+            // none is hidden under another. Heights include each kind's
+            // minimum, since that's what's drawn.
+            const covs = (state?.coverageRequests ?? [])
+              .filter((r) => r.date === key && (r.status === "pending" || r.status === "confirmed"));
+            const spans: Span[] = [];
+            const px = (b: PlacedBlock) => ({ top: (b.startMin / 60) * PX_PER_HOUR, h: ((b.endMin - b.startMin) / 60) * PX_PER_HOUR });
+            (shifts[prevDayKey(key)] ?? []).forEach((s, i) => {
+              const b = blockForShift(s, state, -24 * 60);
+              if (!b) return;
+              const { top, h } = px(b);
+              if (h > 1) spans.push({ id: `tail-${i}`, top, bottom: top + Math.max(h, 14) });
+            });
+            covs.forEach((r, i) => {
+              const c = coverageSpan(r);
+              if (c) spans.push({ id: `cov-${i}`, top: c.top, bottom: c.top + Math.max(c.height, 12) });
+            });
+            (shifts[key] ?? []).forEach((s, i) => {
+              const b = blockForShift(s, state);
+              if (!b) return;
+              const { top, h } = px(b);
+              spans.push({ id: `shift-${i}`, top, bottom: top + Math.max(h, 18) });
+            });
+            (eventsByDate[key] ?? []).forEach((ev) => {
+              const b = blockForEvent(ev);
+              if (!b) return;
+              const { top, h } = px(b);
+              spans.push({ id: `ev-${ev.id}`, top, bottom: top + Math.max(h, 18) });
+            });
+            const lanes = assignLanes(spans);
+            const box = (id: string) => laneBox(lanes.get(id), 4);
             return (
               <div
                 key={key}
@@ -253,29 +315,29 @@ export function WeekView({
                   });
                 })}
 
-                {/* Coverage window — green stripe on the right edge. */}
-                {(state?.coverageRequests ?? [])
-                  .filter((r) => r.date === key && (r.status === "pending" || r.status === "confirmed"))
-                  .map((r, i) => {
-                    const startMin = parseHM(r.startTime);
-                    let endMin = parseHM(r.endTime);
-                    if (r.endsNextDay || endMin <= startMin) endMin += 24 * 60;
-                    const winStart = HOUR_START * 60;
-                    const winEnd = HOUR_END * 60;
-                    if (endMin <= winStart || startMin >= winEnd) return null;
-                    const top = (Math.max(startMin, winStart) - winStart) / 60 * PX_PER_HOUR;
-                    const height = (Math.min(endMin, winEnd) - Math.max(startMin, winStart)) / 60 * PX_PER_HOUR;
+                {/* Coverage window — a green block in its own lane. */}
+                {covs.map((r, i) => {
+                    const c = coverageSpan(r);
+                    if (!c) return null;
                     return (
-                      <div
+                      <BlockTip
                         key={`cov-${i}`}
+                        avatar={av("D")}
+                        name={daisyName}
+                        detail={`Coverage ${hours(r.startTime, r.endTime)} · ${r.status === "confirmed" ? "Confirmed" : "Pending"}`}
+                      >
+                      <div
                         style={{
-                          // Right-side block, half the width of a shift block.
-                          position: "absolute", right: 4, width: "calc(50% - 6px)", top, height: Math.max(height, 12),
+                          position: "absolute", ...box(`cov-${i}`), top: c.top, height: Math.max(c.height, 12),
                           borderRadius: 4, background: `linear-gradient(180deg, ${rgba("#56B7A9", 0.9)}, ${rgba(COVERAGE_COLOR, 0.9)})`,
-                          boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.45)}`, pointerEvents: "none",
+                          boxShadow: `0 0 8px ${rgba(COVERAGE_COLOR, 0.45)}`,
+                          padding: "2px 6px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                          color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: "-0.01em",
                         }}
-                        title={`Coverage ${r.startTime}–${r.endTime}`}
-                      />
+                      >
+                        {c.height >= 14 ? "Coverage" : null}
+                      </div>
+                      </BlockTip>
                     );
                   })}
 
@@ -290,19 +352,19 @@ export function WeekView({
                   const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
                   if (height <= 1) return null;
                   return (
+                    <BlockTip key={`tail-${i}`} avatar={av(s.who)} name={nameOf(s.who)} detail={`Overnight · until ${typ ? endLabel(typ) : ""}`}>
                     <div
-                      key={`tail-${i}`}
                       style={{
-                        position: "absolute", left: 4, right: 4, top, height: Math.max(height, 14),
+                        position: "absolute", ...box(`tail-${i}`), top, height: Math.max(height, 14),
                         background: t.bgElev, border: `1px solid ${t.sep}`, borderLeft: `3px solid ${color}`, borderRadius: 4,
                         padding: "2px 6px", fontSize: 10.5, fontWeight: 600, color: t.text, opacity: 0.85,
                         overflow: "hidden", whiteSpace: "nowrap", letterSpacing: "-0.01em",
                       }}
-                      title={`${s.who} · ${s.label} — overnight, ends ${typ ? endLabel(typ) : ""}`}
                     >
                       <span style={{ opacity: 0.85, marginRight: 4 }}>{s.who}</span>
                       until {typ ? endLabel(typ) : ""}
                     </div>
+                    </BlockTip>
                   );
                 })}
 
@@ -314,12 +376,11 @@ export function WeekView({
                   const top = (block.startMin / 60) * PX_PER_HOUR;
                   const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
                   return (
+                    <BlockTip key={i} avatar={av(s.who)} name={nameOf(s.who)} detail={shiftDetail(s)}>
                     <div
-                      key={i}
                       style={{
                         position: "absolute",
-                        left: 4,
-                        right: 4,
+                        ...box(`shift-${i}`),
                         top,
                         height: Math.max(height, 18),
                         background: t.bgElev,
@@ -335,11 +396,11 @@ export function WeekView({
                         whiteSpace: "nowrap",
                         letterSpacing: "-0.01em",
                       }}
-                      title={`${s.who} · ${s.label}`}
                     >
                       <span style={{ opacity: 0.85, marginRight: 4 }}>{s.who}</span>
                       {s.label}
                     </div>
+                    </BlockTip>
                   );
                 })}
                 {/* Event blocks (outlined, distinct from shifts) */}
@@ -350,13 +411,17 @@ export function WeekView({
                   const top = (block.startMin / 60) * PX_PER_HOUR;
                   const height = ((block.endMin - block.startMin) / 60) * PX_PER_HOUR;
                   return (
-                    <div
+                    <BlockTip
                       key={ev.id}
+                      avatar={<EventAvatar who={ev.who} size={30} palette={palette} dark={dark} />}
+                      name={ev.title}
+                      detail={`${ev.startTime ? (ev.endTime ? hours(ev.startTime, ev.endTime) : compactTime(ev.startTime)) : "All day"} · ${nameOf(ev.who)}`}
+                    >
+                    <div
                       onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
                       style={{
                         position: "absolute",
-                        left: 4,
-                        right: 4,
+                        ...box(`ev-${ev.id}`),
                         top,
                         height: Math.max(height, 18),
                         background: "transparent",
@@ -372,13 +437,13 @@ export function WeekView({
                         letterSpacing: "-0.01em",
                         cursor: "pointer",
                       }}
-                      title={ev.title}
                     >
                       <span style={{ marginRight: 4, fontSize: 9.5, fontWeight: 700, color }}>
                         {eventInitial(ev.who)}
                       </span>
                       {ev.title}
                     </div>
+                    </BlockTip>
                   );
                 })}
               </div>

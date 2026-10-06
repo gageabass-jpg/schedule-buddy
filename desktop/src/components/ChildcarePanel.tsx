@@ -6,6 +6,8 @@ import { hmToMin, daisyCoverageConflict, type MinuteRange } from "../lib/compute
 import { timelineForDate } from "../lib/timelineData";
 import { DayTimeline } from "./DayTimeline";
 import { auth } from "../firebase";
+import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
 
 interface Props {
   open: boolean;
@@ -90,8 +92,8 @@ export function ChildcarePanel({
   useClickOutside(monthMenuRef, monthMenuOpen, () => setMonthMenuOpen(false));
 
   const selfName = state?.selfName || "You";
-  const partnerName = state?.partner?.name || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const partnerName = state?.partner?.name || "Partner";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const requests = state?.coverageRequests ?? [];
 
   const monthPrefix = useMemo(() => {
@@ -133,18 +135,21 @@ export function ChildcarePanel({
     return [...list].sort((a, b) => a.date.localeCompare(b.date));
   }, [scoped, filter]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const statusTriggerLabel = STATUS_OPTIONS.find((o) => o.key === filter)?.label ?? "All statuses";
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Assigned shifts"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(640px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: dark ? t.bgElev : "#F7F6F3", color: t.text,
@@ -247,7 +252,7 @@ export function ChildcarePanel({
                   <div style={{ width: 5, background: sc, flexShrink: 0 }} />
                   {/* Date block */}
                   <div style={{ width: 78, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: "#8A4B38" }}>{monthAbbr}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.5px", color: t.clayText }}>{monthAbbr}</div>
                     <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-1.5px", color: t.text, lineHeight: 1 }}>{dd}</div>
                   </div>
                   {/* Details */}
@@ -275,7 +280,7 @@ export function ChildcarePanel({
                     {(() => {
                       const clash = state ? daisyCoverageConflict(state, r.date, r.startTime, r.endTime, r.endsNextDay) : null;
                       return clash ? (
-                        <div style={{ fontSize: 11.5, fontWeight: 600, color: "#8A4B38", display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: t.clayText, display: "flex", alignItems: "center", gap: 5 }}>
                           ⚠ {daisyName} has class {schoolLabel(clash)} — may not be able to cover
                         </div>
                       ) : null;
@@ -328,7 +333,7 @@ export function ChildcarePanel({
                         finally { setBusyId(null); }
                       }}
                       style={{ background: "transparent", border: 0, cursor: "pointer", padding: 4, lineHeight: 0 }}>
-                      <TrashIcon />
+                      <RedTrash />
                     </button>
                   </div>
                 </div>
@@ -418,13 +423,3 @@ function FilterItem({ label, count, active, t, accent = "#0F6E64", onClick }: {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A4B38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}

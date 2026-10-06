@@ -4,9 +4,9 @@
 // rows against the current household state.
 
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { app as firebaseApp, db } from "../firebase";
+import { app as firebaseApp } from "../firebase";
 import type { HouseholdState } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export interface ParsedShift {
   date: string;
@@ -185,10 +185,8 @@ export async function applyCleanerDiffs(
   approved: DiffEntry[],
 ): Promise<void> {
   if (approved.length === 0) return;
-  const ref = doc(db, "households", householdId, "state", "main");
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("State document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  const current = await readHouseholdState(householdId);
+  if (!current) throw new Error("State document doesn't exist yet.");
 
   // Deep copy the arrays we'll mutate so we don't accidentally
   // poison the cached state object via reference sharing.
@@ -225,5 +223,5 @@ export async function applyCleanerDiffs(
     }
   }
 
-  await setDoc(ref, next);
+  await writeHouseholdState(householdId, current, next);
 }

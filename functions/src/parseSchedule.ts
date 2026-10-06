@@ -16,6 +16,7 @@ import { defineSecret } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import Anthropic from "@anthropic-ai/sdk";
+import { readLegacyState } from "./householdState";
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
@@ -82,9 +83,7 @@ export const parseSchedule = onCall<ParseRequest, Promise<ParseResponse>>(
     }
 
     // 2. Load shift types for mapping context.
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    const state = (stateSnap.data() ?? {}) as HouseholdState;
+    const state = ((await readLegacyState(householdId)) ?? {}) as HouseholdState;
     const shiftTypes = state.shiftTypes ?? [];
     const today = isoToday();
     const year = today.slice(0, 4);

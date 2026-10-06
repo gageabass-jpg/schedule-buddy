@@ -7,6 +7,7 @@ import type { HouseholdState, ScheduleBlock } from "../state";
 import {
   addScheduleBlock, removeScheduleBlock,
 } from "../lib/writeScheduleBlock";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -22,7 +23,7 @@ interface Props {
 const STOP_RED = "#8A4B38";
 
 export function ScheduleBlockModal({
-  open, onClose, palette: _palette, t, dark, householdId, state, defaultDate,
+  open, onClose, palette: _palette, t, dark: _dark, householdId, state, defaultDate,
 }: Props) {
   const [startDate, setStartDate] = useState(defaultDate ?? isoToday());
   const [endDate, setEndDate]     = useState(defaultDate ?? isoToday());
@@ -39,6 +40,9 @@ export function ScheduleBlockModal({
     setNotes("");
     setErr(null);
   }, [open, defaultDate]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -73,7 +77,7 @@ export function ScheduleBlockModal({
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0,
+        ...mm.backdrop, position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 1000,
@@ -83,10 +87,10 @@ export function ScheduleBlockModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: 460,
           maxHeight: "80vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -155,7 +159,7 @@ export function ScheduleBlockModal({
             />
           </div>
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <button
             type="button"
@@ -221,7 +225,7 @@ export function ScheduleBlockModal({
                         borderRadius: 7,
                         border: `0.5px solid ${t.sep}`,
                         background: "transparent",
-                        color: "#8A4B38",
+                        color: t.clayText,
                         fontSize: 12,
                         fontWeight: 600,
                         fontFamily: "inherit",

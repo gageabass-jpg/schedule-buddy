@@ -1,5 +1,4 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type {
   ShiftType,
   HouseholdState,
@@ -9,6 +8,7 @@ import type {
   ImportRecord,
 } from "../state";
 import type { ImportTarget } from "../scheduleImports";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteImportError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -54,17 +54,15 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
   const { householdId, scheduleId, target, rows } = input;
   if (!rows.length) throw new WriteImportError("Nothing to save.");
 
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
+  let current: HouseholdState | null;
   try {
-    snap = await getDoc(ref);
+    current = await readHouseholdState(householdId);
   } catch (e) {
     throw new WriteImportError("Couldn't read the household schedule.", e);
   }
-  if (!snap.exists()) {
+  if (!current) {
     throw new WriteImportError("Schedule document doesn't exist yet — open the iOS app once to initialize it.");
   }
-  const current = snap.data() as HouseholdState;
 
   // Types the user asked for go in first, so rows pointing at them validate.
   // Anything already in the catalog with the same hours is reused rather than
@@ -130,7 +128,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
       }));
       next.dependents = {
         ...next.dependents,
-        daisy: { name: existing.name || "Daisy", shifts: [...kept, ...additions] },
+        daisy: { name: existing.name || "Caregiver", shifts: [...kept, ...additions] },
       };
       break;
     }
@@ -148,7 +146,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
   next.imports!.push(record);
 
   try {
-    await setDoc(ref, next);
+    await writeHouseholdState(householdId, current, next);
   } catch (e) {
     throw new WriteImportError("Couldn't save the import. Check your connection.", e);
   }

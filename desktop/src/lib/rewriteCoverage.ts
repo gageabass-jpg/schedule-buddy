@@ -16,11 +16,11 @@
 //
 // Used by the Cleaner modal's "Rewrite" utility.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { buildShiftMap, generateCoverageId } from "../state";
 import type { CoverageChangeProposal, CoverageRequest, HouseholdState } from "../state";
 import { computeOverlapCandidates, type OverlapReason } from "./computeOverlap";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 // The arrival lead used to be bolted on here, after the fact. It now lives in
 // the overlap engine (computeOverlap.ts::LEAVE_LEAD_MIN) alongside the drive
@@ -174,10 +174,8 @@ export async function applyCoverageRewrite(
   entries: CoverageRewriteEntry[],
 ): Promise<void> {
   if (entries.length === 0) return;
-  const ref = doc(db, "households", householdId, "state", "main");
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("State document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  const current = await readHouseholdState(householdId);
+  if (!current) throw new Error("State document doesn't exist yet.");
 
   const now = Date.now();
   const uid = auth.currentUser?.uid;
@@ -228,5 +226,5 @@ export async function applyCoverageRewrite(
     }
   }
 
-  await setDoc(ref, { ...current, coverageRequests: kept });
+  await writeHouseholdState(householdId, current, { ...current, coverageRequests: kept });
 }

@@ -65,6 +65,9 @@
     --accent-hover: #7CCABF;
     --ot: #FF453A;
     --ok: #30D158;
+    --stretch-red: #F87171;      /* Kaylene's stretch fire; flag red on Paper */
+    --both-off: rgba(52,199,89,0.20);      /* both parents off (month grid) */
+    --both-off-edge: rgba(52,199,89,0.55);
     --covered: #30D158;          /* confirmed-childcare bar (Teal in light) */
     /* Import-review accents — brighter green on the dark default. */
     --import-green: #30D158;
@@ -133,6 +136,9 @@
       --color-off: #56B7A9;       /* off / free — Teal-Mid, used for tints/rings only */
 
       --ok: #0F6E64;              /* success / confirmed → Teal */
+      --stretch-red: #DC2626;     /* desktop's flag red, 4.8:1 on Surface */
+      --both-off: #DDEFD6;        /* soft green — Ink on it is 14:1 */
+      --both-off-edge: #8CC17E;
       --ot: #8A4B38;              /* overtime / alarm → Clay (no red token) */
       /* NOTE: the --cal-* day tints live in a second :root block below and are
          overridden for light there (they must, to beat that later block). */
@@ -188,6 +194,79 @@
     pointer-events: none;
     transform: translateZ(0);
   }
+  /* Overscroll fill: iOS shows the native web view (a grey #F2F2F7) past the
+     ends of the page. These sit just outside the document in normal flow, so
+     they move with it and paint the page colour into the stretch. */
+  .overscroll-top { position: relative; height: 0; pointer-events: none; }
+  .overscroll-top::before {
+    content: "";
+    position: absolute;
+    left: calc(-1 * max(env(safe-area-inset-left, 0px), 24px));
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg);
+  }
+  /* Above the document: negative overflow never scrolls, so this is free. */
+  .overscroll-top::before { bottom: 100%; margin-bottom: calc(max(env(safe-area-inset-top, 0px), 24px)); }
+  /* Below it: a fixed layer (a box past the end would add scroll length). */
+  .overscroll-back {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Pull-to-refresh indicator: fixed just under the status bar, where the
+     gap opens as the page is pulled down. */
+  .ptr {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 4px);
+    left: 50%;
+    z-index: 999;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px 6px 8px;
+    border-radius: 999px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--brand);
+    font: 600 13px var(--font);
+    opacity: 0;
+    transform: translateX(-50%) translateY(0) scale(0.6);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .ptr.settle { transition: opacity 0.25s ease, transform 0.25s ease; }
+  .ptr-label { color: var(--text-2); }
+  .ptr.ready .ptr-label, .ptr.refreshing .ptr-label { color: var(--brand); }
+
+  /* Bouncing dots (from the BouncingDots component): each dot rises and
+     falls over 0.6s, 0.2s behind the one before. --bd-size / --bd-lift
+     scale it; the pull-to-refresh pill and the splash both use it. */
+  .bounce-dots { display: inline-flex; align-items: center; gap: var(--bd-gap, 5px); }
+  .bounce-dots > span {
+    width: var(--bd-size, 7px); height: var(--bd-size, 7px);
+    border-radius: 50%;
+    background: var(--brand);
+    flex: 0 0 auto;
+  }
+  .bounce-dots.bouncing > span { animation: bdBounce 0.6s ease-in-out infinite; }
+  .bounce-dots.bouncing > span:nth-child(2) { animation-delay: 0.2s; }
+  .bounce-dots.bouncing > span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bdBounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(calc(-1 * var(--bd-lift, 7px))); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bounce-dots.bouncing > span { animation: bdPulse 1.2s ease-in-out infinite; }
+    @keyframes bdPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+  }
+  /* In the pill the dots fill in one by one as you pull (0 → 1 → 2 → 3),
+     so the distance to "release" reads without a number. */
+  .ptr { padding: 7px 12px 7px 11px; }
+  .ptr-dots { --bd-size: 7px; --bd-lift: 6px; --bd-gap: 4px; padding-top: 4px; }
+  .ptr-dots > span { opacity: 0.25; transition: opacity 0.15s ease; }
+  .ptr-dots > span.on { opacity: 1; }
   .container { max-width: 1100px; margin: 0 auto; }
   h1 {
     margin: 0 0 4px;
@@ -1185,13 +1264,58 @@
     box-shadow: none;
   }
   .layout-tab:hover { background: var(--scrim); }
+  .layout-thumb { display: none; }   /* light mode draws it; dark keeps the lifted pill */
+  /* The view you just switched to fades in rather than popping. */
+  @keyframes layoutIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .layout-enter { animation: layoutIn 0.22s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .layout-enter { animation: none; } }
   .layout-tab.active {
     background: var(--bg-elev);
     color: var(--text);
     box-shadow: 0 1px 2px rgba(20,32,30,0.08);
   }
   @media (prefers-color-scheme: light) {
-    .layout-tab.active { background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.10); }
+    /* Nucleus segmented control: one hairline box, hairline dividers, the
+       selected segment filled Teal-Tint with Teal text. No lifted pill. */
+    .layout-tabs {
+      gap: 0;
+      padding: 0;
+      background: var(--bg-elev);
+      border-color: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .layout-tab {
+      min-height: 44px;
+      border-radius: 0;
+      font-weight: 400;
+      color: var(--text-2);
+    }
+    .layout-tab + .layout-tab { border-left: 1px solid var(--border); }
+    .layout-tabs { position: relative; touch-action: pan-y; }
+    /* The selection is one Teal-Tint thumb that slides (and can be dragged)
+       between segments; syncLayoutTabsUI() places it. */
+    .layout-thumb {
+      display: block;
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      width: 50%;
+      background: var(--brand-tint);
+      transition: transform 0.3s cubic-bezier(0.22, 0.8, 0.3, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .layout-tab { position: relative; z-index: 1; background: transparent; transition: color 0.2s; }
+    .layout-tab.active,
+    .layout-tab.active:hover {
+      background: transparent;
+      color: var(--brand);
+      font-weight: 600;
+      box-shadow: none;
+    }
+    /* iOS keeps :hover on the last tapped button; the global button:hover
+       brightness would wash the tint out. */
+    .layout-tab:hover { filter: none; background: transparent; }
   }
 
   /* Month navigation header (prev / month label / next) */
@@ -1337,6 +1461,47 @@
     flex-direction: column;
     gap: 8px;
     margin: 0 0 16px;
+  }
+  /* Agenda day card (renderAgendaView). Hairline card; a schedule block
+     keeps the same Clay left edge as the month grid. */
+  .ag-row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 11px 14px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-radius: 10px;
+  }
+  .ag-row.today { border-color: var(--brand); }
+  .ag-row.has-block { border-left: 3px solid var(--clay); }
+  .ag-row.has-block.block-open { border-left-style: dashed; }
+  .ag-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .ag-day { font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .ag-shifts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; }
+  .ag-shift { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .ag-shift .ag-av { width: 22px; height: 22px; font-size: 10px; }
+  .ag-off { color: var(--text-2); }
+  .ag-verdict {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    background: var(--clay-tint);
+    color: var(--clay);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ag-evs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ag-ev {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--sep);
+    border-radius: 8px;
+    background: var(--bg-elev);
+    color: var(--text);
+    font: 400 13px var(--font);
+    cursor: pointer;
   }
   .agenda-row {
     display: flex;
@@ -2149,6 +2314,8 @@
     box-shadow: 0 6px 18px rgba(15,110,100,0.4);
   }
   .ask-claude-fab:active { transform: scale(0.96); }
+  .ask-claude-fab { color: #ffffff; }
+  .ask-claude-fab svg,
   .ask-claude-fab img {
     width: 100%;
     height: 100%;
@@ -2199,6 +2366,32 @@
   body.ask-claude-open .parse-fab { display: none; }
   /* Keep the FAB visible while its own speed-dial menu is open, and rotate the
      "+" into an "×". */
+  @media (prefers-color-scheme: light) {
+    /* Nucleus: "+" is the primary action, so it takes the thumb spot at the
+       bottom as a flat Teal circle; Ask sits above it as a quiet Surface
+       circle with a Teal mark. They float, so they keep a shadow. */
+    .parse-fab {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--brand-fill);
+      box-shadow: 0 8px 22px rgba(15,110,100,0.34);
+    }
+    .ask-claude-fab {
+      right: 20px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
+      width: 48px;
+      height: 48px;
+      padding: 13px;
+      border-radius: 50%;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      color: var(--brand);
+      box-shadow: 0 6px 18px rgba(20,32,30,0.14);
+    }
+    body.add-menu-open .ask-claude-fab { display: none; }
+  }
   body.add-menu-open .parse-fab { display: inline-flex !important; }
   body.add-menu-open .parse-fab .parse-plus { transform: rotate(45deg); }
   .parse-fab .parse-plus { transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
@@ -2655,6 +2848,17 @@
      (see _askKeyboardEngage). The transition makes that lift glide with the
      keyboard's own animation instead of snapping. */
   .ask-composer.ask-kb-live { transition: transform 0.25s ease-out, padding-bottom 0.25s ease-out; will-change: transform; }
+  /* Invisible focus stand-in, placed where the keyboard can't cover it. 16px
+     so iOS doesn't zoom; it must stay rendered (opacity, not display:none)
+     or it can't take focus. */
+  .ask-focus-proxy {
+    position: absolute; top: 60px; left: 0;
+    width: 1px; height: 1px; padding: 0; border: 0;
+    opacity: 0; font-size: 16px; pointer-events: none;
+    caret-color: transparent;
+  }
+  /* The page behind nucleusAI is pinned while it's open (see _askLockPage). */
+  body.ask-page-locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 
 
   /* ===== Chat pane (iOS) — shared between manager + caregiver flows ===== */
@@ -2822,6 +3026,18 @@
      ~2:1 against white). */
   .cal-pay-chip.g { background: #157A3C; }
   .cal-pay-chip.k { background: #6B21A8; }
+  @media (prefers-color-scheme: light) {
+    /* A person owns a hue: the "$" takes the payee's colour on a quiet Track
+       chip (Teal 5.2:1, Clay 5.7:1 on Track) — no purple, no lift. */
+    .cal-pay-chip {
+      border-radius: 3px;
+      background: #EFEDE7;
+      box-shadow: none;
+      font-weight: 700;
+    }
+    .cal-pay-chip.g { background: #EFEDE7; color: var(--person-g); }
+    .cal-pay-chip.k { background: #EFEDE7; color: var(--person-k); }
+  }
 
   /* Confirmed-childcare bar — green strip along the bottom edge of any
      calendar cell whose coverage request has been accepted. */
@@ -2897,6 +3113,207 @@
      the stripes via their own z-index below. */
   .cal-cell.has-block > .cal-date,
   .cal-cell.has-block > .cal-shifts { position: relative; z-index: 1; }
+
+  /* ===== Quiet month (phone) — renderMonthView(quiet) ===== */
+  /* A cell holds a date and up to three dots. Everything else is in the day
+     card below, so the grid can be read at a glance. */
+  .cal-grid.quiet {
+    display: block;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    touch-action: pan-y;          /* vertical scroll stays native; we take horizontal */
+  }
+  .qm-hdrs {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sep);
+    border: 1px solid var(--sep);
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    overflow: hidden;
+  }
+  .qm-track {
+    display: flex;
+    align-items: flex-start;
+    width: 300%;
+    transform: translateX(-33.3333%);
+    will-change: transform;
+  }
+  .qm-page {
+    flex: 0 0 33.3333%;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sep);
+    border: 1px solid var(--sep);
+    border-top-width: 1px;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+  .cal-grid.quiet .qm-cell {
+    min-height: 50px;
+    padding: 6px 0 7px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--bg-elev);
+    color: var(--text);
+    font: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cal-grid.quiet .qm-cell:hover { filter: none; }
+  .cal-grid.quiet .qm-cell.outside { opacity: 1; background: var(--bg); }
+  .cal-grid.quiet .qm-cell.outside .qm-num { color: var(--text-3); font-weight: 400; }
+  .cal-grid.quiet .qm-cell.outside .qm-dots { opacity: 0.45; }
+  /* Both parents off inside the posted schedule. The missing G/K dots say the
+     same thing, so the green is never the only signal. */
+  /* Blocked days: a light Clay fill behind the edge. Both-off green, declared
+     after, wins on a day that is both. */
+  .cal-grid.quiet .qm-cell.has-block { background: var(--clay-tint); }
+  .cal-grid.quiet .qm-cell.qm-both-off { background: var(--both-off); }
+  .cal-grid.quiet .qm-cell.selected { background: color-mix(in srgb, var(--brand) 16%, var(--bg-elev)); }
+  .cal-grid.quiet .qm-cell.selected.qm-both-off { box-shadow: inset 0 0 0 2px var(--both-off-edge); }
+  .cal-grid.quiet .qm-cell.today { box-shadow: none; border-radius: 0; }
+  .cal-grid.quiet .qm-cell.has-block > .qm-num,
+  .cal-grid.quiet .qm-cell.has-block > .qm-dots { position: relative; z-index: 1; }
+  .qm-num {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .qm-cell.today .qm-num,
+  .cal-grid.quiet .qm-cell.outside.today .qm-num { background: var(--brand-fill); color: #fff; font-weight: 600; }
+  /* Nobody has the kids → dashed Clay ring round the date (dashed ring =
+     nobody yet). Shape, not tint, so it survives greyscale. */
+  .qm-cell.qm-gap .qm-num { outline: 1.5px dashed var(--clay); outline-offset: 1px; }
+  .qm-dots { display: flex; justify-content: center; gap: 4px; height: 6px; }
+  .qm-dot { width: 6px; height: 6px; border-radius: 50%; box-sizing: border-box; flex: 0 0 auto; }
+  .qm-dot.on.g { background: var(--person-g); }
+  .qm-dot.on.k { background: var(--person-k); }
+  .qm-dot.on.d { background: var(--person-d); }
+  /* Pending (imported, not yet approved) → hollow ring. */
+  .qm-dot.pending { border: 1.5px solid; }
+  .qm-dot.pending.g { border-color: var(--person-g); }
+  .qm-dot.pending.k { border-color: var(--person-k); }
+  .qm-dot.pending.d { border-color: var(--person-d); }
+
+  /* Kaylene's stretch (2+ days in a row): fire + "day/of", in the flag red
+     desktop uses for the same mark (4.8:1 on Surface). */
+  .stretch-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    color: var(--stretch-red, #DC2626);
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .stretch-badge svg { width: 14px; height: 14px; display: block; }
+
+  /* Shape marks shared by the legend, the day card and the agenda. */
+  .lg-gap { display: inline-block; flex: 0 0 auto; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 1.5px dashed var(--clay); }
+  .lg-edge-open { display: inline-block; flex: 0 0 auto; width: 3px; height: 14px; border-radius: 3px;
+    background: repeating-linear-gradient(var(--clay) 0, var(--clay) 3px, transparent 3px, transparent 6px); }
+  .lg-ok  { display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+  .cal-legend i.lg-dot { width: 8px; height: 8px; border: 0; border-radius: 50%; }
+  .cal-legend i.lg-dot.g { background: var(--person-g); }
+  .cal-legend i.lg-dot.k { background: var(--person-k); }
+  .cal-legend i.lg-dot.d { background: var(--person-d); }
+  .cal-grid.quiet + .cal-legend { justify-content: center; }
+  .cal-legend i.lg-block { width: 12px; height: 12px; border: 0; border-left: 3px solid var(--clay); border-radius: 0; background: var(--clay-tint); }
+  .cal-legend i.lg-both-off { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--both-off-edge); background: var(--both-off); }
+  .cal-legend i.lg-gap { width: 12px; height: 12px; border-radius: 50%; border: 1.5px dashed var(--clay); }
+
+  /* The day card under the quiet grid. */
+  .month-daycard {
+    margin-top: 10px;
+    padding: 4px 14px 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--sep);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .month-daycard[hidden] { display: none; }
+  .mdc-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+  }
+  .mdc-date {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding-top: 2px;
+  }
+  .mdc-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .mdc-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--bg-elev2);
+    color: var(--text-2);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .mdc-chip img { display: block; }
+  /* Bottom-left, where the floating buttons on the right can't cover it. */
+  .mdc-more {
+    align-self: flex-start;
+    min-height: 44px;
+    margin: -4px 0 -10px -8px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--brand);
+    font: 600 14px var(--font);
+    cursor: pointer;
+  }
+  .mdc-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .mdc-row .mdc-av { width: 26px; height: 26px; font-size: 11px; }
+  /* Leave by — under the shift it's for, lined up with the name. */
+  .mdc-leave { margin: -4px 0 0 36px; }
+  .leave-by { font-size: 13px; color: var(--text-2); }
+  .leave-by.heavy { color: var(--stretch-red, #DC2626); font-weight: 600; }
+  .mdc-name { font-weight: 600; }
+  .mdc-time { color: var(--text-2); }
+  .mdc-quiet { color: var(--text-2); }
+  .mdc-tag { font-size: 12px; color: var(--text-2); }
+  /* The day's one sentence. Neutral by default; Clay when nobody has the
+     kids, Teal when they're covered. The mark before it carries the state. */
+  .mdc-verdict {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 11px;
+    border-radius: 6px;
+    background: var(--bg-elev2);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .mdc-verdict > i { align-self: center; }
+  .mdc-verdict.alert { background: var(--clay-tint); color: var(--clay); font-weight: 600; }
+  .mdc-verdict.ok { background: color-mix(in srgb, var(--brand) 14%, var(--bg-elev)); color: var(--brand); }
 
   /* Tooltip */
   .cal-tooltip {
@@ -3341,8 +3758,8 @@
     flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px;
     display: flex; align-items: center; justify-content: center; font-size: 15px;
   }
-  .mc-insight.bad .mc-insight-icon { background: rgba(138,75,56,0.15); }
-  .mc-insight.good .mc-insight-icon { background: rgba(15,110,100,0.16); }
+  .mc-insight.bad .mc-insight-icon { background: rgba(138,75,56,0.15); color: var(--clay); }
+  .mc-insight.good .mc-insight-icon { background: rgba(15,110,100,0.16); color: var(--brand); }
   .mc-insight-text { font-size: 12.5px; line-height: 1.35; color: var(--text-2); }
   .mc-insight-text b { color: var(--text); font-weight: 600; }
   .mc-insight-text .bad-v  { color: var(--ot); font-weight: 700; }
@@ -3369,6 +3786,8 @@
   .mc-was { font-size: 11px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .mc-spark { width: 116px; height: 34px; display: block; }
   .mc-spark-base { stroke: var(--text-2); opacity: 0.5; }
+  .mc-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .mc-lg-line { display: block; flex: 0 0 auto; }
   .mc-legend {
     padding: 9px 2px 0; margin-top: 2px;
     font-size: 10.5px; font-weight: 500; color: var(--text-dim);
@@ -3476,7 +3895,13 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    animation: splash-pulse 1.4s ease-in-out infinite;
+    /* Same bounce as the pull-to-refresh dots, so a refresh flows into the
+       splash without the motion changing. */
+    animation: bdBounce 0.6s ease-in-out infinite;
+    --bd-lift: 8px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .splash-dots > span { animation: splash-pulse 1.4s ease-in-out infinite; }
   }
   .splash-dots > span { background: #0F6E64; }
   @media (prefers-color-scheme: dark) {
@@ -3835,6 +4260,71 @@
     height: 0.5px;
     background: var(--sep);
   }
+  /* Setup wizard */
+  .household-screen.hh-setup {
+    background:
+      radial-gradient(900px 520px at 10% -8%, rgba(15,110,100,0.34), transparent 62%),
+      radial-gradient(700px 520px at 105% 108%, rgba(10,79,72,0.42), transparent 62%),
+      var(--bg);
+  }
+  /* Stepper: square milestones joined by a line. Done = filled with a check,
+     current = heavier outline, upcoming = hairline — readable without colour. */
+  .wiz-steps { display: flex; align-items: center; margin: 0 4px 6px; list-style: none; padding: 0; }
+  .wiz-steps li { display: flex; align-items: center; flex: 1; }
+  .wiz-steps li:last-child { flex: none; }
+  .wiz-sq {
+    width: 26px; height: 26px; flex: none; box-sizing: border-box; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+    border: 1px solid var(--sep); color: var(--text-3); background: transparent;
+  }
+  .wiz-sq.done { background: var(--brand-fill); border-color: var(--brand-fill); color: #fff; }
+  .wiz-sq.now { border: 2px solid var(--brand); color: var(--brand); }
+  .wiz-link { flex: 1; height: 1px; background: var(--sep); margin: 0 4px; }
+  .wiz-link.done { background: var(--brand); }
+  .wiz-step-label { font-size: 12px; color: var(--text-2); margin: 0 4px 10px; }
+  .wiz-step-label strong { color: var(--text); font-weight: 600; }
+  .wiz-title { font-size: 17px; font-weight: 600; color: var(--text); margin: 0 0 4px; letter-spacing: -0.01em; }
+  .wiz-help { font-size: 13px; color: var(--text-2); margin: 0 0 14px; line-height: 1.4; }
+  .wiz-field { display: block; margin-bottom: 12px; }
+  .wiz-field > span { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .wiz-input, .wiz-select {
+    width: 100%; box-sizing: border-box; height: 44px; padding: 0 12px;
+    border: 1px solid var(--sep); border-radius: 10px; background: var(--bg-elev2);
+    color: var(--text); font-family: var(--font); font-size: 16px;
+  }
+  .wiz-input:focus, .wiz-select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(15,110,100,0.14); }
+  .wiz-row { display: flex; gap: 8px; align-items: center; }
+  .wiz-row > * { flex: 1; min-width: 0; }
+  .wiz-check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--text); cursor: pointer; }
+  .wiz-check input { width: 22px; height: 22px; accent-color: var(--brand); flex: none; }
+  .wiz-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .wiz-chip {
+    min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--sep);
+    background: transparent; color: var(--text); font-family: var(--font); font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .wiz-chip[aria-pressed="true"] { border-color: var(--brand); background: rgba(15,110,100,0.12); font-weight: 600; }
+  .wiz-chip .wiz-chip-mark { width: 10px; height: 10px; border-radius: 50%; border: 1.6px solid currentColor; flex: none; }
+  .wiz-chip[aria-pressed="true"] .wiz-chip-mark { background: var(--brand); border-color: var(--brand); }
+  .wiz-week { display: grid; grid-template-columns: 52px 1fr; gap: 6px 10px; align-items: center; margin-bottom: 8px; }
+  .wiz-week > span { font-size: 14px; color: var(--text-2); }
+  .wiz-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .wiz-list li { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--text); }
+  .wiz-list li > span { flex: 1; }
+  .wiz-remove { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--text-2); cursor: pointer; font-size: 13px; }
+  .wiz-suggest { list-style: none; margin: -6px 0 12px; padding: 0; border: 1px solid var(--sep); border-radius: 10px; overflow: hidden; }
+  .wiz-suggest button {
+    width: 100%; min-height: 44px; text-align: left; padding: 8px 12px; border: 0; border-bottom: 0.5px solid var(--sep);
+    background: var(--bg-elev); color: var(--text); font-family: var(--font); font-size: 14px; cursor: pointer;
+  }
+  .wiz-suggest button small { display: block; color: var(--text-2); font-size: 12px; }
+  .wiz-nav { display: flex; gap: 10px; margin-top: 16px; }
+  .wiz-nav > * { flex: 1; }
+  .wiz-review { font-size: 14px; color: var(--text); line-height: 1.5; margin: 0 0 6px; }
+  .wiz-review dt { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 10px; }
+  .wiz-review dd { margin: 2px 0 0; }
+  .wiz-code-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-align: center; margin-top: 8px; }
   .hh-error {
     color: var(--ot);
     font-size: 13px;
@@ -4096,7 +4586,26 @@
   .cal-header-panel {
     text-align: left;
     margin: 6px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    /* The month arrows are 44px; Agenda hides them. Hold the row at their
+       height so the switcher below doesn't jump between layouts. */
+    min-height: 44px;
   }
+  .cal-header-panel .cal-header-title { margin-right: auto; min-width: 0; }
+  /* Month nav rides in the title row: the title already names the month, so
+     the label is dropped and the arrows go quiet (no chrome, Ink-Muted). */
+  .cal-header-panel .month-nav { margin: 0; padding: 0; gap: 0; flex-shrink: 0; }
+  .cal-header-panel .month-nav-label { display: none; }
+  .cal-header-panel .month-nav-btn {
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    box-shadow: none;
+    color: var(--text-2);
+  }
+  .cal-header-panel .month-nav-btn:active { background: var(--scrim); }
   .cal-header-title {
     font-size: 30px;
     font-weight: 700;
@@ -4301,11 +4810,26 @@
     will-change: transform;
   }
   @media (prefers-color-scheme: light) {
-    .bottom-tabs-inner {
-      background: rgba(255,255,255,0.85);
-      border-color: rgba(0,0,0,0.06);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    /* Nucleus: a flat Surface bar with a hairline top edge — hairlines, not
+       shadows, and no floating pill. */
+    .bottom-tabs {
+      padding: 0 0 env(safe-area-inset-bottom, 0px);
+      background: var(--bg-elev);
+      border-top: 1px solid var(--border);
+      pointer-events: auto;
     }
+    .bottom-tabs-inner {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .bottom-tab { min-height: 58px; justify-content: center; }
+    .bottom-tab.active,
+    .bottom-tab.active .bt-label { color: var(--brand); }
   }
   .bottom-tab {
     flex: 1;
@@ -5798,6 +6322,15 @@
 
 <!-- iOS status-bar safe-zone backdrop (only visible on devices with a safe-area inset) -->
 <div class="ios-safe-top" aria-hidden="true"></div>
+<!-- Page-coloured fill above the document, revealed when you pull past the
+     top (iOS otherwise shows the native web view's grey there). -->
+<div class="overscroll-top" aria-hidden="true"></div>
+<!-- Pull-to-refresh: the dots fill in as you pull and bounce while the app
+     reloads (initPullToRefresh). -->
+<div class="ptr" id="ptr" aria-hidden="true">
+  <span class="bounce-dots ptr-dots"><span></span><span></span><span></span></span>
+  <span class="ptr-label" id="ptrLabel">Pull to refresh</span>
+</div>
 
 <!-- ==================== SPLASH (shows briefly on first paint) ==================== -->
 <div id="splashScreen" class="splash-screen">
@@ -5950,6 +6483,9 @@
         <button class="hh-cta-secondary" id="hhJoinBtn">Join household</button>
       </div>
     </div>
+
+    <!-- Setup wizard: a new household, filled in before the app opens. -->
+    <div id="hhWizard" style="display:none;"></div>
 
     <!-- Shown after creating household -->
     <div id="hhCreatedView" style="display:none;">
@@ -6126,6 +6662,17 @@
   <!-- Calendar header panel -->
   <div class="cal-header-panel">
     <div class="cal-header-title" id="calHeaderTitle">Work Schedule</div>
+    <!-- Month nav sits beside the title (one month name on screen, not two).
+         renderCalendar() shows it on the Month layout only. -->
+    <div class="month-nav" id="monthNav">
+      <div class="month-nav-label" id="monthNavLabel">April 2026</div>
+      <button class="month-nav-btn" id="monthPrev" aria-label="Previous month">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="month-nav-btn" id="monthNext" aria-label="Next month">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
   </div>
 
   <!-- Today ribbon: at-a-glance summary, populated by renderTodayRibbon() -->
@@ -6178,32 +6725,22 @@
   </div>
   <button class="partner-edit-btn mobile-hidden" id="partnerEditBtnMobile" style="display:none;">&#9998; Kaylene</button>
 
-  <!-- Layout tabs: Month / Week / Agenda -->
+  <!-- Layout tabs: Month / Agenda (Week and Day were retired) -->
   <div class="layout-tabs" id="layoutTabs" role="tablist" aria-label="Calendar layout">
+    <span class="layout-thumb" id="layoutThumb" aria-hidden="true"></span>
     <button class="layout-tab active" data-layout="month" role="tab" aria-selected="true">Month</button>
-    <button class="layout-tab" data-layout="week" role="tab" aria-selected="false">Week</button>
-    <button class="layout-tab" data-layout="day" role="tab" aria-selected="false">Day</button>
     <button class="layout-tab" data-layout="agenda" role="tab" aria-selected="false">Agenda</button>
-  </div>
-
-  <!-- Month nav (prev/next around month label) -->
-  <div class="month-nav" id="monthNav">
-    <button class="month-nav-btn" id="monthPrev" aria-label="Previous month">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="month-nav-label" id="monthNavLabel">April 2026</div>
-    <button class="month-nav-btn" id="monthNext" aria-label="Next month">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
   </div>
 
   <!-- Calendar grid (Month) -->
   <div class="cal-wrap" data-layout="month">
     <div class="cal-grid" id="calGrid"></div>
     <!-- Key for the month grid. Populated per active view (Schedule / Fatigue /
-         Childcare / Couple) by renderCalLegend(); the persistent block-edge and
-         childcare-covered marks are always shown. -->
+         Childcare / Couple) by renderCalLegend(), or renderQuietLegend() on
+         phones; the persistent block-edge mark is always shown. -->
     <div class="cal-legend" id="calLegend" aria-label="Calendar key"></div>
+    <!-- Phone: the selected day in words (renderMonthDayCard). -->
+    <div class="month-daycard" id="monthDayCard" hidden aria-live="polite"></div>
     <div class="cal-tooltip" id="calTooltipHover" style="display:none;"></div>
   </div>
   <!-- Dimmed backdrop behind the mobile day sheet; tap to dismiss. -->
@@ -6354,7 +6891,7 @@
         <div class="ask-title">nucleus<span style="opacity:0.55;font-weight:600;">AI</span></div>
         <div class="ask-sub">Schedule changes in plain English</div>
       </div>
-      <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close">✕</button>
+      <button type="button" class="ask-close" id="askCloseBtn" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="ask-weekstrip" id="askWeekStrip">
       <div class="ask-weekstrip-head">
@@ -6372,22 +6909,24 @@
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="I picked up an OT shift this Friday night">
-          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.16);color:#0F6E64;">＋</span>
+          <span class="ask-sug-glyph" style="background:rgba(15,110,100,0.16);color:#0F6E64;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">I picked up an OT shift this Friday night</span><span class="ask-sug-sub">Adds a shift · checks for conflicts</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Move my Monday shift next week to Wednesday">
-          <span class="ask-sug-glyph" style="background:rgba(90,102,99,0.16);color:#5A6663;">⇄</span>
+          <span class="ask-sug-glyph" style="background:rgba(90,102,99,0.16);color:#5A6663;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">Move my Monday shift next week to Wednesday</span><span class="ask-sug-sub">Swaps a shift to another day</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button type="button" class="ask-sug-card" data-ask-prompt="Kaylene is off the rest of this week">
-          <span class="ask-sug-glyph" style="background:rgba(138,75,56,0.15);color:#8A4B38;">–</span>
+          <span class="ask-sug-glyph" style="background:rgba(138,75,56,0.15);color:#8A4B38;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></span>
           <span class="ask-sug-body"><span class="ask-sug-t">Kaylene is off the rest of this week</span><span class="ask-sug-sub">Clears shifts · flags childcare gaps</span></span>
           <svg class="ask-sug-chev" width="7" height="12" viewBox="0 0 7 12" aria-hidden="true"><path d="M1 1l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
     </div>
+    <!-- Focus stand-in near the top of the sheet: see _askFocusViaProxy(). -->
+    <input class="ask-focus-proxy" id="askFocusProxy" type="text" tabindex="-1" aria-hidden="true" autocomplete="off" autocorrect="off" spellcheck="false">
     <div class="ask-composer">
       <textarea class="ask-input" id="askInput" rows="1" placeholder="Tell nucleusAI what to change…"></textarea>
       <button type="button" class="ask-send" id="askSendBtn" aria-label="Send" disabled><svg width="16" height="18" viewBox="0 0 16 18" aria-hidden="true"><path d="M8 16V2M2.5 7.5L8 2l5.5 5.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -6540,7 +7079,7 @@
 
 <!-- Floating Ask Claude button — Schedule tab only, sits above the bottom tabs -->
 <button class="ask-claude-fab" id="askClaudeBtn" type="button" aria-label="Ask Nucleus">
-  <img src="/assets/nucleus-mark.svg" alt="" draggable="false" />
+  <svg viewBox="0 0 100 100" fill="none" aria-hidden="true"><path d="M40 25 L40 75 L40 90 L10 90 L10 60 L75 60 L90 60 L90 90 L60 90 L60 25 L60 10 L90 10 L90 40 L25 40 L10 40 L10 10 L40 10 Z" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
 
 <!-- "+" Import schedule from photo (shining ring), stacked above the Claude FAB -->
@@ -6859,6 +7398,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+<!-- The any-household model, built from shared/ (npm run build:phone-model). -->
+<script src="/js/nucleus-model.js"></script>
 
 <!-- ==================== CAPACITOR NATIVE BRIDGE (only present in iOS app) ==================== -->
 <script>
@@ -6893,14 +7434,31 @@
 
 <script>
 // ==================== FIREBASE INIT ====================
-const firebaseConfig = {
-  apiKey: "AIzaSyDgRavOYvAYbw2nVmOUG_CT8Klifl24Xbk",
-  authDomain: "schedule-buddy-dd2cf.firebaseapp.com",
-  projectId: "schedule-buddy-dd2cf",
-  storageBucket: "schedule-buddy-dd2cf.firebasestorage.app",
-  messagingSenderId: "751719086344",
-  appId: "1:751719086344:web:d831238f5039d29d17d4bd"
+// Two projects: live (the family's data) and staging (fake households for
+// trying changes). The staging site and local development (the simulator's
+// dev build loads from localhost) use staging; everything else is live.
+// Web apiKeys are public identifiers; the security rules guard the data.
+const FIREBASE_CONFIGS = {
+  live: {
+    apiKey: "AIzaSyDgRavOYvAYbw2nVmOUG_CT8Klifl24Xbk",
+    authDomain: "schedule-buddy-dd2cf.firebaseapp.com",
+    projectId: "schedule-buddy-dd2cf",
+    storageBucket: "schedule-buddy-dd2cf.firebasestorage.app",
+    messagingSenderId: "751719086344",
+    appId: "1:751719086344:web:d831238f5039d29d17d4bd",
+  },
+  staging: {
+    apiKey: "AIzaSyD5RWmvRWqrp0GKZeOcxqZPw1Ja8z2Pbog",
+    authDomain: "schedule-buddy-staging.firebaseapp.com",
+    projectId: "schedule-buddy-staging",
+    storageBucket: "schedule-buddy-staging.firebasestorage.app",
+    messagingSenderId: "713442891579",
+    appId: "1:713442891579:web:c68260e15783cbc2c4c91e",
+  },
 };
+const NUCLEUS_ENV = (/(^|\.)schedule-buddy-staging\./.test(location.hostname) ||
+  location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "staging" : "live";
+const firebaseConfig = FIREBASE_CONFIGS[NUCLEUS_ENV];
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -7126,6 +7684,8 @@ document.getElementById("googleSignInBtn").addEventListener("click", async () =>
       await auth.signInWithCredential(credential);
     } else {
       const provider = new firebase.auth.GoogleAuthProvider();
+      // Always offer the account picker rather than reusing the last account.
+      provider.setCustomParameters({ prompt: "select_account" });
       await webOAuthSignIn(provider);
     }
   } catch (e) {
@@ -7251,30 +7811,505 @@ function generateInviteCode() {
   return code;
 }
 
-document.getElementById("hhCreateBtn").addEventListener("click", async () => {
-  const errEl = document.getElementById("hhError");
-  errEl.textContent = "";
-  const code = generateInviteCode();
-  try {
-    const docRef = await db.collection("households").add({
-      memberUids: [currentUser.uid],
-      memberNames: { [currentUser.uid]: currentUser.displayName || "Admin" },
-      roles: { [currentUser.uid]: "admin" },
-      inviteCode: code,
-      createdBy: currentUser.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    // Also store invite code lookup
-    await db.collection("inviteCodes").doc(code).set({
-      householdId: docRef.id,
-    });
-    householdId = docRef.id;
-    document.getElementById("hhInviteDisplay").textContent = code;
-    document.getElementById("hhChoiceView").style.display = "none";
-    document.getElementById("hhCreatedView").style.display = "block";
-  } catch (e) {
-    errEl.textContent = "Error creating household: " + e.message;
+// ==================== SETUP WIZARD ====================
+// A new household is filled in before the app opens: its name and time zone,
+// who you are and who else lives there, the shifts anyone works and the usual
+// week of you and any partner (with where you work and when you're paid), and
+// a home address for "leave by" times. It's created on the any-household
+// model (shared/onboarding.ts) holding exactly what was entered — no starter
+// data. The household's invite codes come at the end.
+const WIZ_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+let wiz = null;
+
+function wizWork() {
+  return { employer: "", workplace: null, payFreq: "", payAnchor: "", changing: false,
+    days: [null, null, null, null, null, null, null], alt: false, altSat: "", altSatShift: null, altSunShift: null };
+}
+
+function wizStart() {
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || "America/New_York";
+  const first = ((currentUser && currentUser.displayName) || "").trim().split(/\s+/)[0] || "";
+  wiz = {
+    step: 0,
+    householdName: "",
+    timeZone: tz,
+    zones: NucleusModel.timeZoneChoices(tz),
+    meName: first, describes: "",
+    me: wizWork(),
+    others: [], draftKind: "partner", draftName: "",
+    kids: 0,
+    presets: new Set(), custom: [], customDraft: { name: "", start: "", end: "" },
+    home: null, homeQuery: "",
+    // Address searches: which box is searching, and what it found.
+    search: { field: null, results: [] },
+    session: Math.random().toString(36).slice(2),
+    creating: false, codes: null, error: "",
+  };
+  document.getElementById("hhChoiceView").style.display = "none";
+  document.getElementById("hhWizard").style.display = "block";
+  document.getElementById("householdScreen").classList.add("hh-setup");
+  document.querySelector("#householdScreen .hh-hero h2").textContent = "Set up your household";
+  document.getElementById("hhGreeting").textContent = "A few questions so Nucleus knows who's who and when you work. You can change any of it later.";
+  wizRender();
+}
+
+function wizShiftTypes() {
+  const presets = NucleusModel.SHIFT_PRESETS.filter((t) => wiz.presets.has(t.id)).map((t) => ({ ...t }));
+  return presets.concat(wiz.custom.map((t) => ({ ...t })));
+}
+
+function wizPartners() { return wiz.others.filter((o) => o.kind === "partner"); }
+
+// The steps, in order: a week step only when anyone works shifts, and a work
+// step for each partner.
+function wizSteps() {
+  const steps = ["household", "you", "people", "shifts"];
+  if (wizShiftTypes().length) steps.push("myWeek");
+  for (const p of wizPartners()) steps.push("partner:" + p.key);
+  steps.push("home", "review");
+  return steps;
+}
+
+function wizPartnerOf(step) {
+  return step.indexOf("partner:") === 0 ? wiz.others.find((o) => "partner:" + o.key === step) : null;
+}
+
+function wizStepTitle(step) {
+  const p = wizPartnerOf(step);
+  if (p) return (p.name || "Partner") + "'s work";
+  return ({ household: "Household", you: "You", people: "People", shifts: "Shifts", myWeek: "Your week", home: "Home", review: "Review" })[step] || "";
+}
+
+function wizWorkAnswer(w) {
+  const out = { employer: w.employer || undefined, workplace: w.workplace || undefined };
+  if (w.payFreq && w.payAnchor) out.payday = { anchor: w.payAnchor, freq: w.payFreq };
+  if (!w.changing && wizShiftTypes().length) {
+    out.week = { days: w.days.slice() };
+    if (w.alt && w.altSat) out.week.altWeekend = { refSat: w.altSat, sat: w.altSatShift, sun: w.altSunShift };
   }
+  return out;
+}
+
+function wizAnswers() {
+  return {
+    householdName: wiz.householdName,
+    timeZone: wiz.timeZone,
+    me: Object.assign({ name: wiz.meName, describes: wiz.describes }, wizWorkAnswer(wiz.me)),
+    others: wiz.others.map((o) => Object.assign({ kind: o.kind, name: o.name }, o.kind === "partner" ? wizWorkAnswer(o.work) : {})),
+    kids: wiz.kids,
+    shiftTypes: wizShiftTypes(),
+    integrations: wiz.home ? { commuteHome: wiz.home } : {},
+  };
+}
+
+// What must be right before leaving a step. Returns a message, or "".
+function wizCheckStep(step) {
+  const need = (v, msg) => (String(v || "").trim() ? "" : msg);
+  const work = (w, withPay) => {
+    if (withPay && w.payFreq && !w.payAnchor) return "Pick a recent payday, or choose Not now.";
+    if (w.changing || !w.alt) return "";
+    if (!w.altSat) return "Pick a Saturday for the every-other-weekend pattern.";
+    const [y, m, dd] = w.altSat.split("-").map(Number);
+    return new Date(y, m - 1, dd).getDay() === 6 ? "" : "That date isn't a Saturday.";
+  };
+  if (step === "household") return need(wiz.householdName, "Give your household a name.");
+  if (step === "you") return need(wiz.meName, "Add your name.") || (wiz.describes ? "" : "Pick what best describes you.") || work(wiz.me, true);
+  if (step === "people") return wiz.draftName.trim() ? "Tap Add to include " + wiz.draftName.trim() + ", or clear the box." : "";
+  if (step === "shifts") {
+    const d = wiz.customDraft;
+    return (d.name || d.start || d.end) ? "Tap Add shift to keep the custom shift, or clear it." : "";
+  }
+  if (step === "myWeek") return work(wiz.me, false);
+  const p = wizPartnerOf(step);
+  if (p) return work(p.work, true);
+  return "";
+}
+
+function wizOptions(selected) {
+  return '<option value="">Off</option>' + wizShiftTypes().map((t) =>
+    `<option value="${escapeHtml(t.id)}"${t.id === selected ? " selected" : ""}>${escapeHtml(t.name)} · ${escapeHtml(compactTime(t.start))}–${escapeHtml(compactTime(t.end))}</option>`).join("");
+}
+
+// A box that searches addresses (a workplace or home). `field` names it for
+// the search state; `key` is its data-wiz path.
+function wizPlaceHtml(field, key, value, picked, placeholder) {
+  const results = wiz.search.field === field ? wiz.search.results : [];
+  return `
+    <input class="wiz-input" data-wiz="${key}" data-place="${field}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
+    ${picked ? `<p class="wiz-help" style="margin:6px 0 0">${escapeHtml(picked.label)} — used for leave-by times</p>` : ""}
+    ${results.length ? `<ul class="wiz-suggest" style="margin-top:6px">${results.map((sug, i) => `<li><button type="button" data-wiz-act="pickPlace" data-field="${field}" data-i="${i}">
+      ${escapeHtml(sug.name)}<small>${escapeHtml(sug.detail || "")}</small></button></li>`).join("")}</ul>` : ""}`;
+}
+
+function wizWorkHtml(who, w) {
+  const you = who === "me";
+  return `
+    <label class="wiz-field"><span>Where ${you ? "you work" : "they work"} (optional)</span>
+      ${wizPlaceHtml("work:" + who, who + ".employer", w.employer, w.workplace, "Start typing to search")}</label>
+    <label class="wiz-field"><span>How often ${you ? "are you" : "are they"} paid?</span>
+      <select class="wiz-select" data-wiz="${who}.payFreq">
+        <option value=""${!w.payFreq ? " selected" : ""}>Not now</option>
+        <option value="weekly"${w.payFreq === "weekly" ? " selected" : ""}>Every week</option>
+        <option value="biweekly"${w.payFreq === "biweekly" ? " selected" : ""}>Every two weeks</option>
+      </select></label>
+    ${w.payFreq ? `<label class="wiz-field"><span>A recent payday</span>
+      <input class="wiz-input" type="date" data-wiz="${who}.payAnchor" value="${escapeHtml(w.payAnchor)}"></label>` : ""}`;
+}
+
+function wizWeekHtml(who, w, label) {
+  const you = who === "me";
+  return `
+    <label class="wiz-check"><input type="checkbox" data-wiz="${who}.changing"${w.changing ? " checked" : ""}>
+      ${label} schedule changes every week</label>
+    ${w.changing ? `<p class="wiz-help">No usual week, then. Shifts get added as they're scheduled.</p>` : `
+      <div class="wiz-week">
+        ${WIZ_DAYS.map((d, i) => `<span>${d}</span>
+          <select class="wiz-select" data-wiz="${who}.day.${i}" aria-label="${d}">${wizOptions(w.days[i])}</select>`).join("")}
+      </div>
+      <label class="wiz-check"><input type="checkbox" data-wiz="${who}.alt"${w.alt ? " checked" : ""}>
+        Every other weekend</label>
+      ${w.alt ? `
+        <p class="wiz-help">On working weekends these replace Saturday and Sunday above; the weekends between are off.</p>
+        <label class="wiz-field"><span>A Saturday ${you ? "you work" : "they work"}</span>
+          <input class="wiz-input" type="date" data-wiz="${who}.altSat" value="${escapeHtml(w.altSat)}"></label>
+        <div class="wiz-row">
+          <label class="wiz-field"><span>Saturday</span><select class="wiz-select" data-wiz="${who}.altSatShift">${wizOptions(w.altSatShift)}</select></label>
+          <label class="wiz-field"><span>Sunday</span><select class="wiz-select" data-wiz="${who}.altSunShift">${wizOptions(w.altSunShift)}</select></label>
+        </div>` : ""}`}`;
+}
+
+function wizKindLabel(k) {
+  const o = NucleusModel.OTHER_KINDS.find((x) => x.value === k);
+  return o ? o.label : k;
+}
+
+function wizStepHtml(step) {
+  const a = wiz;
+  const partner = wizPartnerOf(step);
+  if (partner) {
+    const who = "other." + partner.key;
+    return `
+      <h3 class="wiz-title">${escapeHtml(partner.name)}'s work</h3>
+      ${wizWorkHtml(who, partner.work)}
+      ${wizShiftTypes().length ? wizWeekHtml(who, partner.work, "Their") : ""}`;
+  }
+  switch (step) {
+    case "household": return `
+      <h3 class="wiz-title">Your household</h3>
+      <p class="wiz-help">What should Nucleus call it? Once it's saved, the name can't be changed.</p>
+      <label class="wiz-field"><span>Household name</span>
+        <input class="wiz-input" data-wiz="householdName" value="${escapeHtml(a.householdName)}" placeholder="The Rivera household" maxlength="60" autocomplete="off"></label>
+      <label class="wiz-field"><span>Time zone</span>
+        <select class="wiz-select" data-wiz="timeZone">${a.zones.map((z) => `<option value="${escapeHtml(z.value)}"${z.value === a.timeZone ? " selected" : ""}>${escapeHtml(z.label)}</option>`).join("")}</select></label>`;
+    case "you": return `
+      <h3 class="wiz-title">About you</h3>
+      <label class="wiz-field"><span>Your name</span>
+        <input class="wiz-input" data-wiz="meName" value="${escapeHtml(a.meName)}" maxlength="60" autocomplete="given-name"></label>
+      <label class="wiz-field"><span>What best describes you?</span>
+        <select class="wiz-select" data-wiz="describes">
+          <option value="" disabled${!a.describes ? " selected" : ""}>Choose one</option>
+          ${NucleusModel.DESCRIBES.map((d) => `<option value="${d.value}"${d.value === a.describes ? " selected" : ""}>${escapeHtml(d.label)}</option>`).join("")}
+        </select></label>
+      ${wizWorkHtml("me", a.me)}`;
+    case "people": return `
+      <h3 class="wiz-title">Who else lives there?</h3>
+      <p class="wiz-help">Add everyone else in the household. Skip this if it's just you.</p>
+      ${a.others.length ? `<ul class="wiz-list">${a.others.map((o) => `<li><span>${escapeHtml(o.name)} <small style="color:var(--text-2)">· ${escapeHtml(wizKindLabel(o.kind))}</small></span>
+        <button type="button" class="wiz-remove" data-wiz-act="removeOther" data-key="${o.key}" aria-label="Remove ${escapeHtml(o.name)}">Remove</button></li>`).join("")}</ul>` : ""}
+      <label class="wiz-field"><span>Who they are</span>
+        <select class="wiz-select" data-wiz="draftKind">${NucleusModel.OTHER_KINDS.map((k) => `<option value="${k.value}"${k.value === a.draftKind ? " selected" : ""}>${escapeHtml(k.label)}</option>`).join("")}</select></label>
+      <div class="wiz-row" style="margin-bottom:16px">
+        <input class="wiz-input" data-wiz="draftName" value="${escapeHtml(a.draftName)}" placeholder="Their name" maxlength="60" aria-label="Their name">
+        <button type="button" class="hh-cta-secondary" style="flex:0 0 88px" data-wiz-act="addOther">Add</button>
+      </div>
+      <div class="wiz-field"><span>How many kids live there?</span>
+        <div class="wiz-row" style="justify-content:flex-start">
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 52px" data-wiz-act="kidsDown" aria-label="One fewer">−</button>
+          <strong aria-live="polite" style="flex:0 0 40px;text-align:center;font-size:18px">${a.kids}</strong>
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 52px" data-wiz-act="kidsUp" aria-label="One more">+</button>
+        </div>
+      </div>
+      <p class="wiz-help">With kids in the household, Nucleus plans who has them while the adults work.</p>`;
+    case "shifts": return `
+      <h3 class="wiz-title">Which shifts does anyone work?</h3>
+      <p class="wiz-help">Pick the usual ones, and add any others. Skip this if nobody works shifts.</p>
+      <div class="wiz-chips">${NucleusModel.SHIFT_PRESETS.map((t) => `<button type="button" class="wiz-chip" data-wiz-act="preset" data-id="${t.id}" aria-pressed="${a.presets.has(t.id)}">
+        <span class="wiz-chip-mark" aria-hidden="true"></span>${escapeHtml(t.name)} · ${compactTime(t.start)}–${compactTime(t.end)}</button>`).join("")}</div>
+      ${a.custom.length ? `<ul class="wiz-list">${a.custom.map((t, i) => `<li><span>${escapeHtml(t.name)} · ${compactTime(t.start)}–${compactTime(t.end)}</span>
+        <button type="button" class="wiz-remove" data-wiz-act="removeCustom" data-i="${i}" aria-label="Remove ${escapeHtml(t.name)}">Remove</button></li>`).join("")}</ul>` : ""}
+      <div class="wiz-field"><span>Another shift</span>
+        <input class="wiz-input" data-wiz="customDraft.name" value="${escapeHtml(a.customDraft.name)}" placeholder="Name, e.g. Weekend day" maxlength="40" aria-label="Shift name" style="margin-bottom:6px">
+        <div class="wiz-row">
+          <input class="wiz-input" type="time" data-wiz="customDraft.start" value="${escapeHtml(a.customDraft.start)}" aria-label="Starts">
+          <input class="wiz-input" type="time" data-wiz="customDraft.end" value="${escapeHtml(a.customDraft.end)}" aria-label="Ends">
+          <button type="button" class="hh-cta-secondary" style="flex:0 0 100px" data-wiz-act="addCustom">Add shift</button>
+        </div>
+      </div>`;
+    case "myWeek": return `
+      <h3 class="wiz-title">Your usual week</h3>
+      <p class="wiz-help">Pick a shift for each day you normally work.</p>
+      ${wizWeekHtml("me", a.me, "My")}`;
+    case "home": return `
+      <h3 class="wiz-title">Leave-by times</h3>
+      <p class="wiz-help">With your home address, Nucleus works out when to leave for each shift and warns about heavy traffic. Optional — you can add it later.</p>
+      ${a.home ? `<ul class="wiz-list"><li><span>${escapeHtml(a.home.label)}</span>
+        <button type="button" class="wiz-remove" data-wiz-act="clearHome">Change</button></li></ul>` : `
+        <label class="wiz-field"><span>Home address</span>
+          ${wizPlaceHtml("home", "homeQuery", a.homeQuery, null, "Start typing your address")}</label>`}`;
+    case "review": {
+      const ans = wizAnswers();
+      const describes = (NucleusModel.DESCRIBES.find((d) => d.value === ans.me.describes) || {}).label || "";
+      const who = [`${ans.me.name} (${describes.toLowerCase()})`]
+        .concat(ans.others.map((o) => `${o.name} (${wizKindLabel(o.kind).toLowerCase()})`)).join(", ");
+      const at = (id) => { const t = ans.shiftTypes.find((st) => st.id === id); return t ? compactTime(t.start) : "off"; };
+      const weekText = (x) => {
+        if (!x.week) return "Changes every week";
+        const alt = x.week.altWeekend;
+        const days = WIZ_DAYS.map((d, i) => {
+          if (alt && (i === 0 || i === 6)) return null;
+          return x.week.days[i] ? `${d} ${at(x.week.days[i])}` : null;
+        }).filter(Boolean).join(", ") || "No usual shifts";
+        return alt ? `${days}; every other weekend Sat ${at(alt.sat)}, Sun ${at(alt.sun)}` : days;
+      };
+      return `
+        <h3 class="wiz-title">Look right?</h3>
+        <dl class="wiz-review">
+          <dt>Household</dt><dd>${escapeHtml(ans.householdName)} · ${escapeHtml(NucleusModel.timeZoneLabel(ans.timeZone))}</dd>
+          <dt>People</dt><dd>${escapeHtml(who)}</dd>
+          <dt>Kids</dt><dd>${ans.kids || "None"}</dd>
+          <dt>Shifts</dt><dd>${escapeHtml(ans.shiftTypes.map((t) => t.name).join(", ") || "None")}</dd>
+          ${ans.shiftTypes.length ? `<dt>${escapeHtml(ans.me.name)}'s week</dt><dd>${escapeHtml(weekText(ans.me))}</dd>` : ""}
+          ${ans.shiftTypes.length ? ans.others.filter((o) => o.kind === "partner").map((o) => `<dt>${escapeHtml(o.name)}'s week</dt><dd>${escapeHtml(weekText(o))}</dd>`).join("") : ""}
+          <dt>Home</dt><dd>${escapeHtml(ans.integrations.commuteHome ? ans.integrations.commuteHome.label : "Not set")}</dd>
+        </dl>`;
+    }
+  }
+  return "";
+}
+
+function wizRender() {
+  const box = document.getElementById("hhWizard");
+  if (!box || !wiz) return;
+  if (wiz.codes) {
+    box.innerHTML = `<div class="hh-card" style="text-align:center;">
+      <h3 class="wiz-title">${escapeHtml(wiz.householdName.trim())} is ready</h3>
+      <p class="wiz-help">Share these so the others can join from their own phone or Mac.</p>
+      <div class="wiz-code-label">Household code (partner, roommate or family)</div>
+      <div class="invite-code-display">${escapeHtml(wiz.codes.partner)}</div>
+      ${wiz.codes.caregiver ? `<div class="wiz-code-label">Caregiver's code</div>
+        <div class="invite-code-display">${escapeHtml(wiz.codes.caregiver)}</div>` : ""}
+      <button type="button" class="hh-cta-primary" data-wiz-act="finish">Open Nucleus</button>
+    </div>`;
+    return;
+  }
+  const steps = wizSteps();
+  wiz.step = Math.min(wiz.step, steps.length - 1);
+  const step = steps[wiz.step];
+  const last = wiz.step === steps.length - 1;
+  const CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  box.innerHTML = `
+    <ol class="wiz-steps" aria-label="Setup steps">${steps.map((st, i) => {
+      const state = i < wiz.step ? "done" : i === wiz.step ? "now" : "";
+      return `<li${i === wiz.step ? ' aria-current="step"' : ""}>
+        <span class="wiz-sq ${state}" aria-label="${escapeHtml(wizStepTitle(st))}${i < wiz.step ? ", done" : ""}">${i < wiz.step ? CHECK : i + 1}</span>
+        ${i < steps.length - 1 ? `<span class="wiz-link ${i < wiz.step ? "done" : ""}" aria-hidden="true"></span>` : ""}</li>`;
+    }).join("")}</ol>
+    <div class="wiz-step-label">Step ${wiz.step + 1} of ${steps.length} · <strong>${escapeHtml(wizStepTitle(step))}</strong></div>
+    <div class="hh-card">
+      ${wizStepHtml(step)}
+      <div class="hh-error" role="alert">${escapeHtml(wiz.error)}</div>
+      <div class="wiz-nav">
+        <button type="button" class="hh-cta-secondary" data-wiz-act="back">${wiz.step === 0 ? "Cancel" : "Back"}</button>
+        <button type="button" class="hh-cta-primary wiz-next" data-wiz-act="next"${wiz.creating ? " disabled" : ""}>${last ? (wiz.creating ? "Creating…" : "Create household") : "Next"}</button>
+      </div>
+    </div>`;
+}
+
+// The draft behind a data-wiz path: "me", "other.<key>" (a partner's work),
+// or the wizard itself.
+function wizTarget(path) {
+  if (path[0] === "me") return { obj: wiz.me, rest: path.slice(1) };
+  if (path[0] === "other") {
+    const o = wiz.others.find((x) => x.key === path[1]);
+    return { obj: o ? o.work : {}, rest: path.slice(2) };
+  }
+  return { obj: wiz, rest: path };
+}
+
+// Inputs write straight into `wiz`; only fields that change what's shown
+// re-render (so typing never loses focus).
+const WIZ_RERENDER = /(^|\.)(payFreq|changing|alt)$/;
+function wizSet(key, el) {
+  const v = el.type === "checkbox" ? el.checked : el.value;
+  const { obj, rest } = wizTarget(key.split("."));
+  if (rest[0] === "day") { obj.days[Number(rest[1])] = v || null; return; }
+  if (/Shift$/.test(rest[0] || "")) { obj[rest[0]] = v || null; return; }
+  let o = obj;
+  for (const k of rest.slice(0, -1)) o = o[k];
+  o[rest[rest.length - 1]] = v;
+  // Typing over a picked workplace unpicks it.
+  if (rest[0] === "employer") obj.workplace = null;
+  if (WIZ_RERENDER.test(key)) wizRender();
+}
+
+let _wizPlaceTimer = null;
+function wizSearchPlace(field, query) {
+  clearTimeout(_wizPlaceTimer);
+  const q = String(query || "").trim();
+  if (q.length < 3) {
+    if (wiz.search.field === field && wiz.search.results.length) { wiz.search = { field: null, results: [] }; wizRenderKeepingFocus(); }
+    return;
+  }
+  _wizPlaceTimer = setTimeout(async () => {
+    try {
+      const r = await firebase.functions().httpsCallable("placesAutocomplete")({ input: q, sessionToken: wiz.session });
+      if (!wiz) return;
+      wiz.search = { field, results: (r.data && r.data.suggestions) || [] };
+      wizRenderKeepingFocus();
+    } catch (e) { console.warn("address search:", e); }
+  }, 300);
+}
+
+function wizRenderKeepingFocus() {
+  const el = document.activeElement;
+  const key = el && el.getAttribute && el.getAttribute("data-wiz");
+  const pos = el && typeof el.selectionStart === "number" ? el.selectionStart : null;
+  wizRender();
+  if (!key) return;
+  const again = document.querySelector(`#hhWizard [data-wiz="${key}"]`);
+  if (again) { again.focus(); if (pos != null && again.setSelectionRange) again.setSelectionRange(pos, pos); }
+}
+
+async function wizCreate() {
+  const answers = wizAnswers();
+  try { NucleusModel.checkAnswers(answers); }
+  catch (e) { wiz.error = e.message; wizRender(); return; }
+  wiz.creating = true; wiz.error = ""; wizRender();
+  try {
+    const hid = db.collection("households").doc().id;
+    const built = NucleusModel.buildHousehold(answers, {
+      householdId: hid,
+      uid: currentUser.uid,
+      accountName: (currentUser.displayName || answers.me.name || "").trim(),
+      now: Date.now(),
+      personId: () => NucleusModel.newPersonId(),
+      inviteCode: () => NucleusModel.randomInviteCode(),
+    });
+    await NucleusModel.createHousehold(modelStore(), hid, built, Date.now());
+    householdId = hid;
+    wiz.codes = built.codes;
+  } catch (e) {
+    console.error("create household:", e);
+    wiz.error = "Couldn't create the household: " + (e.message || e);
+  }
+  wiz.creating = false;
+  wizRender();
+}
+
+(function wireWizard() {
+  const box = document.getElementById("hhWizard");
+  box.addEventListener("input", (e) => {
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (!key || !wiz) return;
+    wizSet(key, e.target);
+    const field = e.target.getAttribute("data-place");
+    if (field) wizSearchPlace(field, e.target.value);
+  });
+  box.addEventListener("change", (e) => {
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (key && wiz && (e.target.type === "checkbox" || e.target.tagName === "SELECT")) wizSet(key, e.target);
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || !wiz) return;
+    const key = e.target.getAttribute && e.target.getAttribute("data-wiz");
+    if (key === "draftName") { e.preventDefault(); box.querySelector('[data-wiz-act="addOther"]').click(); }
+  });
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest("[data-wiz-act]");
+    if (!btn || !wiz) return;
+    const act = btn.getAttribute("data-wiz-act");
+    const i = Number(btn.getAttribute("data-i"));
+    wiz.error = "";
+    if (act === "next") {
+      const steps = wizSteps();
+      const msg = wizCheckStep(steps[wiz.step]);
+      if (msg) { wiz.error = msg; wizRender(); return; }
+      if (wiz.step === steps.length - 1) { wizCreate(); return; }
+      wiz.search = { field: null, results: [] };
+      wiz.step++;
+    } else if (act === "back") {
+      if (wiz.step === 0) {
+        wiz = null;
+        box.style.display = "none";
+        box.innerHTML = "";
+        document.getElementById("householdScreen").classList.remove("hh-setup");
+        document.getElementById("hhChoiceView").style.display = "flex";
+        document.querySelector("#householdScreen .hh-hero h2").textContent = "Join a household";
+        document.getElementById("hhGreeting").textContent = "Create a new household, or join with an invite code from your partner.";
+        return;
+      }
+      wiz.search = { field: null, results: [] };
+      wiz.step--;
+    } else if (act === "addOther") {
+      const n = wiz.draftName.trim();
+      if (!n) { wiz.error = "Add their name."; }
+      else {
+        wiz.others.push({ key: Math.random().toString(36).slice(2, 8), kind: wiz.draftKind, name: n, work: wizWork() });
+        wiz.draftName = "";
+      }
+    } else if (act === "removeOther") {
+      const key = btn.getAttribute("data-key");
+      wiz.others = wiz.others.filter((o) => o.key !== key);
+    } else if (act === "kidsUp") {
+      wiz.kids = Math.min(20, wiz.kids + 1);
+    } else if (act === "kidsDown") {
+      wiz.kids = Math.max(0, wiz.kids - 1);
+    } else if (act === "preset") {
+      const id = btn.getAttribute("data-id");
+      if (wiz.presets.has(id)) wiz.presets.delete(id); else wiz.presets.add(id);
+    } else if (act === "addCustom") {
+      const d = wiz.customDraft;
+      if (!d.name.trim() || !d.start || !d.end) { wiz.error = "Give the shift a name, a start and an end."; }
+      else if (d.start === d.end) { wiz.error = "The shift starts and ends at the same time."; }
+      else {
+        wiz.custom.push({ id: "custom_" + Date.now().toString(36), name: d.name.trim(), start: d.start, end: d.end, crossesMidnight: d.end <= d.start });
+        wiz.customDraft = { name: "", start: "", end: "" };
+      }
+    } else if (act === "removeCustom") {
+      const [gone] = wiz.custom.splice(i, 1);
+      for (const w of [wiz.me].concat(wiz.others.map((o) => o.work))) {
+        w.days = w.days.map((d) => (d === gone.id ? null : d));
+        if (w.altSatShift === gone.id) w.altSatShift = null;
+        if (w.altSunShift === gone.id) w.altSunShift = null;
+      }
+    } else if (act === "pickPlace") {
+      const field = btn.getAttribute("data-field");
+      const sug = wiz.search.field === field ? wiz.search.results[i] : null;
+      if (sug) {
+        const place = { placeId: sug.placeId, label: sug.detail ? `${sug.name}, ${sug.detail}` : sug.name };
+        if (field === "home") { wiz.home = place; }
+        else {
+          const who = field.slice("work:".length);
+          const { obj } = wizTarget(who.split("."));
+          obj.employer = sug.name;
+          obj.workplace = place;
+        }
+      }
+      wiz.search = { field: null, results: [] };
+    } else if (act === "clearHome") {
+      wiz.home = null; wiz.homeQuery = "";
+    } else if (act === "finish") {
+      document.getElementById("householdScreen").classList.remove("hh-setup");
+      resolveHousehold(currentUser);
+      return;
+    }
+    wizRender();
+  });
+})();
+
+document.getElementById("hhCreateBtn").addEventListener("click", () => {
+  document.getElementById("hhError").textContent = "";
+  wizStart();
 });
 
 document.getElementById("hhContinueBtn").addEventListener("click", async () => {
@@ -7303,10 +8338,13 @@ document.getElementById("hhJoinBtn").addEventListener("click", async () => {
     // Stripping the @domain so the household sidebar shows "kaylene.bass"
     // rather than the full address.
     const fallbackName = currentUser.email ? currentUser.email.split("@")[0] : "Member";
+    // joinCode names the invite: the security rules only let someone add
+    // themselves with a real code for this household, in the code's role.
     await hhRef.update({
       memberUids: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
       [`memberNames.${currentUser.uid}`]: currentUser.displayName || fallbackName,
       [`roles.${currentUser.uid}`]: role,
+      joinCode: code,
     });
     await resolveHousehold(currentUser);
   } catch (e) {
@@ -7337,6 +8375,7 @@ function enterApp() {
   updateUserBar();
   applyRoleRestrictions();
   initFirestoreSync();
+  initCommuteSync();
   initOTApprovalSync();
   initFeedbackSync();
   initChat();
@@ -7702,39 +8741,22 @@ async function submitCaregiverRequest() {
 
   if (submit) submit.disabled = true;
   try {
-    // Read-modify-write so we don't clobber concurrent state edits. Posts
-    // straight to the calendar — no approval. The Cloud Function's
-    // schedule-additions trigger notifies the household on new events.
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-
+    // Posts straight to the calendar — no approval — through the
+    // caregiverAction function. Its schedule-additions trigger notifies the
+    // household of new events.
     if (_cgrType === "block") {
       // Schedule Block → a red-striped day (household-wide). Person is folded
       // into the label since blocks aren't per-person in the model.
-      const blocks = Array.isArray(data.scheduleBlocks) ? data.scheduleBlocks.slice() : [];
       const label = (_cgrWho !== "family" ? `${whoName}: ` : "") + (comments || "Schedule block");
-      blocks.push({ startDate: date, endDate: date, label });
-      await ref.set({ ...data, scheduleBlocks: blocks });
+      await caregiverCall({ action: "addBlock", date, label });
     } else {
       // Life Event → state.events, attributed to the chosen person.
-      const events = Array.isArray(data.events) ? data.events.slice() : [];
-      const evt = {
-        id: `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-        date,
-        title: comments,
-        who: _cgrWho,
-      };
-      if (startTime) evt.startTime = startTime;
-      if (endTime)   evt.endTime = endTime;
-      events.push(evt);
-      await ref.set({ ...data, events });
+      await caregiverCall({ action: "addEvent", date, title: comments, who: _cgrWho, startTime, endTime });
     }
     closeCaregiverRequestModal();
   } catch (e) {
     console.error("request-event submit failed:", e);
-    showErr("Couldn't add it. Check your connection and try again.");
+    showErr(caregiverCallError(e, "Couldn't add it. Check your connection and try again."));
   } finally {
     if (submit) submit.disabled = false;
   }
@@ -7764,17 +8786,20 @@ function setCaregiverTab(tab) {
   }
 }
 
-// Caregivers only need to read/write `coverageRequests`. We still load the
-// whole state/main doc (it's a single doc), but we only render that slice
-// and never push back unrelated keys — the write helper does a read‑modify‑
-// write so we don't clobber the desktop's edits.
+// A caregiver can't read state/main (firestore.rules). They read
+// caregiverView/main — the coverage requests and the names — which the
+// mirrorCaregiverView function keeps in step, and they change things only
+// through caregiverCall() below.
 function initCaregiverFirestoreSync() {
   if (!householdId) return;
   const ref = db.collection("households").doc(householdId)
-    .collection("state").doc("main");
+    .collection("caregiverView").doc("main");
+  let asked = false;
   stateUnsubscribe = ref.onSnapshot(doc => {
     if (!doc.exists) {
       renderCaregiverScreen([]);
+      // A household set up before the view existed: have it built once.
+      if (!asked) { asked = true; caregiverCall({ action: "sync" }).catch(e => console.warn("caregiver sync:", e)); }
       return;
     }
     const data = doc.data() || {};
@@ -8529,6 +9554,49 @@ function _capKeyboardPlugin() {
 // plugin's own keyboardWillShow height (e.g. 318), not visualViewport. Restore
 // 'native' on close so the chat pane (which relies on it) is unaffected. Off
 // Capacitor this no-ops, leaving default behavior untouched.
+// On a real iPhone, focusing the composer makes WebKit scroll the whole web
+// view to "reveal" it above the keyboard — the sheet and page jump, then
+// bounce back. (The simulator doesn't do this.) So a tap on the composer
+// focuses an invisible field near the top of the sheet first: the keyboard
+// rises with nothing to reveal. Once the composer has been lifted above the
+// keyboard, focus moves to it — already visible, so nothing scrolls.
+let _askProxyPending = false;
+function _askFocusViaProxy(e) {
+  const input = document.getElementById("askInput");
+  const proxy = document.getElementById("askFocusProxy");
+  if (!input || !proxy || document.activeElement === input || !_askKbCleanup) return;
+  e.preventDefault();                       // no native focus, no synthetic click
+  _askProxyPending = true;
+  proxy.value = "";
+  proxy.focus({ preventScroll: true });
+  // If keyboardWillShow never arrives (hardware keyboard, no plugin), hand
+  // focus over anyway so typing still works.
+  setTimeout(_askHandOffFocus, 700);
+}
+function _askHandOffFocus() {
+  if (!_askProxyPending) return;
+  _askProxyPending = false;
+  const input = document.getElementById("askInput");
+  if (input) input.focus({ preventScroll: true });
+}
+
+// Pin the page behind the sheet so nothing under it can scroll either.
+let _askLockedY = null;
+function _askLockPage() {
+  if (_askLockedY !== null) return;
+  _askLockedY = window.scrollY || 0;
+  document.body.style.top = `-${_askLockedY}px`;
+  document.body.classList.add("ask-page-locked");
+}
+function _askUnlockPage() {
+  if (_askLockedY === null) return;
+  const y = _askLockedY;
+  _askLockedY = null;
+  document.body.classList.remove("ask-page-locked");
+  document.body.style.top = "";
+  window.scrollTo(0, y);
+}
+
 let _askKbCleanup = null;
 function _askKeyboardEngage() {
   if (_askKbCleanup) return;
@@ -8549,7 +9617,13 @@ function _askKeyboardEngage() {
     }
   };
   let hShow = null, hHide = null;
-  try { hShow = K.addListener("keyboardWillShow", (info) => lift(info && info.keyboardHeight)); } catch (_) {}
+  try {
+    hShow = K.addListener("keyboardWillShow", (info) => {
+      lift(info && info.keyboardHeight);
+      // The composer is above the keyboard now; move focus onto it.
+      requestAnimationFrame(_askHandOffFocus);
+    });
+  } catch (_) {}
   try { hHide = K.addListener("keyboardWillHide", () => lift(0)); } catch (_) {}
   _askKbCleanup = () => {
     const off = (h) => { try { if (h && h.remove) h.remove(); else if (h && h.then) h.then((x) => x && x.remove && x.remove()); } catch (_) {} };
@@ -8578,6 +9652,7 @@ function openAskClaude() {
   if (input) input.value = "";
   refreshAskSendDisabled();
   document.body.classList.remove("ask-claude-closing");
+  _askLockPage();
   document.body.classList.add("ask-claude-open");
   _askKeyboardEngage();
   // Don't auto-focus the input: on the iOS webview that pops the keyboard up
@@ -8587,8 +9662,13 @@ function openAskClaude() {
 }
 
 function closeAskClaude() {
+  _askProxyPending = false;
+  const proxy = document.getElementById("askFocusProxy");
+  if (proxy && document.activeElement === proxy) proxy.blur();
   _askKeyboardRelease();
   closeSheetAnimated("ask-claude-open", "ask-claude-closing", 380);
+  // After the close animation; skip if the sheet was reopened meanwhile.
+  setTimeout(() => { if (!document.body.classList.contains("ask-claude-open")) _askUnlockPage(); }, 400);
 }
 
 function refreshAskSendDisabled() {
@@ -9280,6 +10360,7 @@ function wireAskClaudeUI() {
   if (backdrop && !backdrop.__wired) { backdrop.__wired = true; backdrop.addEventListener("click", closeAskClaude); }
   if (input && !input.__wired) {
     input.__wired = true;
+    input.addEventListener("touchend", _askFocusViaProxy, { passive: false });
     input.addEventListener("input", refreshAskSendDisabled);
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -9342,28 +10423,23 @@ async function handleCaregiverAction(id, action) {
   }
   if (!nextStatus) return;
 
-  // Read-modify-write: don't clobber the desktop's edits to other state keys.
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
-    const idx = list.findIndex(r => r && r.id === id);
-    if (idx < 0) return;
-    const updated = {
-      ...list[idx],
-      status: nextStatus,
-      caregiverUid: currentUser.uid,
-      caregiverActedAt: new Date().toISOString(),
-    };
-    if (caregiverNote != null) updated.caregiverNote = caregiverNote;
-    list[idx] = updated;
-    await ref.set({ ...data, coverageRequests: list });
+    await caregiverCall({ action: "respond", id, status: nextStatus, note: caregiverNote });
   } catch (e) {
     console.error("caregiver action failed:", e);
-    alert("Couldn't update that request. Check your connection.");
+    alert(caregiverCallError(e, "Couldn't update that request. Check your connection."));
   }
+}
+
+// The one way a caregiver changes anything: the caregiverAction function
+// checks they're in the household and applies that single change.
+function caregiverCall(payload) {
+  const fn = firebase.functions().httpsCallable("caregiverAction");
+  return fn({ householdId, ...payload });
+}
+// The function's own words for bad input ("A reason is required."), else a fallback.
+function caregiverCallError(e, fallback) {
+  return (e && e.code === "functions/invalid-argument" && e.message) ? e.message : fallback;
 }
 
 /**
@@ -9375,39 +10451,10 @@ async function handleCaregiverAction(id, action) {
  */
 async function handleCaregiverChangeResponse(id, approve) {
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
-    const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
-    const idx = list.findIndex(r => r && r.id === id);
-    if (idx < 0) return;
-
-    const cur = list[idx];
-    const pc = cur.proposedChange;
-    if (!pc) return;                      // already resolved elsewhere
-
-    const updated = { ...cur };
-    delete updated.proposedChange;
-    updated.caregiverUid = currentUser.uid;
-    updated.caregiverActedAt = new Date().toISOString();
-
-    if (approve) {
-      updated.startTime = pc.startTime;
-      updated.endTime = pc.endTime;
-      if (pc.endsNextDay) updated.endsNextDay = true;
-      else delete updated.endsNextDay;
-      if (pc.reason) updated.reason = pc.reason;
-      // Stamp so the manager side can tell an amended request from an
-      // original one without keeping the (now-applied) proposal around.
-      updated.changeAppliedAt = Date.now();
-    }
-
-    list[idx] = updated;
-    await ref.set({ ...data, coverageRequests: list });
+    await caregiverCall({ action: "resolveChange", id, approve });
   } catch (e) {
     console.error("caregiver change response failed:", e);
-    alert("Couldn't update that request. Check your connection.");
+    alert(caregiverCallError(e, "Couldn't update that request. Check your connection."));
   }
 }
 
@@ -9550,10 +10597,7 @@ function renderManagerInboxSection(caregiverRequests) {
 async function handleManagerInboxConvert(id) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const cgList = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
     const idx = cgList.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -9594,7 +10638,7 @@ async function handleManagerInboxConvert(id) {
       acknowledgedBy: currentUser.uid,
     };
 
-    await ref.set({ ...data, coverageRequests: covList, caregiverRequests: cgList });
+    await writeHouseholdStateOnce(data, { ...data, coverageRequests: covList, caregiverRequests: cgList });
   } catch (e) {
     console.error("convert failed:", e);
     alert("Couldn't convert. Check your connection.");
@@ -9660,10 +10704,7 @@ function mcInboxRowHTML(r) {
 async function handleManagerInboxAction(id, nextStatus) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const list = Array.isArray(data.caregiverRequests) ? data.caregiverRequests.slice() : [];
     const idx = list.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -9692,7 +10733,7 @@ async function handleManagerInboxAction(id, nextStatus) {
         nextData.events = data.events.filter(e => !(e && e.sourceRequestId === id));
       }
     }
-    await ref.set(nextData);
+    await writeHouseholdStateOnce(data, nextData);
   } catch (e) {
     console.error("inbox action failed:", e);
     alert("Couldn't update that request. Check your connection.");
@@ -9702,10 +10743,7 @@ async function handleManagerInboxAction(id, nextStatus) {
 async function handleManagerClear(id) {
   if (!householdId || !id || !currentUser) return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    const snap = await ref.get();
-    const data = snap.exists ? (snap.data() || {}) : {};
+    const data = await readHouseholdStateOnce();
     const list = Array.isArray(data.coverageRequests) ? data.coverageRequests.slice() : [];
     const idx = list.findIndex(r => r && r.id === id);
     if (idx < 0) return;
@@ -9715,7 +10753,7 @@ async function handleManagerClear(id) {
       managerReviewedAt: Date.now(),
       managerReviewedBy: currentUser.uid,
     };
-    await ref.set({ ...data, coverageRequests: list });
+    await writeHouseholdStateOnce(data, { ...data, coverageRequests: list });
   } catch (e) {
     console.error("manager clear failed:", e);
     alert("Couldn't mark reviewed. Check your connection.");
@@ -10142,6 +11180,8 @@ if (codeModalCopyBtn) codeModalCopyBtn.addEventListener("click", async () => {
 
 function cleanupListeners() {
   if (stateUnsubscribe) { stateUnsubscribe(); stateUnsubscribe = null; }
+  if (_commuteUnsub) { _commuteUnsub(); _commuteUnsub = null; }
+  _commute = {};
   if (approvalUnsubscribe) { approvalUnsubscribe(); approvalUnsubscribe = null; }
   if (feedbackUnsubscribe) { feedbackUnsubscribe(); feedbackUnsubscribe = null; }
   if (_chatUnsub) { _chatUnsub(); _chatUnsub = null; }
@@ -10371,6 +11411,14 @@ function loadStateFromLocalStorage() {
       occasions:      Array.isArray(parsed.occasions)      ? parsed.occasions      : [],
       _migrations: Array.isArray(parsed._migrations) ? parsed._migrations.slice() : [],
     };
+    // This device's own view (see saveViewState) wins over the cached
+    // household copy, which a snapshot from the other phone may have written.
+    // Read by literal key: this runs before VIEW_KEY is declared.
+    try {
+      const view = JSON.parse(localStorage.getItem("nucleus.view") || "null");
+      if (view && view.ui && typeof view.ui === "object") merged.ui = { ...(merged.ui || {}), ...view.ui };
+      if (view && typeof view.activeTab === "string") merged.activeTab = view.activeTab;
+    } catch (_) {}
     return applyMigrations(merged);
   } catch (err) {
     console.warn("loadState failed:", err);
@@ -10487,10 +11535,35 @@ function mergeStateFromFirestore(data) {
   for (const k of Object.keys(data || {})) {
     if (!knownKeys.has(k)) console.warn("[SB] Firestore field not handled by iOS — would be dropped on next save:", k);
   }
-  return applyMigrations(merged);
+  // This device's view (month showing, Month vs Agenda, open tab) wins over
+  // whatever another phone last wrote — see saveViewState().
+  const view = _loadViewPrefs();
+  if (view) {
+    if (view.ui && typeof view.ui === "object") merged.ui = { ...(merged.ui || {}), ...view.ui };
+    if (typeof view.activeTab === "string") merged.activeTab = view.activeTab;
+  }
+  // The built-in fix-ups rewrite a schedule the old way (and seed one family's
+  // shifts). A household on the any-household model never gets them: it holds
+  // exactly what was entered in setup.
+  return householdMigrated() ? merged : applyMigrations(merged);
 }
 
 let saveTimer = null;
+// View-only preferences — which month is showing, Month vs Agenda, the open
+// tab, the M/Q/Y period — belong to this device. They go to their own
+// localStorage key: no Firestore write, no "saved" flash, and an incoming
+// snapshot from the other phone doesn't move this one's calendar.
+const VIEW_KEY = "nucleus.view";
+function _loadViewPrefs() {
+  try { return JSON.parse(localStorage.getItem(VIEW_KEY) || "null"); } catch (e) { return null; }
+}
+function saveViewState() {
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify({ ui: state.ui || {}, activeTab: state.activeTab }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* storage full or blocked — the view just won't persist */ }
+}
+
 function saveState() {
   // Save to localStorage as cache
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -10516,10 +11589,21 @@ function debouncedFirestoreWrite() {
 
 async function saveStateToFirestore() {
   if (!householdId) return;
+  // Caregivers hold only the caregiver view and can't write state/main; their
+  // changes go through caregiverCall().
+  if (userRole === "supporting") return;
   try {
-    const ref = db.collection("households").doc(householdId)
-      .collection("state").doc("main");
-    await ref.set(JSON.parse(JSON.stringify(state)));
+    if (householdMigrated()) {
+      // Only what changed since the state was last received.
+      if (!_liveModel || !_syncedBase) return;
+      const next = _plain(state);
+      await commitBridgedEdit(_liveModel, _syncedBase, next);
+      _syncedBase = next;
+    } else {
+      const ref = db.collection("households").doc(householdId)
+        .collection("state").doc("main");
+      await ref.set(JSON.parse(JSON.stringify(state)));
+    }
     updateSyncStatus("synced");
   } catch (e) {
     console.error("Firestore write error:", e);
@@ -10671,9 +11755,83 @@ function updateSyncStatus(status) {
   }
 }
 
+// ==================== ANY-HOUSEHOLD MODEL ====================
+// A household on the any-household model (schemaVersion ≥ 2, see
+// docs/data-model.md) has no state/main. Its records are watched and handed
+// to the screens in the old shape (toLegacy), and a save writes only the
+// records this phone's edit changed (bridgeEdit) — the same bridge the Mac
+// uses. _syncedBase is the state as last received: the difference between it
+// and `state` at save time is exactly the edit.
+let _modelStore = null;
+let _liveModel = null;
+let _syncedBase = null;
+const _plain = (v) => JSON.parse(JSON.stringify(v));
+
+// Decided by the household record alone: if the model code failed to load,
+// a migrated household fails loudly rather than falling back to state/main.
+function householdMigrated() {
+  return !!(householdData && typeof householdData.schemaVersion === "number"
+    && householdData.schemaVersion >= 2);
+}
+function modelStore() {
+  return _modelStore || (_modelStore = NucleusModel.namespacedStore(db));
+}
+function householdMeta() {
+  const d = householdData || {};
+  return {
+    memberUids: d.memberUids || [], memberNames: d.memberNames || {}, roles: d.roles || {},
+    inviteCode: d.inviteCode || "", createdBy: d.createdBy || "",
+  };
+}
+// One edit of the state (base → next) as record writes, with its edit-log
+// entry (which the functions turn into notifications).
+async function commitBridgedEdit(live, base, next) {
+  const ops = NucleusModel.bridgeEdit(householdId, live, householdMeta(), base, next);
+  if (ops.length) {
+    await NucleusModel.commitEdit(modelStore(), householdId, live, ops, currentUser ? currentUser.uid : "");
+  }
+}
+// The whole state, read once — for the handlers that edit it outside the
+// live sync — and saved as an edit of what was read.
+async function readHouseholdStateOnce() {
+  if (!householdMigrated()) {
+    const snap = await db.collection("households").doc(householdId).collection("state").doc("main").get();
+    return snap.exists ? (snap.data() || {}) : {};
+  }
+  const live = await NucleusModel.loadHousehold(modelStore(), householdId);
+  return live ? _plain(NucleusModel.toLegacy(live).state) : {};
+}
+async function writeHouseholdStateOnce(base, next) {
+  if (!householdMigrated()) {
+    await db.collection("households").doc(householdId).collection("state").doc("main").set(next);
+    return;
+  }
+  const live = await NucleusModel.loadHousehold(modelStore(), householdId);
+  if (!live) throw new Error("The household has no records.");
+  await commitBridgedEdit(live, base, next);
+}
+
 // ==================== FIRESTORE SYNC ====================
 function initFirestoreSync() {
   if (!householdId) return;
+  if (householdMigrated()) {
+    stateUnsubscribe = NucleusModel.watchHousehold(modelStore(), householdId, (model) => {
+      if (!model) return;
+      _liveModel = model;
+      _remoteUpdate = true;
+      state = mergeStateFromFirestore(_plain(NucleusModel.toLegacy(model).state));
+      _syncedBase = _plain(state);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAll();
+      _remoteUpdate = false;
+      updateSyncStatus("synced");
+    }, (err) => {
+      console.warn("household model listener:", err);
+      updateSyncStatus("offline");
+      renderAll();
+    });
+    return;
+  }
   const ref = db.collection("households").doc(householdId)
     .collection("state").doc("main");
 
@@ -10711,6 +11869,41 @@ function initFirestoreSync() {
     console.warn("onSnapshot error:", err);
     updateSyncStatus("offline");
   });
+}
+
+// ==================== COMMUTE ("leave by") ====================
+// The checkCommutes function writes households/{hid}/commute/{date}_{who}
+// before each of Gage's and Kaylene's shifts: the drive with traffic, the
+// household's usual leave window (moved earlier when traffic's heavy) and
+// the latest time to leave. Admin and partner only (firestore.rules); the day card and
+// agenda show it under that person's shift.
+let _commute = {};
+let _commuteUnsub = null;
+function initCommuteSync() {
+  if (!householdId || (userRole !== "admin" && userRole !== "partner")) return;
+  const today = toISODate(new Date());
+  _commuteUnsub = db.collection("households").doc(householdId).collection("commute")
+    .where("date", ">=", today)
+    .onSnapshot(snap => {
+      _commute = {};
+      snap.forEach(d => { _commute[d.id] = d.data(); });
+      if (typeof renderCalendar === "function") renderCalendar();
+    }, err => console.warn("commute listener:", err));
+}
+// "Leave 5–5:15a · latest 5:36a · 14 min drive", led by how much earlier
+// when traffic's heavy. For the
+// shift that starts at `startTime` only (a second shift that day has none).
+function leaveByHTML(dISO, who, startTime, withName) {
+  const c = _commute[`${dISO}_${who}`];
+  if (!c || c.shiftStart !== startTime) return "";
+  const who_ = withName ? `${_eventWhoMeta(who).name}: ` : "";
+  const leave = withName ? "leave" : "Leave";
+  // The household's usual window (moved earlier for traffic), then the latest.
+  const when = c.windowFrom && c.windowTo
+    ? `${leave} ${compactTime(c.windowFrom)}–${compactTime(c.windowTo)} · latest ${compactTime(c.leaveBy)}`
+    : `${leave} by ${compactTime(c.leaveBy)}`;
+  const text = `${who_}${c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}${when} · ${c.durationMin} min drive`;
+  return `<div class="leave-by${c.heavy ? " heavy" : ""}">${escapeHTML(text)}</div>`;
 }
 
 // ==================== OT APPROVAL SYSTEM ====================
@@ -12394,6 +13587,9 @@ function loadWvuSchedule() {
     });
 }
 function wvuGameOn(dateISO) {
+  // WVU game days were built for one family; a household that set
+  // wvuFootball: false (every new one does) doesn't see them.
+  if (householdData && householdData.wvuFootball === false) return null;
   return _wvuGames[dateISO] || null;
 }
 // Human-readable game label, e.g. "WVU vs Kansas · 12:00 PM" / "WVU at Utah".
@@ -12524,6 +13720,9 @@ function buildDayAnalysisCache(throughISO) {
 
     let childcare = "ok";
     let soloMin = 0, gapMin = 0;
+    // Contiguous gap windows as [startMin, endMin) minutes-of-day, so the day
+    // card can say *when* nobody has the kids, not just that someone doesn't.
+    const gapRanges = [];
     // A confirmed caregiver request FOR THIS DATE means childcare is handled for
     // the day — authoritative, and consistent with the green "confirmed
     // coverage" bar the calendar cell already shows. Otherwise fall through to
@@ -12540,7 +13739,13 @@ function buildDayAnalysisCache(throughISO) {
         const k = kGrid[di][s];
         const gBusy = g !== "free";
         const kBusy = k !== "free";
-        if (gBusy && kBusy) gapMin += SLOT_MIN;
+        if (gBusy && kBusy) {
+          gapMin += SLOT_MIN;
+          const m = slotMinuteOfDay(s);
+          const last = gapRanges[gapRanges.length - 1];
+          if (last && last[1] === m) last[1] = m + SLOT_MIN;
+          else gapRanges.push([m, m + SLOT_MIN]);
+        }
         else if (gBusy || kBusy) soloMin += SLOT_MIN;
       }
       if (gapMin > 0) childcare = "gap";
@@ -12559,6 +13764,7 @@ function buildDayAnalysisCache(throughISO) {
       childcare,
       soloMin,
       gapMin,
+      gapRanges,
       coupleHours: (coupleMin / 60).toFixed(1),
     };
   }
@@ -12675,6 +13881,9 @@ function updateMonthTitle() {
 function _ensureCalUIState() {
   if (!state.ui) state.ui = {};
   if (!state.ui.calLayout) state.ui.calLayout = "month";
+  // Week and Day layouts were retired; a household doc saved while one was
+  // open still says so, and there is no tab left to leave it.
+  if (state.ui.calLayout === "week" || state.ui.calLayout === "day") state.ui.calLayout = "month";
   if (!state.ui.viewMonth) {
     // Default visible month: today, clamped to range if range is set
     const today = new Date();
@@ -12722,8 +13931,11 @@ function renderCalendar() {
   const daisyEvts = daisyEvents();
   // Roll the analysis window forward to cover the month being viewed.
   const _vm = parseISODate(ui.viewMonth) || new Date();
-  const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 1, 0));
-  buildDayAnalysisCache(_viewMonthEnd);
+  // …and far enough past today for the 14-day agenda, whichever is later.
+  // (through the month after, which the phone pager shows when you peek)
+  const _viewMonthEnd = toISODate(new Date(_vm.getFullYear(), _vm.getMonth() + 2, 0));
+  const _agendaEnd = toISODate(addDays(new Date(), 14));
+  buildDayAnalysisCache(_agendaEnd > _viewMonthEnd ? _agendaEnd : _viewMonthEnd);
 
   // Compute today's ribbon + the always-visible big-title regardless of layout
   renderTodayRibbon(gageEvts, kayEvts, daisyEvts);
@@ -12918,6 +14130,14 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   document.getElementById("monthNavLabel").textContent = `${months[monthIdx]} ${monthDate.getFullYear()}`;
 
+  // Phones get the quiet month: dots in the grid, the detail in a day card
+  // below it, and a pager you can drag between months. Wider screens keep the
+  // chip grid and the view tints.
+  if (_isSheetMode()) {
+    renderQuietMonth(monthDate, { g: gageEvts, k: kayEvts, d: daisyEvts }, view);
+    return;
+  }
+
   let html = CAL_DAYS.map(d => `<div class="cal-hdr">${d}</div>`).join("");
   for (const day of days) {
     const dISO = toISODate(day);
@@ -12986,13 +14206,406 @@ function renderMonthView(gageEvts, kayEvts, daisyEvts, view) {
       ${wvuIcon}
     </div>`;
   }
-  document.getElementById("calGrid").innerHTML = html;
+  const grid = document.getElementById("calGrid");
+  grid.innerHTML = html;
+  grid.classList.remove("quiet");
+  const dayCard = document.getElementById("monthDayCard");
+  if (dayCard) dayCard.hidden = true;
 
   // Key for the tints of the active view + the persistent block/care marks.
   renderCalLegend(view);
 
   // Wire tooltip handlers on cells (hover/click)
   _wireCellHandlers();
+}
+
+// ─────────────────── Quiet month (phone) ───────────────────
+// The grid says only who works and whether anything needs attention; the day
+// card under it says the rest in words. Selection is view-only UI, so it lives
+// here and never in `state` (state is written whole to Firestore).
+let _monthSelISO = null;
+let _monthEvts = { g: [], k: [], d: [] };
+
+// One month as a page of the pager: only the weeks it needs.
+function _quietPageHTML(monthDate, evts, view, period, isCur) {
+  const monthIdx = monthDate.getMonth();
+  const todayISO = toISODate(new Date());
+  const from = parseISODate(state.range.from);
+  let days = monthGridDays(monthDate);
+  const cut = days.findIndex((dd, i) => i > 0 && i % 7 === 0 && dd.getMonth() !== monthIdx);
+  if (cut > 0) days = days.slice(0, cut);
+  let html = "";
+  for (const day of days) {
+    const dISO = toISODate(day);
+    const otherMonth = day.getMonth() !== monthIdx;
+    const cell = computeDayCellData(dISO, evts.g, evts.k, evts.d, view);
+    html += _quietMonthCellHTML(day, cell, _dayAnalysis[dISO] || {}, {
+      otherMonth, outside: otherMonth || !!(from && day < from),
+      isToday: dISO === todayISO, selected: isCur && dISO === _monthSelISO, period,
+    });
+  }
+  // Neighbour pages are only there to be peeked at while dragging.
+  return `<div class="qm-page${isCur ? " cur" : ""}"${isCur ? "" : ' aria-hidden="true" inert'}>${html}</div>`;
+}
+
+// The phone month: fixed weekday row, then a track of three pages (previous,
+// this, next) sitting at the middle one. Dragging slides the track.
+function renderQuietMonth(monthDate, evts, view) {
+  const y = monthDate.getFullYear(), m = monthDate.getMonth();
+  const todayISO = toISODate(new Date());
+  _monthEvts = evts;
+  const inMonth = iso => { const x = parseISODate(iso); return x && x.getMonth() === m && x.getFullYear() === y; };
+  if (!_monthSelISO || !inMonth(_monthSelISO)) {
+    _monthSelISO = inMonth(todayISO) ? todayISO : toISODate(new Date(y, m, 1));
+  }
+  const period = _postedPeriod(evts.g, evts.k);
+
+  const grid = document.getElementById("calGrid");
+  grid.classList.add("quiet");
+  grid.innerHTML =
+    `<div class="qm-hdrs">${CAL_DAYS.map(d => `<div class="cal-hdr">${d}</div>`).join("")}</div>` +
+    `<div class="qm-track">` +
+      _quietPageHTML(new Date(y, m - 1, 1), evts, view, period, false) +
+      _quietPageHTML(monthDate, evts, view, period, true) +
+      _quietPageHTML(new Date(y, m + 1, 1), evts, view, period, false) +
+    `</div>`;
+  const track = grid.querySelector(".qm-track");
+  track.style.height = track.children[1].offsetHeight + "px";
+
+  renderQuietLegend();
+  _wireQuietCells();
+  renderMonthDayCard(_monthSelISO);
+}
+
+// ── Month pager ── Slide to the neighbour month, then re-render around it.
+// Returns false when there is no pager (wide layout), so callers can fall
+// back to a plain month change.
+let _pagerBusy = false;
+const _PAGER_EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
+function _monthPagerGo(dir) {
+  const grid = document.getElementById("calGrid");
+  const track = grid && grid.classList.contains("quiet") && grid.querySelector(".qm-track");
+  if (!track) return false;
+  if (_pagerBusy) return true;
+  _pagerBusy = true;
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    _pagerBusy = false;
+    _monthSelISO = null;          // the new month picks today, or its 1st
+    shiftViewMonth(dir);          // re-renders with the new month centred
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { finish(); return true; }
+  const w = grid.clientWidth;
+  const target = track.children[dir > 0 ? 2 : 0];
+  track.style.transition = `transform 0.32s ${_PAGER_EASE}, height 0.32s ${_PAGER_EASE}`;
+  track.style.transform = `translateX(${-w - dir * w}px)`;
+  track.style.height = target.offsetHeight + "px";
+  track.addEventListener("transitionend", e => { if (e.propertyName === "transform") finish(); });
+  setTimeout(finish, 450);        // in case transitionend never arrives
+  return true;
+}
+
+// Drag-to-peek: the track follows the finger (height eases toward the month
+// being revealed); release past 30% of the width, or with a flick, to turn
+// the page, otherwise it springs back. A mostly-vertical drag is left to the
+// page scroll.
+(function initMonthPager() {
+  const grid = document.getElementById("calGrid");
+  if (!grid) return;
+  let sx = 0, sy = 0, st = 0, w = 0, mode = null, track = null, curH = 0;
+  grid.addEventListener("touchstart", e => {
+    mode = null;
+    if (!grid.classList.contains("quiet") || _pagerBusy || e.touches.length !== 1) return;
+    track = grid.querySelector(".qm-track");
+    if (!track) return;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; st = Date.now();
+    w = grid.clientWidth;
+    curH = track.children[1].offsetHeight;
+    mode = "pending";
+  }, { passive: true });
+  grid.addEventListener("touchmove", e => {
+    if (mode !== "pending" && mode !== "drag") return;
+    const t = e.touches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (mode === "pending") {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        mode = "drag";
+        track.style.transition = "none";
+      } else if (Math.abs(dy) > 8) { mode = "scroll"; return; }
+      else return;
+    }
+    e.preventDefault();
+    track.style.transform = `translateX(${-w + dx}px)`;
+    const peek = track.children[dx < 0 ? 2 : 0];
+    const f = Math.min(1, Math.abs(dx) / w);
+    track.style.height = (curH + (peek.offsetHeight - curH) * f) + "px";
+  }, { passive: false });
+  const end = e => {
+    if (mode !== "drag") { mode = null; return; }
+    mode = null;
+    const t = e.changedTouches && e.changedTouches[0];
+    const dx = t ? t.clientX - sx : 0;
+    const v = dx / Math.max(1, Date.now() - st);   // px per ms
+    const dir = (dx < -w * 0.3 || (v < -0.35 && dx < -24)) ? 1
+              : (dx > w * 0.3 || (v > 0.35 && dx > 24)) ? -1 : 0;
+    if (dir) { _monthPagerGo(dir); return; }
+    track.style.transition = `transform 0.26s ${_PAGER_EASE}, height 0.26s ${_PAGER_EASE}`;
+    track.style.transform = `translateX(${-w}px)`;
+    track.style.height = curH + "px";
+  };
+  grid.addEventListener("touchend", end);
+  grid.addEventListener("touchcancel", end);
+})();
+
+// Who works → a dot, always in Gage, Kaylene, Daisy order, centred under the
+// date. A pending shift is a hollow ring.
+function _quietDot(who, evts) {
+  if (!evts.length) return "";
+  const pending = evts.every(e => e.pending);
+  return `<span class="qm-dot ${who}${pending ? " pending" : " on"}"></span>`;
+}
+
+// The span both parents' schedules are posted for: from the later of their
+// first shifts to the earlier of their last. Past that, an empty day means
+// "not posted yet", not "off". (state.range is the old import window and
+// goes stale, so it can't answer this.)
+function _postedPeriod(gEvts, kEvts) {
+  const span = evts => {
+    const ds = evts.map(e => e.startDate).filter(Boolean).sort();
+    return ds.length ? [ds[0], ds[ds.length - 1]] : null;
+  };
+  const g = span(gEvts), k = span(kEvts);
+  if (!g || !k) return null;
+  return { from: g[0] > k[0] ? g[0] : k[0], to: g[1] < k[1] ? g[1] : k[1] };
+}
+
+function _quietMonthCellHTML(day, cell, da, o) {
+  const dISO = toISODate(day);
+  const blockInfo = scheduleBlockFor(dISO);
+  const covered = hasConfirmedCoverage(dISO);
+  const gap = da.childcare === "gap";
+  const cls = ["cal-cell", "qm-cell"];
+  if (o.otherMonth || o.outside) cls.push("outside");
+  if (o.isToday) cls.push("today");
+  if (o.selected) cls.push("selected");
+  if (blockInfo) cls.push("has-block", ...(covered ? [] : ["block-open"]));
+  if (gap) cls.push("qm-gap");
+  // Both parents off, inside the posted schedule → green (no G/K dot either).
+  const bothOff = !o.otherMonth && o.period && dISO >= o.period.from && dISO <= o.period.to &&
+    !cell.gOnDay.length && !cell.kOnDay.length;
+  if (bothOff) cls.push("qm-both-off");
+
+  const names = [];
+  if (cell.gOnDay.length) names.push(_eventWhoMeta("G").name);
+  if (cell.kOnDay.length) names.push(_eventWhoMeta("K").name);
+  if (cell.dOnDay.length) names.push(_eventWhoMeta("Daisy").name);
+  const aria = [day.toLocaleDateString(undefined, { month: "long", day: "numeric" })];
+  aria.push(names.length ? `${names.join(", ")} working` : "nobody working");
+  if (bothOff) aria.push("you're both off");
+  if (gap) aria.push("nobody has the kids");
+  if (blockInfo) aria.push(`${blockInfo.label || "schedule block"}, ${covered ? "covered" : "nobody yet"}`);
+
+  return `<button type="button" class="${cls.join(" ")}" data-date="${dISO}" aria-label="${escapeAttr(aria.join(", "))}"${o.selected ? ' aria-pressed="true"' : ""}>
+    <span class="qm-num">${day.getDate()}</span>
+    <span class="qm-dots">${_quietDot("g", cell.gOnDay)}${_quietDot("k", cell.kOnDay)}${_quietDot("d", cell.dOnDay)}</span>
+  </button>`;
+}
+
+function renderQuietLegend() {
+  const el = document.getElementById("calLegend");
+  if (!el) return;
+  const who = (w, k) => `<span><i class="lg-dot ${k}"></i>${escapeHTML(_eventWhoMeta(w).name)}</span>`;
+  el.innerHTML =
+    who("G", "g") + who("K", "k") + who("Daisy", "d") +
+    `<span><i class="lg-both-off"></i>Both off</span>` +
+    `<span><i class="lg-block"></i>Schedule block</span>`;
+}
+
+function _selectMonthDay(iso) {
+  _monthSelISO = iso;
+  document.querySelectorAll("#calGrid .qm-page.cur .qm-cell").forEach(c => {
+    const on = c.dataset.date === iso;
+    c.classList.toggle("selected", on);
+    if (on) c.setAttribute("aria-pressed", "true"); else c.removeAttribute("aria-pressed");
+  });
+  renderMonthDayCard(iso);
+}
+
+// Same first-tap rule as the chip grid: act on touchend (iOS would otherwise
+// spend the first tap on :hover), with a movement guard so a swipe to the next
+// month never selects a day.
+function _wireQuietCells() {
+  let start = null;
+  document.querySelectorAll("#calGrid .qm-page.cur .qm-cell[data-date]").forEach(el => {
+    el.addEventListener("touchstart", e => {
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    el.addEventListener("touchend", e => {
+      const s = start; start = null;
+      if (!s) return;
+      const t = e.changedTouches[0];
+      if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) return;
+      e.preventDefault();
+      _selectMonthDay(el.dataset.date);
+    }, { passive: false });
+    el.addEventListener("click", () => _selectMonthDay(el.dataset.date));
+  });
+}
+
+function _fmtRange(startMin, endMin) {
+  const hm = m => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return `${compactTime(hm(startMin))} – ${compactTime(hm(endMin))}`;
+}
+
+// ── Stretches: runs of 2+ consecutive days Kaylene works. Mirrors desktop
+// lib/stretch.ts, which marks each day with a fire and "day/of" ("2/3").
+function stretchesFor(evts) {
+  const days = [...new Set(evts.map(e => e.startDate))].sort();
+  const out = new Map();
+  let run = [];
+  const flush = () => {
+    if (run.length >= 2) run.forEach((iso, i) => out.set(iso, { day: i + 1, of: run.length }));
+    run = [];
+  };
+  for (const iso of days) {
+    if (run.length && toISODate(addDays(parseISODate(run[run.length - 1]), 1)) !== iso) flush();
+    run.push(iso);
+  }
+  flush();
+  return out;
+}
+
+// Heroicons "fire" (MIT) — the same flame desktop's StretchBadge uses.
+const FIRE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.3622 5.21361C18.2427 6.50069 20.25 9.39075 20.25 12.7497C20.25 17.306 16.5563 20.9997 12 20.9997C7.44365 20.9997 3.75 17.306 3.75 12.7497C3.75 10.5376 4.62058 8.52889 6.03781 7.04746C6.8043 8.11787 7.82048 8.99731 9.00121 9.60064C9.04632 6.82497 10.348 4.35478 12.3621 2.73413C13.1255 3.75788 14.1379 4.61821 15.3622 5.21361Z"/><path d="M12 18C14.0711 18 15.75 16.3211 15.75 14.25C15.75 12.3467 14.3321 10.7746 12.4949 10.5324C11.4866 11.437 10.7862 12.6779 10.5703 14.0787C9.78769 13.8874 9.06529 13.5425 8.43682 13.0779C8.31559 13.4467 8.25 13.8407 8.25 14.25C8.25 16.3211 9.92893 18 12 18Z"/></svg>`;
+
+function stretchBadgeHTML(st, name) {
+  if (!st) return "";
+  return `<span class="stretch-badge" role="img" aria-label="${escapeAttr(`${name}'s stretch, day ${st.day} of ${st.of}`)}">${FIRE_SVG}${st.day}/${st.of}</span>`;
+}
+
+// Photo avatar for a person (the calendar grid keeps plain dots).
+function personAvatarHTML(who, extraCls = "") {
+  const m = _eventWhoMeta(who);
+  const photo = who === "G" ? "g" : who === "K" ? "k" : who === "Daisy" ? "d" : "";
+  return `<span class="sb-avatar ${m.cls} ${extraCls}"${photo ? ` data-photo="${photo}"` : ""} aria-hidden="true">${m.initial}</span>`;
+}
+
+// "a", "a and b", "a, b and c"
+function _joinAnd(list) {
+  if (list.length <= 1) return list.join("");
+  return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
+// One sentence for the day: its life events, then what that means for the
+// kids. "Maeva & Elliot Dentist App. at 9:30a, Kaylene is off."
+// Returns { html, tone } — tone "alert" (nobody has them), "ok" or "".
+function daySentence(dISO, g, k, period) {
+  const da = _dayAnalysis[dISO] || {};
+  // Outside the posted schedule an empty day is unknown, not "off".
+  const unposted = !g.length && !k.length && (!period || dISO < period.from || dISO > period.to);
+  const nm = w => _eventWhoMeta(w).name;
+
+  const byWho = new Map();
+  for (const ev of getEventsForDate(dISO)) {
+    const w = ["G", "K", "Daisy"].includes(ev.who) ? ev.who : "family";
+    if (!byWho.has(w)) byWho.set(w, []);
+    byWho.get(w).push(ev);
+  }
+  const evItem = ev => {
+    const title = String(ev.title || "Event").trim().replace(/[!\s]+$/, "");
+    return `${escapeHTML(title)}${ev.startTime ? ` at ${compactTime(ev.startTime)}` : ""}${ev.pending ? " (pending)" : ""}`;
+  };
+  const clauses = [];
+  for (const [w, list] of byWho) {
+    const items = _joinAnd(list.map(evItem));
+    clauses.push(w === "family" ? items : `${escapeHTML(nm(w))} has ${items}`);
+  }
+
+  // Say the consequence, not the mechanism.
+  const block = scheduleBlockFor(dISO);
+  const covered = hasConfirmedCoverage(dISO);
+  let tone = "", icon = "";
+  if (da.childcare === "gap") {
+    const when = (da.gapRanges || []).map(r => _fmtRange(r[0], r[1])).join(", ");
+    clauses.push(`nobody has the kids${when ? ` ${when}` : ""}`);
+    tone = "alert"; icon = `<i class="lg-gap"></i>`;
+  } else if (block && !covered) {
+    clauses.push(`nobody has the ${escapeHTML((block.label || "schedule").toLowerCase())} block yet`);
+    tone = "alert"; icon = `<i class="lg-edge-open"></i>`;
+  } else if (covered) {
+    const when = ((state && state.coverageRequests) || [])
+      .filter(r => r && r.date === dISO && r.status === "confirmed" && r.startTime && r.endTime)
+      .map(r => `${compactTime(r.startTime)} – ${compactTime(r.endTime)}`).join(", ");
+    clauses.push(`${escapeHTML(nm("Daisy"))} has the kids${when ? ` ${when}` : ""}`);
+    tone = "ok"; icon = `<i class="lg-ok"></i>`;
+  } else if (g.length && k.length) {
+    clauses.push("the kids are covered");
+    tone = "ok"; icon = `<i class="lg-ok"></i>`;
+  } else if (g.length || k.length) {
+    clauses.push(`${escapeHTML(nm(g.length ? "K" : "G"))} is off`);
+  } else if (!unposted) {
+    clauses.push("you're both off");
+  }
+  if (!clauses.length) return null;
+
+  let text = clauses.join(", ");
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  if (!/[.!?]$/.test(text)) text += ".";
+  return { html: `${icon}<span>${text}</span>`, tone };
+}
+
+// The day card: payday and friends in the corner, who works (with faces),
+// then one sentence that says what the day means.
+function renderMonthDayCard(dISO) {
+  const el = document.getElementById("monthDayCard");
+  if (!el || !dISO) return;
+  const d = parseISODate(dISO);
+  const g = eventsOnDate(_monthEvts.g, dISO);
+  const k = eventsOnDate(_monthEvts.k, dISO);
+  const dz = eventsOnDate(_monthEvts.d, dISO);
+  const isToday = dISO === toISODate(new Date());
+  const head = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const kStretch = stretchesFor(_monthEvts.k).get(dISO);
+
+  const personRow = (who, evts) => {
+    if (!evts.length) return "";
+    const times = evts.map(e => `${compactTime(e.startTime)} – ${compactTime(e.endTime)}${e.pending ? ` <span class="mdc-tag">pending</span>` : ""}`).join(", ");
+    const fire = who === "K" ? stretchBadgeHTML(kStretch, _eventWhoMeta("K").name) : "";
+    const leave = (who === "G" || who === "K") ? leaveByHTML(dISO, who, evts[0].startTime) : "";
+    return `<div class="mdc-row">${personAvatarHTML(who, "mdc-av")}<span class="mdc-name">${escapeHTML(_eventWhoMeta(who).name)}</span><span class="mdc-time">${times}</span>${fire}</div>${leave ? `<div class="mdc-leave">${leave}</div>` : ""}`;
+  };
+  const period = _postedPeriod(_monthEvts.g, _monthEvts.k);
+  const unposted = !period || dISO < period.from || dISO > period.to;
+  let rows = personRow("G", g) + personRow("K", k) + personRow("Daisy", dz);
+  if (!rows) rows = `<div class="mdc-row mdc-quiet">${unposted ? "No schedule posted yet" : "Nobody's working"}</div>`;
+
+  // Small facts ride in the top-right corner as chips.
+  const chips = [];
+  const pd = state.paydays || {};
+  if (pd.G && isPaydayOnIso(dISO, pd.G)) chips.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("G").name)}'s payday</span>`);
+  if (pd.K && isPaydayOnIso(dISO, pd.K)) chips.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("K").name)}'s payday</span>`);
+  const game = wvuGameOn(dISO);
+  if (game) chips.push(`<span class="mdc-chip"><img src="assets/wvu.png" alt="" aria-hidden="true" width="14" height="13">${escapeHTML(wvuGameTitle(game))}</span>`);
+  if (getOTOpportunities(dISO).length) chips.push(`<span class="mdc-chip">Overtime open</span>`);
+
+  const sentence = daySentence(dISO, g, k, period);
+
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="mdc-head"><span class="mdc-date">${isToday ? "Today · " : ""}${escapeHTML(head)}</span>${chips.length ? `<span class="mdc-chips">${chips.join("")}</span>` : ""}</div>
+    ${rows}
+    ${sentence ? `<div class="mdc-verdict${sentence.tone ? ` ${sentence.tone}` : ""}">${sentence.html}</div>` : ""}
+    <button type="button" class="mdc-more" id="mdcMore">Day details ›</button>`;
+  const more = document.getElementById("mdcMore");
+  if (more) more.addEventListener("click", e => {
+    e.stopPropagation();
+    const cell = document.querySelector(`#calGrid .qm-page.cur .qm-cell[data-date="${dISO}"]`);
+    showCalTooltip(cell, dISO, null, true);
+  });
 }
 
 // Month-grid legend. The tint swatches follow the active view; the block-edge
@@ -13360,6 +14973,10 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   document.getElementById("dayView").style.display = "none";
   const agEl = document.getElementById("agendaView");
   agEl.style.display = "flex";
+  // The list starts today whatever month the grid was on, so the title
+  // shouldn't name a month.
+  const titleEl = document.getElementById("calHeaderTitle");
+  if (titleEl) titleEl.textContent = "Coming up";
 
   // Show ~14 days starting from today
   const start = new Date();
@@ -13367,9 +14984,6 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
   const days = [];
   for (let i = 0; i < 14; i++) days.push(addDays(start, i));
   const todayISO = toISODate(new Date());
-  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-  const dowFull = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
-  const labels = _personLabels();
 
   // Group into This week / Next week / Later. Work days list one clean line per
   // shift (name · range · hours); off days render as a slim, quiet row.
@@ -13381,6 +14995,12 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
     return w === thisWk ? "This week" : w === nextWk ? "Next week" : "Later";
   };
 
+  // One card per day: who works, then a line only when something needs
+  // attention. Busy days get room to breathe instead of a squeezed cell.
+  const shortDay = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const shortMo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const pd = state.paydays || {};
+  const kStretches = stretchesFor(kayEvts);
   let html = "";
   let curSection = null;
   for (const d of days) {
@@ -13389,37 +15009,46 @@ function renderAgendaView(gageEvts, kayEvts, daisyEvts, view) {
     if (sec !== curSection) { curSection = sec; html += `<div class="agenda-section">${sec}</div>`; }
 
     const cell = computeDayCellData(dISO, gageEvts, kayEvts, daisyEvts, view);
+    const da = _dayAnalysis[dISO] || {};
     const isToday = dISO === todayISO;
-    let kind = "off";
-    if (cell.gWorks && cell.kWorks) kind = "both";
-    else if (cell.gWorks) kind = "g";
-    else if (cell.kWorks) kind = "k";
+    const head = `${isToday ? "Today · " : ""}${shortDay[d.getDay()]} ${d.getDate() === 1 || d === days[0] ? `${shortMo[d.getMonth()]} ` : ""}${d.getDate()}`;
 
-    const title =
-      kind === "off"  ? "Both off" :
-      kind === "both" ? "Both working" :
-      kind === "g"    ? `${labels.self} works` :
-                        `${labels.partner} works`;
+    const shift = (who, cls, e) =>
+      `<span class="ag-shift">${personAvatarHTML(who, "ag-av")}${escapeHTML(_eventWhoMeta(who).name)} ${compactTime(e.startTime)}–${compactTime(e.endTime)}${e.pending ? " (pending)" : ""}${who === "K" ? stretchBadgeHTML(kStretches.get(dISO), _eventWhoMeta("K").name) : ""}</span>`;
+    const shifts = [
+      ...cell.gOnDay.map(e => shift("G", "g", e)),
+      ...cell.kOnDay.map(e => shift("K", "k", e)),
+      ...cell.dOnDay.map(e => shift("Daisy", "d", e)),
+    ];
 
-    let shiftsHTML = "";
-    if (kind !== "off") {
-      for (const e of cell.gOnDay) shiftsHTML += _agendaShiftLine("G", e);
-      for (const e of cell.kOnDay) shiftsHTML += _agendaShiftLine("K", e);
+    // Small facts ride on the right of the header.
+    const facts = [];
+    if (pd.G && isPaydayOnIso(dISO, pd.G)) facts.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("G").name)}'s payday</span>`);
+    if (pd.K && isPaydayOnIso(dISO, pd.K)) facts.push(`<span class="mdc-chip">${escapeHTML(_eventWhoMeta("K").name)}'s payday</span>`);
+    const game = wvuGameOn(dISO);
+    if (game) facts.push(`<span class="mdc-chip"><img src="assets/wvu.png" alt="" aria-hidden="true" width="14" height="13">${escapeHTML(wvuGameTitle(game))}</span>`);
+
+    const block = scheduleBlockFor(dISO);
+    const covered = hasConfirmedCoverage(dISO);
+    let verdict = "";
+    if (da.childcare === "gap") {
+      const when = (da.gapRanges || []).map(r => _fmtRange(r[0], r[1])).join(", ");
+      verdict = `<div class="ag-verdict"><i class="lg-gap"></i>Nobody has the kids${when ? ` ${when}` : ""}</div>`;
+    } else if (block && !covered) {
+      verdict = `<div class="ag-verdict"><i class="lg-edge-open"></i>${escapeHTML(block.label || "Schedule block")} — nobody has it yet</div>`;
     }
-    const evPillsHTML = getEventsForDate(dISO).map(agendaEventPillHTML).join("");
 
-    html += `<div class="agenda-row${isToday ? " today" : ""}${kind === "off" ? " off" : ""}" data-kind="${kind}" data-date="${dISO}">
-      <div class="agenda-date">
-        <div class="ad-dow">${dowFull[d.getDay()]}</div>
-        <div class="ad-num">${d.getDate()}</div>
-        <div class="ad-mo">${months[d.getMonth()]}</div>
-      </div>
-      <div class="agenda-rail"></div>
-      <div class="agenda-body">
-        <div class="agenda-title">${title}${wvuMarkHTML(dISO, "agenda-wvu-icon")}</div>
-        ${shiftsHTML ? `<div class="agenda-shifts">${shiftsHTML}</div>` : ""}
-      </div>
-      ${evPillsHTML ? `<div class="agenda-events">${evPillsHTML}</div>` : ""}
+    const leaves = (cell.gOnDay[0] ? leaveByHTML(dISO, "G", cell.gOnDay[0].startTime, true) : "") +
+                   (cell.kOnDay[0] ? leaveByHTML(dISO, "K", cell.kOnDay[0].startTime, true) : "");
+    const evs = getEventsForDate(dISO).map(ev =>
+      `<button type="button" class="ag-ev" data-eid="${escapeAttr(ev.id || "")}">${escapeHTML(ev.title || "Event")}${ev.startTime ? ` · ${compactTime(ev.startTime)}` : ""}</button>`).join("");
+
+    html += `<div class="ag-row${isToday ? " today" : ""}${block ? (covered ? " has-block" : " has-block block-open") : ""}" data-date="${dISO}">
+      <div class="ag-head"><span class="ag-day">${head}</span>${facts.length ? `<span class="mdc-chips">${facts.join("")}</span>` : ""}</div>
+      <div class="ag-shifts">${shifts.length ? shifts.join("") : `<span class="ag-off">Nobody's working</span>`}</div>
+      ${leaves}
+      ${verdict}
+      ${evs ? `<div class="ag-evs">${evs}</div>` : ""}
     </div>`;
   }
   agEl.innerHTML = html;
@@ -13603,10 +15232,17 @@ function _wireCellHandlers() {
 
 function syncLayoutTabsUI() {
   const ui = _ensureCalUIState();
-  document.querySelectorAll(".layout-tab").forEach(b => {
+  const tabs = [...document.querySelectorAll(".layout-tab")];
+  tabs.forEach(b => {
     b.classList.toggle("active", b.dataset.layout === ui.calLayout);
     b.setAttribute("aria-selected", b.dataset.layout === ui.calLayout ? "true" : "false");
   });
+  const thumb = document.getElementById("layoutThumb");
+  if (thumb) {
+    const idx = Math.max(0, tabs.findIndex(b => b.dataset.layout === ui.calLayout));
+    thumb.style.width = `${100 / tabs.length}%`;
+    thumb.style.transform = `translateX(${idx * 100}%)`;
+  }
   // Mirror the layout onto the body so CSS can scope things (e.g. the
   // Ask Claude FAB only shows on the Month calendar view).
   document.body.dataset.calLayout = ui.calLayout || "month";
@@ -13614,9 +15250,18 @@ function syncLayoutTabsUI() {
 
 function setCalLayout(layout) {
   const ui = _ensureCalUIState();
+  if (ui.calLayout === layout) { syncLayoutTabsUI(); return; }
   ui.calLayout = layout;
-  saveState();
+  saveViewState();
   renderCalendar();
+  const shown = layout === "agenda" ? document.getElementById("agendaView")
+                                    : document.querySelector('.cal-wrap[data-layout="month"]');
+  if (shown) {
+    shown.classList.remove("layout-enter");
+    void shown.offsetWidth;                 // restart the animation
+    shown.classList.add("layout-enter");
+    shown.addEventListener("animationend", () => shown.classList.remove("layout-enter"), { once: true });
+  }
 }
 
 function shiftViewMonth(deltaMonths) {
@@ -13624,7 +15269,7 @@ function shiftViewMonth(deltaMonths) {
   const cur = parseISODate(ui.viewMonth) || new Date();
   const next = new Date(cur.getFullYear(), cur.getMonth() + deltaMonths, 1);
   ui.viewMonth = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -13633,7 +15278,7 @@ function shiftViewDay(deltaDays) {
   const cur = parseISODate(ui.viewDayDate) || new Date();
   const next = addDays(cur, deltaDays);
   ui.viewDayDate = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -13642,7 +15287,7 @@ function shiftViewWeek(deltaWeeks) {
   const cur = parseISODate(ui.viewWeekStart) || new Date();
   const next = addDays(cur, deltaWeeks * 7);
   ui.viewWeekStart = toISODate(next);
-  saveState();
+  saveViewState();
   renderCalendar();
 }
 
@@ -14153,7 +15798,7 @@ function renderMonthComparison() {
         if (!state.ui) state.ui = {};
         if (state.ui.monthCompPeriod === btn.dataset.p) return;
         state.ui.monthCompPeriod = btn.dataset.p;
-        saveState();
+        saveViewState();
         renderMonthComparison();
       };
     });
@@ -14202,7 +15847,7 @@ function renderMonthComparison() {
     const dir = pick.delta > 0 ? "up" : "down";
     const sign = pick.delta > 0 ? "+" : "−";
     insight = `<div class="mc-insight ${pick.good ? "good" : "bad"}">
-      <div class="mc-insight-icon">${pick.good ? "✓" : "⚠︎"}</div>
+      <div class="mc-insight-icon">${pick.good ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>` : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/></svg>`}</div>
       <div class="mc-insight-text"><b>${escapeHTML(pick.m.label)}</b> is ${dir} the most this ${meta.label.toLowerCase()} — <span class="${pick.good ? "good-v" : "bad-v"}">${sign}${pick.mag.toFixed(1)}h/wk</span>.</div>
     </div>`;
   }
@@ -14239,7 +15884,7 @@ function renderMonthComparison() {
     </div>
     ${insight}
     <div>${rows}</div>
-    <div class="mc-legend"><span>— ${legendWeeks}</span><span>┄ baseline avg</span></div>`;
+    <div class="mc-legend"><span><svg class="mc-lg-line" width="16" height="4" viewBox="0 0 16 4" aria-hidden="true"><path d="M1 2h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>${legendWeeks}</span><span><svg class="mc-lg-line" width="16" height="4" viewBox="0 0 16 4" aria-hidden="true"><path d="M1 2h14" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/></svg>baseline avg</span></div>`;
   wireSegments();
 }
 
@@ -14486,7 +16131,7 @@ function switchTab(tabId) {
   const dd = document.getElementById("tabDropdown");
   if (dd) dd.value = tabId;
   state.activeTab = tabId;
-  saveState();
+  saveViewState();
 }
 document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
@@ -14558,11 +16203,55 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawe
 document.querySelectorAll(".layout-tab").forEach(btn => {
   btn.addEventListener("click", () => setCalLayout(btn.dataset.layout));
 });
+// Drag the switcher's thumb: it follows the finger, and on release snaps to
+// the nearer segment. A plain tap is left to the click handler above.
+(function initLayoutThumbDrag() {
+  const bar = document.getElementById("layoutTabs");
+  const thumb = document.getElementById("layoutThumb");
+  if (!bar || !thumb) return;
+  let sx = 0, sy = 0, startPos = 0, w = 0, n = 0, mode = null;
+  bar.addEventListener("touchstart", e => {
+    mode = null;
+    if (getComputedStyle(thumb).display === "none" || e.touches.length !== 1) return;
+    const tabs = bar.querySelectorAll(".layout-tab");
+    n = tabs.length;
+    w = bar.clientWidth / n;
+    const active = [...tabs].findIndex(b => b.classList.contains("active"));
+    startPos = Math.max(0, active) * w;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    mode = "pending";
+  }, { passive: true });
+  bar.addEventListener("touchmove", e => {
+    if (mode !== "pending" && mode !== "drag") return;
+    const dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if (mode === "pending") {
+      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) { mode = "drag"; thumb.style.transition = "none"; }
+      else if (Math.abs(dy) > 6) { mode = null; return; }
+      else return;
+    }
+    e.preventDefault();
+    const pos = Math.min((n - 1) * w, Math.max(0, startPos + dx));
+    thumb.style.transform = `translateX(${pos}px)`;
+  }, { passive: false });
+  const end = e => {
+    if (mode !== "drag") { mode = null; return; }
+    mode = null;
+    e.preventDefault();                     // no click after a drag
+    const dx = (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : sx) - sx;
+    const pos = Math.min((n - 1) * w, Math.max(0, startPos + dx));
+    const idx = Math.round(pos / w);
+    thumb.style.transition = "";
+    const tab = bar.querySelectorAll(".layout-tab")[idx];
+    if (tab) setCalLayout(tab.dataset.layout);
+  };
+  bar.addEventListener("touchend", end, { passive: false });
+  bar.addEventListener("touchcancel", end, { passive: false });
+})();
 // Month navigation
 const _mp = document.getElementById("monthPrev");
 const _mn = document.getElementById("monthNext");
-if (_mp) _mp.addEventListener("click", () => shiftViewMonth(-1));
-if (_mn) _mn.addEventListener("click", () => shiftViewMonth(+1));
+if (_mp) _mp.addEventListener("click", () => { if (!_monthPagerGo(-1)) shiftViewMonth(-1); });
+if (_mn) _mn.addEventListener("click", () => { if (!_monthPagerGo(+1)) shiftViewMonth(+1); });
 // Day navigation
 const _dp = document.getElementById("dayPrev");
 const _dn = document.getElementById("dayNext");
@@ -14768,7 +16457,7 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
 // agenda re-renders. Backdrop tap / grabber tap dismiss it.
 (() => {
   document.addEventListener("click", (e) => {
-    const pill = e.target.closest(".agenda-ev-pill");
+    const pill = e.target.closest(".agenda-ev-pill, .ag-ev");
     if (!pill) return;
     e.stopPropagation();
     e.preventDefault();
@@ -14799,7 +16488,9 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
   }
 
   function inSwipeZone(target) {
-    return !!(target.closest && target.closest('.cal-wrap[data-layout="month"], #weekView, #dayView'));
+    if (!target.closest) return false;
+    if (target.closest(".cal-grid.quiet")) return false;   // the month pager owns this
+    return !!target.closest('.cal-wrap[data-layout="month"], #weekView, #dayView');
   }
 
   document.addEventListener("touchstart", (e) => {
@@ -14827,7 +16518,7 @@ if (_familyBackdrop) _familyBackdrop.addEventListener("click", closeFamilyDrawer
     const dir = dx < 0 ? +1 : -1;   // swipe left → next, swipe right → prev
     if (layout === "week")      shiftViewWeek(dir);
     else if (layout === "day")  shiftViewDay(dir);
-    else                        shiftViewMonth(dir);
+    else if (!_monthPagerGo(dir)) shiftViewMonth(dir);
   }, { passive: true });
 })();
 
@@ -14850,6 +16541,88 @@ document.addEventListener("click", (e) => {
     return;
   }
 }, true);
+</script>
+
+<!-- Page-coloured layer behind everything, for pulling past the bottom. It is
+     fixed, so it paints the gap without adding any scroll length. -->
+<div class="overscroll-back" aria-hidden="true"></div>
+
+<script>
+// Pull to refresh. Armed only when a vertical drag starts with the page at
+// the very top and nothing is open over it. The mark follows the finger;
+// release past PTR_TRIGGER and the app reloads, which also picks up any new
+// deploy.
+(function initPullToRefresh() {
+  const ptr = document.getElementById("ptr");
+  const label = document.getElementById("ptrLabel");
+  if (!ptr || !("ontouchstart" in window)) return;
+  const dotsWrap = ptr.querySelector(".ptr-dots");
+  const dots = dotsWrap ? [...dotsWrap.children] : [];
+  const PTR_TRIGGER = 110;   // finger travel (px) that commits a refresh
+  let sy = 0, sx = 0, pull = 0, armed = false, locked = false, busy = false;
+
+  const blocked = t => {
+    const b = document.body.classList;
+    if (b.contains("ask-claude-open") || b.contains("add-shift-open") || b.contains("parse-open") ||
+        b.contains("add-menu-open") || b.contains("ask-page-locked")) return true;
+    if (document.querySelector(".settings-drawer.open, .partner-drawer.open, .family-drawer.open, .cal-sheet-backdrop.show, #eventSheetBackdrop.show")) return true;
+    // Inner scrollers handle their own drags.
+    return !!(t && t.closest && t.closest(".pane-chat, .cg-pane-chat, .cal-tooltip, .event-sheet, [role=dialog]"));
+  };
+  const paint = () => {
+    const f = Math.min(1, pull / PTR_TRIGGER);
+    ptr.style.opacity = String(Math.min(1, f * 1.4));
+    ptr.style.transform = `translateX(-50%) translateY(${Math.min(pull * 0.35, 40)}px) scale(${0.6 + 0.4 * f})`;
+    dots.forEach((d, i) => d.classList.toggle("on", f >= (i + 1) / 3));
+    const ready = pull >= PTR_TRIGGER;
+    ptr.classList.toggle("ready", ready);
+    label.textContent = ready ? "Release to refresh" : "Pull to refresh";
+  };
+  const reset = () => {
+    pull = 0;
+    ptr.classList.add("settle");
+    ptr.style.opacity = "0";
+    ptr.style.transform = "translateX(-50%) translateY(0) scale(0.6)";
+    setTimeout(() => ptr.classList.remove("settle"), 260);
+  };
+
+  document.addEventListener("touchstart", e => {
+    armed = locked = false;
+    if (busy || e.touches.length !== 1 || window.scrollY > 0 || blocked(e.target)) return;
+    sy = e.touches[0].clientY; sx = e.touches[0].clientX;
+    armed = true;
+  }, { passive: true });
+  document.addEventListener("touchmove", e => {
+    if (!armed) return;
+    const dy = e.touches[0].clientY - sy, dx = e.touches[0].clientX - sx;
+    if (!locked) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) { armed = false; return; }  // a sideways drag
+      if (dy < 6) { if (dy < -6) armed = false; return; }
+      locked = true;
+      ptr.classList.remove("settle");
+    }
+    pull = Math.max(0, dy);
+    paint();
+  }, { passive: true });
+  const end = () => {
+    if (!armed || !locked) { armed = false; return; }
+    armed = false;
+    if (pull >= PTR_TRIGGER) {
+      busy = true;
+      ptr.classList.add("refreshing");
+      dots.forEach(d => d.classList.add("on"));
+      if (dotsWrap) dotsWrap.classList.add("bouncing");
+      label.textContent = "Refreshing";
+      ptr.style.opacity = "1";
+      ptr.style.transform = "translateX(-50%) translateY(24px) scale(1)";
+      setTimeout(() => location.reload(), 650);   // one full bounce first
+    } else {
+      reset();
+    }
+  };
+  document.addEventListener("touchend", end, { passive: true });
+  document.addEventListener("touchcancel", end, { passive: true });
+})();
 </script>
 
 </body>

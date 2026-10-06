@@ -4,12 +4,13 @@ import type { HouseholdState } from "../state";
 import { writeNewShift, type ShiftTarget } from "../lib/writeShift";
 import { compactTime, isCustomType } from "../state";
 import { BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
 const TEAL = "#0F6E64";       // primary / selection
 const TEAL_TINT = "#D8E7E4";  // selected fill (segments, cards, childcare note)
-const CLAY = "#8A4B38";       // attention / error text
 
 type RepeatMode = "none" | "weekly" | "biweekly" | "custom";
 
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function NewShiftModal({ open, onClose, palette, t, dark, householdId, state, defaultDate }: Props) {
+  const look = useHouseholdLook();
   const types = (state?.shiftTypes ?? []).filter((s) => !isCustomType(s.id));
 
   const [target, setTarget] = useState<ShiftTarget>("self-ot");
@@ -67,6 +69,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     setErr(null);
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const selType = types.find((s) => s.id === shiftTypeId);
@@ -87,9 +92,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
 
   const householdLabel = state?.householdName?.trim() || "Your household";
   const dateLabel = fmtLongDate(date);
-  const selfName = state?.selfName?.trim() || "Gage";
-  const partnerName = state?.partner?.name?.trim() || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name?.trim() || "Daisy";
+  const selfName = state?.selfName?.trim() || "You";
+  const partnerName = state?.partner?.name?.trim() || "Partner";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || "Caregiver";
 
   // The dates a submit will write, from the Repeats choice.
   const occurrenceDates = (): string[] => {
@@ -128,7 +133,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
         target,
         date,
         shiftTypeId,
-        label: note,
+        note,
         where,
         customTime: timesEdited ? { start: startT, end: endT } : undefined,
         dates: dates.length > 1 ? dates : undefined,
@@ -147,13 +152,13 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(20,32,30,0.52)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(20,32,30,0.52)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="New shift"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -205,9 +210,9 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <FieldLabel t={t}>Who works it</FieldLabel>
               <div style={{ display: "flex", gap: 8 }}>
-                <PersonCard name={selfName} initial="G" color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
-                <PersonCard name={partnerName} initial="K" color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />
-                <PersonCard name={daisyName} initial="D" color={personColor("D", palette)} active={isDaisy} onClick={() => setTarget("dependent-daisy")} t={t} />
+                <PersonCard name={selfName} initial={selfName.charAt(0).toUpperCase() || "Y"} color={palette.G} active={target === "self-ot"} onClick={() => setTarget("self-ot")} t={t} />
+                {look.hasPartner && <PersonCard name={partnerName} initial={partnerName.charAt(0).toUpperCase() || "P"} color={palette.K} active={target === "partner"} onClick={() => setTarget("partner")} t={t} />}
+                {look.hasCaregiver && <PersonCard name={daisyName} initial={daisyName.charAt(0).toUpperCase() || "C"} color={personColor("D", palette)} active={isDaisy} onClick={() => setTarget("dependent-daisy")} t={t} />}
               </div>
             </div>
 
@@ -292,7 +297,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
             {/* WHERE + NOTE */}
             <div style={{ display: "flex", gap: 14 }}>
               <Field label="Where" t={t}>
-                <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Thomas Hospital" style={inputStyle(t)} />
+                <input type="text" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Where it's worked" style={inputStyle(t)} />
               </Field>
               <Field label="Note (optional)" t={t}>
                 <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the household should know" style={inputStyle(t)} />
@@ -301,15 +306,15 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
 
             {/* Childcare block — shown when Daisy is who works it. */}
             {isDaisy && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 14px", background: TEAL_TINT, border: `1px solid ${TEAL}`, borderRadius: 4 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: TEAL }}>Childcare block</span>
-                <span style={{ fontSize: 12, lineHeight: 1.5, color: TEAL }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "12px 14px", background: t.tealTint, border: `1px solid ${t.tealText}`, borderRadius: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: t.tealText }}>Childcare block</span>
+                <span style={{ fontSize: 12, lineHeight: 1.5, color: t.tealText }}>
                   This puts {daisyName} on the calendar covering the kids for this time. It's not a work shift.
                 </span>
               </div>
             )}
 
-            {err && <div style={{ fontSize: 12, color: CLAY }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
           </div>
 
           {/* Footer — Paper bar, reassurance text, actions. */}
@@ -479,14 +484,14 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontSize: 14,
     fontFamily: "inherit",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
 function selectStyle(t: ThemeTokens): React.CSSProperties {
   // Custom chevron inset 14px from the right edge — gives the option text
   // breathing room and lets us style consistently across OS chrome.
-  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const stroke = "%23" + (t.scheme === "dark" ? "8E8E93" : "6E6E73");
   const chevron =
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {

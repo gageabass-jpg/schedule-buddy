@@ -1,6 +1,5 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { HouseholdState } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteHouseholdMetaError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -16,16 +15,14 @@ export class WriteHouseholdMetaError extends Error {
  */
 export async function setHouseholdName(householdId: string, name: string): Promise<void> {
   const trimmed = name.trim();
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let current: HouseholdState | null;
+  try { current = await readHouseholdState(householdId); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  if (!current) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
   const next: HouseholdState = { ...current };
   if (trimmed) next.householdName = trimmed;
   else delete next.householdName;
-  try { await setDoc(ref, next); }
+  try { await writeHouseholdState(householdId, current, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the household name.", e); }
 }
 
@@ -35,16 +32,14 @@ export async function setHouseholdName(householdId: string, name: string): Promi
  */
 export async function setTimeZone(householdId: string, tz: string): Promise<void> {
   const trimmed = tz.trim();
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let current: HouseholdState | null;
+  try { current = await readHouseholdState(householdId); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  if (!current) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
   const next: HouseholdState = { ...current };
   if (trimmed) next.timeZone = trimmed;
   else delete next.timeZone;
-  try { await setDoc(ref, next); }
+  try { await writeHouseholdState(householdId, current, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the time zone.", e); }
 }
 
@@ -59,17 +54,15 @@ export async function setEmployer(
   employer: string,
 ): Promise<void> {
   const trimmed = employer.trim();
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let current: HouseholdState | null;
+  try { current = await readHouseholdState(householdId); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  if (!current) throw new WriteHouseholdMetaError("Schedule document doesn't exist yet.");
   const employers = { ...(current.employers ?? {}) };
   if (trimmed) employers[who] = trimmed;
   else delete employers[who];
   const next: HouseholdState = { ...current, employers };
   if (Object.keys(employers).length === 0) delete next.employers;
-  try { await setDoc(ref, next); }
+  try { await writeHouseholdState(householdId, current, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the employer.", e); }
 }

@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "schedule-buddy-dd2cf"
+    "default": "schedule-buddy-dd2cf",
+    "staging": "schedule-buddy-staging"
   }
 }

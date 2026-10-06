@@ -5,6 +5,8 @@
 import { useEffect, useState } from "react";
 import type { ThemeTokens } from "../theme";
 import { MANAGER_ORANGE } from "../theme";
+import { useModalMotion } from "../lib/modalMotion";
+import { shortcut } from "../lib/platform";
 
 interface Props {
   open: boolean;
@@ -35,6 +37,9 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
     void window.sbm?.listImprovements().then((list) => setPast(list ?? [])).catch(() => setPast([]));
   }, [open]);
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const onSubmit = async () => {
@@ -61,7 +66,7 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0,
+        ...mm.backdrop, position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 1000,
@@ -71,10 +76,10 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: 460,
           maxHeight: "80vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -123,9 +128,9 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
           }}
         />
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         {saved && !err && (
-          <div style={{ fontSize: 12, color: "#0F6E64", fontWeight: 600 }}>
+          <div style={{ fontSize: 12, color: t.tealText, fontWeight: 600 }}>
             Logged. Thanks — add more or close.
           </div>
         )}
@@ -151,7 +156,7 @@ export function ImprovementsModal({ open, onClose, t, dark }: Props) {
           >
             {busy ? "Saving…" : "Submit idea"}
           </button>
-          <span style={{ fontSize: 11, color: t.text3 }}>⌘↵ to submit</span>
+          <span style={{ fontSize: 11, color: t.text3 }}>{shortcut("↵")} to submit</span>
         </div>
 
         {/* Past ideas */}

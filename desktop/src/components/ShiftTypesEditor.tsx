@@ -9,6 +9,7 @@ import {
   shiftTypeUsage,
   crossesMidnight,
 } from "../lib/writeShiftTypes";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,9 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
     setMode({ kind: "list" });
   }
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   // Hide synthetic "Custom …" types minted from inline template slots.
@@ -44,13 +48,13 @@ export function ShiftTypesEditor({ open, onClose, palette, t, dark, householdId,
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Shift types"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -216,7 +220,7 @@ function ListView({
         })}
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button type="button" onClick={onClose} style={secondaryBtn(t)}>Done</button>
@@ -353,7 +357,7 @@ function FormView({
             shifts, 6–8 for night shifts.
           </div>
         </Field>
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
           <button type="button" onClick={onBack} style={secondaryBtn(t)} disabled={busy}>Cancel</button>
           <button type="submit" disabled={busy} style={primaryBtn(palette.G, busy)}>
@@ -379,7 +383,7 @@ function Field({ label, t, children }: { label: string; t: ThemeTokens; children
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -387,7 +391,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontFamily: "inherit",
     letterSpacing: "-0.01em",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 

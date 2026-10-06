@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
 import type { Event as SbEvent, HouseholdState } from "../state";
-import { isPaydayOn } from "../state";
+import { compactTime, isPaydayOn } from "../state";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
+import { FLAG_RED } from "./DayFlagPopover";
+import type { DayFlag } from "../lib/dayFlags";
+import { ShinyButton } from "@/components/ui/shiny-button";
+import { CircleCheckIcon, type CircleCheckIconHandle } from "@/components/ui/circle-check";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { TimelineView } from "./TimelineView";
 import { AgendaView } from "./AgendaView";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
+import { shortcut } from "../lib/platform";
+import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
+import { STRETCH_RED } from "./StretchBadge";
+import type { StretchDay } from "../lib/stretch";
+import { holidayOn } from "../../../shared/holidays";
+import { GovernmentLineIcon } from "./ui/government-line-icon";
+import { IS_WINDOWS } from "../lib/platform";
+import { useHouseholdLook } from "../lib/householdLook";
+
+/** The arrow the New shift button slides in on hover. */
+const NewShiftArrow = () => <ArrowRight className="size-3.5" />;
 
 interface Props {
   palette: Palette;
@@ -31,6 +50,8 @@ interface Props {
   onOpenAskClaude: () => void;
   viewFilter: ViewFilter;
   coverageDates?: Set<string>;
+  /** Where each coverage day stands, drawn as a chip in the Coverage view. */
+  coverageMarks?: Map<string, CoverageMark>;
   onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
   /** A click on the day cell itself opens the day-detail popover. */
   onOpenDayDetail?: (date: string, anchor?: DOMRect) => void;
@@ -41,6 +62,16 @@ interface Props {
   partnerName: string;
   eventsByDate: EventMap;
   onEditEvent: (ev: SbEvent) => void;
+  /** Rendered at the far right of the toolbar, after New shift (the bell). */
+  toolbarEnd?: React.ReactNode;
+  /** Flagged days, keyed by date. */
+  dayFlags?: Map<string, DayFlag>;
+  /** Kaylene's stretches by date: a fire in the cell's corner, "2/3" on hover. */
+  stretches?: Map<string, StretchDay>;
+  /** When each day's childcare was confirmed (epoch ms), for the check's tooltip. */
+  careConfirmedAt?: Map<string, number>;
+  /** Open the flag editor for a day, beside its cell. */
+  onFlagDay?: (date: string, anchor: DOMRect) => void;
   wvuGames: Map<string, WvuGame>;
 }
 
@@ -58,9 +89,99 @@ const CARE_STEP = `(${CARE_COL} + 4px)`;
 export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
-  viewFilter, coverageDates, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, onTimelineSpan, selfName, partnerName,
-  eventsByDate, onEditEvent, wvuGames,
+  viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, onTimelineSpan, selfName, partnerName,
+  eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
+  const look = useHouseholdLook();
+  // Two-finger swipe (horizontal trackpad scroll) moves a month (a week in
+  // week view, a day in day view), anywhere in the window: over a chip, the
+  // rail, the toolbar,
+  // or the dimmed area around nucleusAI. A gesture that starts in a text field,
+  // over something that really scrolls sideways, or inside a dialog (nucleusAI,
+  // a popover card) is left to that thing.
+  //
+  // One swipe is one month. deltaX adds up past a threshold, then the swipe
+  // locks so its momentum tail can't skip months. macOS keeps momentum events
+  // flowing for up to a second after the fingers lift, so waiting for quiet
+  // would swallow a second swipe made in that time. Instead a lock ends when
+  // the scroll speeds up again for two events running (momentum only ever
+  // slows, so a sustained rise is fingers on the pad; one doubled event from a
+  // busy frame isn't) or turns round, and the next swipe counts straight away.
+  const nav = useRef({ onNext, onPrev });
+  useEffect(() => { nav.current = { onNext, onPrev }; });
+
+  // Windows: the mouse wheel over the toolbar steps back (up) or forward
+  // (down), one step per notch. A notch is ~100px of deltaY; a precision
+  // touchpad sends many small deltas, so they add up to 50 before a step, and
+  // steps are at least 250ms apart so a fast spin can't race through a year.
+  const wheel = useRef({ acc: 0, last: 0 });
+  const onToolbarWheel = (e: React.WheelEvent) => {
+    if (!IS_WINDOWS || e.deltaY === 0 || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+    const w = wheel.current;
+    const now = performance.now();
+    if (now - w.last > 400) w.acc = 0;
+    w.acc += e.deltaY;
+    if (Math.abs(w.acc) < 50 || now - w.last < 250) return;
+    w.last = now;
+    const down = w.acc > 0;
+    w.acc = 0;
+    if (down) onNext(); else onPrev();
+  };
+  useEffect(() => {
+    // Month, week and day views: the swipe steps a month, a week or a day
+    // (whatever the arrows do). Year and agenda keep the wheel to themselves.
+    if (calLayout !== "month" && calLayout !== "week" && calLayout !== "day") return;
+    const g = {
+      acc: 0, locked: false, dir: 0, lastAbs: 0, rises: 0, triggeredAt: 0,
+      ignore: false, active: false, timer: undefined as number | undefined,
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (!g.active) { g.active = true; g.ignore = swipeBelongsElsewhere(e.target); }
+      window.clearTimeout(g.timer);
+      g.timer = window.setTimeout(() => {
+        g.acc = 0; g.locked = false; g.active = false; g.lastAbs = 0; g.rises = 0;
+      }, 180);
+      if (g.ignore) return;
+
+      const abs = Math.abs(e.deltaX);
+      const now = performance.now();
+      if (g.locked) {
+        const turned = Math.sign(e.deltaX) !== g.dir;
+        g.rises = abs > 3 && abs > g.lastAbs * 1.2 ? g.rises + 1 : 0;
+        const speedingUp = g.rises >= 2 && now - g.triggeredAt > 120;
+        if (turned || speedingUp) { g.locked = false; g.acc = 0; g.rises = 0; }
+      }
+      g.lastAbs = abs;
+      if (g.locked) return;
+
+      g.acc += e.deltaX;
+      if (Math.abs(g.acc) > 50) {
+        g.locked = true;
+        g.dir = Math.sign(g.acc);
+        g.triggeredAt = now;
+        g.acc = 0;
+        if (g.dir > 0) nav.current.onNext(); else nav.current.onPrev();
+      }
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.clearTimeout(g.timer);
+    };
+  }, [calLayout]);
+
+  // Which way the month just moved, so the new grid slides in from that side
+  // (swipe or arrows alike). Derived during render; it sticks until the next
+  // change so an unrelated re-render can't cut the slide short.
+  const monthIndex = viewYear * 12 + viewMonth;
+  const [lastMonthIndex, setLastMonthIndex] = useState(monthIndex);
+  const [slide, setSlide] = useState<"next" | "prev" | null>(null);
+  if (monthIndex !== lastMonthIndex) {
+    setLastMonthIndex(monthIndex);
+    setSlide(monthIndex > lastMonthIndex ? "next" : "prev");
+  }
+
   const [hoverTab, setHoverTab] = useState<string | null>(null);
   const weeks = buildMonthGrid(viewYear, viewMonth);
 
@@ -106,8 +227,10 @@ export function MonthGrid({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* Toolbar */}
+      {/* Toolbar. On Windows the mouse wheel over it steps the calendar:
+          up for the previous month, down for the next. */}
       <div
+        onWheel={onToolbarWheel}
         style={{
           display: "flex",
           alignItems: "center",
@@ -169,54 +292,56 @@ export function MonthGrid({
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={onOpenAskClaude}
-          title="Ask nucleusAI — natural-language schedule editing"
-          aria-label="Ask nucleusAI"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            height: 34,
-            padding: "0 12px",
-            borderRadius: 4,
-            border: `1px solid ${palette.G}`,
-            background: "#D8E7E4",
-            color: palette.G,
-            fontFamily: BRAND_FONT,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <BrandMark size={15} color={palette.G} />
-          Ask
-        </button>
-        <button
-          type="button"
-          onClick={onNewShift}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 5,
-            height: 32,
-            padding: "0 14px",
-            borderRadius: 8,
-            border: 0,
-            background: palette.G,
-            color: "#fff",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            lineHeight: 1,
-          }}
-        >
-          New shift
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* Shiny border that follows the pointer, around the app icon's teal. */}
+            {/* 36px outside so the teal face inside the 2px shine is 32px,
+                the same as New shift beside it. */}
+            <ShinyButton
+              type="button"
+              size="sm"
+              style={{ height: 36, paddingInline: 14 }}
+              aria-label="Ask nucleusAI"
+              onClick={onOpenAskClaude}
+              // On dark, a white shine reads as a frame; Teal Light glows instead.
+              gradientFrom={dark ? "#9ACFC6" : "#FFFFFF"}
+              gradientTo={dark ? "#56B7A9" : "#9ACFC6"}
+              gradientOpacity={dark ? 0.7 : 1}
+              borderWidth={2}
+              className="bg-linear-to-b from-[#0F6E64] to-[#0A4F48]"
+              overlayClassName="bg-white/10"
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#fff", fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em" }}>
+                <BrandMark size={15} color="#F7F6F3" />
+                Ask
+              </span>
+            </ShinyButton>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Ask nucleusAI <span className="text-muted-foreground">· {shortcut("K")}</span>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* 21st.dev enhanced button. The palette's colour rides in as
+                --primary so bg-primary and its hover shade follow it. */}
+            <Button
+              type="button"
+              onClick={onNewShift}
+              variant="expandIcon"
+              Icon={NewShiftArrow}
+              iconPlacement="right"
+              className="h-8 rounded-md px-3.5 text-[13px] font-semibold leading-none cursor-pointer"
+              style={{ "--primary": palette.G } as React.CSSProperties}
+            >
+              New shift
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            New shift <span className="text-muted-foreground">· {shortcut("N")}</span>
+          </TooltipContent>
+        </Tooltip>
+        {toolbarEnd}
       </div>
 
       {calLayout === "year" && (
@@ -249,6 +374,8 @@ export function MonthGrid({
           eventsByDate={eventsByDate}
           onEditEvent={onEditEvent}
           wvuGames={wvuGames}
+          selfName={selfName}
+          partnerName={partnerName}
         />
       )}
 
@@ -318,7 +445,7 @@ export function MonthGrid({
                 fontWeight: 700,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: i === 0 || i === 6 ? rgba(palette.G, 0.85) : t.text3,
+                color: i === 0 || i === 6 ? (dark ? t.tealText : rgba(palette.G, 0.85)) : t.text3,
                 padding: "6px 8px",
               }}
             >
@@ -326,7 +453,14 @@ export function MonthGrid({
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep }}>
+        <div
+          key={monthIndex}
+          data-motion=""
+          style={{
+            flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep,
+            animation: slide ? `nucleus-month-in-${slide} 240ms cubic-bezier(.2,.8,.2,1) both` : undefined,
+          }}
+        >
           {weeks.map((week, wi) => {
             // Group adjacent no-childcare days in this row into contiguous runs,
             // each drawn as a single red bar spanning those columns.
@@ -347,6 +481,7 @@ export function MonthGrid({
                 const colors = dayColors(kind, palette, dark);
                 const isToday = key === today;
                 const isSel = key === selected;
+                const holiday = holidayOn(key);
                 const matchesFilter =
                   viewFilter === "all" ||
                   (viewFilter === "both" && kind === "both") ||
@@ -360,6 +495,7 @@ export function MonthGrid({
                   <button
                     key={ci}
                     type="button"
+                    data-day-cell=""
                     // A cell click opens the day popover only — it deliberately
                     // does NOT re-point the right panel, so the day card there
                     // stays put while you browse the month.
@@ -387,19 +523,13 @@ export function MonthGrid({
                     }}
                   >
                     {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
-                      <div
-                        title="Childcare coverage confirmed"
-                        style={{
-                          position: "absolute",
-                          left: 5,
-                          right: 5,
-                          bottom: 3,
-                          height: 3,
-                          borderRadius: 2,
-                          background: "#0F6E64",
-                          boxShadow: "0 0 4px rgba(15,110,100,0.5)",
-                          pointerEvents: "none",
-                        }}
+                      <CareCheck right={wvuGames.has(key) ? 32 : 5} confirmedAt={careConfirmedAt?.get(key)} />
+                    )}
+                    {stretches?.get(key) && (
+                      <StretchMark
+                        stretch={stretches.get(key)!}
+                        name={partnerName}
+                        right={(wvuGames.has(key) ? 32 : 5) + (confirmedCareDates.has(key) && !noCareByDate.has(key) ? 18 : 0)}
                       />
                     )}
                     {blockByDate.has(key) && (
@@ -424,25 +554,29 @@ export function MonthGrid({
                       />
                     )}
                     {wvuGames.has(key) && (
-                      <img
-                        src="assets/wvu.png"
-                        alt=""
-                        aria-hidden="true"
-                        title={wvuGameLabel(wvuGames.get(key)!)}
-                        draggable={false}
-                        style={{
-                          position: "absolute",
-                          right: 4,
-                          bottom: 4,
-                          width: 24,
-                          height: 22,
-                          objectFit: "contain",
-                          pointerEvents: "none",
-                          filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))",
-                        }}
-                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <img
+                            src="assets/wvu.png"
+                            alt={wvuGameLabel(wvuGames.get(key)!)}
+                            draggable={false}
+                            style={{
+                              position: "absolute",
+                              right: 4,
+                              bottom: 4,
+                              width: 24,
+                              height: 22,
+                              objectFit: "contain",
+                              filter: "drop-shadow(0 1px 1.5px rgba(0,0,0,0.45))",
+                            }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" size="sm">
+                          <WvuGameTip game={wvuGames.get(key)!} />
+                        </TooltipContent>
+                      </Tooltip>
                     )}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
                       <span
                         style={{
                           fontSize: 12,
@@ -456,7 +590,50 @@ export function MonthGrid({
                       >
                         {c.d}
                       </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                      {onFlagDay && (() => {
+                        const flag = dayFlags?.get(key);
+                        // A flag on the day: red, always shown, remarks on hover.
+                        // No flag: a faint one appears while the day is hovered.
+                        // It's a span, not a button, because the cell is already a
+                        // button; the day popover's Flag row is the keyboard route.
+                        const mark = (
+                          <span
+                            aria-hidden="true"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const cell = (e.currentTarget as HTMLElement).closest("[data-day-cell]");
+                              onFlagDay(key, (cell ?? e.currentTarget).getBoundingClientRect());
+                            }}
+                            className={flag ? "flex cursor-pointer" : "flex cursor-pointer opacity-0 transition-opacity duration-150 day-hover:opacity-60 hover:!opacity-100"}
+                            style={{ marginLeft: 4, color: flag ? FLAG_RED : t.text3, padding: 2 }}
+                          >
+                            <Flag3FilledIcon size={13} />
+                          </span>
+                        );
+                        return flag?.remarks ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>{mark}</TooltipTrigger>
+                            <TooltipContent side="top" size="sm" className="max-w-64 whitespace-pre-wrap">{flag.remarks}</TooltipContent>
+                          </Tooltip>
+                        ) : mark;
+                      })()}
+                      {/* The holiday, centred in the top row between the date
+                          (and its flag) and the payday marks. Centring on the
+                          whole cell would leave room for about "Vete…". */}
+                      {holiday && (
+                        <span
+                          title={holiday.name}
+                          style={{
+                            flex: 1, minWidth: 0, padding: "0 4px",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                            fontSize: 10.5, fontWeight: 600, color: t.tealText,
+                          }}
+                        >
+                          <GovernmentLineIcon size={11} aria-hidden="true" style={{ flexShrink: 0, color: t.text3 }} />
+                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{holiday.short}</span>
+                        </span>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
                         {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (
                           <span
                             title="Gage payday"
@@ -488,18 +665,27 @@ export function MonthGrid({
                     </div>
                     {(() => {
                       const dayEvents = eventsByDate[key] ?? [];
-                      const shiftSlice = (dayShifts ?? []).slice(0, 3);
-                      const eventSlice = dayEvents.slice(0, Math.max(0, 3 - shiftSlice.length));
-                      if (shiftSlice.length === 0 && eventSlice.length === 0) return null;
+                      // In the Coverage view a coverage day leads with where its
+                      // cover stands, and gives up one of the three rows for it.
+                      const cover = viewFilter === "coverage" ? coverageMarks?.get(key) : undefined;
+                      const shiftSlice = (dayShifts ?? []).slice(0, cover ? 2 : 3);
+                      const eventSlice = dayEvents.slice(0, Math.max(0, (cover ? 2 : 3) - shiftSlice.length));
+                      if (!cover && shiftSlice.length === 0 && eventSlice.length === 0) return null;
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={state?.dependents?.daisy?.name || "Caregiver"} />}
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
+                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Caregiver");
+                            const st = state?.shiftTypes?.find((x) => x.id === s.shiftTypeId);
+                            const hours = st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
                             // White chip with the person's hue as a left-edge bar
-                            // and Ink text (design boards).
+                            // and Ink text (design boards). Hovering the day sweeps
+                            // the chip in that hue and swaps the label for who's on.
                             return (
                               <div
                                 key={`s${i}`}
+                                className="relative"
                                 onClick={onOpenShiftDetail ? (e) => { e.stopPropagation(); onOpenShiftDetail(key, s, e.currentTarget.getBoundingClientRect()); } : undefined}
                                 title={onOpenShiftDetail ? "Shift details" : undefined}
                                 style={{
@@ -521,15 +707,29 @@ export function MonthGrid({
                                   cursor: onOpenShiftDetail ? "pointer" : "default",
                                 }}
                               >
-                                <span>{s.label}</span>
+                                <span
+                                  aria-hidden="true"
+                                  className="pointer-events-none absolute bottom-0 left-0 size-80 -translate-x-full translate-y-full rotate-[-40deg] rounded mb-6 ml-6 transition-all duration-500 ease-out day-hover:mb-[7.5rem] day-hover:ml-0 day-hover:translate-x-0 motion-reduce:transition-none"
+                                  style={{ background: color }}
+                                />
+                                <span className="relative min-w-0 flex-1 transition-colors duration-300 ease-in-out day-hover:text-white">
+                                  <span className="block overflow-hidden text-ellipsis transition-opacity duration-200 day-hover:opacity-0">{s.label}</span>
+                                  {/* Hovered: who's on at the left, their hours popping in at
+                                      the right just after the sweep lands. */}
+                                  <span className="absolute inset-0 flex items-center gap-1.5">
+                                    <span className="min-w-0 flex-1 overflow-hidden text-ellipsis opacity-0 transition-opacity delay-150 duration-200 day-hover:opacity-100">{name}</span>
+                                    <span className="shrink-0 font-medium opacity-0 translate-x-2 scale-90 transition-all delay-200 duration-300 ease-[cubic-bezier(.2,1.4,.4,1)] day-hover:translate-x-0 day-hover:scale-100 day-hover:opacity-90 motion-reduce:transition-none">{hours}</span>
+                                  </span>
+                                </span>
                               </div>
                             );
                           })}
                           {/* Life items — leaf glyph + the event's time. No pill:
                               these read as a quiet marker next to the work shifts. */}
                           {eventSlice.map((ev) => (
+                            <Tooltip key={ev.id}>
+                            <TooltipTrigger asChild>
                             <div
-                              key={ev.id}
                               onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
                               style={{
                                 display: "flex",
@@ -544,7 +744,6 @@ export function MonthGrid({
                                 whiteSpace: "nowrap",
                                 cursor: "pointer",
                               }}
-                              title={`${ev.startTime ? `${formatChipTime(ev.startTime)} · ` : ""}${ev.title}${ev.pending ? " (pending)" : ""}`}
                             >
                               {ev.pending ? (
                                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#8A4B38", flexShrink: 0, boxShadow: "0 0 4px rgba(138,75,56,0.6)" }} />
@@ -562,6 +761,11 @@ export function MonthGrid({
                                 {ev.startTime ? formatChipTime(ev.startTime) : ev.title}
                               </span>
                             </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" size="sm" className="max-w-64">
+                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Caregiver"} t={t} />
+                            </TooltipContent>
+                            </Tooltip>
                           ))}
                         </div>
                       );
@@ -592,7 +796,7 @@ export function MonthGrid({
                       borderRadius: 5,
                       border: `1px dashed ${rgba("#8A4B38", 0.8)}`,
                       background: dark ? "rgba(138,75,56,0.18)" : "rgba(138,75,56,0.10)",
-                      color: "#8A4B38",
+                      color: t.clayText,
                       fontSize: 10.5,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
@@ -629,6 +833,17 @@ export function MonthGrid({
         </div>
         {/* Legend — schedule-block states + the reassurance note. */}
         <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: `1px solid ${t.sep}`, background: t.bg, display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
+          {viewFilter === "coverage" && (["has", "waiting", "nobody"] as const).map((k) => (
+            <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+              <CoverageDot kind={k} dark={dark} />
+              {k === "has" ? `${state?.dependents?.daisy?.name || "Caregiver"} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
+            </span>
+          ))}
+          {viewFilter !== "coverage" && look.childcare && (<>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+            <CircleCheckIcon size={15} color={CARE_CHECK} isAnimated={false} />
+            Care confirmed
+          </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
             <span style={{ width: 3, height: 15, borderLeft: "3px solid #8A4B38", display: "inline-block", flexShrink: 0 }} />
             Blocked, covered
@@ -637,6 +852,7 @@ export function MonthGrid({
             <span style={{ width: 3, height: 15, borderLeft: "3px dashed #8A4B38", display: "inline-block", flexShrink: 0 }} />
             Blocked, nobody home
           </span>
+          </>)}
           <span style={{ marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             A block reserves time. It never moves a shift.
           </span>
@@ -729,3 +945,207 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
   };
 }
 
+
+/**
+ * Kaylene's stretch: a red fire in the cell's bottom-right corner, left of
+ * the childcare check when there is one. Hovering the day flickers the flame
+ * and slides it left to make room for which day of the run it is ("2/3").
+ * Like CareCheck it listens on the cell, so a hover doesn't re-render the grid.
+ */
+function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: string; right: number }) {
+  const holder = useRef<HTMLSpanElement | null>(null);
+  const icon = useRef<FireIconHandle | null>(null);
+
+  useEffect(() => {
+    const cell = holder.current?.closest("button");
+    if (!cell) return;
+    const play = () => icon.current?.startAnimation();
+    const reset = () => icon.current?.stopAnimation();
+    cell.addEventListener("mouseenter", play);
+    cell.addEventListener("mouseleave", reset);
+    return () => {
+      cell.removeEventListener("mouseenter", play);
+      cell.removeEventListener("mouseleave", reset);
+    };
+  }, []);
+
+  return (
+    <Tooltip>
+    <TooltipTrigger asChild>
+    <span
+      ref={holder}
+      role="img"
+      aria-label={`${name}'s stretch, day ${stretch.day} of ${stretch.of}`}
+      style={{
+        position: "absolute", right, bottom: 4, height: 15,
+        display: "flex", alignItems: "center", color: STRETCH_RED,
+      }}
+    >
+      <FireIcon ref={icon} size={15} className="flex" />
+      {/* Grows from nothing on hover; the box is anchored on the right, so
+          the flame is pushed left as it opens. */}
+      <span
+        className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out day-hover:ml-0.5 day-hover:max-w-8 day-hover:opacity-100 motion-reduce:transition-none"
+        style={{ fontSize: 10.5, fontWeight: 700, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}
+      >
+        {stretch.day}/{stretch.of}
+      </span>
+    </span>
+    </TooltipTrigger>
+    <TooltipContent side="top" size="sm">Day {stretch.day} of {stretch.of}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A WVU game's tooltip: the matchup, then kickoff, TV and where. */
+function WvuGameTip({ game }: { game: WvuGame }) {
+  const vs = game.neutral || game.home ? "vs" : "at";
+  const details = [
+    game.kickoff && game.kickoff !== "TBD" ? game.kickoff : "Kickoff TBD",
+    game.tv,
+    game.location,
+  ].filter(Boolean).join(" · ");
+  return (
+    <>
+      <div className="font-semibold">WVU {vs} {game.opponent}</div>
+      <div className="text-muted-foreground">{details}</div>
+    </>
+  );
+}
+
+
+/** Teal, the house "fine": the same colour the confirmed-care line used. */
+const CARE_CHECK = "#0F6E64";
+
+/**
+ * Childcare confirmed for the day: a check in the cell's bottom-right corner
+ * (nudged left when a game logo holds that corner). Hovering the day plays
+ * the check's draw-in once; leaving resets it. It listens on the day cell
+ * itself so a hover doesn't re-render the grid.
+ */
+function CareCheck({ right, confirmedAt }: { right: number; confirmedAt?: number }) {
+  const holder = useRef<HTMLSpanElement | null>(null);
+  const icon = useRef<CircleCheckIconHandle | null>(null);
+
+  useEffect(() => {
+    const cell = holder.current?.closest("button");
+    if (!cell) return;
+    const play = () => icon.current?.startAnimation();
+    const reset = () => icon.current?.stopAnimation();
+    cell.addEventListener("mouseenter", play);
+    cell.addEventListener("mouseleave", reset);
+    return () => {
+      cell.removeEventListener("mouseenter", play);
+      cell.removeEventListener("mouseleave", reset);
+    };
+  }, []);
+
+  const when = confirmedAt
+    ? `Confirmed ${new Date(confirmedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+    : "Confirmed";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          ref={holder}
+          role="img"
+          aria-label={`Childcare covered. ${when}.`}
+          style={{ position: "absolute", right, bottom: 4, display: "flex" }}
+        >
+          <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" size="sm">
+        <div className="font-semibold">Childcare covered</div>
+        <div className="text-muted-foreground">{when}</div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Whether a sideways swipe starting on `target` is that element's own
+ *  business: typing, a dialog, or something that scrolls horizontally. */
+function swipeBelongsElsewhere(target: EventTarget | null): boolean {
+  for (let el = target instanceof Element ? target : null; el && el !== document.body; el = el.parentElement) {
+    if (el.matches('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return true;
+    const { overflowX } = getComputedStyle(el);
+    if ((overflowX === "auto" || overflowX === "scroll") && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+
+/** What a life event's hover card says: title, when, who, and any notes. */
+function EventTip({ ev, selfName, partnerName, daisyName, t }: {
+  ev: SbEvent; selfName: string; partnerName: string; daisyName: string; t: ThemeTokens;
+}) {
+  const when = ev.startTime
+    ? `${formatChipTime(ev.startTime)}${ev.endTime ? ` – ${formatChipTime(ev.endTime)}` : ""}`
+    : "All day";
+  const who = ev.who === "G" ? selfName : ev.who === "K" ? partnerName : ev.who === "Daisy" ? daisyName : "Family";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ fontWeight: 600 }}>{ev.title || "Event"}</div>
+      <div className="text-muted-foreground">{when} · {who}</div>
+      {ev.notes && <div style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>{ev.notes}</div>}
+      {ev.pending && <div style={{ color: t.clayText, fontWeight: 600, marginTop: 2 }}>Pending approval</div>}
+    </div>
+  );
+}
+
+/** A coverage day in the Coverage view: the gap or request's hours and who
+ *  holds them. Same marks as the Childcare Matrix. */
+export interface CoverageMark {
+  kind: "has" | "waiting" | "nobody";
+  startTime: string;
+  endTime: string;
+  /** False for a gap nobody has been asked about yet. */
+  requested: boolean;
+}
+
+const COVER_TEAL = "#0F6E64";
+const COVER_CLAY = "#8A4B38";
+const COVER_DAISY = "#5A6663";
+
+/** Filled dot = she has it, hollow ring = waiting, short bar = nobody. */
+function CoverageDot({ kind, dark }: { kind: CoverageMark["kind"]; dark: boolean }) {
+  const teal = dark ? "#9ACFC6" : COVER_TEAL;
+  return (
+    <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true" style={{ flexShrink: 0 }}>
+      {kind === "has" && <circle cx="5" cy="5" r="4" fill={dark ? "#A9B3B0" : COVER_DAISY} />}
+      {kind === "waiting" && <circle cx="5" cy="5" r="3.4" fill="none" stroke={teal} strokeWidth="1.6" />}
+      {kind === "nobody" && <rect x="1" y="4" width="8" height="2.2" rx="1" fill={COVER_CLAY} />}
+    </svg>
+  );
+}
+
+function CoverageChip({ mark, t, dark, daisyName }: { mark: CoverageMark; t: ThemeTokens; dark: boolean; daisyName: string }) {
+  const who = mark.kind === "has" ? daisyName : mark.kind === "waiting" ? "Asked" : "Nobody";
+  const hours = `${compactTime(mark.startTime)}–${compactTime(mark.endTime)}`;
+  const box: React.CSSProperties =
+    mark.kind === "has"
+      ? { background: dark ? "rgba(169,179,176,0.16)" : "#EEF0EF", border: `1px solid ${dark ? "rgba(169,179,176,0.4)" : "#C9CFCD"}` }
+      : mark.kind === "waiting"
+        ? { background: t.bgElev, border: `1px solid ${dark ? "rgba(154,207,198,0.6)" : "#9ACFC6"}` }
+        : { background: dark ? "rgba(138,75,56,0.18)" : "#EFDFDB", border: `1px dashed ${COVER_CLAY}` };
+  const title =
+    mark.kind === "has" ? `${daisyName} has the kids ${hours}`
+      : mark.kind === "waiting" ? `Asked ${daisyName} for ${hours}; waiting on her`
+        : mark.requested ? `${daisyName} can't do ${hours}; nobody has the kids`
+          : `Nobody has the kids ${hours}`;
+  return (
+    <div
+      title={title}
+      style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 600, letterSpacing: "-0.01em",
+        color: mark.kind === "nobody" ? (dark ? "#D9A08E" : COVER_CLAY) : t.text,
+        whiteSpace: "nowrap", overflow: "hidden",
+        ...box,
+      }}
+    >
+      <CoverageDot kind={mark.kind} dark={dark} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{who}</span>
+      <span style={{ marginLeft: "auto", fontWeight: 500, opacity: 0.85, flexShrink: 0 }}>{hours}</span>
+    </div>
+  );
+}

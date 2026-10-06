@@ -1,6 +1,5 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import type { HouseholdState, PaydaySchedule } from "../state";
+import type { PaydaySchedule } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class PaydayError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -26,10 +25,8 @@ export async function setPaydaySchedule(
     const err = validate(schedule);
     if (err) throw new PaydayError(err);
   }
-  const ref = doc(db, "households", householdId, "state", "main");
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new PaydayError("Schedule document doesn't exist yet.");
-  const current = snap.data() as HouseholdState;
+  const current = await readHouseholdState(householdId);
+  if (!current) throw new PaydayError("Schedule document doesn't exist yet.");
   const paydays = { ...(current.paydays ?? {}) };
   if (schedule) {
     paydays[who] = { anchor: schedule.anchor, freq: schedule.freq };
@@ -37,7 +34,7 @@ export async function setPaydaySchedule(
     delete paydays[who];
   }
   try {
-    await setDoc(ref, { ...current, paydays });
+    await writeHouseholdState(householdId, current, { ...current, paydays });
   } catch (e) {
     throw new PaydayError("Couldn't save payday schedule.", e);
   }

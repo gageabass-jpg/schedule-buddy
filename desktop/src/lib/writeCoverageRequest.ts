@@ -1,7 +1,7 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { generateCoverageId } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteCoverageError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -31,17 +31,15 @@ function validate(input: CoverageRequestInput): string | null {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new WriteCoverageError("Couldn't read the household.", e); }
-  if (!snap.exists()) throw new WriteCoverageError("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new WriteCoverageError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new WriteCoverageError("Couldn't save coverage requests.", e); }
 }
 
@@ -89,7 +87,7 @@ export async function addCoverageRequests(
     if (byUid) req.createdBy = byUid;
     list.push(req);
   }
-  await writeState(householdId, { ...current, coverageRequests: list });
+  await writeState(householdId, current, { ...current, coverageRequests: list });
   return ids;
 }
 
@@ -108,7 +106,7 @@ export async function updateCoverageRequest(
   const idx = list.findIndex((r) => r.id === id);
   if (idx < 0) throw new WriteCoverageError("That coverage request no longer exists.");
   list[idx] = { ...list[idx], ...patch };
-  await writeState(householdId, { ...current, coverageRequests: list });
+  await writeState(householdId, current, { ...current, coverageRequests: list });
 }
 
 /** Mark a declined / issue request as reviewed by a manager. The caregiver
@@ -129,7 +127,7 @@ export async function markCoverageReviewed(
 export async function deleteCoverageRequest(householdId: string, id: string): Promise<void> {
   const current = await readState(householdId);
   const list = (current.coverageRequests ?? []).filter((r) => r.id !== id);
-  await writeState(householdId, { ...current, coverageRequests: list });
+  await writeState(householdId, current, { ...current, coverageRequests: list });
 }
 
 export function statusLabel(s: CoverageStatus): string {

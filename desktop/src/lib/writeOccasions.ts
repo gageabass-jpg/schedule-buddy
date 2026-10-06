@@ -6,9 +6,8 @@
 // drives the match. Suits birthdays (every Aug 12) and fixed holidays
 // (Dec 25). One-off occasions (e.g., a specific trip) use annual=false.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { HouseholdState, OccasionEntry, OccasionType } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteOccasionError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -36,17 +35,15 @@ function genOccasionId(): string {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new WriteOccasionError("Couldn't read household state.", e); }
-  if (!snap.exists()) throw new WriteOccasionError("Schedule document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new WriteOccasionError("Schedule document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new WriteOccasionError("Couldn't save.", e); }
 }
 
@@ -61,7 +58,7 @@ export async function addOccasion(householdId: string, input: OccasionInput): Pr
     type: input.type,
   };
   if (input.annual) entry.annual = true;
-  await writeState(householdId, {
+  await writeState(householdId, current, {
     ...current,
     occasions: [...(current.occasions ?? []), entry],
   });
@@ -71,5 +68,5 @@ export async function addOccasion(householdId: string, input: OccasionInput): Pr
 export async function removeOccasion(householdId: string, id: string): Promise<void> {
   const current = await readState(householdId);
   const list = (current.occasions ?? []).filter((o) => o.id !== id);
-  await writeState(householdId, { ...current, occasions: list });
+  await writeState(householdId, current, { ...current, occasions: list });
 }

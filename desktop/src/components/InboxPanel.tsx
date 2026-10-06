@@ -12,6 +12,7 @@ import {
   hasPendingLifeEvent,
   rejectLifeRequest,
 } from "../lib/writeCaregiverRequest";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -96,16 +97,19 @@ export function InboxPanel({
 
   const newCount = requests.filter((r) => r.status === "new").length;
 
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Inbox"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -436,7 +440,7 @@ export function InboxPanel({
                           border: `0.5px solid rgba(138,75,56,0.6)`,
                           borderRadius: 6,
                           background: "transparent",
-                          color: "#8A4B38",
+                          color: t.clayText,
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: busyId === r.id ? "wait" : "pointer",

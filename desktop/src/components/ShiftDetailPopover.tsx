@@ -4,6 +4,8 @@ import { compactTime, type Event as SbEvent, type HouseholdState } from "../stat
 import { personColor, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
 import { computePopoverPos, tailStyleFor, type PopoverPos } from "../lib/popoverPos";
+import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -74,10 +76,13 @@ export function ShiftDetailPopover({
     if (card) setPos(computePopoverPos(anchor, card.offsetWidth, card.offsetHeight));
   }, [open, anchor]);
 
+  // Pops in from its tail, fades out, Escape closes (shared with every modal).
+  const mm = useModalMotion(open, onClose);
+
   if (!open) return null;
 
   const personCol = personColor(who, palette);
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const personName = who === "G" ? selfName : who === "K" ? partnerName : daisyName;
 
   const [y, mo, d] = date.split("-").map(Number);
@@ -139,10 +144,16 @@ export function ShiftDetailPopover({
     ? { position: "fixed", left: pos!.left, top: pos!.top, width, overflow: "visible", zIndex: 1001 }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width, overflow: "visible", zIndex: 1001 };
 
+  // Pop in from the side the tail points to (centered cards grow from the middle).
+  const popIn: CSSProperties = {
+    ...mm.popover,
+    transformOrigin: anchored && pos ? `${pos.side === "right" ? "left" : "right"} ${pos.tailTop}px` : "center",
+  };
+
   // Transparent full-screen catcher: keeps click-outside-to-close, no dimming.
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000 }}>
-      <div style={wrapperStyle} onClick={(e) => e.stopPropagation()}>
+    <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
+      <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
         {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
         <div
           ref={cardRef}
@@ -205,12 +216,12 @@ export function ShiftDetailPopover({
               type="button"
               onClick={onAsk}
               style={{
-                height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${BRAND_TEAL}`,
-                background: "#D8E7E4", color: BRAND_TEAL, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
+                height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${t.tealText}`,
+                background: t.tealTint, color: t.tealText, fontFamily: BRAND_FONT, fontSize: 13, fontWeight: 600,
                 cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
               }}
             >
-              <BrandMark size={15} color={BRAND_TEAL} />
+              <BrandMark size={15} color={t.tealText} />
               Ask
             </button>
             <button type="button" onClick={onEdit} style={hairlineBtn}>Edit</button>
@@ -221,12 +232,7 @@ export function ShiftDetailPopover({
               onClick={onDelete}
               style={{ ...hairlineBtn, marginLeft: "auto", padding: 0, width: 34, minWidth: 34 }}
             >
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"
-                  stroke={CLAY} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-                />
-              </svg>
+              <RedTrash />
             </button>
           </div>
         </div>

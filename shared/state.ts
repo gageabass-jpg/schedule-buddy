@@ -50,6 +50,8 @@ export interface Override {
   date: string;
   shiftTypeId: string | null;   // null = "this day is off"
   label: string;
+  /** Free text the household should know about this day's shift. */
+  note?: string;
 }
 
 export interface PartnerShift {
@@ -385,6 +387,14 @@ export interface HouseholdMeta {
   roles: Record<string, "admin" | "partner" | "supporting">;
   inviteCode: string;
   createdBy: string;
+  /** false = don't show WVU football game days. Absent means show them (the
+   *  household they were built for); new households set it false. */
+  wvuFootball?: boolean;
+  /** false = don't show the bundled family photos; initials instead. Same
+   *  rule as wvuFootball. */
+  familyPhotos?: boolean;
+  /** false = no kids, so no childcare planning. Absent means yes. */
+  childcare?: boolean;
 }
 
 // Compact a "HH:MM" timestamp like the iOS app's compactTime: "07:00" → "7a"
@@ -563,11 +573,16 @@ export function buildShiftMap(
     const resolved = selfShiftId(state, key);
     const label = chipLabel(types, resolved.shiftTypeId);
     if (label && resolved.shiftTypeId) {
+      // A one-off day can carry a note; template days have nowhere to keep one.
+      const note = resolved.source.kind === "override"
+        ? state.overrides?.find((o) => o.date === key)?.note
+        : undefined;
       push(out, key, {
         who: "G",
         label,
         source: resolved.source,
         shiftTypeId: resolved.shiftTypeId,
+        ...(note ? { note } : {}),
         ...(employerFor("G") ? { where: employerFor("G") } : {}),
       });
     }

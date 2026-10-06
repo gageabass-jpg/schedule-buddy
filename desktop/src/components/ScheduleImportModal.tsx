@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdState, ShiftType } from "../state";
 import { compactTime, isCustomType } from "../state";
-import { findScheduleImport, type ImportTarget } from "../scheduleImports";
+import { findScheduleImport, importFor, type ImportTarget } from "../scheduleImports";
 import { writeScheduleImport, type ImportRow } from "../lib/writeScheduleImport";
 import { parseScheduleXlsx, parseTimeRange, type XlsxParseResult } from "../lib/parseScheduleXlsx";
 import { normalizeImage } from "../lib/normalizeImage";
@@ -10,10 +10,11 @@ import { muteChangeNotices, notify } from "../lib/toast";
 import { MONTHS_LONG } from "../data";
 import type { ParsedShiftRow } from "../global";
 import { BRAND_TEAL, BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
+import { RedTrash } from "./RedTrash";
+import { useHouseholdLook } from "../lib/householdLook";
 
 const CLAY = "#8A4B38";
-const TEAL_TINT = "#D8E7E4";
-const CLAY_TINT = "#EFDFDB";
 
 interface Props {
   scheduleId: string | null;
@@ -78,7 +79,9 @@ export function ScheduleImportModal({
   // The sidebar row that opened the modal fixes which schedule is being
   // imported — the person is named in the header, not re-chosen in here.
   const [activeId, setActiveId] = useState<string | null>(scheduleId);
-  const def = activeId ? findScheduleImport(activeId) : undefined;
+  const look = useHouseholdLook();
+  const found = activeId ? findScheduleImport(activeId) : undefined;
+  const def = found ? importFor(found, look) : undefined;
   const [phase, setPhase] = useState<Phase>({ kind: "upload" });
   const [image, setImage] = useState<{ dataUrl: string; base64: string; mediaType: string; name: string; size: number } | null>(null);
   /** A spreadsheet export, read locally — no model and no API key involved. */
@@ -96,6 +99,9 @@ export function ScheduleImportModal({
     setErr(null);
     window.sbm?.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
   }, [scheduleId]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(!!scheduleId, onClose);
 
   if (!scheduleId || !def) return null;
 
@@ -341,12 +347,12 @@ export function ScheduleImportModal({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1100 }} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Read from a photo"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -441,7 +447,7 @@ export function ScheduleImportModal({
         )}
 
         {err && (
-          <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: CLAY, lineHeight: 1.45 }}>{err}</div>
+          <div style={{ flexShrink: 0, padding: "0 16px", fontSize: 12, color: t.clayText, lineHeight: 1.45 }}>{err}</div>
         )}
 
         {/* Footer — the reassurance on the left, the actions on the right. */}
@@ -553,8 +559,8 @@ function ReviewPhase({
     <span
       style={{
         display: "inline-flex", alignItems: "center", height: 32, padding: "0 14px", borderRadius: 4,
-        background: tone === "ok" ? TEAL_TINT : CLAY_TINT,
-        color: tone === "ok" ? BRAND_TEAL : CLAY,
+        background: tone === "ok" ? t.tealTint : t.clayTint,
+        color: tone === "ok" ? t.tealText : t.clayText,
         whiteSpace: "nowrap",
       }}
     >
@@ -661,9 +667,9 @@ function ReviewPhase({
   );
 }
 
-function Banner({ t: _t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
+function Banner({ t, children, action }: { t: ThemeTokens; children: React.ReactNode; action?: { label: string; onClick: () => void } }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: CLAY_TINT, color: CLAY }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: t.clayTint, color: t.clayText }}>
       <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
         <path d="M12 4.5L21 19.5H3L12 4.5z" stroke={CLAY} strokeWidth={1.7} strokeLinejoin="round" />
         <path d="M12 10v4M12 16.4v.2" stroke={CLAY} strokeWidth={1.7} strokeLinecap="round" />
@@ -675,7 +681,7 @@ function Banner({ t: _t, children, action }: { t: ThemeTokens; children: React.R
           onClick={action.onClick}
           style={{
             flexShrink: 0, height: 34, padding: "0 14px", borderRadius: 4, border: `1px solid ${CLAY}`,
-            background: "transparent", color: CLAY, fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+            background: "transparent", color: t.clayText, fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
           }}
         >
           {action.label}
@@ -722,11 +728,11 @@ function ReviewRow({
             border: `1px solid ${flag === "wrong-month" ? CLAY : t.sep}`,
             background: t.bgElev, color: flag === "wrong-month" ? CLAY : t.text,
             fontFamily: "inherit", fontSize: 13.5,
-            colorScheme: t.bg === "#000" ? "dark" : "light",
+            colorScheme: t.scheme === "dark" ? "dark" : "light",
           }}
         />
         {flag === "wrong-month" && (
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: CLAY, marginTop: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: t.clayText, marginTop: 4 }}>
             IN {MONTHS_LONG[(Number(row.date.split("-")[1]) || 1) - 1].toUpperCase()}
           </div>
         )}
@@ -774,14 +780,14 @@ function ReviewRow({
         {row.skipped ? (
           <span style={{ fontSize: 12.5, color: t.text3, textDecoration: "line-through" }}>skipped</span>
         ) : flag === "ready" ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: BRAND_TEAL }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: t.tealText }}>
             <CheckIcon color={BRAND_TEAL} /> ready
           </span>
         ) : (
           <span
             style={{
               display: "inline-block", padding: "4px 8px", borderRadius: 3, border: `1px solid ${CLAY}`,
-              color: CLAY, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap",
+              color: t.clayText, fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap",
             }}
           >
             {FLAG_LABEL[flag]}
@@ -796,7 +802,7 @@ function ReviewRow({
         onClick={() => onUpdate(row.rid, { skipped: !row.skipped })}
         style={{ width: 30, height: 38, padding: 0, border: 0, background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
       >
-        <TrashIcon color={row.skipped ? BRAND_TEAL : t.text3} />
+        <RedTrash />
       </button>
     </div>
   );
@@ -834,13 +840,13 @@ function UploadPhase({
           style={{
             display: "flex", alignItems: "center", gap: 14,
             padding: "14px 16px", borderRadius: 6,
-            border: `1px dashed ${CLAY}`, background: CLAY_TINT,
+            border: `1px dashed ${t.clayText}`, background: t.clayTint,
           }}
         >
           <KeyIcon />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: CLAY }}>No API key yet</div>
-            <div style={{ fontSize: 12.5, color: CLAY, marginTop: 2, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.clayText }}>No API key yet</div>
+            <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 2, lineHeight: 1.4 }}>
               Reading a photo requires one. It is stored on this Mac only.
             </div>
           </div>
@@ -849,7 +855,7 @@ function UploadPhase({
             onClick={onNeedApiKey}
             style={{
               flexShrink: 0, height: 40, padding: "0 16px", borderRadius: 4,
-              border: `1px solid ${CLAY}`, background: "transparent", color: CLAY,
+              border: `1px solid ${CLAY}`, background: "transparent", color: t.clayText,
               fontFamily: BRAND_FONT, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
             }}
           >
@@ -1064,13 +1070,6 @@ function CheckIcon({ color }: { color: string }) {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12.5l5 5 9-11" />
-    </svg>
-  );
-}
-function TrashIcon({ color }: { color: string }) {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
     </svg>
   );
 }

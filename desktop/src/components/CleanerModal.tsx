@@ -12,6 +12,7 @@ import {
   applyCoverageRewrite, computeCoverageRewrite,
   type CoverageRewriteEntry,
 } from "../lib/rewriteCoverage";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -29,7 +30,7 @@ type Phase = "pick" | "analyzing" | "review" | "applying" | "done"
   | "rw-review" | "rw-applying";
 
 export function CleanerModal({
-  open, onClose, palette, t, dark, householdId, state, selfName, partnerName,
+  open, onClose, palette, t, dark: _dark, householdId, state, selfName, partnerName,
 }: Props) {
   const [phase, setPhase]   = useState<Phase>("pick");
   const [who, setWho]       = useState<"G" | "K">("G");
@@ -55,6 +56,9 @@ export function CleanerModal({
     setRwApprovals({});
     setDoneMsg(null);
   }, [open]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -149,7 +153,7 @@ export function CleanerModal({
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0,
+        ...mm.backdrop, position: "fixed", inset: 0,
         background: "rgba(0,0,0,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 1000,
@@ -159,10 +163,10 @@ export function CleanerModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
+        style={{ ...mm.panel, 
           width: "min(1000px, 92vw)",
           maxHeight: "85vh",
-          background: dark ? "#1C1C1E" : "#FFFFFF",
+          background: t.bgElev,
           color: t.text,
           border: `0.5px solid ${t.sep}`,
           borderRadius: 14,
@@ -281,7 +285,7 @@ export function CleanerModal({
             </div>
 
             {info && <div style={{ fontSize: 12, color: t.text2 }}>{info}</div>}
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
           </div>
         )}
 
@@ -358,7 +362,7 @@ export function CleanerModal({
               </div>
             )}
 
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>
@@ -480,7 +484,7 @@ export function CleanerModal({
               })}
             </div>
 
-            {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+            {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 12, color: t.text3 }}>

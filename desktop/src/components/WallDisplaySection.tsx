@@ -121,7 +121,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
         </button>
       </div>
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       {/* Token list */}
       {tokens === null && (
@@ -159,7 +159,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
                     fontSize: 9.5, fontWeight: 700,
                     padding: "1px 6px", borderRadius: 999,
                     background: "rgba(138,75,56,0.18)",
-                    color: "#8A4B38",
+                    color: t.clayText,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                   }}
@@ -211,7 +211,7 @@ export function WallDisplaySection({ householdId, t, palette }: Props) {
                 type="button"
                 onClick={() => onDelete(tok.token)}
                 disabled={busy}
-                style={{ ...btnStyle(t, null), color: "#8A4B38", borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}
+                style={{ ...btnStyle(t, null), color: t.clayText, borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}
               >
                 Delete
               </button>

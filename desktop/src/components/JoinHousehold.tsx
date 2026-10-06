@@ -4,7 +4,7 @@ import { doSignOut } from "../hooks/useAuth";
 import { themeTokens, getPalette } from "../theme";
 import { BrandMark } from "./BrandMark";
 
-export function JoinHousehold({ dark = true }: { dark?: boolean }) {
+export function JoinHousehold({ dark = true, onCreate }: { dark?: boolean; onCreate?: () => void }) {
   const t = themeTokens(dark);
   const palette = getPalette("modern");
   const [code, setCode] = useState("");
@@ -52,7 +52,7 @@ export function JoinHousehold({ dark = true }: { dark?: boolean }) {
         <div style={{ textAlign: "center", marginBottom: 2 }}>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>Join your household</div>
           <div style={{ fontSize: 13, color: t.text2, marginTop: 6, lineHeight: 1.45, maxWidth: 340 }}>
-            Enter the 6-character invite code from the Nucleus iOS app to link this Mac to your existing household.
+            Enter the 6-character invite code from someone already in your household, or set up a new one.
           </div>
         </div>
 
@@ -103,14 +103,29 @@ export function JoinHousehold({ dark = true }: { dark?: boolean }) {
         </form>
 
         {err && (
-          <div style={{ fontSize: 12, color: "#8A4B38", textAlign: "center", maxWidth: "100%" }}>
+          <div style={{ fontSize: 12, color: t.clayText, textAlign: "center", maxWidth: "100%" }}>
             {err}
           </div>
         )}
 
-        <div style={{ fontSize: 11, color: t.text3, textAlign: "center", marginTop: 6, lineHeight: 1.5, maxWidth: 320 }}>
-          Don't have a code yet? Open Nucleus on iOS — the invite code is in your household settings.
-        </div>
+        {onCreate && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", color: t.text3, fontSize: 11, letterSpacing: "0.08em" }}>
+              <span style={{ flex: 1, height: 1, background: t.sep }} />OR<span style={{ flex: 1, height: 1, background: t.sep }} />
+            </div>
+            <button
+              type="button"
+              onClick={onCreate}
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${t.sep}`,
+                background: "transparent", color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit", letterSpacing: "-0.01em",
+              }}
+            >
+              Set up a new household
+            </button>
+          </>
+        )}
 
         <button
           type="button"

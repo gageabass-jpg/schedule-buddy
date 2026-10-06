@@ -1,6 +1,6 @@
 // Nucleus service worker — enables offline + installability.
 // Strategy: never cache HTML (always network); cache static assets.
-const CACHE_NAME = 'nucleus-v9-rebrand';
+const CACHE_NAME = 'nucleus-v10-model';
 const PRECACHE = [
   '/manifest.json',
   '/icons/icon-192.png',
@@ -26,6 +26,18 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  // The code under /js/ is built with the page and must match it: network
+  // first, kept in the cache only for offline.
+  if (url.pathname.startsWith('/js/')) {
+    e.respondWith(fetch(e.request).then(resp => {
+      if (resp.ok) {
+        const copy = resp.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+      }
+      return resp;
+    }).catch(() => caches.match(e.request)));
+    return;
+  }
   // Always network for HTML — keep deploys live, never serve stale shell.
   if (e.request.mode === 'navigate' ||
       url.pathname === '/' ||

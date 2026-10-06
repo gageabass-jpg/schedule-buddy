@@ -12,9 +12,9 @@ export type HouseholdRole = "admin" | "partner" | "supporting";
 
 /**
  * Resolve an invite code to a household and add the current user as a member,
- * applying the role baked into the invite code (Phase 2: "supporting" codes
- * land caregivers like Daisy directly in that role; existing
- * "contributing"-flavored or legacy codes default to "partner").
+ * applying the role baked into the invite code ("supporting" codes land
+ * caregivers like Daisy directly in that role; "contributing" or legacy codes
+ * without a role make a partner).
  *
  * Steps (mirrors BRIDGE.md §3.1 and §3.5):
  *   1. read inviteCodes/{code} → { householdId, role? }
@@ -25,7 +25,6 @@ export type HouseholdRole = "admin" | "partner" | "supporting";
  */
 export async function joinHousehold(
   rawCode: string,
-  fallbackRole: HouseholdRole = "partner",
 ): Promise<{ householdId: string; role: HouseholdRole }> {
   const code = rawCode.trim().toUpperCase();
   if (!/^[A-Z2-9]{6}$/.test(code)) {
@@ -54,19 +53,21 @@ export async function joinHousehold(
     throw new JoinHouseholdError("Invite code is missing a household reference.");
   }
   const codeRole = data?.role;
-  const role: HouseholdRole =
-    codeRole === "supporting" ? "supporting" :
-    codeRole === "contributing" ? "partner" :
-    fallbackRole;
+  // The code decides the role — the security rules accept no other: a
+  // "supporting" code makes a caregiver, anything else (or none) a partner.
+  const role: HouseholdRole = codeRole === "supporting" ? "supporting" : "partner";
 
   // 2. Add self to the household
   const displayName = user.displayName || user.email || "Member";
   const householdRef = doc(db, "households", householdId);
   try {
+    // joinCode names the invite: the security rules only let someone add
+    // themselves with a real code for this household, in the code's role.
     await updateDoc(householdRef, {
       memberUids: arrayUnion(user.uid),
       [`memberNames.${user.uid}`]: displayName,
       [`roles.${user.uid}`]: role,
+      joinCode: code,
     });
   } catch (e) {
     throw new JoinHouseholdError("Couldn't join the household. The code may be valid but the household no longer exists.", e);

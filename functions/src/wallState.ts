@@ -16,6 +16,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
+import { readLegacyState } from "./householdState";
 
 interface WallTokenDoc {
   householdId: string;
@@ -278,13 +279,12 @@ export const getWallState = onRequest(
     const memberNames: Record<string, string> = hhData.memberNames ?? {};
 
     // Load state.
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    if (!stateSnap.exists) {
+    const loaded = await readLegacyState(householdId);
+    if (!loaded) {
       res.status(404).json({ error: "state not initialized" });
       return;
     }
-    const state = stateSnap.data() as Record<string, unknown>;
+    const state = loaded as unknown as Record<string, unknown>;
 
     // ── Build trimmed payload ─────────────────────────────────────────
     const today = todayIso();

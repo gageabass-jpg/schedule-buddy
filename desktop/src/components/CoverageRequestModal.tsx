@@ -5,6 +5,7 @@ import { hmToMin, daisyCoverageConflict, type OverlapCandidate, type MinuteRange
 import { addCoverageRequests, type CoverageRequestInput } from "../lib/writeCoverageRequest";
 import { pendingCoverageNeeds } from "../lib/pendingCoverageNeeds";
 import { timelineForDate, parentShiftStarts } from "../lib/timelineData";
+import { useModalMotion } from "../lib/modalMotion";
 
 interface Props {
   open: boolean;
@@ -75,8 +76,8 @@ export function CoverageRequestModal({
   }, [open, state, today]);
 
   const selfName = state?.selfName || "You";
-  const partnerName = state?.partner?.name || "Kaylene";
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const partnerName = state?.partner?.name || "Partner";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
 
   // Per-parent availability by date — depends only on the schedule, not on the
   // per-row time edits, so it doesn't rebuild on every keystroke.
@@ -92,6 +93,9 @@ export function CoverageRequestModal({
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, datesKey]);
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
 
@@ -154,10 +158,10 @@ export function CoverageRequestModal({
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
+      <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }} />
       <div
         role="dialog" aria-modal="true" aria-label="Send to caregiver"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           width: "min(780px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)",
           background: dark ? t.bgElev : "#F7F6F3", color: t.text,
@@ -183,10 +187,10 @@ export function CoverageRequestModal({
         {/* What the caregiver's own timetable does to this batch. */}
         {withClash.length > 0 && (
           <div style={{ margin: "0 26px 14px", padding: "12px 14px", borderRadius: 6, background: dark ? rgba("#8A4B38", 0.16) : "#EFDFDB", border: `1px dashed ${rgba("#8A4B38", 0.5)}`, flexShrink: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A4B38" }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: t.clayText }}>
               ⚠ {countWord(withClash.length).replace(/^./, (c) => c.toUpperCase())} of these run into her class time
             </div>
-            <div style={{ fontSize: 12.5, color: "#8A4B38", marginTop: 3, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 3, lineHeight: 1.45 }}>
               Some requested shifts overlap with {daisyName}&rsquo;s class schedule. Review who&rsquo;s home and your scheduled hours to determine a course of action.
             </div>
           </div>
@@ -232,7 +236,7 @@ export function CoverageRequestModal({
                   <div style={{ fontFamily: BRAND_FONT, fontSize: 15, fontWeight: 600, color: t.text }}>
                     {hm12(hmToMin(r.startTime))} – {hm12(hmToMin(r.endTime, r.endsNextDay))}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#8A4B38", marginTop: 3 }}>⚠ {daisyName} has class</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: t.clayText, marginTop: 3 }}>⚠ {daisyName} has class</div>
                 </div>
                 <div style={{ width: 44, textAlign: "right", fontSize: 14, fontWeight: 700, color: t.text2, flexShrink: 0 }}>
                   {durationHours(r.startTime, r.endTime, r.endsNextDay)}h
@@ -297,7 +301,7 @@ export function CoverageRequestModal({
           />
         </div>
 
-        {err && <div style={{ fontSize: 12, color: "#8A4B38", padding: "8px 28px 0" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText, padding: "8px 28px 0" }}>{err}</div>}
 
         {/* Footer */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 26px 20px", borderTop: `1px solid ${t.sep}`, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", flexShrink: 0 }}>
@@ -409,7 +413,7 @@ function Tick({ checked, onChange }: { checked: boolean; onChange: (v: boolean) 
 function DateBlock({ month, day, weekday, t }: { month: string; day: number; weekday: string; t: ThemeTokens }) {
   return (
     <div style={{ width: 46, textAlign: "center", flexShrink: 0 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "#8A4B38" }}>{month}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: t.clayText }}>{month}</div>
       <div style={{ fontFamily: BRAND_FONT, fontSize: 24, fontWeight: 700, color: t.text, lineHeight: 1.05 }}>{day}</div>
       <div style={{ fontSize: 10.5, color: t.text3 }}>{weekday}</div>
     </div>

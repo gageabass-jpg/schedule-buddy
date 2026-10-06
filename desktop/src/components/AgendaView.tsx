@@ -9,6 +9,7 @@ import { WEEKDAYS_3 } from "../data";
 import { compactTime, type HouseholdState, type ShiftType, type Event as SbEvent } from "../state";
 import { rgba, type Palette, type ThemeTokens } from "../theme";
 import type { EventMap } from "../App";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   palette: Palette;
@@ -37,13 +38,14 @@ function addDays(d: Date, n: number): Date { const x = new Date(d); x.setDate(x.
 function weekStart(d: Date): string { return iso(addDays(d, -d.getDay())); }
 
 export function AgendaView({ palette, t, dark: _dark, shifts, state, today, selfName, partnerName, eventsByDate, onSelectDate, onEditEvent }: Props) {
+  const look = useHouseholdLook();
   const types = useMemo(() => {
     const m: Record<string, ShiftType> = {};
     for (const st of state?.shiftTypes || []) m[st.id] = st;
     return m;
   }, [state?.shiftTypes]);
 
-  const daisyName = state?.dependents?.daisy?.name || "Daisy";
+  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
   const nameFor: Record<string, string> = { G: selfName, K: partnerName, D: daisyName };
   const colorFor: Record<string, string> = { G: palette.G, K: palette.K, D: "#0F6E64" };
 
@@ -86,7 +88,7 @@ export function AgendaView({ palette, t, dark: _dark, shifts, state, today, self
     const isToday = key === today;
     const isOff = dayShifts.length === 0;
     const title = isOff
-      ? "Both off"
+      ? (look.hasPartner ? "Both off" : "Day off")
       : gW && kW ? "Both working"
         : [...whos].map((w) => nameFor[w] || w).join(" & ") + " working";
     const events = eventsByDate[key] || [];

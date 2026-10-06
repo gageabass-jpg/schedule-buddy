@@ -67,7 +67,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
         >
           {busy ? "Working…" : "Create read-only link"}
         </button>
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         <div style={{ fontSize: 11, color: t.text3, lineHeight: 1.5 }}>
           Anyone with the link sees a read-only calendar — shifts and event titles only.
           No chat, coverage, health, or account info. Revoke any time.
@@ -105,7 +105,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
       {linkBox("web", "Web link", L.web)}
       {linkBox("ics", "Calendar subscription (ICS)", L.ics)}
 
-      {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
       <div style={{ display: "flex", gap: 6 }}>
         <button type="button" disabled={busy}
@@ -113,7 +113,7 @@ export function ShareLinkSection({ householdId, state, t, palette }: Props) {
           style={btnStyle(t, null)}>Rotate link</button>
         <button type="button" disabled={busy}
           onClick={() => { if (confirm("Turn off sharing and revoke the link?")) run(() => disablePublicShare(householdId!), "turn off sharing"); }}
-          style={{ ...btnStyle(t, null), color: "#8A4B38", borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}>
+          style={{ ...btnStyle(t, null), color: t.clayText, borderColor: "rgba(138,75,56,0.45)", marginLeft: "auto" }}>
           Turn off &amp; revoke
         </button>
       </div>

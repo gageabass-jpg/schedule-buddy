@@ -5,12 +5,14 @@ import { compactTime } from "../state";
 import type { ShiftSource } from "../data";
 import { editShift } from "../lib/writeShift";
 import { BRAND_FONT } from "./BrandMark";
+import { useModalMotion } from "../lib/modalMotion";
 
 export interface EditShiftTarget {
   date: string;
   source: ShiftSource;
   initialShiftTypeId: string;
-  initialLabel: string;
+  /** The shift's current note, so the field opens showing it. */
+  initialNote: string;
   /** "self" or "partner" — for display only. */
   who: "G" | "K";
 }
@@ -28,7 +30,7 @@ interface Props {
 export function EditShiftModal({ target, onClose, palette, t, dark, householdId, state }: Props) {
   const open = !!target;
   const [shiftTypeId, setShiftTypeId] = useState<string>(target?.initialShiftTypeId ?? "");
-  const [label, setLabel] = useState<string>(target?.initialLabel ?? "");
+  const [note, setNote] = useState<string>(target?.initialNote ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -37,9 +39,12 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
   if (key !== lastKey) {
     setLastKey(key);
     setShiftTypeId(target?.initialShiftTypeId ?? "");
-    setLabel(target?.initialLabel ?? "");
+    setNote(target?.initialNote ?? "");
     setErr(null);
   }
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open || !target) return null;
 
@@ -56,7 +61,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
     setErr(null);
     setBusy(true);
     try {
-      await editShift(householdId, target.date, target.source, { shiftTypeId, label });
+      await editShift(householdId, target.date, target.source, { shiftTypeId, note });
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the change.");
@@ -77,13 +82,13 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Edit shift"
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -119,11 +124,12 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
             </select>
           </Field>
 
-          <Field label="Label (optional)" t={t}>
+          <Field label="Note (optional)" t={t}>
             <input
               type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Anything the household should know"
               style={inputStyle(t)}
             />
           </Field>
@@ -131,7 +137,7 @@ export function EditShiftModal({ target, onClose, palette, t, dark, householdId,
           {sourceLabel && (
             <div style={{ fontSize: 11.5, color: t.text3, lineHeight: 1.45 }}>{sourceLabel}</div>
           )}
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
             <button type="button" onClick={onClose} style={secondaryBtn(t)} disabled={busy}>
@@ -161,7 +167,7 @@ function Field({ label, t, children }: { label: string; t: ThemeTokens; children
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -169,12 +175,12 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     fontFamily: "inherit",
     letterSpacing: "-0.01em",
     outline: "none",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
 function selectStyle(t: ThemeTokens): React.CSSProperties {
-  const stroke = "%23" + (t.bg === "#000" ? "8E8E93" : "6E6E73");
+  const stroke = "%23" + (t.scheme === "dark" ? "8E8E93" : "6E6E73");
   const chevron =
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>")`;
   return {

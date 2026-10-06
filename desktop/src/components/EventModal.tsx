@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
 import type { Event, EventWho, HouseholdState } from "../state";
 import { addEvent, addEvents, updateEvent, deleteEvent, deleteSeries } from "../lib/writeEvent";
+import { useModalMotion } from "../lib/modalMotion";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface Props {
   open: boolean;
@@ -30,6 +32,7 @@ const PEOPLE: Array<{ value: EventWho; label: string }> = [
 export function EventModal({
   open, onClose, palette, t, dark, householdId, state, defaultDate, editing, prefill, onSaved,
 }: Props) {
+  const look = useHouseholdLook();
   const isEdit = !!editing;
   // For a new event, `prefill` seeds the fields; `editing` always wins if present.
   const seed = editing ?? prefill ?? null;
@@ -64,6 +67,9 @@ export function EventModal({
     setUntilWeekly("");
     setErr(null);
   }
+
+  // Fade and rise in, sink out, Escape to close (shared with every modal).
+  const mm = useModalMotion(open, onClose);
 
   if (!open) return null;
   void state;
@@ -143,13 +149,13 @@ export function EventModal({
     <>
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
+        style={{ ...mm.backdrop, position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100 }}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? "Edit life item" : "New life item"}
-        style={{
+        style={{ ...mm.panel, 
           position: "fixed",
           top: "50%",
           left: "50%",
@@ -272,7 +278,7 @@ export function EventModal({
 
           <Field label="For" t={t}>
             <div style={{ display: "flex", gap: 4, padding: 2, background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)", borderRadius: 8 }}>
-              {PEOPLE.map((p) => {
+              {PEOPLE.filter((p) => (p.value === "K" ? look.hasPartner : p.value === "Daisy" ? look.hasCaregiver : true)).map((p) => {
                 const active = who === p.value;
                 return (
                   <button
@@ -344,7 +350,7 @@ export function EventModal({
             </div>
           )}
 
-          {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+          {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
             {isEdit && editing?.seriesId && (
@@ -399,7 +405,7 @@ function Subhead({ t, children }: { t: ThemeTokens; children: React.ReactNode })
 function inputStyle(t: ThemeTokens): React.CSSProperties {
   return {
     padding: "9px 12px",
-    background: t.bg === "#000" ? "#000" : t.bg,
+    background: t.bg,
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     color: t.text,
@@ -408,7 +414,7 @@ function inputStyle(t: ThemeTokens): React.CSSProperties {
     letterSpacing: "-0.01em",
     outline: "none",
     width: "100%",
-    colorScheme: t.bg === "#000" ? "dark" : "light",
+    colorScheme: t.scheme === "dark" ? "dark" : "light",
   };
 }
 
@@ -449,7 +455,7 @@ function dangerBtn(t: ThemeTokens, _solid = false): React.CSSProperties {
     border: `0.5px solid ${t.sep}`,
     borderRadius: 8,
     background: "transparent",
-    color: "#8A4B38",
+    color: t.clayText,
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",

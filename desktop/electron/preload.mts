@@ -28,6 +28,14 @@ export interface ParseScheduleResult {
 
 const api = {
   hasApiKey: (): Promise<boolean> => ipcRenderer.invoke("key:has"),
+  /** "darwin", "win32" or "linux". The renderer uses it for window chrome and
+   *  shortcut labels (⌘K on a Mac, Ctrl+K elsewhere). */
+  platform: process.platform,
+  /** Windows: open the app menu (File, Edit, View…) under the top bar's menu
+   *  button, since a hidden title bar has no menu bar. x, y in window pixels. */
+  showAppMenu: (x: number, y: number): void => ipcRenderer.send("menu:popup", x, y),
+  /** Tell the main process the app's effective theme, so the Dock icon matches. */
+  setAppearance: (dark: boolean): void => ipcRenderer.send("appearance:set", dark),
   setApiKey: (key: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("key:set", key),
   clearApiKey: (): Promise<void> => ipcRenderer.invoke("key:clear"),
@@ -69,7 +77,7 @@ const api = {
     ipcRenderer.on("menu:edit-template", handler);
     return () => ipcRenderer.removeListener("menu:edit-template", handler);
   },
-  /** Fires when the user picks "Coverage Requests" from the View menu. */
+  /** Fires when the user picks "Childcare Matrix" from the View menu. */
   onMenuOpenCoverageRequests: (cb: () => void): (() => void) => {
     const handler = (): void => cb();
     ipcRenderer.on("menu:open-coverage-requests", handler);

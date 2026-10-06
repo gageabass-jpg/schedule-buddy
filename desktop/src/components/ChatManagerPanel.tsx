@@ -3,6 +3,7 @@ import type { Palette, ThemeTokens } from "../theme";
 import type { HouseholdMeta } from "../state";
 import { auth } from "../firebase";
 import { ChatError, sendManagerMessage } from "../lib/chat";
+import { shortcut } from "../lib/platform";
 
 interface Props {
   open: boolean;
@@ -192,7 +193,7 @@ export function ChatManagerPanel({
             minHeight: 92,
           }}
         />
-        {err && <div style={{ fontSize: 12, color: "#8A4B38" }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: t.clayText }}>{err}</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 11, color: t.text3, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {sentFlash ? "Sent ✓" : `Recipients get: "You have a new In-Basket Message"`}
@@ -201,7 +202,7 @@ export function ChatManagerPanel({
             type="button"
             onClick={onSend}
             disabled={sending || !draft.trim()}
-            title="Send (⌘↩)"
+            title={`Send (${shortcut("↩")})`}
             style={{
               padding: "7px 18px",
               borderRadius: 8,

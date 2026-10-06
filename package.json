@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "node scripts/contract-check.mjs",
-    "check:contract": "node scripts/contract-check.mjs"
+    "check:contract": "node scripts/contract-check.mjs",
+    "build:phone-model": "esbuild shared/phone.ts --bundle --format=iife --global-name=NucleusModel --target=es2019 --outfile=public/js/nucleus-model.js --log-level=warning",
+    "test:rules": "npm run build:phone-model && npm --prefix functions run build && PATH=\"/opt/homebrew/opt/openjdk/bin:$PATH\" firebase emulators:exec --only firestore --project nucleus-rules-test \"node --test tests/*.test.mjs\""
   },
   "keywords": [],
   "author": "",
@@ -24,5 +26,9 @@
     "@capacitor/splash-screen": "^8.0.1",
     "firebase": "^12.12.0",
     "firebase-admin": "^13.8.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "esbuild": "^0.25.12"
   }
 }

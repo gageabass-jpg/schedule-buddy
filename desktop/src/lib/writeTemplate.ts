@@ -1,6 +1,5 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { HouseholdState, PersonWeeklyTemplate } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteTemplateError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -31,11 +30,9 @@ export async function saveWeeklyTemplates(
       throw new WriteTemplateError("Each template must have exactly 7 entries (Sun..Sat).");
     }
   }
-  const ref = doc(db, "households", householdId, "state", "main");
   let current: HouseholdState | null;
   try {
-    const snap = await getDoc(ref);
-    current = snap.exists() ? (snap.data() as HouseholdState) : null;
+    current = await readHouseholdState(householdId);
   } catch (e) {
     throw new WriteTemplateError("Couldn't read the household schedule.", e);
   }
@@ -59,7 +56,7 @@ export async function saveWeeklyTemplates(
   else delete next.weeklyTemplates;
 
   try {
-    await setDoc(ref, next);
+    await writeHouseholdState(householdId, current, next);
   } catch (e) {
     throw new WriteTemplateError("Couldn't save the template. Check your connection and try again.", e);
   }

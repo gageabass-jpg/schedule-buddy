@@ -2,9 +2,9 @@
 // render as red diagonal stripes on calendar cells. Drawn from the
 // Inspector's Utilities → Schedule Block tool.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type { HouseholdState, ScheduleBlock } from "../state";
+import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class WriteScheduleBlockError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -33,17 +33,15 @@ function genBlockId(): string {
 }
 
 async function readState(householdId: string): Promise<HouseholdState> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  let snap;
-  try { snap = await getDoc(ref); }
+  let state: HouseholdState | null;
+  try { state = await readHouseholdState(householdId); }
   catch (e) { throw new WriteScheduleBlockError("Couldn't read household state.", e); }
-  if (!snap.exists()) throw new WriteScheduleBlockError("State document doesn't exist yet.");
-  return snap.data() as HouseholdState;
+  if (!state) throw new WriteScheduleBlockError("State document doesn't exist yet.");
+  return state;
 }
 
-async function writeState(householdId: string, next: HouseholdState): Promise<void> {
-  const ref = doc(db, "households", householdId, "state", "main");
-  try { await setDoc(ref, next); }
+async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
+  try { await writeHouseholdState(householdId, base, next); }
   catch (e) { throw new WriteScheduleBlockError("Couldn't save the schedule block.", e); }
 }
 
@@ -61,7 +59,7 @@ export async function addScheduleBlock(householdId: string, input: ScheduleBlock
   };
   if (input.label?.trim()) block.label = input.label.trim();
   if (input.notes?.trim()) block.notes = input.notes.trim();
-  await writeState(householdId, {
+  await writeState(householdId, current, {
     ...current,
     scheduleBlocks: [...(current.scheduleBlocks ?? []), block],
   });
@@ -71,7 +69,7 @@ export async function addScheduleBlock(householdId: string, input: ScheduleBlock
 export async function removeScheduleBlock(householdId: string, id: string): Promise<void> {
   const current = await readState(householdId);
   const list = (current.scheduleBlocks ?? []).filter((b) => b.id !== id);
-  await writeState(householdId, { ...current, scheduleBlocks: list });
+  await writeState(householdId, current, { ...current, scheduleBlocks: list });
 }
 
 /** Returns the first schedule block (if any) that contains the given date. */

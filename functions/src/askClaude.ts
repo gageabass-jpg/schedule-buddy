@@ -32,7 +32,9 @@ import {
   type ShiftType, type Event as SbEvent, type ChildcareOffDay,
 } from "./shared/state";
 import { dayKindFromShifts, type ShiftMap } from "./shared/schedule";
+import { holidayOn } from "./shared/holidays";
 import { computeOverlapCandidates, parentDaySegments } from "./shared/computeOverlap";
+import { editLegacyState, readLegacyState } from "./householdState";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
@@ -58,7 +60,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     name: "summarize_period",
     description:
       "Get a compact summary of what's scheduled (shifts, OT, events) in " +
-      "a date range. Use for read-only questions like \"what's my week look like?\".",
+      "a date range, with each day's federal holiday if it's one. Use for read-only " +
+      "questions like \"what's my week look like?\" or \"am I working any holidays?\".",
     input_schema: {
       type: "object",
       properties: {
@@ -115,9 +118,34 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "list_coverage_requests",
     description:
-      "Childcare cover asked of caregivers, and where each one stands " +
-      "(pending, confirmed, declined). Use before offering to ask again.",
+      "Childcare cover asked of the caregiver (Daisy): each request's id, date, " +
+      "coverage window (start/end, arrive-by) and where it stands (pending, " +
+      "confirmed, declined, issue). These are \"Daisy's coverage windows\". " +
+      "Use before offering to ask again, and before update_coverage_request.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "update_coverage_request",
+    description:
+      "Change the window of a childcare coverage request already asked of " +
+      "Daisy: when she starts or stops covering, the arrive-by time, or the " +
+      "notes. Use for \"move Daisy's coverage on the 28th to start at 2\", " +
+      "\"she can't come till 2 on Monday\", \"push her coverage to 6\". One " +
+      "call per date. Pass only the fields that change. If the date has more " +
+      "than one request, pass the id from list_coverage_requests. Daisy sees " +
+      "the change on her schedule; a confirmed request stays confirmed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date:      { type: "string", description: "The request's date, YYYY-MM-DD." },
+        id:        { type: "string", description: "Only when the date has more than one request." },
+        startTime: { type: "string", description: "New start, HH:MM 24-hour (e.g. \"14:00\")." },
+        endTime:   { type: "string", description: "New end, HH:MM 24-hour. Earlier than start means it ends the next day." },
+        arriveBy:  { type: "string", description: "New arrive-by time HH:MM, or \"\" to clear it." },
+        notes:     { type: "string", description: "New notes for Daisy, or \"\" to clear them." },
+      },
+      required: ["date"],
+    },
   },
   {
     name: "get_household",
@@ -148,7 +176,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string", description: "YYYY-MM-DD" },
         action:      { type: "string", enum: ["work", "off"] },
         shiftTypeId: { type: "string", description: "Required when action=work." },
-        label:       { type: "string", description: "Short note shown on the calendar." },
+        label:       { type: "string", description: "Internal label; not shown. Use note for anything the household should see." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "action"],
     },
@@ -174,6 +203,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         shiftTypeId: { type: "string" },
         label:       { type: "string" },
         coworkers:   { type: "string", description: "Optional, free-text who else is on." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "shiftTypeId"],
     },
@@ -196,6 +226,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string" },
         shiftTypeId: { type: "string" },
         label:       { type: "string" },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "shiftTypeId"],
     },
@@ -240,6 +271,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         date:        { type: "string", description: "YYYY-MM-DD" },
         label:       { type: "string", description: "e.g. \"class\", \"half day\", \"no school\"" },
         shiftTypeId: { type: "string", description: "Optional — only if a catalog type matches her hours." },
+        note:        { type: "string", description: "Optional note the household sees on this shift (e.g. \"covering for Sam\", \"bring badge\"). Put anything the user wants noted here, not in label." },
       },
       required: ["date", "label"],
     },
@@ -337,6 +369,104 @@ function datesInRange(from: string, to: string): string[] {
 interface ExecCtx {
   householdId: string;
   uid: string;
+  /** What the user asked, kept on the undo record so it can say what it undoes. */
+  userMessage: string;
+  /** This reply's undo record, filled in by commit() as writes land. */
+  change: ChangeRecord;
+  /** Writes in one reply run one at a time. Claude can issue two in the same
+   *  turn (both halves of a move), and in parallel they would each build the
+   *  undo record from the same starting copy and drop the other's fields. */
+  writeQueue: Promise<unknown>;
+}
+
+// ───────────────── Writes: transactional, with an undo record ────────────
+// Every write tool goes through commit(). It re-reads state/main inside a
+// transaction and builds the change from that fresh copy, so an edit saved on
+// a phone between nucleusAI reading the schedule and writing it is kept
+// rather than overwritten; Firestore retries the transaction if the document
+// moves under it. In the same transaction it records what each touched
+// top-level field held before and after, in one nucleusChanges doc per reply,
+// which is what undoNucleusChange restores from. A reply that moves a shift
+// (two writes) is therefore undone as one.
+
+interface ChangeRecord {
+  id: string;
+  tools: string[];
+  /** Field → value before this reply first touched it (null = absent). */
+  before: Record<string, unknown>;
+  /** Field → value this reply last wrote. Undo only proceeds while these still match. */
+  after: Record<string, unknown>;
+}
+
+function newChangeRecord(householdId: string): ChangeRecord {
+  const id = getFirestore().collection("households").doc(householdId)
+    .collection("nucleusChanges").doc().id;
+  return { id, tools: [], before: {}, after: {} };
+}
+
+/** Deep copy that turns undefined into null, as Firestore will store it. */
+function plain(v: unknown): unknown {
+  return v === undefined ? null : JSON.parse(JSON.stringify(v));
+}
+
+/** What a write tool decides from the fresh document: its reply to Claude,
+ *  and the fields to write (none when there's nothing to change). */
+type Built = { result: unknown; patch?: Partial<HouseholdState> };
+
+function commit(
+  ctx: ExecCtx,
+  tool: string,
+  build: (fresh: HouseholdState) => Built,
+): Promise<unknown> {
+  const run = ctx.writeQueue.then(() => commitNow(ctx, tool, build));
+  ctx.writeQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function commitNow(
+  ctx: ExecCtx,
+  tool: string,
+  build: (fresh: HouseholdState) => Built,
+): Promise<unknown> {
+  const changePath = `households/${ctx.householdId}/nucleusChanges/${ctx.change.id}`;
+
+  type Out =
+    | { result: unknown; wrote: false }
+    | { result: unknown; wrote: true; before: Record<string, unknown>; after: Record<string, unknown>; tools: string[] };
+  const out = await editLegacyState<Out>(ctx.householdId, ctx.uid, (fresh) => {
+    const { result, patch } = build(fresh);
+    if (!patch) return { result: { result, wrote: false } };
+
+    // Worked on copies: the transaction may run more than once.
+    const before = { ...ctx.change.before };
+    const after = { ...ctx.change.after };
+    for (const key of Object.keys(patch)) {
+      if (!(key in before)) before[key] = plain((fresh as unknown as Record<string, unknown>)[key]);
+      after[key] = plain((patch as Record<string, unknown>)[key]);
+    }
+    const tools = [...ctx.change.tools, tool];
+
+    return {
+      result: { result, wrote: true, before, after, tools },
+      next: { ...fresh, ...patch },
+      also: [{
+        op: "set", path: changePath, data: {
+          uid: ctx.uid,
+          userMessage: ctx.userMessage.slice(0, 500),
+          tools, before, after,
+          undone: false,
+          at: FieldValue.serverTimestamp(),
+        },
+      }],
+    };
+  });
+
+  if (out.wrote) {
+    ctx.change.before = out.before;
+    ctx.change.after = out.after;
+    ctx.change.tools = out.tools;
+  }
+  return out.result;
 }
 
 async function execTool(
@@ -344,11 +474,7 @@ async function execTool(
   input: Record<string, unknown>,
   ctx: ExecCtx,
 ): Promise<unknown> {
-  const db = getFirestore();
-  const ref = db.collection("households").doc(ctx.householdId)
-    .collection("state").doc("main");
-  const snap = await ref.get();
-  const state = (snap.data() ?? {}) as HouseholdState;
+  const state = ((await readLegacyState(ctx.householdId)) ?? {}) as HouseholdState;
   // A template slot can hold an inline custom time rather than a catalog id.
   // The app expands those into synthetic shift types before it renders; without
   // the same step the day has no resolvable type and silently disappears —
@@ -436,11 +562,59 @@ async function execTool(
 
     case "list_coverage_requests":
       return (state.coverageRequests ?? []).map((r) => ({
-        date: r.date, status: r.status,
+        id: r.id, date: r.date, status: r.status,
         startTime: r.startTime ?? null, endTime: r.endTime ?? null,
+        endsNextDay: !!r.endsNextDay,
+        arriveBy: r.arriveBy ?? null,
         notes: r.notes ?? null,
+        caregiverNote: r.caregiverNote ?? null,
         caregiver: r.caregiverUid ?? null,
       }));
+
+    case "update_coverage_request": {
+      const date = String(input.date ?? "");
+      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+      const has = (k: string) => typeof input[k] === "string";
+      for (const k of ["startTime", "endTime"]) {
+        if (has(k) && !hhmm.test(String(input[k]))) return { error: `${k} must be HH:MM (24-hour).` };
+      }
+      if (has("arriveBy") && input.arriveBy !== "" && !hhmm.test(String(input.arriveBy))) {
+        return { error: "arriveBy must be HH:MM (24-hour), or \"\" to clear it." };
+      }
+      if (!["startTime", "endTime", "arriveBy", "notes"].some(has)) {
+        return { error: "Nothing to change. Pass startTime, endTime, arriveBy or notes." };
+      }
+      return commit(ctx, name, (fresh) => {
+        const list = [...(fresh.coverageRequests ?? [])];
+        const onDate = list.filter((r) => r.date === date && (!input.id || r.id === String(input.id)));
+        if (onDate.length === 0) return { result: { error: `No coverage request on ${date}${input.id ? " with that id" : ""}.` } };
+        if (onDate.length > 1) {
+          return { result: { error: `${date} has ${onDate.length} requests; pass the id.`, requests: onDate.map((r) => ({ id: r.id, startTime: r.startTime, endTime: r.endTime, status: r.status })) } };
+        }
+        const cur = onDate[0];
+        const next = { ...cur };
+        if (has("startTime")) next.startTime = String(input.startTime);
+        if (has("endTime")) next.endTime = String(input.endTime);
+        if (has("startTime") || has("endTime")) {
+          if (next.endTime <= next.startTime) next.endsNextDay = true;
+          else delete next.endsNextDay;
+        }
+        if (has("arriveBy")) {
+          if (input.arriveBy) next.arriveBy = String(input.arriveBy); else delete next.arriveBy;
+        }
+        if (has("notes")) {
+          const n = String(input.notes).trim();
+          if (n) next.notes = n; else delete next.notes;
+        }
+        list[list.indexOf(cur)] = next;
+        const result = {
+          ok: true, date, status: next.status,
+          before: { startTime: cur.startTime, endTime: cur.endTime, arriveBy: cur.arriveBy ?? null },
+          after: { startTime: next.startTime, endTime: next.endTime, arriveBy: next.arriveBy ?? null },
+        };
+        return { result, patch: { coverageRequests: list } };
+      });
+    }
 
     case "get_household":
       return {
@@ -492,21 +666,26 @@ async function execTool(
         return {
           date,
           gage: self.shiftTypeId
-            ? { shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source.kind }
+            ? {
+                shift: stName(self.shiftTypeId), shiftTypeId: self.shiftTypeId, source: self.source.kind,
+                note: self.source.kind === "override" ? ((state.overrides ?? []).find((x) => x.date === date)?.note ?? null) : null,
+              }
             : (self.source.kind === "override" ? "off (override set)" : "off"),
-          kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId } : "off",
-          ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId } : null,
+          kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId, note: k.note ?? null } : "off",
+          ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId, note: o.note ?? null } : null,
           daisy: (() => {
             const hers = (rendered[date] ?? []).filter((x) => x.who === "D");
             if (hers.length === 0) return "no class listed";
             return hers.map((x) => ({
               school: x.shiftTypeId ? stName(x.shiftTypeId) : (x.label || "class"),
               label: x.label,
+              note: x.note ?? null,
               recurring: x.source === undefined,
             }));
           })(),
           events: events.filter((e) => e.date === date).map((e) => e.title),
           noChildcare: childcareOff.some((c) => c.date === date),
+          federalHoliday: holidayOn(date)?.name ?? null,
         };
       });
       return { from, to, days, shiftTypeCount: (state.shiftTypes ?? []).length };
@@ -514,67 +693,82 @@ async function execTool(
 
     case "add_override": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       const action = input.action === "off" ? "off" : "work";
-      const shiftTypeId = action === "work"
-        ? findShiftTypeId(state, String(input.shiftTypeId ?? ""))
-        : null;
-      if (action === "work" && !shiftTypeId) {
-        return { error: `Unknown shift type "${input.shiftTypeId}". Call list_shift_types first.` };
-      }
-      const label = String(input.label ?? (action === "off" ? "Day off" : ""));
-      const overrides = (state.overrides ?? []).filter((o) => o.date !== date);
-      overrides.push({ date, shiftTypeId, label });
-      await ref.set({ ...state, overrides });
-      return { ok: true, date, action, shiftTypeId, label };
+      return commit(ctx, name, (fresh) => {
+        const shiftTypeId = action === "work"
+          ? findShiftTypeId(fresh, String(input.shiftTypeId ?? ""))
+          : null;
+        if (action === "work" && !shiftTypeId) {
+          return { result: { error: `Unknown shift type "${input.shiftTypeId}". Call list_shift_types first.` } };
+        }
+        const label = String(input.label ?? (action === "off" ? "Day off" : ""));
+        const overrides = (fresh.overrides ?? []).filter((o) => o.date !== date);
+        overrides.push({ date, shiftTypeId, label, ...(note ? { note } : {}) });
+        return { result: { ok: true, date, action, shiftTypeId, label, note: note ?? null }, patch: { overrides } };
+      });
     }
 
     case "remove_override": {
       const date = String(input.date);
-      const overrides = (state.overrides ?? []).filter((o) => o.date !== date);
-      if (overrides.length === (state.overrides ?? []).length) {
-        return { ok: true, info: `No override existed on ${date}.` };
-      }
-      await ref.set({ ...state, overrides });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const overrides = (fresh.overrides ?? []).filter((o) => o.date !== date);
+        if (overrides.length === (fresh.overrides ?? []).length) {
+          return { result: { ok: true, info: `No override existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { overrides } };
+      });
     }
 
     case "add_ot": {
       const date = String(input.date);
-      const stId = findShiftTypeId(state, String(input.shiftTypeId ?? ""));
-      if (!stId) return { error: `Unknown shift type "${input.shiftTypeId}".` };
-      const label = String(input.label ?? "");
-      const coworkers = input.coworkers ? String(input.coworkers) : undefined;
-      const ot = (state.ot ?? []).filter((o) => o.date !== date);
-      ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}) });
-      await ref.set({ ...state, ot });
-      return { ok: true, date, shiftTypeId: stId, label };
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
+      return commit(ctx, name, (fresh) => {
+        const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
+        if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
+        const label = String(input.label ?? "");
+        const coworkers = input.coworkers ? String(input.coworkers) : undefined;
+        const ot = (fresh.ot ?? []).filter((o) => o.date !== date);
+        ot.push({ date, shiftTypeId: stId, label, ...(coworkers ? { coworkers } : {}), ...(note ? { note } : {}) });
+        return { result: { ok: true, date, shiftTypeId: stId, label, note: note ?? null }, patch: { ot } };
+      });
     }
 
     case "remove_ot": {
       const date = String(input.date);
-      const ot = (state.ot ?? []).filter((o) => o.date !== date);
-      await ref.set({ ...state, ot });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const ot = (fresh.ot ?? []).filter((o) => o.date !== date);
+        if (ot.length === (fresh.ot ?? []).length) {
+          return { result: { ok: true, info: `No overtime existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { ot } };
+      });
     }
 
     case "add_partner_shift": {
       const date = String(input.date);
-      const stId = findShiftTypeId(state, String(input.shiftTypeId ?? ""));
-      if (!stId) return { error: `Unknown shift type "${input.shiftTypeId}".` };
-      const label = String(input.label ?? "");
-      const partner = state.partner ?? { name: "Kaylene", shifts: [] };
-      const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
-      shifts.push({ date, shiftTypeId: stId, label });
-      await ref.set({ ...state, partner: { ...partner, shifts } });
-      return { ok: true, date, shiftTypeId: stId, label };
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
+      return commit(ctx, name, (fresh) => {
+        const stId = findShiftTypeId(fresh, String(input.shiftTypeId ?? ""));
+        if (!stId) return { result: { error: `Unknown shift type "${input.shiftTypeId}".` } };
+        const label = String(input.label ?? "");
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
+        shifts.push({ date, shiftTypeId: stId, label, ...(note ? { note } : {}) });
+        return { result: { ok: true, date, shiftTypeId: stId, label, note: note ?? null }, patch: { partner: { ...partner, shifts } } };
+      });
     }
 
     case "remove_partner_shift": {
       const date = String(input.date);
-      const partner = state.partner ?? { name: "Kaylene", shifts: [] };
-      const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
-      await ref.set({ ...state, partner: { ...partner, shifts } });
-      return { ok: true, date };
+      return commit(ctx, name, (fresh) => {
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const shifts = (partner.shifts ?? []).filter((p) => p.date !== date);
+        if (shifts.length === (partner.shifts ?? []).length) {
+          return { result: { ok: true, info: `No shift existed on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { partner: { ...partner, shifts } } };
+      });
     }
 
     case "add_event": {
@@ -588,47 +782,55 @@ async function execTool(
       if (input.startTime) ev.startTime = String(input.startTime);
       if (input.endTime) ev.endTime = String(input.endTime);
       if (input.notes) ev.notes = String(input.notes);
-      const events = [...(state.events ?? []), ev];
-      await ref.set({ ...state, events });
-      return { ok: true, event: ev };
+      return commit(ctx, name, (fresh) => ({
+        result: { ok: true, event: ev },
+        patch: { events: [...(fresh.events ?? []), ev] },
+      }));
     }
 
     case "add_school_day": {
       const date = String(input.date);
+      const note = input.note ? String(input.note).trim() || undefined : undefined;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pass date as YYYY-MM-DD." };
       const label = String(input.label ?? "class").trim() || "class";
       const shiftTypeId = input.shiftTypeId ? String(input.shiftTypeId) : undefined;
-      if (shiftTypeId && !(state.shiftTypes ?? []).some((t) => t.id === shiftTypeId)) {
-        return { error: `No shift type with id ${shiftTypeId}. Call list_shift_types, or leave it out and pass a label.` };
-      }
-      const existing = state.dependents?.daisy;
-      // Replace any entry already on that date rather than stacking a second.
-      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
-      const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}) };
-      await ref.set({
-        ...state,
-        dependents: {
-          ...(state.dependents ?? {}),
-          daisy: { name: existing?.name || "Daisy", shifts: [...kept, entry] },
-        },
+      return commit(ctx, name, (fresh) => {
+        if (shiftTypeId && !(fresh.shiftTypes ?? []).some((t) => t.id === shiftTypeId)) {
+          return { result: { error: `No shift type with id ${shiftTypeId}. Call list_shift_types, or leave it out and pass a label.` } };
+        }
+        const existing = fresh.dependents?.daisy;
+        // Replace any entry already on that date rather than stacking a second.
+        const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+        const entry = { date, label, ...(shiftTypeId ? { shiftTypeId } : {}), ...(note ? { note } : {}) };
+        return {
+          result: { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length },
+          patch: {
+            dependents: {
+              ...(fresh.dependents ?? {}),
+              daisy: { name: existing?.name || "Daisy", shifts: [...kept, entry] },
+            },
+          },
+        };
       });
-      return { ok: true, date, label, shiftTypeId: shiftTypeId ?? null, replacedExisting: kept.length !== (existing?.shifts ?? []).length };
     }
 
     case "remove_school_day": {
       const date = String(input.date);
-      const existing = state.dependents?.daisy;
-      const before = (existing?.shifts ?? []).length;
-      const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
-      if (kept.length === before) return { ok: true, date, removed: 0, note: "Nothing was listed on that date." };
-      await ref.set({
-        ...state,
-        dependents: {
-          ...(state.dependents ?? {}),
-          daisy: { name: existing?.name || "Daisy", shifts: kept },
-        },
+      return commit(ctx, name, (fresh) => {
+        const existing = fresh.dependents?.daisy;
+        const before = (existing?.shifts ?? []).length;
+        const kept = (existing?.shifts ?? []).filter((x) => x.date !== date);
+        if (kept.length === before) return { result: { ok: true, date, removed: 0, note: "Nothing was listed on that date." } };
+        return {
+          result: { ok: true, date, removed: before - kept.length },
+          patch: {
+            dependents: {
+              ...(fresh.dependents ?? {}),
+              daisy: { name: existing?.name || "Daisy", shifts: kept },
+            },
+          },
+        };
       });
-      return { ok: true, date, removed: before - kept.length };
     }
 
     case "block_childcare": {
@@ -637,17 +839,19 @@ async function execTool(
         return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
       }
       const label = (input.label ? String(input.label).trim() : "") || "Daisy – Scheduled Off";
-      const list = [...(state.childcareOff ?? [])];
-      const have = new Set(list.map((c) => c.date));
-      const added: string[] = [];
-      for (const date of dates) {
-        if (have.has(date)) continue;
-        list.push({ date, label });
-        have.add(date);
-        added.push(date);
-      }
-      await ref.set({ ...state, childcareOff: list });
-      return { ok: true, marked: dates, newlyAdded: added, alreadyMarked: dates.length - added.length, label };
+      return commit(ctx, name, (fresh) => {
+        const list = [...(fresh.childcareOff ?? [])];
+        const have = new Set(list.map((c) => c.date));
+        const added: string[] = [];
+        for (const date of dates) {
+          if (have.has(date)) continue;
+          list.push({ date, label });
+          have.add(date);
+          added.push(date);
+        }
+        const result = { ok: true, marked: dates, newlyAdded: added, alreadyMarked: dates.length - added.length, label };
+        return added.length ? { result, patch: { childcareOff: list } } : { result };
+      });
     }
 
     case "unblock_childcare": {
@@ -655,10 +859,12 @@ async function execTool(
       if (dates.size === 0) {
         return { error: "Invalid or empty date range. Pass from/to as YYYY-MM-DD with from <= to." };
       }
-      const before = (state.childcareOff ?? []).length;
-      const list = (state.childcareOff ?? []).filter((c) => !dates.has(c.date));
-      await ref.set({ ...state, childcareOff: list });
-      return { ok: true, cleared: [...dates], removed: before - list.length };
+      return commit(ctx, name, (fresh) => {
+        const before = (fresh.childcareOff ?? []).length;
+        const list = (fresh.childcareOff ?? []).filter((c) => !dates.has(c.date));
+        const result = { ok: true, cleared: [...dates], removed: before - list.length };
+        return list.length !== before ? { result, patch: { childcareOff: list } } : { result };
+      });
     }
   }
   return { error: `Unknown tool: ${name}` };
@@ -682,6 +888,9 @@ interface AskResponse {
   model?: string;
   /** Echoed back so the UI can show what the turn actually ran as. */
   mode?: "read" | "write";
+  /** Set when this reply changed the schedule: pass `id` to undoNucleusChange
+   *  to put it back. `tools` names what ran, e.g. ["remove_override", "add_override"]. */
+  change?: { id: string; tools: string[] };
   /** Full updated conversation so the client can pass it back on the next turn. */
   messages: Array<{
     role: "user" | "assistant";
@@ -716,9 +925,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     }
 
     // 2. Load current state for system-prompt context.
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    const state = (stateSnap.data() ?? {}) as HouseholdState;
+    const state = ((await readLegacyState(householdId)) ?? {}) as HouseholdState;
     const today = isoToday();
     const memberNames = householdData.memberNames ?? {};
     const userName = String(memberNames[uid] ?? "the user");
@@ -740,16 +947,19 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- "Gage" is the household admin. His recurring schedule comes from a weekly template.\n` +
       `- "Kaylene" is Gage's partner. Her shifts are individual dated entries.\n` +
       `- "Daisy" is the family's caregiver (supporting role), not an editor. When Daisy is off, there is no childcare that day.\n` +
+      `- Gage and Kaylene both get holiday pay for shifts worked on US federal holidays. summarize_period marks each day's federalHoliday; use it for questions about working holidays or holiday pay.\n` +
       `- When the user picks up an unusual day for Gage, use add_override (action="work").\n` +
       `- When Gage takes off a day he normally works, use add_override (action="off").\n` +
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +
       `- Kaylene's shifts always go through add_partner_shift.\n` +
+      `- "Daisy's coverage window" on a day means the childcare coverage request asked of her (list_coverage_requests): the hours she watches the kids. To change when it starts or ends ("she's leaving class at 2, so start her coverage at 2 on the 28th"), use update_coverage_request, one call per date. That is separate from her class days (add_school_day / remove_school_day), which you only touch if the user says her class itself changed.\n` +
       `- To mark days with NO childcare (Daisy scheduled off, or "block off" a week for childcare), use block_childcare with a from/to range — it stamps the whole range in ONE call, so a full week is reliably covered. Never use add_event or add_override for childcare availability. Use unblock_childcare to restore childcare.\n\n` +
       `Editing Gage's shifts:\n` +
       `- ALWAYS call summarize_period for the affected dates first to see what's actually there. Each day reports Gage's shift and its "source" ("override" = a one-off, "template" = from his weekly template).\n` +
       `- To REMOVE / cancel Gage's shift on a day: if source is "override", call remove_override for that date; if source is "template", call add_override with action="off". Either way he ends up with no working shift that day. Do NOT add anything.\n` +
       `- To MOVE Gage's shift from one day to another, do BOTH steps in the same confirmed action: (1) remove/cancel it on the OLD day (per the rule above), and (2) add_override action="work" on the NEW day using the same shift type it had. A move is never just an add — if you only add, the old shift is still there.\n` +
-      `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n\n` +
+      `- When the user asks for multiple changes in one message, carry out EVERY part after they confirm. Never stop after the first tool call.\n` +
+      `- Notes: when the user wants something noted on a shift ("put a note that…", "note: bring badge"), pass it as the note on add_override, add_ot, add_partner_shift, or add_school_day. To add or change the note on a day that already has a shift, call the same add tool for that date with the same shift type and the new note; it replaces that day's entry. summarize_period shows each shift's current note.\n\n` +
       `Behavior:\n` +
       `- For read-only questions, call the tool that actually knows the answer and answer concisely:\n` +
       `  summarize_period for what's scheduled on given dates — INCLUDING the dependent's school and class\n` +
@@ -784,6 +994,12 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       { role: "user" as const, content: message },
     ];
 
+    const ctx: ExecCtx = {
+      householdId, uid, userMessage: message,
+      change: newChangeRecord(householdId),
+      writeQueue: Promise.resolve(),
+    };
+
     let finalText = "";
     const MAX_ROUNDS = 6;   // generous cap for tool chains
     for (let i = 0; i < MAX_ROUNDS; i++) {
@@ -813,7 +1029,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       );
       const toolResults = await Promise.all(toolUses.map(async (tu) => {
         try {
-          const out = await execTool(tu.name, tu.input as Record<string, unknown>, { householdId, uid });
+          const out = await execTool(tu.name, tu.input as Record<string, unknown>, ctx);
           return {
             type: "tool_result" as const,
             tool_use_id: tu.id,
@@ -837,6 +1053,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
         .collection("askClaudeLog").add({
           uid, userMessage: message,
           finalReply: finalText.slice(0, 1500),
+          changeId: ctx.change.tools.length ? ctx.change.id : null,
           at: FieldValue.serverTimestamp(),
         });
     } catch { /* best-effort */ }
@@ -845,10 +1062,94 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       reply: finalText || "(no reply)",
       model: MODEL,
       mode: readOnly ? "read" : "write",
+      ...(ctx.change.tools.length ? { change: { id: ctx.change.id, tools: ctx.change.tools } } : {}),
       messages: messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content as string | Anthropic.Messages.ContentBlockParam[],
       })),
     };
+  },
+);
+
+// ───────────────── Undo ──────────────────────────────────────────────────
+// Puts back the fields one nucleusAI reply changed. It only proceeds while
+// every one of those fields still holds exactly what that reply wrote: if
+// someone has edited the same part of the schedule since (Kaylene adding a
+// shift on her phone, say), restoring the old copy would erase their edit, so
+// it refuses and says what moved. All or nothing, in one transaction.
+
+/** JSON with object keys sorted, so two equal values compare equal no matter
+ *  what order Firestore hands the keys back in. */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort().filter((k) => o[k] !== undefined)
+      .map((k) => `${JSON.stringify(k)}:${stableJson(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
+/** Plain words for a state field, for the "changed since" message. */
+const FIELD_WORDS: Record<string, string> = {
+  overrides: "your one-off shifts",
+  ot: "overtime",
+  partner: "Kaylene's shifts",
+  events: "events",
+  dependents: "Daisy's school days",
+  childcareOff: "childcare days",
+};
+
+interface UndoRequest { changeId?: string }
+interface UndoResponse { ok: true; restored: string[] }
+
+export const undoNucleusChange = onCall<UndoRequest, Promise<UndoResponse>>(
+  { region: "us-central1", cors: true },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Sign in to use this.");
+    const changeId = String(request.data.changeId ?? "");
+    if (!changeId) throw new HttpsError("invalid-argument", "Which change?");
+
+    const db = getFirestore();
+    const hhSnap = await db.collection("households")
+      .where("memberUids", "array-contains", uid).limit(1).get();
+    if (hhSnap.empty) throw new HttpsError("failed-precondition", "No household found.");
+    const hh = hhSnap.docs[0];
+    if ((hh.data().roles?.[uid] ?? "partner") === "supporting") {
+      throw new HttpsError("permission-denied", "Caregivers can't edit the schedule.");
+    }
+    const changeRef = hh.ref.collection("nucleusChanges").doc(changeId);
+    const changeSnap = await changeRef.get();
+    if (!changeSnap.exists) throw new HttpsError("not-found", "That change isn't on record.");
+    const change = changeSnap.data() as { before?: Record<string, unknown>; after?: Record<string, unknown>; undone?: boolean };
+    if (change.undone) throw new HttpsError("failed-precondition", "That change was already undone.");
+
+    // A second undo racing this one finds the fields no longer as nucleusAI
+    // left them, and stops at the check below.
+    return editLegacyState<UndoResponse>(hh.id, uid, (fresh) => {
+      const current = fresh as unknown as Record<string, unknown>;
+      const before = change.before ?? {};
+      const after = change.after ?? {};
+      const moved = Object.keys(after).filter((k) => stableJson(current[k] ?? null) !== stableJson(after[k]));
+      if (moved.length) {
+        const what = moved.map((k) => FIELD_WORDS[k] ?? k).join(" and ");
+        throw new HttpsError(
+          "failed-precondition",
+          `Couldn't undo: ${what} changed after nucleusAI's edit, and undoing would erase that. Nothing was changed.`,
+        );
+      }
+
+      const next: Record<string, unknown> = { ...current };
+      for (const k of Object.keys(after)) {
+        if (before[k] === null || before[k] === undefined) delete next[k];
+        else next[k] = before[k];
+      }
+      return {
+        result: { ok: true as const, restored: Object.keys(after) },
+        next: next as unknown as HouseholdState,
+        also: [{ op: "merge", path: changeRef.path, data: { undone: true, undoneBy: uid, undoneAt: FieldValue.serverTimestamp() } }],
+      };
+    });
   },
 );

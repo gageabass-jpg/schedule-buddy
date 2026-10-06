@@ -1,0 +1,306 @@
+/*
+ * Tailwind, for shadcn / 21st.dev components.
+ *
+ * Preflight (Tailwind's reset) is left out on purpose: the app is styled with
+ * inline styles that rely on browser defaults, and the reset would quietly
+ * restyle every existing screen. Only the theme and utilities are loaded, so
+ * Tailwind classes do nothing until a component uses them.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";  /* enter/exit animation classes shadcn popovers use; no reset */
+
+@custom-variant dark (&:where(.dark, .dark *));
+/* Hovering anywhere on a calendar day cell (marked data-day-cell). Lets the
+   shift chips inside react to the cell, not just to themselves. */
+@custom-variant day-hover ([data-day-cell]:hover &);
+
+/*
+ * The slice of preflight shadcn components can't do without, applied only to
+ * elements that carry a class. The rest of the app is inline-styled with no
+ * classes, so it never matches. Without this, a component's <button> keeps the
+ * browser's grey 2px border.
+ */
+@layer base {
+  :where([class]), :where([class])::before, :where([class])::after {
+    box-sizing: border-box;
+    border: 0 solid;
+    /* shadcn's globals give every border the Line colour by default; without
+       it a bare `border-b` draws in the text colour. */
+    border-color: var(--border);
+  }
+  :where(button[class]) {
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+/*
+ * shadcn's colour names, mapped to Nucleus. Components written against
+ * bg-primary, border-input, text-muted-foreground… come out in the house
+ * palette. There is no red: destructive is Clay.
+ */
+:root {
+  --background: #FFFFFF;           /* Surface */
+  --foreground: #14201E;           /* Ink */
+  --card: #FFFFFF;
+  --card-foreground: #14201E;
+  --popover: #FFFFFF;
+  --popover-foreground: #14201E;
+  --primary: #0F6E64;              /* Teal */
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFEDE7;            /* Track */
+  --secondary-foreground: #14201E;
+  --muted: #EFEDE7;
+  --muted-foreground: #5A6663;     /* Ink-Muted */
+  --accent: #D8E7E4;               /* Teal-Tint */
+  --accent-foreground: #0A4F48;    /* Teal-Deep */
+  --destructive: #8A4B38;          /* Clay */
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E0DA;               /* Line */
+  --input: #E2E0DA;
+  --ring: #0F6E64;
+  --radius: 6px;                   /* md = 4px, the house corner */
+}
+
+.dark {
+  /* Nucleus Ink, matching themeTokens(true) in src/theme.ts. */
+  --background: #15201E;           /* Ink card */
+  --foreground: #F1F0EC;
+  --card: #15201E;
+  --card-foreground: #F1F0EC;
+  --popover: #1D2A27;
+  --popover-foreground: #F1F0EC;
+  --primary: #0F6E64;              /* filled buttons stay Teal on both grounds */
+  --primary-foreground: #FFFFFF;
+  --secondary: #1D2A27;
+  --secondary-foreground: #F1F0EC;
+  --muted: #1D2A27;
+  --muted-foreground: #A9B3B0;
+  --accent: rgba(86, 183, 169, 0.16);
+  --accent-foreground: #56B7A9;    /* Teal Light */
+  --destructive: #8A4B38;
+  --destructive-foreground: #FFFFFF;
+  --border: #2A3733;
+  --input: #2A3733;
+  --ring: #56B7A9;
+}
+
+@theme inline {
+  --font-sans: "Source Sans 3", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Sora", "Helvetica Neue", Arial, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-ele: calc(var(--radius) - 2px);  /* HextaUI's element corner → 4px */
+
+  /* The shine animation the enhanced button (jakobhoeg) uses. */
+  --animate-shine: shine 3s ease-out infinite;
+
+  @keyframes shine {
+    0% { background-position: 200% 0; }
+    25% { background-position: -200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/*
+ * Pixel button (components/ui/nextjsshop-button.tsx). Our own styles for
+ * Nextjsshop's Button01 markup, which arrived without its stylesheet, matched
+ * to a recording of the original:
+ *  - rest: a solid label bar and, on its right, a 5×5 pixel block with the
+ *    centre pixel open;
+ *  - hover: the block's pixels drop out at random steps (--index 0–3), the
+ *    label wipes back in left to right, and the 11 overlay pixels (--index
+ *    4–7) build a ↗ arrow in the block's place;
+ *  - leave: the arrow scatters, then the block snaps back.
+ * Ink bar with a white logo on the light ground; Paper bar with the logo in
+ * its own colours on the dark one.
+ */
+@layer components {
+  .button01 {
+    --b01-fill: #14201e;
+    --b01-step: 50ms;
+    --b01-size: 42px;
+    position: relative;
+    isolation: isolate;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    height: var(--b01-size);
+    padding: 0 calc(var(--b01-size) + 16px) 0 16px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .dark .button01 { --b01-fill: #f7f6f3; }
+  .button01:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+
+  .button01_bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  /* The label bar: everything left of the pixel block. */
+  .button01_bg-mid { position: absolute; inset: 0 var(--b01-size) 0 0; background: var(--b01-fill); }
+
+  .button01_bg-right,
+  .button01_bg-right-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--b01-size);
+    height: var(--b01-size);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+  }
+  .button01_bg-pixel { background: var(--b01-fill); transition: opacity 0s linear; }
+
+  /* The block. At rest it's whole (bar the centre) and comes back together a
+     beat after the arrow has gone; on hover each pixel drops at its step. */
+  .button01_bg-right .button01_bg-pixel { opacity: 1; transition-delay: 160ms; }
+  .button01_bg-right .button01_bg-pixel:nth-child(13) { visibility: hidden; }
+  .button01:hover .button01_bg-right .button01_bg-pixel,
+  .button01:focus-visible .button01_bg-right .button01_bg-pixel {
+    opacity: 0;
+    transition-delay: calc(var(--index) * var(--b01-step));
+  }
+
+  /* The arrow: top row, right column and the diagonal, one pixel each. It
+     builds after the block has gone and scatters first on the way out. */
+  .button01_bg-right-overlay .button01_bg-pixel {
+    opacity: 0;
+    transition-delay: calc((var(--index) - 4) * 40ms);
+  }
+  .button01:hover .button01_bg-right-overlay .button01_bg-pixel,
+  .button01:focus-visible .button01_bg-right-overlay .button01_bg-pixel {
+    opacity: 1;
+    transition-delay: calc(var(--index) * var(--b01-step));
+  }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(1)  { grid-area: 1 / 2; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(2)  { grid-area: 1 / 3; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(3)  { grid-area: 1 / 4; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(4)  { grid-area: 1 / 5; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(5)  { grid-area: 2 / 5; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(6)  { grid-area: 3 / 5; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(7)  { grid-area: 4 / 5; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(8)  { grid-area: 2 / 4; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(9)  { grid-area: 3 / 3; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(10) { grid-area: 4 / 2; }
+  .button01_bg-right-overlay .button01_bg-pixel:nth-child(11) { grid-area: 5 / 1; }
+
+  .button01_inner { position: relative; display: flex; align-items: center; min-width: 0; }
+  .button01_text { display: flex; align-items: center; }
+  .button01_text img { display: block; height: 16px; width: auto; filter: brightness(0) invert(1); }
+  .dark .button01_text img { filter: none; }
+  /* The label types itself back in on every hover. */
+  @keyframes b01-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  .button01:hover .button01_text,
+  .button01:focus-visible .button01_text { animation: b01-type 0.5s linear; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .button01_bg-pixel { transition-delay: 0s !important; }
+    .button01:hover .button01_text,
+    .button01:focus-visible .button01_text { animation: none; }
+  }
+}
+
+/*
+ * Motion for the plain (inline-styled) app.
+ *
+ * Buttons grow a touch on hover. Only plain buttons: anything with a class is
+ * a 21st.dev component with an effect of its own (New shift, Piper Locke), and
+ * month day cells (data-day-cell) are left still so the grid doesn't jostle.
+ * `scale` is its own property, so it never fights an inline transform.
+ */
+@layer base {
+  button:not([class]):not([data-day-cell]):not(:disabled) {
+    transition: scale 0.15s ease;
+  }
+  button:not([class]):not([data-day-cell]):not(:disabled):hover { scale: 1.03; }
+  button:not([class]):not([data-day-cell]):not(:disabled):active { scale: 0.98; }
+}
+
+/* Windows draws thick, always-on scrollbars; slim them to a Line-coloured
+   thumb like the overlay ones on a Mac. */
+.platform-win ::-webkit-scrollbar { width: 10px; height: 10px; }
+.platform-win ::-webkit-scrollbar-track { background: transparent; }
+.platform-win ::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 5px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+.platform-win ::-webkit-scrollbar-thumb:hover { background-color: var(--muted-foreground); }
+.platform-win ::-webkit-scrollbar-corner { background: transparent; }
+
+/* Popover cards pop in from the side their tail points to. */
+@keyframes nucleus-pop-in {
+  from { opacity: 0; scale: 0.94; }
+  to   { opacity: 1; scale: 1; }
+}
+@keyframes nucleus-pop-out {
+  from { opacity: 1; scale: 1; }
+  to   { opacity: 0; scale: 0.96; }
+}
+/* The "Covered" tag grows out of the card's edge: the visible strip starts as
+   a line 10px in from its right side (where the card edge sits) and opens
+   both ways. */
+@keyframes nucleus-tab-out {
+  from { clip-path: inset(0 10px 0 calc(100% - 10px)); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+/* Modals: the backdrop fades; the panel rises and settles on the way in and
+   sinks a touch on the way out. */
+@keyframes nucleus-backdrop-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nucleus-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes nucleus-modal-in  { from { opacity: 0; translate: 0 14px; scale: 0.97; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@keyframes nucleus-modal-out { from { opacity: 1; translate: 0 0; scale: 1; } to { opacity: 0; translate: 0 8px; scale: 0.985; } }
+/* A new month slides in from the side you moved toward. */
+@keyframes nucleus-month-in-next { from { opacity: 0; translate: 28px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes nucleus-month-in-prev { from { opacity: 0; translate: -28px 0; } to { opacity: 1; translate: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  button:not([class]):not([data-day-cell]):not(:disabled):hover,
+  button:not([class]):not([data-day-cell]):not(:disabled):active { scale: none; }
+  [data-motion] { animation: none !important; }
+}
+
+/*
+ * Loading screen (components/LoadingScreen.tsx). Three dots split into a
+ * triangle (nm-d1..3), the group turns once (nm-rot), and they merge back;
+ * nm-z rotates which dot sits on top so each colour gets a turn in front.
+ * Values are the design's, unchanged.
+ */
+@keyframes nm-rot { 0% { transform: rotate(0) } 55% { transform: rotate(0) } 80% { transform: rotate(360deg) } 100% { transform: rotate(360deg) } }
+@keyframes nm-d3 { 20% { transform: scale(1) } 45% { transform: translateY(-10px) scale(.45) } 60% { transform: translateY(-45px) scale(.45) } 80% { transform: translateY(-45px) scale(.45) } 100% { transform: translateY(0) scale(1) } }
+@keyframes nm-d2 { 20% { transform: scale(1) } 45% { transform: translate(-9px,5px) scale(.45) } 60% { transform: translate(-40px,23px) scale(.45) } 80% { transform: translate(-40px,23px) scale(.45) } 100% { transform: translate(0,0) scale(1) } }
+@keyframes nm-d1 { 20% { transform: scale(1) } 45% { transform: translate(9px,5px) scale(.45) } 60% { transform: translate(40px,23px) scale(.45) } 80% { transform: translate(40px,23px) scale(.45) } 100% { transform: translate(0,0) scale(1) } }
+@keyframes nm-z { 0%, 100% { z-index: 3 } 33.3% { z-index: 2 } 66.6% { z-index: 1 } }
+.nm-spin { animation: nm-rot 2s ease-in-out infinite; }
+@keyframes nm-breathe { 0%, 100% { opacity: 0.55 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+  /* No splitting or turning: the merged dot just breathes. */
+  .nm-spin { animation: nm-breathe 1.6s ease-in-out infinite; }
+  .nm-dot { animation: none !important; }
+}

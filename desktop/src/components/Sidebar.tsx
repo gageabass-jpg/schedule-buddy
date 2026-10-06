@@ -1,11 +1,13 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ShiftMap } from "../data";
 import type { ViewFilter } from "../App";
 import type { Palette, ThemeTokens } from "../theme";
 import { MiniMonth } from "./MiniMonth";
 import { PhotoAv } from "./PhotoAv";
 import { BrandMark, BRAND_FONT, BRAND_TEAL, BRAND_TEAL_LIGHT } from "./BrandMark";
+import { TwinOrbit } from "./ui/twin-orbit";
 import { SCHEDULE_IMPORTS } from "../scheduleImports";
+import { useHouseholdLook } from "../lib/householdLook";
 
 interface SidebarProps {
   palette: Palette;
@@ -31,6 +33,7 @@ interface SidebarProps {
   onEditSchedule: (id: string) => void;
   onOpenFamilyConsole: () => void;
   onSendCoverage: () => void;
+  onOpenCoverageRequests: () => void;
   onOpenChildcare: () => void;
   pendingCoverageCount: number;
 }
@@ -39,13 +42,13 @@ export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements: _onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
-  onOpenFamilyConsole, onSendCoverage, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
+  onOpenFamilyConsole, onSendCoverage, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
-  const [flip, setFlip] = useState(false);
+  const look = useHouseholdLook();
   return (
     <div
       style={{
-        background: dark ? "rgba(28,28,30,0.6)" : "rgba(246,246,248,0.7)",
+        background: dark ? "rgba(21,32,30,0.6)" : "rgba(246,246,248,0.7)",
         borderRight: `0.5px solid ${t.sep}`,
         // Top pad matches the calendar toolbar so the wordmark lines up with
         // the "September 2026" title (both below the teal titlebar).
@@ -82,15 +85,25 @@ export function Sidebar({
           width: "100%",
         }}
       >
-        <BrandMark
-          size={22}
-          color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL}
-          style={{ flexShrink: 0, animation: refreshing ? "sbmSpin 0.6s linear" : undefined }}
-        />
+        <BrandMark size={22} color={dark ? BRAND_TEAL_LIGHT : BRAND_TEAL} style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 15, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: BRAND_FONT, whiteSpace: "nowrap" }}>
           <span style={{ fontWeight: 600, color: t.text }}>nucleus</span>
           <span style={{ fontWeight: 400, color: t.text2 }}> manager</span>
         </span>
+        {/* While a refresh runs, two dots orbit beside the lockup. The slot
+            is the orbit's full sweep (5px dot, 155% radius ≈ 21px). */}
+        {refreshing && (
+          <span
+            aria-hidden="true"
+            style={{
+              width: 22, height: 22, flexShrink: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              color: dark ? BRAND_TEAL_LIGHT : BRAND_TEAL,
+            }}
+          >
+            <TwinOrbit className="size-[5px]" />
+          </span>
+        )}
       </button>
 
       <div
@@ -126,147 +139,137 @@ export function Sidebar({
           onClick={onToggleThisWeek}
           t={t}
         />
-        <ListRow
-          label="Both working"
-          count={viewCounts.both}
-          active={viewFilter === "both"}
-          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-          t={t}
-        />
-        <ListRow
-          label="Couple time"
-          count={viewCounts.couple}
-          active={viewFilter === "couple"}
-          onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
-          t={t}
-        />
-        <ListRow
+        {look.hasPartner && (
+          <>
+            <ListRow
+              label="Both working"
+              count={viewCounts.both}
+              active={viewFilter === "both"}
+              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+              t={t}
+            />
+            <ListRow
+              label="Couple time"
+              count={viewCounts.couple}
+              active={viewFilter === "couple"}
+              onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
+              t={t}
+            />
+          </>
+        )}
+        {look.childcare && <ListRow
           label="Coverage"
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
           active={viewFilter === "coverage"}
           onClick={() => onSetViewFilter(viewFilter === "coverage" ? "all" : "coverage")}
+          onContextMenu={(e) => { e.preventDefault(); onOpenCoverageRequests(); }}
+          title="Right-click to see the coverage requests list"
           t={t}
-        />
+        />}
       </SidebarSection>
 
       <SidebarSection label="People" t={t}>
         <ListRow
           color={palette.G}
-          label="Gage"
+          label={look.names.G}
           count={viewCounts.g}
           active={viewFilter === "g"}
           onClick={() => onSetViewFilter(viewFilter === "g" ? "all" : "g")}
           t={t}
         />
-        <ListRow
-          color={palette.K}
-          label="Kaylene"
-          count={viewCounts.k}
-          active={viewFilter === "k"}
-          onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
-          t={t}
-        />
-        <ListRow
-          color={palette.BOTH}
-          label="Overlap"
-          count={viewCounts.both}
-          active={viewFilter === "both"}
-          onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-          onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
-          title="Right-click to send coverage requests to caregiver"
-          t={t}
-        />
+        {look.hasPartner && (
+          <>
+            <ListRow
+              color={palette.K}
+              label={look.names.K}
+              count={viewCounts.k}
+              active={viewFilter === "k"}
+              onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
+              t={t}
+            />
+            <ListRow
+              color={palette.BOTH}
+              label="Overlap"
+              count={viewCounts.both}
+              active={viewFilter === "both"}
+              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
+              onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
+              title="Right-click to send coverage requests to caregiver"
+              t={t}
+            />
+          </>
+        )}
       </SidebarSection>
 
       <SidebarSection label="Schedules" t={t}>
-        {SCHEDULE_IMPORTS.map((s) => (
-          <ListRow
-            key={s.id}
-            label={s.label}
-            tag={s.target === "dependent-daisy" ? "SCHOOL" : "WORK"}
-            onClick={() => onOpenScheduleImport(s.id)}
-            onContextMenu={(e) => { e.preventDefault(); onEditSchedule(s.id); }}
-            title={`Click to import ${s.personLabel}'s schedule · right-click to edit their week`}
-            t={t}
-          />
-        ))}
+        {SCHEDULE_IMPORTS.filter((s) =>
+          s.target === "partner" ? look.hasPartner : s.target === "dependent-daisy" ? look.hasCaregiver : true,
+        ).map((s) => {
+          const name = s.target === "partner" ? look.names.K : s.target === "dependent-daisy" ? look.names.D : look.names.G;
+          return (
+            <ListRow
+              key={s.id}
+              label={name}
+              // Daisy's is her class schedule; anyone else's caregiver's is just theirs.
+              tag={s.target === "dependent-daisy" ? (look.familyPhotos ? "SCHOOL" : "SCHEDULE") : "WORK"}
+              onClick={() => onOpenScheduleImport(s.id)}
+              onContextMenu={(e) => { e.preventDefault(); onEditSchedule(s.id); }}
+              title={`Click to import ${name}'s schedule · right-click to edit their week`}
+              t={t}
+            />
+          );
+        })}
       </SidebarSection>
 
       </div>{/* /scrollable middle */}
 
-      {/* Household → Console flip. Hover flips the card to reveal "Console";
-          clicking opens it. A native CSS 3D flip — no motion library. */}
-      <div style={{ perspective: 900 }} onMouseEnter={() => setFlip(true)} onMouseLeave={() => setFlip(false)}>
+      {/* Household → Console. Hovering sweeps the card in Teal from the
+          bottom-left, the same sweep the calendar's shift chips use, and swaps
+          the household for "Console"; clicking opens it. */}
+      <div>
         <button
           type="button"
           onClick={onOpenFamilyConsole}
           title="Open the console"
           aria-label="Open the console"
+          className="group relative overflow-hidden"
           style={{
-            position: "relative",
             width: "100%",
             height: 46,
-            border: 0,
-            background: "transparent",
-            padding: 0,
+            padding: "6px 8px",
+            borderRadius: 8,
+            background: t.bgElev,
+            border: `1px solid ${t.sep}`,
             cursor: "pointer",
-            fontFamily: "inherit",
-            transformStyle: "preserve-3d",
-            transition: "transform 0.5s cubic-bezier(.2,.7,.3,1)",
-            transform: flip ? "rotateX(180deg)" : "rotateX(0deg)",
+            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
           }}
         >
-          {/* Front — the household card. */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 8px",
-              borderRadius: 8,
-              background: t.bgElev,
-              border: `1px solid ${t.sep}`,
-              textAlign: "left",
-              boxSizing: "border-box",
-            }}
-          >
-            <div style={{ display: "flex" }}>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 left-0 size-[22rem] -translate-x-full translate-y-full rotate-[-40deg] rounded mb-6 ml-6 transition-all duration-500 ease-out group-hover:mb-[9rem] group-hover:ml-0 group-hover:translate-x-0 motion-reduce:transition-none"
+            style={{ background: BRAND_TEAL }}
+          />
+          {/* Resting: the household. */}
+          <span className="relative flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-200 group-hover:opacity-0">
+            <span style={{ display: "flex" }}>
               <PhotoAv who="G" size={22} palette={palette} dark={dark} />
-              <div style={{ marginLeft: -6 }}>
+              <span style={{ marginLeft: -6 }}>
                 <PhotoAv who="K" size={22} palette={palette} dark={dark} />
-              </div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{householdName}</div>
-              <div style={{ fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</div>
-            </div>
+              </span>
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{householdName}</span>
+              <span style={{ display: "block", fontSize: 10, color: t.text3 }}>{memberCount} members · {syncStatus}</span>
+            </span>
             <span style={{ color: t.text3, fontSize: 14 }}>›</span>
-          </div>
-          {/* Back — "Console". */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "rotateX(180deg)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              borderRadius: 8,
-              background: BRAND_TEAL,
-              color: "#FFFFFF",
-              boxSizing: "border-box",
-            }}
-          >
+          </span>
+          {/* Hovered: "Console". */}
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-white opacity-0 transition-opacity delay-150 duration-200 group-hover:opacity-100">
             <BrandMark size={16} color="#FFFFFF" />
             <span style={{ fontFamily: BRAND_FONT, fontWeight: 600, fontSize: 14, letterSpacing: "-0.01em" }}>Console</span>
-          </div>
+          </span>
         </button>
       </div>
     </div>

@@ -61,6 +61,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+      # The deploy gate (scripts/predeploy-gate.mjs) builds functions/ and runs
+      # the rules tests against the Firestore emulator, so it needs all of this.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix functions
+          npm install -g firebase-tools
       - name: Contract check
         run: npm test
       - uses: FirebaseExtended/action-hosting-deploy@v0
@@ -78,6 +89,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+      # The deploy gate (scripts/predeploy-gate.mjs) builds functions/ and runs
+      # the rules tests against the Firestore emulator, so it needs all of this.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix functions
+          npm install -g firebase-tools
       - name: Contract check
         run: npm test
       - uses: FirebaseExtended/action-hosting-deploy@v0

@@ -19,6 +19,7 @@ import { defineSecret } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import Anthropic from "@anthropic-ai/sdk";
+import { readLegacyState } from "./householdState";
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
@@ -69,12 +70,11 @@ export const cleanSchedule = onCall<CleanScheduleRequest, Promise<CleanScheduleR
     if (hhSnap.empty) throw new HttpsError("failed-precondition", "No household found.");
     const householdId = hhSnap.docs[0].id;
 
-    const stateSnap = await db.collection("households").doc(householdId)
-      .collection("state").doc("main").get();
-    if (!stateSnap.exists) {
+    const loaded = await readLegacyState(householdId);
+    if (!loaded) {
       throw new HttpsError("failed-precondition", "State not initialized.");
     }
-    const state = stateSnap.data() ?? {};
+    const state = loaded as unknown as Record<string, unknown>;
     const shiftTypes = (state.shiftTypes as ShiftType[] | undefined) ?? [];
     if (shiftTypes.length === 0) {
       throw new HttpsError("failed-precondition", "No shift types defined. Add some first.");

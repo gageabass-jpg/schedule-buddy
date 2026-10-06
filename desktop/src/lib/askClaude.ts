@@ -19,6 +19,8 @@ export interface AskResponse {
   /** Which model answered — shown in the panel beside the mode control. */
   model?: string;
   mode?: AskMode;
+  /** Present when the reply changed the schedule; pass `id` to undoChange. */
+  change?: { id: string; tools: string[] };
 }
 
 const fns = getFunctions(firebaseApp, "us-central1");
@@ -38,4 +40,18 @@ export async function askClaude(
 ): Promise<AskResponse> {
   const result = await callAsk({ message, history, mode });
   return result.data;
+}
+
+const callUndo = httpsCallable<{ changeId: string }, { ok: true; restored: string[] }>(
+  fns, "undoNucleusChange",
+);
+
+/**
+ * Put back what one nucleusAI reply changed. The function refuses, with a
+ * message saying what moved, if that part of the schedule has been edited
+ * since, rather than erase the newer edit.
+ */
+export async function undoChange(changeId: string): Promise<string[]> {
+  const result = await callUndo({ changeId });
+  return result.data.restored;
 }
