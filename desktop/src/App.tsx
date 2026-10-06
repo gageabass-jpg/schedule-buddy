@@ -3,7 +3,7 @@ import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k" | "coverage";
-export type CalLayout = "day" | "week" | "month" | "year" | "agenda";
+export type CalLayout = "day" | "week" | "month" | "year" | "timeline" | "agenda";
 export type ThemePref = "system" | "light" | "dark";
 
 const THEME_PREF_KEY = "sbm.theme";
@@ -192,6 +192,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   const [importScheduleId, setImportScheduleId] = useState<string | null>(null);
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
+  /** Days on screen in the timeline — sizes the ‹ › step. A ref: nothing renders from it. */
+  const timelineSpanDays = useRef(7);
+  const timelineStep = () => Math.max(1, Math.round(timelineSpanDays.current * 0.75));
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [scheduleBlockOpen, setScheduleBlockOpen] = useState(false);
   const [cleanerOpen, setCleanerOpen] = useState(false);
@@ -437,6 +440,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
       case "day":
         shiftSelectedBy(-1);
         break;
+      case "timeline":
+        shiftSelectedBy(-timelineStep());
+        break;
     }
   };
   const handleNext = () => {
@@ -455,6 +461,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         break;
       case "day":
         shiftSelectedBy(1);
+        break;
+      case "timeline":
+        shiftSelectedBy(timelineStep());
         break;
     }
   };
@@ -742,6 +751,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         onOpenDayDetail={(date, anchor) => { setShiftDetail(null); setDayDetail({ date, anchor }); }}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
+        onTimelineSpan={(days) => { timelineSpanDays.current = days; }}
         eventsByDate={eventsByDate}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenAskClaude={() => openAsk()}

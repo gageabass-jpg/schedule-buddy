@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
+import { TimelineView } from "./TimelineView";
 import { AgendaView } from "./AgendaView";
 import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 import { shortcut } from "../lib/platform";
@@ -56,6 +57,7 @@ interface Props {
   onOpenDayDetail?: (date: string, anchor?: DOMRect) => void;
   calLayout: CalLayout;
   onSetCalLayout: (layout: CalLayout) => void;
+  onTimelineSpan?: (days: number) => void;
   selfName: string;
   partnerName: string;
   eventsByDate: EventMap;
@@ -87,7 +89,7 @@ const CARE_STEP = `(${CARE_COL} + 4px)`;
 export function MonthGrid({
   palette, t, dark, flat: _flat, shifts, state, viewYear, viewMonth, selected, today,
   onSelectDate, onPrev, onNext, onToday, onNewShift, onOpenAskClaude,
-  viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, selfName, partnerName,
+  viewFilter, coverageDates, coverageMarks, onOpenShiftDetail, onOpenDayDetail, calLayout, onSetCalLayout, onTimelineSpan, selfName, partnerName,
   eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
   const look = useHouseholdLook();
@@ -258,7 +260,7 @@ export function MonthGrid({
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-          {(["day", "week", "month", "year", "agenda"] as const).map((v) => {
+          {(["day", "week", "month", "year", "timeline", "agenda"] as const).map((v) => {
             const active = calLayout === v;
             return (
               <button
@@ -391,6 +393,24 @@ export function MonthGrid({
           events={eventsByDate[selected] ?? []}
           onEditEvent={onEditEvent}
           wvuGames={wvuGames}
+        />
+      )}
+
+      {calLayout === "timeline" && (
+        <TimelineView
+          palette={palette}
+          t={t}
+          dark={dark}
+          state={state}
+          events={state?.events ?? []}
+          selected={selected}
+          today={today}
+          selfName={selfName}
+          partnerName={partnerName}
+          onSelectDate={onSelectDate}
+          onOpenShiftDetail={onOpenShiftDetail}
+          onEditEvent={onEditEvent}
+          onSpanDays={onTimelineSpan}
         />
       )}
 
@@ -890,7 +910,7 @@ function ToolbarTitle({
       </>
     );
   }
-  // day
+  // day + timeline (centred on the selected day)
   const dayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
   return (
     <>

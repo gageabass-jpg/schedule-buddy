@@ -48,6 +48,8 @@ Source of truth: the Nucleus brand board (Claude Design export). What is applied
   - Verified end-to-end in the simulator (Gage direct + Kaylene pending + Manager approve/reject).
   - NOTE: one stray shift type ("6:45PM-7:15AM") from an early test may linger in Settings → Shift Types; safe to delete.
 
+- **Timeline view (Nucleus Manager)** — `timeline` tab in the calendar layout picker (`desktop/src/components/TimelineView.tsx`, math in `desktop/src/lib/timelineAxis.ts`). One horizontal axis; zoom is pixels-per-day. Day / Week / Month presets glide, pinch or ⌘-scroll zooms around the cursor, drag/scroll pans, double-click a day header zooms to it. The centre of the view is the selected day (panning selects on stop). Lanes: Gage, Kaylene, Daisy (school + shifts), Coverage, Events. Builds its own shift window from `state` — App's `shifts` only covers the visible month. Desktop only; the web/iOS app is unchanged.
+
 ## Firebase
 
 - **Project ID:** `schedule-buddy-dd2cf`
