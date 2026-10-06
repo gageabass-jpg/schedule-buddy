@@ -40,6 +40,8 @@ export function buildCaregiverView(state: Obj | undefined): CaregiverView {
 }
 
 export class CaregiverInputError extends Error {}
+/** The caller is a member but this isn't theirs to answer. */
+export class CaregiverForbiddenError extends Error {}
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -64,12 +66,35 @@ export interface ActionContext {
   nowMs: number;
   /** A fresh id for a new event. */
   newId: string;
+  /**
+   * The people records whose `uid` is the caller, on a household that has
+   * moved to the any-household model; undefined on one still on state/main,
+   * which has no people records. Requests there name a person (`caregiverId`).
+   */
+  callerPersonIds?: string[];
+}
+
+/**
+ * A coverage request is for one caregiver. It names them as `caregiverUid`
+ * (set once someone has answered it, and on a household still on state/main)
+ * and, on the any-household model, as `caregiverId` (a person). A request
+ * that names nobody yet belongs to the household's single caregiver, as before.
+ * Without this, any caregiver in the household could answer any request, and
+ * one could overwrite another's answer.
+ */
+function assertAddressedToCaller(req: Obj, ctx: ActionContext): void {
+  const uid = typeof req.caregiverUid === "string" ? req.caregiverUid : "";
+  const person = typeof req.caregiverId === "string" ? req.caregiverId : "";
+  const wrongUid = uid !== "" && uid !== ctx.uid;
+  const wrongPerson = person !== "" && ctx.callerPersonIds !== undefined && !ctx.callerPersonIds.includes(person);
+  if (wrongUid || wrongPerson) throw new CaregiverForbiddenError("That request is for someone else.");
 }
 
 /**
  * One caregiver change, applied to the current state/main. Returns only the
  * top-level fields it changes (for a transaction `update`), or throws
- * CaregiverInputError for bad input or a request that doesn't exist.
+ * CaregiverInputError for bad input or a request that doesn't exist, or
+ * CaregiverForbiddenError for a request addressed to another caregiver.
  *
  *   respond       — accept / decline / flag an issue on a coverage request
  *   resolveChange — approve or reject a manager-proposed change of times
@@ -86,6 +111,7 @@ export function applyCaregiverAction(state: Obj, input: unknown, ctx: ActionCont
     const idx = list.findIndex((r) => r && r.id === id);
     if (idx < 0) throw new CaregiverInputError("That request no longer exists.");
     const cur = list[idx];
+    assertAddressedToCaller(cur, ctx);
 
     if (a.action === "respond") {
       const status = a.status;

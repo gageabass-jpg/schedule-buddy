@@ -18,12 +18,14 @@ import storeMod from "../functions/lib/shared/store.js";
 import migrateMod from "../functions/lib/shared/migrate.js";
 import toLegacyMod from "../functions/lib/shared/toLegacy.js";
 import hsMod from "../functions/lib/householdState.js";
+import caregiverMod from "../functions/lib/caregiver.js";
 import { HH, META, fullState } from "./fixtures/household.mjs";
 
 const { namespacedStore, loadHousehold } = storeMod;
 const { migrateHousehold } = migrateMod;
 const { toLegacy } = toLegacyMod;
 const { editLegacyState, readLegacyState } = hsMod;
+const { callerPersonIds } = caregiverMod;
 
 // householdState.ts uses the firebase-admin installed under functions/, which
 // is a separate copy from the root one: the default app has to be made in it.
@@ -81,5 +83,24 @@ describe("editLegacyState", () => {
     assert.deepEqual(await admin.get(`households/${HH}/state/main`), frozen, "state/main untouched");
     const model = await loadHousehold(admin, HH);
     assert.ok(toLegacy(model).state.ot.some((o) => o.date === "2026-10-28"), "the edit is in the records");
+  });
+});
+
+// caregiverAction asks callerPersonIds who the caller is before it lets them
+// answer a coverage request (caregiverLogic.ts has the check itself).
+describe("callerPersonIds", () => {
+  test("a household still on state/main has no people to match", async () => {
+    const root = await admin.get(`households/${HH}`);
+    assert.equal(await callerPersonIds(HH, "uDaisy", root), undefined);
+  });
+
+  test("once on the model, it is the person records whose account is the caller", async () => {
+    await migrateHousehold(admin, HH, "uGage", OPTS);
+    const root = await admin.get(`households/${HH}`);
+    const people = await admin.list(`households/${HH}/people`);
+    const daisy = people.find((p) => p.data.uid === "uDaisy");
+    assert.ok(daisy, "the caregiver has a person record");
+    assert.deepEqual(await callerPersonIds(HH, "uDaisy", root), [daisy.id]);
+    assert.deepEqual(await callerPersonIds(HH, "nobody", root), [], "an account with no person");
   });
 });
