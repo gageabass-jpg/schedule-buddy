@@ -61,6 +61,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+      - name: Install
+        run: npm ci
       - name: Contract check
         run: npm test
       - uses: FirebaseExtended/action-hosting-deploy@v0
@@ -78,6 +80,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+      - name: Install
+        run: npm ci
       - name: Contract check
         run: npm test
       - uses: FirebaseExtended/action-hosting-deploy@v0
