@@ -355,15 +355,41 @@ service cloud.firestore {
     // Read-only public share snapshot. A SANITIZED calendar (shifts + event
     // titles only — no emails, chat, coverage, health, pay, or account data),
     // keyed by a long random token. World-readable by token (that's the point:
-    // the guest link at share.html and the /ics feed both read it). Only the
-    // authenticated member who created it — stamping their own uid as ownerUid
-    // — may write or delete it. Revoking = deleting the doc + rotating token.
+    // the guest link at share.html and the /ics feed both read it).
+    //
+    // Writes are for the household that owns the share:
+    //   create — an admin or partner of the household the doc names, stamping
+    //            their own uid as ownerUid;
+    //   update — stamping their own uid again, by the doc's current owner or
+    //            an admin/partner of the household the EXISTING doc names
+    //            (both apps stamp whoever publishes, so Kaylene republishing
+    //            over Gage's share is normal). householdId never changes;
+    //   delete — the current owner, or an admin/partner of that household.
+    // Checking only the new ownerUid, as this once did, let any signed-in
+    // stranger overwrite or delete anyone's share. Revoking = deleting the
+    // doc + rotating the token.
     match /publicShares/{token} {
       allow read: if true;
-      allow create, update: if request.auth != null
-        && request.resource.data.ownerUid == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && managesShare(request.resource.data.get('householdId', null));
+      allow update: if request.auth != null
+        && request.resource.data.ownerUid == request.auth.uid
+        && (!('householdId' in resource.data)
+          || request.resource.data.get('householdId', null) == resource.data.householdId)
+        && (resource.data.get('ownerUid', null) == request.auth.uid
+          || managesShare(resource.data.get('householdId', null)));
       allow delete: if request.auth != null
-        && resource.data.ownerUid == request.auth.uid;
+        && (resource.data.get('ownerUid', null) == request.auth.uid
+          || managesShare(resource.data.get('householdId', null)));
+
+      // Caller is an admin or partner of household `hid` (null or unknown: no).
+      function managesShare(hid) {
+        return hid is string
+          && exists(/databases/$(database)/documents/households/$(hid))
+          && get(/databases/$(database)/documents/households/$(hid)).data.roles
+               .get(request.auth.uid, '') in ['admin', 'partner'];
+      }
     }
   }
 }
