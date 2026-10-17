@@ -211,12 +211,24 @@ service cloud.firestore {
 
     // Push notification tokens — one doc per user per household, doc id = uid.
     // Members can read everyone's row (so the desktop can show "Daisy is
-    // reachable"). Writes are gated to self — Cloud Functions use the
-    // Admin SDK and bypass these rules anyway.
+    // reachable"). Cloud Functions use the Admin SDK and bypass these rules.
+    //
+    // The functions trust two fields in the row: `role` picks who gets a
+    // broadcast (tokensForRoles), and `uid` picks who an addressed chat
+    // message reaches. So a write must come from a member, to their own row,
+    // with their real `uid` and the role the household records for them
+    // (the phone falls back to "partner" when none is recorded; so does this).
+    // Leaving is always allowed: a removed member can still clear their row.
     match /households/{householdId}/pushTokens/{tokenDocId} {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
-      allow create, update, delete: if request.auth != null
+      allow create, update: if request.auth != null
+        && tokenDocId == request.auth.uid
+        && isHouseholdMember(householdId)
+        && request.resource.data.keys().hasOnly(['token', 'uid', 'role', 'platform', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == householdData(householdId).roles.get(request.auth.uid, 'partner');
+      allow delete: if request.auth != null
         && tokenDocId == request.auth.uid;
     }
 
@@ -344,20 +356,24 @@ service cloud.firestore {
 
     // Wall display tokens. Top-level so the getWallState HTTPS function
     // can look up a token without knowing the household. Each doc points
-    // at a householdId; only members of that household can create/list/
-    // revoke. The token itself is the document id (a long random string)
-    // so a leaked URL only exposes one household's read-only dashboard.
+    // at a householdId. The token itself is the document id (a long random
+    // string), and holding it reads the household's whole schedule through
+    // getWallState and drives the Pi through sendPiCommand. So the doc is
+    // admin and partner only, to read as well as to write: a caregiver who
+    // could list the ids could use them. Once written, only `revoked` and
+    // `label` change; householdId and createdBy stay as minted (the Pi
+    // commands that act on the OS check createdBy, and a token must not be
+    // re-pointed at another household).
     //
     // The wall page never reads Firestore directly — it calls getWallState
     // (Admin SDK, bypasses rules). So no public read needed here.
     match /wallTokens/{token} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(resource.data.householdId)).data.memberUids.hasAny([request.auth.uid]);
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(request.resource.data.householdId)).data.memberUids.hasAny([request.auth.uid])
+      allow read: if isHouseholdManager(resource.data.householdId);
+      allow create: if isHouseholdManager(request.resource.data.householdId)
         && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(resource.data.householdId)).data.memberUids.hasAny([request.auth.uid]);
+      allow update: if isHouseholdManager(resource.data.householdId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked', 'label']);
+      allow delete: if isHouseholdManager(resource.data.householdId);
     }
 
     // Read-only public share snapshot. A SANITIZED calendar (shifts + event

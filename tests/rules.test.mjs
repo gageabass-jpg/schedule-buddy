@@ -13,7 +13,7 @@ import {
   assertFails, assertSucceeds, initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
-  arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc,
+  arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, setDoc, updateDoc, where,
 } from "firebase/firestore";
 
 const HH = "hh1";
@@ -357,6 +357,118 @@ describe("public shares", () => {
   test("a share from before householdId was stamped can be republished by its owner", async () => {
     await seedShare({ v: 1, ownerUid: "gage", householdName: "Old" });
     await assertSucceeds(setDoc(ref("gage"), share("gage")));
+  });
+});
+
+describe("push tokens", () => {
+  const tok = (uid) => doc(as(uid), "households", HH, "pushTokens", uid);
+  const row = (uid, role, over = {}) => ({ token: "fcm-" + uid, uid, role, platform: "ios", updatedAt: new Date(), ...over });
+
+  test("each member writes their own row with their own role", async () => {
+    await assertSucceeds(setDoc(tok("gage"), row("gage", "admin")));
+    await assertSucceeds(setDoc(tok("kaylene"), row("kaylene", "partner")));
+    await assertSucceeds(setDoc(tok("daisy"), row("daisy", "supporting")));
+    await assertSucceeds(setDoc(tok("daisy"), row("daisy", "supporting", { token: "fcm-new" })));
+  });
+
+  test("a member with no recorded role is a partner, as the phone treats them", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), "households", HH), { memberUids: arrayUnion("legacy") });
+    });
+    await assertSucceeds(setDoc(tok("legacy"), row("legacy", "partner")));
+    await assertFails(setDoc(tok("legacy"), row("legacy", "admin")));
+  });
+
+  test("a stranger can't add a row to someone else's household", async () => {
+    await assertFails(setDoc(tok("stranger"), row("stranger", "admin")));
+    await assertFails(setDoc(tok("stranger"), row("stranger", "partner")));
+    await assertFails(setDoc(tok("other"), row("other", "admin")));   // another household's admin
+  });
+
+  test("a member can't claim a role they don't have", async () => {
+    await assertFails(setDoc(tok("daisy"), row("daisy", "admin")));
+    await assertFails(setDoc(tok("daisy"), row("daisy", "partner")));
+    await assertFails(setDoc(tok("kaylene"), row("kaylene", "admin")));
+    await assertFails(setDoc(tok("gage"), row("gage", "bogus")));
+  });
+
+  test("a member can't change their row's role afterwards either", async () => {
+    await assertSucceeds(setDoc(tok("daisy"), row("daisy", "supporting")));
+    await assertFails(updateDoc(tok("daisy"), { role: "admin" }));
+  });
+
+  test("a row can't name someone else's uid, or carry extra fields", async () => {
+    await assertFails(setDoc(tok("daisy"), row("daisy", "supporting", { uid: "gage" })));
+    await assertFails(setDoc(tok("daisy"), row("daisy", "supporting", { uid: null })));
+    await assertFails(setDoc(tok("daisy"), row("daisy", "supporting", { extra: 1 })));
+  });
+
+  test("nobody writes another member's row", async () => {
+    await assertFails(setDoc(doc(as("daisy"), "households", HH, "pushTokens", "gage"), row("gage", "admin")));
+    await assertFails(setDoc(doc(as("gage"), "households", HH, "pushTokens", "daisy"), row("daisy", "supporting")));
+  });
+
+  test("members read the rows; strangers don't", async () => {
+    await assertSucceeds(setDoc(tok("gage"), row("gage", "admin")));
+    await assertSucceeds(getDoc(doc(as("daisy"), "households", HH, "pushTokens", "gage")));
+    await assertFails(getDoc(doc(as("stranger"), "households", HH, "pushTokens", "gage")));
+  });
+
+  test("a member deletes their own row, even after leaving; never another's", async () => {
+    await assertSucceeds(setDoc(tok("daisy"), row("daisy", "supporting")));
+    await assertSucceeds(setDoc(tok("gage"), row("gage", "admin")));
+    await assertFails(deleteDoc(doc(as("daisy"), "households", HH, "pushTokens", "gage")));
+    await assertSucceeds(deleteDoc(tok("daisy")));
+    await assertSucceeds(deleteDoc(doc(as("stranger"), "households", HH, "pushTokens", "stranger")));
+  });
+});
+
+describe("wall tokens", () => {
+  const wt = (uid, id = "tok-16-chars-long-aaaa") => doc(as(uid), "wallTokens", id);
+  const mint = (uid, over = {}) => ({ householdId: HH, createdAt: 1, createdBy: uid, label: "Kitchen", revoked: false, ...over });
+  beforeEach(() => env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "wallTokens", "tok-16-chars-long-aaaa"), mint("gage"));
+  }));
+
+  test("an admin or partner mints, reads, revokes and deletes a token", async () => {
+    await assertSucceeds(setDoc(wt("gage", "tok-16-chars-long-bbbb"), mint("gage")));
+    await assertSucceeds(setDoc(wt("kaylene", "tok-16-chars-long-cccc"), mint("kaylene")));
+    await assertSucceeds(getDoc(wt("kaylene")));
+    await assertSucceeds(updateDoc(wt("kaylene"), { revoked: true }));
+    await assertSucceeds(updateDoc(wt("gage"), { label: "Hall" }));
+    await assertSucceeds(deleteDoc(wt("kaylene")));
+  });
+
+  test("a caregiver can't mint, read, revoke or delete one", async () => {
+    await assertFails(setDoc(wt("daisy", "tok-16-chars-long-dddd"), mint("daisy")));
+    await assertFails(getDoc(wt("daisy")));
+    await assertFails(getDocs(query(collection(as("daisy"), "wallTokens"), where("householdId", "==", HH))));
+    await assertFails(updateDoc(wt("daisy"), { revoked: true }));
+    await assertFails(deleteDoc(wt("daisy")));
+  });
+
+  test("a manager lists their household's tokens", async () => {
+    await assertSucceeds(getDocs(query(collection(as("gage"), "wallTokens"), where("householdId", "==", HH))));
+  });
+
+  test("a stranger does nothing with them", async () => {
+    await assertFails(setDoc(wt("stranger", "tok-16-chars-long-eeee"), mint("stranger")));
+    await assertFails(getDoc(wt("stranger")));
+    await assertFails(updateDoc(wt("other"), { revoked: true }));   // another household's admin
+    await assertFails(deleteDoc(wt("other")));
+  });
+
+  test("a token is minted under your own uid and for your own household", async () => {
+    await assertFails(setDoc(wt("gage", "tok-16-chars-long-ffff"), mint("kaylene")));
+    await assertFails(setDoc(wt("gage", "tok-16-chars-long-gggg"), mint("mint-script")));
+    await assertFails(setDoc(wt("other", "tok-16-chars-long-hhhh"), mint("other", { householdId: HH })));
+  });
+
+  test("only revoked and label change: not createdBy, not householdId", async () => {
+    await assertFails(updateDoc(wt("kaylene"), { createdBy: "kaylene" }));
+    await assertFails(updateDoc(wt("kaylene"), { createdBy: "mint-script" }));
+    await assertFails(updateDoc(wt("gage"), { householdId: OTHER_HH }));
+    await assertFails(updateDoc(wt("other"), { householdId: OTHER_HH }));
   });
 });
 

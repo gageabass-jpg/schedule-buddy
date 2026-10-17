@@ -12,14 +12,19 @@
 //     OS-side; both ignore commands that aren't theirs).
 //
 // Token auth mirrors getWallState — same wallTokens/{token} lookup, no
-// new secrets. The wall token gates read access to household data, so
-// letting it also send control commands doesn't widen the trust model.
+// new secrets. A token was a read capability; sending commands makes it a
+// control one, and this function uses the Admin SDK, so the rules on
+// households/{hid}/meta/piCommand do not apply here. The commands that act
+// on the Pi's OS (reboot, restart_kiosk, toggle_kiosk) therefore also need
+// the token's creator to be an admin or partner of the household today
+// (see piCommandLogic.ts). The page and music commands need only the token.
 
 import { onRequest } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
+import { OS_CONTROL, cleanPiArgs, mayControlPi } from "./piCommandLogic";
 
-interface WallTokenDoc { householdId: string; revoked?: boolean }
+interface WallTokenDoc { householdId: string; revoked?: boolean; createdBy?: string }
 
 // Whitelist of commands the remote can send. Anything else is rejected
 // so a leaked token can't run arbitrary code on the Pi.
@@ -35,7 +40,7 @@ const ALLOWED = new Set([
 ]);
 
 async function resolveHousehold(token: string | undefined): Promise<
-  { ok: true; householdId: string } | { ok: false; status: number; error: string }
+  { ok: true; householdId: string; createdBy?: string } | { ok: false; status: number; error: string }
 > {
   if (!token || typeof token !== "string" || token.length < 16) {
     return { ok: false, status: 400, error: "missing or malformed token" };
@@ -45,7 +50,7 @@ async function resolveHousehold(token: string | undefined): Promise<
   if (!snap.exists) return { ok: false, status: 404, error: "unknown token" };
   const data = snap.data() as WallTokenDoc;
   if (data.revoked) return { ok: false, status: 403, error: "token revoked" };
-  return { ok: true, householdId: data.householdId };
+  return { ok: true, householdId: data.householdId, createdBy: data.createdBy };
 }
 
 export const sendPiCommand = onRequest(
@@ -63,10 +68,25 @@ export const sendPiCommand = onRequest(
       res.status(400).json({ error: `unknown command: ${command}` });
       return;
     }
-    // args is an optional small object — currently only `scene` uses it.
-    const args = (req.body?.args && typeof req.body.args === "object") ? req.body.args : {};
+    // args is an optional small object — `scene` and `open_playlist` use it.
+    const args = cleanPiArgs(command, req.body?.args);
+    if (!args) {
+      res.status(400).json({ error: `bad args for ${command}` });
+      return;
+    }
 
     const db = getFirestore();
+    if (OS_CONTROL.has(command)) {
+      // Role is read now, not at mint time: a creator who has since left or
+      // been demoted no longer counts.
+      const hh = await db.collection("households").doc(resolved.householdId).get();
+      const role = (hh.data()?.roles as Record<string, unknown> | undefined)?.[resolved.createdBy ?? ""];
+      if (!mayControlPi(resolved.createdBy, role)) {
+        logger.warn("piCommand refused", { householdId: resolved.householdId, command, createdBy: resolved.createdBy ?? null });
+        res.status(403).json({ error: "this token can't send that command" });
+        return;
+      }
+    }
     const ref = db.collection("households").doc(resolved.householdId)
       .collection("meta").doc("piCommand");
 
