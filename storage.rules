@@ -5,34 +5,47 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Wall display photos. Uploaded by household members from the Mac
-    // app; read by the getWallState Cloud Function (Admin SDK, bypasses
-    // rules) and by the wall.html page via the persistent download URL
-    // returned at upload time.
+    // Is the caller a member of this household? Storage can't see Firestore
+    // on its own: this is a cross-service rule. Two things it needs:
+    //  - the Firestore path is written with (default), as the Firebase docs
+    //    show for Storage rules; there is no {database} wildcard here as
+    //    there is in firestore.rules;
+    //  - the Firebase Storage service agent needs the IAM role
+    //    "Firebase Rules Firestore Service Agent" (roles/firebaserules.
+    //    firestoreServiceAgent) on the project. `firebase deploy --only
+    //    storage` offers to grant it, but only when run interactively
+    //    (not in CI, not with --non-interactive) and only when the rules
+    //    text changed. Without the role every check here denies, and so
+    //    does every upload: a membership check removed once for exactly
+    //    that symptom (storage/unauthorized).
+    function isMember(householdId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/households/$(householdId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/households/$(householdId)).data.memberUids;
+    }
+
+    // Wall display photos. Uploaded by household members from the Mac app.
+    // The wall page and getWallState never read this path through the rules:
+    // getWallState lists the Firestore mirror (households/{hid}/wallPhotos)
+    // with the Admin SDK, and the wall page loads each photo from the
+    // persistent download URL stored there. A download URL carries its own
+    // token and bypasses these rules — it is the capability that lets an
+    // unauthenticated Pi show the photo, and it stays valid.
     //
     // Path: wallPhotos/{householdId}/{photoId}
     //
-    // Members of the household may upload, list, and delete; nobody
-    // else can do anything. Anyone with the persistent download URL
-    // can fetch the bytes (intentional — that's how the wall page reads
-    // them without auth).
+    // Only members of the household touch the objects directly: get (the
+    // uploader's getDownloadURL needs it), upload, replace, delete. Nobody
+    // lists the folder: with the household id (which a guest-share link,
+    // an invite code, or a household member's own client can reveal) a list
+    // would hand out every photo's path. The photoId is 16 random characters.
     match /wallPhotos/{householdId}/{photoId} {
-      allow read: if true;
-      // Writes: any signed-in user, file under 10 MB, an image.
-      //
-      // Note: we intentionally do NOT gate on household membership here.
-      // Storage rules can only check membership via a cross-service
-      // firestore.get(), which was denying every legitimate upload
-      // (storage/unauthorized). The householdId segment is an unguessable
-      // 20-char Firestore id, and the Firestore mirror doc at
-      // households/{householdId}/wallPhotos/{photoId} — which is what
-      // getWallState actually lists — IS still membership-gated by
-      // firestore.rules. So an outsider can't discover a bucket path or
-      // surface a photo on the wall; auth + size + type is sufficient here.
-      allow create, update: if request.auth != null
+      allow get: if isMember(householdId);
+      allow list: if false;
+      allow create, update: if isMember(householdId)
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches("image/.*");
-      allow delete: if request.auth != null;
+      allow delete: if isMember(householdId);
     }
   }
 }
