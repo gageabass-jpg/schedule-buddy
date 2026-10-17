@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nucleus code review — 17 Oct 2026</title>
+<style>
+  :root {
+    --teal: #0F6E64;
+    --teal-deep: #0A4F48;
+    --teal-tint: #D8E7E4;
+    --clay: #8A4B38;
+    --clay-tint: #EFDFDB;
+    --paper: #F7F6F3;
+    --surface: #FFFFFF;
+    --line: #E2E0DA;
+    --ink: #14201E;
+    --muted: #5A6663;
+    --high: #8A4B38;
+    --medium: #8A5A20;
+    --low: #5A6663;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); color: var(--ink); }
+  body {
+    margin: 0 auto;
+    max-width: 820px;
+    padding: 48px 28px 80px;
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header { margin-bottom: 36px; }
+  .mark {
+    font-family: "Sora", -apple-system, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 15px;
+    color: var(--teal);
+    text-transform: lowercase;
+  }
+  h1 {
+    font-family: "Sora", -apple-system, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-size: 34px;
+    line-height: 1.15;
+    margin: 8px 0 12px;
+  }
+  h2 {
+    font-family: "Sora", -apple-system, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 22px;
+    margin: 40px 0 10px;
+  }
+  h3 {
+    font-size: 17px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink); }
+  .meta { color: var(--muted); font-size: 14px; }
+  a { color: var(--teal-deep); }
+  code, .path {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    background: var(--teal-tint);
+    padding: 0.05em 0.35em;
+    border-radius: 4px;
+  }
+  .counts {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0 8px;
+    flex-wrap: wrap;
+  }
+  .count {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 108px;
+  }
+  .count b {
+    display: block;
+    font-family: "Sora", sans-serif;
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .count span { color: var(--muted); font-size: 13px; }
+  .count.high b { color: var(--high); }
+  .count.medium b { color: var(--medium); }
+  .callout {
+    background: var(--clay-tint);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 18px 0 8px;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    margin: 12px 0 8px;
+    background: var(--surface);
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px 8px;
+    margin: 12px 0;
+  }
+  .sev {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .sev.high { background: var(--clay-tint); color: var(--clay); }
+  .sev.medium { background: #F3E6D4; color: var(--medium); }
+  .sev.low { background: var(--teal-tint); color: var(--teal-deep); }
+  ol.fixes { padding-left: 1.2em; }
+  ol.fixes li { margin: 0 0 10px; }
+  .caption { color: var(--muted); font-size: 13px; margin-top: 0; }
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media print {
+    body { max-width: none; padding: 0; }
+    .finding, .count, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">nucleus</div>
+  <h1>Code review</h1>
+  <p class="lede">The wall draws a different schedule than the phone and the Mac, and the guest calendar link names the household.</p>
+  <p class="meta">17 October 2026. Static read of this checkout: Firestore and Storage rules, Cloud Functions, the phone’s state path in <span class="path">public/index.html</span>, and the Mac share and template writers. The rules emulator and the live app were not run.</p>
+</header>
+
+<div class="counts">
+  <div class="count high"><b>4</b><span>High</span></div>
+  <div class="count medium"><b>3</b><span>Medium</span></div>
+  <div class="count"><b>3</b><span>Low</span></div>
+  <div class="count"><b>16.6k</b><span>Lines in index.html</span></div>
+</div>
+
+<div class="callout">
+  <strong>What to hand Claude first</strong>
+  Point <span class="path">getWallState</span> at the shared schedule resolver, and stop storing <span class="path">householdId</span> and <span class="path">ownerUid</span> in the world-readable share document. The other findings are real, and they can wait behind those two.
+</div>
+
+<h2>Findings</h2>
+
+<article class="finding" id="wall">
+  <h3><span class="sev high">High</span> The wall builds a second, older schedule</h3>
+  <p class="meta">functions/src/wallState.ts</p>
+  <p>Gage’s redesigned week is saved in <span class="path">weeklyTemplates</span>. <span class="path">desktop/src/lib/writeTemplate.ts</span> leaves the old <span class="path">template</span> array in place on purpose, and says it is ignored once <span class="path">weeklyTemplates.G</span> exists.</p>
+  <p>The phone (<span class="path">personTemplate</span> in <span class="path">public/index.html</span>), the Mac, and nucleusAI (<span class="path">shared/state.ts</span> <span class="path">selfShiftId</span> and <span class="path">buildShiftMap</span>) all read the new field. <span class="path">getWallState</span> still walks <span class="path">state.template</span>, <span class="path">state.alt</span>, overrides, overtime, and <span class="path">partner.shifts</span>. It never mentions <span class="path">weeklyTemplates</span>, <span class="path">dependents</span>, or <span class="path">pending</span>.</p>
+  <p>After a normal template edit in Nucleus Manager, the wall can show Gage’s old week, skip Kaylene’s weekly pattern and Daisy’s classes, and treat an unapproved photo import as a real shift.</p>
+  <p><strong>Fix.</strong> Build the wall’s day list from <span class="path">buildShiftMap</span>. Skip rows with <span class="path">pending: true</span>.</p>
+</article>
+
+<article class="finding" id="share-id">
+  <h3><span class="sev high">High</span> The guest link names the household</h3>
+  <p class="meta">public/index.html buildPublicShareSnapshot · desktop/src/lib/publicShare.ts</p>
+  <p><span class="path">share.html</span> and the ICS feed only need the sanitized days: who, shift name, start, end, and event titles. Both publishers also write <span class="path">ownerUid</span> and <span class="path">householdId</span> into <span class="path">publicShares/{token}</span>. The rule is <span class="path">allow read: if true</span>. Firestore rules cannot hide individual fields, so anyone with the link learns both ids.</p>
+  <p>Email and password sign-in is enabled, so a visitor can create a Firebase account and then use that id. The rest of the rules treat a household id as unguessable.</p>
+  <p><strong>Fix.</strong> Keep the public doc to the sanitized calendar. Store ownership in a member-only document, and point the update and delete rules at that.</p>
+</article>
+
+<article class="finding" id="push">
+  <h3><span class="sev high">High</span> Push-token writes skip membership</h3>
+  <p class="meta">firestore.rules · match /households/{householdId}/pushTokens/{tokenDocId}</p>
+  <p>Create, update, and delete succeed when the document id equals the caller’s uid. The rule does not check <span class="path">memberUids</span>, and it does not constrain <span class="path">role</span>. Read does check membership, so an outsider cannot list existing tokens. They can add their own.</p>
+  <p><span class="path">tokensForRoles</span> in <span class="path">functions/src/index.ts</span> sends to every token doc whose <span class="path">role</span> is in the target list. A new document with <span class="path">role: "admin"</span> receives admin and partner notifications: coverage replies and schedule changes.</p>
+  <p>The attacker cannot overwrite Gage’s token. The document id has to be their own uid. The attack adds a recipient.</p>
+  <p><strong>Fix.</strong> Require the caller to be in <span class="path">memberUids</span>, and only allow <span class="path">role</span> to equal their role on the household document.</p>
+</article>
+
+<article class="finding" id="photos">
+  <h3><span class="sev high">High</span> Wall photos are listable and deletable by any account</h3>
+  <p class="meta">storage.rules · match /wallPhotos/{householdId}/{photoId}</p>
+  <p><span class="path">allow read: if true</span> covers both get and list. Create and update require a signed-in user, an image, and a file under 10 MB. Delete requires only a signed-in user. There is no household check.</p>
+  <p>The comment in the file says the membership check was removed because a cross-service <span class="path">firestore.get()</span> was denying real uploads. The Firestore mirror at <span class="path">households/{id}/wallPhotos</span> is still member-gated, and that is what <span class="path">getWallState</span> lists. A stranger cannot add a photo to the slideshow. With the household id from the share link, they can list, download, and delete the files already in the bucket. Persistent download URLs then 404.</p>
+  <p><strong>Fix.</strong> Put the membership check back on write and delete, or stop using the household id as the object path. Public read of a single unguessable URL can stay, since that is how the wall page loads a photo.</p>
+</article>
+
+<article class="finding" id="reboot">
+  <h3><span class="sev medium">Medium</span> A wall link can reboot the Pi</h3>
+  <p class="meta">functions/src/piCommand.ts · firestore.rules wallTokens</p>
+  <p><span class="path">sendPiCommand</span> authenticates with a <span class="path">wallTokens</span> document, not a user session. The allowed set includes <span class="path">reboot</span>, <span class="path">restart_kiosk</span>, and <span class="path">toggle_kiosk</span>. <span class="path">open_playlist</span> also accepts an unsanitized <span class="path">args</span> object.</p>
+  <p>Any member can create a wall token, including a supporting caregiver. The <span class="path">meta</span> rules block caregivers from writing <span class="path">piCommand</span> directly, and <span class="path">tests/rules.test.mjs</span> covers that. This HTTPS function uses the Admin SDK and bypasses those rules. The comment in <span class="path">piCommand.ts</span> says sharing the wall token with control commands does not widen the trust model. It does: the token was a read capability, and it is now a reboot capability, and a caregiver can mint it.</p>
+  <p><strong>Fix.</strong> Drop reboot, restart, and kiosk toggles from the token-authenticated set, or require a separate control token that only an admin or partner can create.</p>
+</article>
+
+<article class="finding" id="doc">
+  <h3><span class="sev medium">Medium</span> Production is still one document, last write wins</h3>
+  <p class="meta">public/index.html saveStateToFirestore · docs/data-model.md</p>
+  <p><span class="path">docs/data-model.md</span> is accurate. The per-record model, the legacy bridge, and the rules tests are built. No household has <span class="path">schemaVersion</span> 2, so nothing in production reads those records yet.</p>
+  <p>While a household is unmigrated, the phone does <span class="path">ref.set</span> of the entire in-memory state, debounced 300 ms. There is no transaction. A stale phone overwrites a Mac edit. Photo imports are stored inline as data URLs on <span class="path">state.imports</span>, inside the same document, toward Firestore’s 1 MB cap.</p>
+  <p>A new top-level field has to be added to <span class="path">mergeStateFromFirestore</span> or the next phone save deletes it. <span class="path">scripts/contract-check.mjs</span> is what currently catches that. The merge also warns in the console when Firestore holds a key the phone does not know.</p>
+  <p><strong>Fix.</strong> This is a data move, not a drive-by. Do it when you are ready to migrate the household. Until then, do not store new large blobs in <span class="path">state/main</span>.</p>
+</article>
+
+<article class="finding" id="vision">
+  <h3><span class="sev medium">Medium</span> cleanSchedule has no size cap and no role check</h3>
+  <p class="meta">functions/src/cleanSchedule.ts · functions/src/parseSchedule.ts · functions/src/askClaude.ts</p>
+  <p><span class="path">parseSchedule</span> refuses a supporting caregiver and rejects a base64 payload over about 7.5 million characters. <span class="path">cleanSchedule</span> checks that the caller is signed in and belongs to a household, then sends the image to Claude with no size cap and no role check. A caregiver account can call it.</p>
+  <p><span class="path">askClaude</span> blocks caregivers and withholds write tools in read mode, which is the right shape. It also accepts the client’s full conversation history with no length cap and will run up to six model rounds. None of the Anthropic callables are rate-limited per uid.</p>
+  <p><strong>Fix.</strong> Give <span class="path">cleanSchedule</span> the same cap and the same admin-or-partner check. Cap <span class="path">askClaude</span> history to a fixed number of recent turns.</p>
+</article>
+
+<article class="finding" id="bridge">
+  <h3><span class="sev low">Low</span> BRIDGE.md describes rules that no longer exist</h3>
+  <p class="meta">BRIDGE.md — last updated 2026-05-09</p>
+  <p>The doc says any member can write <span class="path">state/main</span>, a partner has the same write access as an admin at the rules layer, and any signed-in user can create an invite code. The live rules are tighter: state writes are admin or partner and only while <span class="path">schemaVersion</span> is under 2, invite codes can be created only by an admin or partner of the named household and cannot grant admin, and codes cannot be listed.</p>
+  <p>The next desktop or second client written from this doc will fight the rules.</p>
+  <p><strong>Fix.</strong> Rewrite the security section from <span class="path">firestore.rules</span>, or mark the file historical and point readers at <span class="path">docs/data-model.md</span>.</p>
+</article>
+
+<article class="finding" id="tz">
+  <h3><span class="sev low">Low</span> Photo import’s “today” ignores the household time zone</h3>
+  <p class="meta">functions/src/parseSchedule.ts isoToday</p>
+  <p><span class="path">isoToday</span> is hardcoded to <span class="path">America/New_York</span> and that date is handed to Claude as “today” so it can infer the year on a photographed schedule. The household already stores <span class="path">timeZone</span>. The health-calendar sync uses the caller’s zone. A photo taken near midnight can be dated a day off, and a year boundary can land on the wrong year.</p>
+  <p><strong>Fix.</strong> Read <span class="path">timeZone</span> off the household and use it in <span class="path">isoToday</span>. Fall back to New York only when the field is missing.</p>
+</article>
+
+<article class="finding" id="console">
+  <h3><span class="sev low">Low</span> Several Family Console controls do not save</h3>
+  <p class="meta">desktop/src/components/FamilyConsole.tsx</p>
+  <p>Remove Daisy, feed edit, the monthly limit, and the connector cards are local placeholders. The click handlers are empty, marked TODO. They look like settings. Email delivery for invites is also unwired.</p>
+  <p><strong>Fix.</strong> Hide the controls until they write, or wire them. Do not leave a control that appears to save.</p>
+</article>
+
+<h2>Who draws a day</h2>
+<p>Same household, four readers. The wall is the one that did not pick up the shared resolver.</p>
+<table>
+  <thead>
+    <tr><th>Surface</th><th>Gage and Kaylene’s week</th><th>Daisy</th><th>Pending import</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Phone and web</td><td>weeklyTemplates, else the old template</td><td>Yes</td><td>Shown as pending</td></tr>
+    <tr><td>Mac calendar</td><td>weeklyTemplates</td><td>Yes</td><td>Dashed, still visible</td></tr>
+    <tr><td>nucleusAI</td><td>shared/state.ts, same as the Mac</td><td>Yes</td><td>Included in the day summary</td></tr>
+    <tr><td>Wall</td><td>Legacy template and alt weekends only</td><td>Omitted</td><td>Shown as a normal shift</td></tr>
+  </tbody>
+</table>
+<p class="caption">Sources: functions/src/wallState.ts, shared/state.ts buildShiftMap, desktop/src/lib/writeTemplate.ts, public/index.html personTemplate.</p>
+
+<h2>What the guest link unlocks</h2>
+<p>The sanitized calendar itself is the right idea. Shifts and event titles go out. Emails, chat, coverage notes, health, and pay do not. The leak is the two ids sitting next to that calendar, plus two rules that assumed the household id would stay private.</p>
+<ol class="fixes">
+  <li>Read <span class="path">publicShares/{token}</span> with no account. Learn <span class="path">householdId</span> and the owner’s uid.</li>
+  <li>Sign in with any Firebase account. Write <span class="path">households/{id}/pushTokens/{yourUid}</span> with <span class="path">role: "admin"</span> and your own FCM token. Membership is not checked.</li>
+  <li>List <span class="path">wallPhotos/{householdId}/</span>. Download or delete the objects. The slideshow doc in Firestore stays member-only, so the wall does not start showing an uploaded replacement. Existing photos break when the bytes are deleted.</li>
+</ol>
+
+<h2>The rewrite that is waiting</h2>
+<p>The any-household model in <span class="path">docs/data-model.md</span> is the real fix for last-write-wins, the 1 MB document, and caregiver access to the whole schedule. People, shifts, events, and coverage each become their own document. <span class="path">shared/store.ts</span>, <span class="path">shared/toLegacy.ts</span>, the function-side <span class="path">editLegacyState</span>, and <span class="path">tests/rules.test.mjs</span> are already there. <span class="path">schemaVersion</span> on the household root is the switch. Nothing has been switched.</p>
+<p>Until a household is migrated, every new surface has to re-derive the schedule from the legacy shape. nucleusAI was moved onto <span class="path">shared/state.ts</span> after an earlier copy drifted and answered with a calendar the Mac disagreed with. The wall is the copy that was not moved.</p>
+<p>nucleusAI’s system prompt is still this household: Gage, Kaylene, and Daisy by name, with Daisy described as the supporting caregiver. That matches how this family actually uses the app. It will be wrong for a household the new model is meant to represent. Not a daily bug. Do not “generalize” the prompt until a second household exists.</p>
+
+<h2>Leave these alone</h2>
+<p>The rules have been tightened with care, and the tests cover the cases that used to be open:</p>
+<ul>
+  <li>A stranger can no longer overwrite or delete someone else’s share by stamping their own uid. Update and delete check the existing household.</li>
+  <li>A supporting member cannot post chat as “Manager” or set <span class="path">fromManager</span> and <span class="path">toUids</span>.</li>
+  <li>Caregivers cannot write <span class="path">state/main</span>. Their changes go through <span class="path">caregiverAction</span>.</li>
+  <li>Invite codes can be fetched by id and cannot be listed. Creating one requires admin or partner of that household, and the code cannot grant admin.</li>
+  <li>Direct client writes to <span class="path">meta/piCommand</span> are denied. The hole is the HTTPS function, not this rule.</li>
+  <li>nucleusAI writes go through the shared schedule module, and undo refuses when those fields have changed since the edit.</li>
+  <li>The Anthropic and Google keys are function secrets, not bundle constants. The Firebase web apiKey in <span class="path">BRIDGE.md</span> is a public identifier. Access is the rules.</li>
+  <li><span class="path">mergeStateFromFirestore</span> warns when it sees a top-level key it would drop on the next save.</li>
+</ul>
+
+<h2>Do these first</h2>
+<ol class="fixes">
+  <li>Take <span class="path">householdId</span> and <span class="path">ownerUid</span> out of the world-readable share doc. Keep ownership in a member-only document.</li>
+  <li>Require household membership on <span class="path">pushTokens</span> writes, and only allow the caller’s real role. Restore a membership check on wall-photo writes and deletes, or stop using a guessable household id in the object path.</li>
+  <li>Point <span class="path">getWallState</span> at <span class="path">buildShiftMap</span>. Skip rows with <span class="path">pending</span>. Drop reboot from the token-authenticated command list, and stop letting a supporting member mint a control token.</li>
+  <li>Give <span class="path">cleanSchedule</span> the same image cap and admin-or-partner check <span class="path">parseSchedule</span> already has. Cap <span class="path">askClaude</span> history length.</li>
+</ol>
+<p>Migrating the household is the real fix for last-write-wins and the 1 MB document. It is a data move. The four items above are safe while the household stays on <span class="path">state/main</span>.</p>
+
+<footer>
+  Nucleus, formerly Schedule Buddy. Firebase project schedule-buddy-dd2cf. This file is a review, not a patch. Written so it can be uploaded to Claude as-is.
+</footer>
+
+</body>
+</html>
