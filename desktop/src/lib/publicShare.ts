@@ -6,8 +6,10 @@
 // icsFeed function read. `shareToken`/`shareEnabled` live in household state so
 // web + desktop stay in sync.
 //
-// Firestore rule: publicShares/{token} is world-readable BY TOKEN; write/delete
-// gated to the authenticated owner (ownerUid == request.auth.uid).
+// Firestore rules: publicShares/{token} is world-readable BY TOKEN, so it holds
+// the calendar only — no household id, no owner uid. Who owns a share lives in
+// shareOwners/{token}, which no client reads; the rules check it before they
+// allow a write or delete of the calendar. So the owner doc is written first.
 
 import { doc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -41,7 +43,7 @@ async function writeState(householdId: string, base: HouseholdState, next: House
 }
 
 /** Sanitized snapshot in the exact shape share.html + icsFeed expect. */
-export function buildPublicShareSnapshot(state: HouseholdState, householdId: string) {
+export function buildPublicShareSnapshot(state: HouseholdState) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const from = addDays(today, -7), to = addDays(today, 56);
   const map = buildShiftMap(state, isoOf(from), isoOf(to));
@@ -71,8 +73,6 @@ export function buildPublicShareSnapshot(state: HouseholdState, householdId: str
 
   return {
     v: 1,
-    ownerUid: auth.currentUser ? auth.currentUser.uid : null,
-    householdId,
     householdName: state.householdName || "Our schedule",
     people: {
       G: { name: state.selfName || "You", hex: "#0F6E64" },
@@ -85,10 +85,17 @@ export function buildPublicShareSnapshot(state: HouseholdState, householdId: str
   };
 }
 
+/** Record who owns the share and which household it belongs to. Written before
+ *  the calendar, because the rules look it up to allow that write. */
+function stampShareOwner(token: string, householdId: string, ownerUid: string): Promise<void> {
+  return setDoc(doc(db, "shareOwners", token), { ownerUid, householdId });
+}
+
 /** Publish the current snapshot to publicShares/{token} (if sharing is on). */
 export async function publishPublicShare(householdId: string, state: HouseholdState): Promise<void> {
   if (!householdId || !state.shareEnabled || !state.shareToken || !auth.currentUser) return;
-  await setDoc(doc(db, "publicShares", state.shareToken), buildPublicShareSnapshot(state, householdId));
+  await stampShareOwner(state.shareToken, householdId, auth.currentUser.uid);
+  await setDoc(doc(db, "publicShares", state.shareToken), buildPublicShareSnapshot(state));
 }
 
 /** Turn sharing on: generate a token if needed, flip the flag, publish. */
@@ -118,7 +125,14 @@ export async function rotatePublicShare(householdId: string): Promise<string> {
   const token = genToken();
   const next: HouseholdState = { ...state, shareEnabled: true, shareToken: token };
   await writeState(householdId, state, next);
-  if (oldToken && oldToken !== token) { try { await deleteDoc(doc(db, "publicShares", oldToken)); } catch { /* ignore */ } }
+  if (oldToken && oldToken !== token) {
+    // Calendar first, then its owner doc: the rules need the owner doc to
+    // allow the calendar's delete. If the calendar delete fails, keep it.
+    try {
+      await deleteDoc(doc(db, "publicShares", oldToken));
+      await deleteDoc(doc(db, "shareOwners", oldToken));
+    } catch { /* ignore */ }
+  }
   await publishPublicShare(householdId, next);
   return token;
 }

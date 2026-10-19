@@ -11667,10 +11667,10 @@ function buildPublicShareSnapshot() {
     const events = getEventsForDate(iso).map(ev => (ev.title || "").trim()).filter(Boolean);
     if (shifts.length || events.length) days.push({ date: iso, shifts, events });
   }
+  // No householdId, no ownerUid: this doc is world-readable by token, and the
+  // rules allow only these fields. Ownership is in shareOwners/{token}.
   return {
     v: 1,
-    ownerUid: currentUser ? currentUser.uid : null,
-    householdId,
     householdName: state.householdName || "Our schedule",
     people: {
       G: { name: state.selfName || "Gage", hex: "#0F6E64" },
@@ -11683,9 +11683,17 @@ function buildPublicShareSnapshot() {
   };
 }
 
+// Who owns a share and which household it belongs to, kept apart from the
+// world-readable calendar. Nobody reads it from a client; firestore.rules does.
+// Written before the calendar, because the rules check it to allow that write.
+function stampShareOwner(token) {
+  return db.collection("shareOwners").doc(token).set({ ownerUid: currentUser.uid, householdId });
+}
+
 async function publishPublicShare() {
   if (!state.shareEnabled || !state.shareToken || !householdId || !currentUser) return;
   try {
+    await stampShareOwner(state.shareToken);
     await db.collection("publicShares").doc(state.shareToken).set(buildPublicShareSnapshot());
   } catch (e) {
     console.error("publicShare write error:", e);
@@ -11718,7 +11726,14 @@ async function rotateShareToken() {
   const old = state.shareToken;
   state.shareToken = _genShareToken();
   saveState();
-  if (old) { try { await db.collection("publicShares").doc(old).delete(); } catch (_) {} }
+  // Calendar first, then its owner doc: the rules need the owner doc to allow
+  // the calendar's delete. If the calendar delete fails, keep the owner doc.
+  if (old) {
+    try {
+      await db.collection("publicShares").doc(old).delete();
+      await db.collection("shareOwners").doc(old).delete();
+    } catch (_) {}
+  }
   await publishPublicShare();
   renderShareCard();
 }

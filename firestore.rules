@@ -381,39 +381,103 @@ service cloud.firestore {
     // keyed by a long random token. World-readable by token (that's the point:
     // the guest link at share.html and the /ics feed both read it).
     //
-    // Writes are for the household that owns the share:
-    //   create — an admin or partner of the household the doc names, stamping
-    //            their own uid as ownerUid;
-    //   update — stamping their own uid again, by the doc's current owner or
-    //            an admin/partner of the household the EXISTING doc names
-    //            (both apps stamp whoever publishes, so Kaylene republishing
-    //            over Gage's share is normal). householdId never changes;
-    //   delete — the current owner, or an admin/partner of that household.
-    // Checking only the new ownerUid, as this once did, let any signed-in
-    // stranger overwrite or delete anyone's share. Revoking = deleting the
-    // doc + rotating the token.
+    // Rules can't hide one field of a readable doc, so the doc carries only
+    // the calendar: no household id, no owner uid (a guest with the link must
+    // not learn either — the rest of these rules treat a household id as
+    // unguessable). Who owns a share, and which household it belongs to, is
+    // in shareOwners/{token}, below. The keys are fixed here so a stale or
+    // new client can't put the ids back.
+    //
+    // Writes are for the household that owns the share (per shareOwners):
+    //   create / update — the share's owner, or an admin or partner of its
+    //            household (both apps publish, so Kaylene republishing over
+    //            Gage's share is normal);
+    //   delete — the same. Revoking = deleting the doc + rotating the token.
+    // Checking only a uid the writer supplies, as this once did, let any
+    // signed-in stranger overwrite or delete anyone's share.
+    //
+    // A share made before shareOwners existed still carries ownerUid and
+    // householdId in the doc itself. Until a client moves them (it writes the
+    // shareOwners doc, then republishes without the ids; or the one-off
+    // functions/scripts/moveShareIds.js does), those fields keep authorizing
+    // the same writes they always did.
     match /publicShares/{token} {
       allow read: if true;
       allow create: if request.auth != null
-        && request.resource.data.ownerUid == request.auth.uid
-        && managesShare(request.resource.data.get('householdId', null));
+        && isShareCalendar()
+        && ownsShare(token);
       allow update: if request.auth != null
-        && request.resource.data.ownerUid == request.auth.uid
-        && (!('householdId' in resource.data)
-          || request.resource.data.get('householdId', null) == resource.data.householdId)
-        && (resource.data.get('ownerUid', null) == request.auth.uid
-          || managesShare(resource.data.get('householdId', null)));
+        && isShareCalendar()
+        && (ownsShare(token) || ownsLegacyShare());
       allow delete: if request.auth != null
-        && (resource.data.get('ownerUid', null) == request.auth.uid
-          || managesShare(resource.data.get('householdId', null)));
+        && (ownsShare(token) || ownsLegacyShare());
 
-      // Caller is an admin or partner of household `hid` (null or unknown: no).
-      function managesShare(hid) {
-        return hid is string
-          && exists(/databases/$(database)/documents/households/$(hid))
-          && get(/databases/$(database)/documents/households/$(hid)).data.roles
-               .get(request.auth.uid, '') in ['admin', 'partner'];
+      // Only the calendar fields; no ids.
+      function isShareCalendar() {
+        return request.resource.data.keys()
+          .hasOnly(['v', 'householdName', 'people', 'days', 'from', 'to', 'updatedAt']);
       }
+      // Caller owns this share, or manages its household, per shareOwners.
+      function ownsShare(token) {
+        let owner = /databases/$(database)/documents/shareOwners/$(token);
+        return exists(owner)
+          && (get(owner).data.ownerUid == request.auth.uid
+            || managesShare(get(owner).data.householdId));
+      }
+      // A share that still names its owner and household in the doc itself.
+      function ownsLegacyShare() {
+        return resource.data.get('ownerUid', null) == request.auth.uid
+          || managesShare(resource.data.get('householdId', null));
+      }
+    }
+
+    // Who owns a public share and which household it belongs to — what the
+    // publicShares doc must not say. One doc per share, same id (the token).
+    // No client reads it; the rules above and the functions (Admin SDK) do.
+    //   create — an admin or partner of the household it names, stamping their
+    //            own uid as ownerUid. Only for a share that doesn't exist yet,
+    //            or one made before this doc existed that names the same
+    //            household (or, if it names none, is already theirs): without
+    //            that, anyone holding a guest link could claim the share by
+    //            writing an owner doc for a household of their own;
+    //   update — stamping their own uid, by the current owner or an admin/
+    //            partner of the household the EXISTING doc names. The
+    //            household never changes;
+    //   delete — the current owner, or an admin/partner of that household.
+    match /shareOwners/{token} {
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['householdId', 'ownerUid'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && managesShare(request.resource.data.get('householdId', null))
+        && mayAnchorShare(token, request.resource.data.householdId);
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['householdId', 'ownerUid'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.householdId == resource.data.householdId
+        && (resource.data.ownerUid == request.auth.uid
+          || managesShare(resource.data.householdId));
+      allow delete: if request.auth != null
+        && (resource.data.ownerUid == request.auth.uid
+          || managesShare(resource.data.householdId));
+    }
+
+    // Caller is an admin or partner of household `hid` (null or unknown: no).
+    function managesShare(hid) {
+      return hid is string
+        && exists(/databases/$(database)/documents/households/$(hid))
+        && get(/databases/$(database)/documents/households/$(hid)).data.roles
+             .get(request.auth.uid, '') in ['admin', 'partner'];
+    }
+    // May `hid` be recorded as the owner of share `token`? Yes if no public
+    // share exists under it yet; or a pre-migration one names `hid`; or names
+    // no household and was stamped with the caller's uid.
+    function mayAnchorShare(token, hid) {
+      let pub = /databases/$(database)/documents/publicShares/$(token);
+      return !exists(pub)
+        || get(pub).data.get('householdId', null) == hid
+        || (get(pub).data.get('householdId', null) == null
+          && get(pub).data.get('ownerUid', null) == request.auth.uid);
     }
   }
 }

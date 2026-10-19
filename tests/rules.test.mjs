@@ -7,6 +7,7 @@
 // Kaylene (partner) and Daisy (supporting), a partner invite code and a
 // caregiver invite code.
 
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, before, beforeEach, describe, test } from "node:test";
 import {
@@ -292,71 +293,190 @@ describe("the new model: who writes what", () => {
 
 describe("public shares", () => {
   const TOKEN = "tok1";
-  const share = (ownerUid, extra = {}) => ({ v: 1, ownerUid, householdId: HH, householdName: "Home", days: [], ...extra });
-  const seedShare = (data) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "publicShares", TOKEN), data));
-  const ref = (uid) => doc(as(uid), "publicShares", TOKEN);
+  // The public doc: the calendar only. Who owns it lives in shareOwners/{token}.
+  const share = (extra = {}) => ({ v: 1, householdName: "Home", days: [], ...extra });
+  const owner = (ownerUid, householdId = HH) => ({ ownerUid, householdId });
+  // A share made before shareOwners existed: the ids sit in the public doc.
+  const legacy = (ownerUid, extra = {}) => ({ v: 1, ownerUid, householdId: HH, householdName: "Home", days: [], ...extra });
+  const seed = (path, data) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), ...path), data));
+  const seedShare = (data, token = TOKEN) => seed(["publicShares", token], data);
+  const seedOwner = (data, token = TOKEN) => seed(["shareOwners", token], data);
+  const pub = (uid, token = TOKEN) => doc(as(uid), "publicShares", token);
+  const own = (uid, token = TOKEN) => doc(as(uid), "shareOwners", token);
+  // What both apps do: the owner doc first, then the public doc.
+  const publish = async (uid, token = TOKEN, hh = HH) => {
+    await setDoc(own(uid, token), owner(uid, hh));
+    await setDoc(pub(uid, token), share());
+  };
 
   test("anyone can read a share by its token, signed in or not", async () => {
-    await seedShare(share("gage"));
+    await seedShare(share());
     await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "publicShares", TOKEN)));
   });
 
-  test("an admin or partner publishes their household's share", async () => {
-    await assertSucceeds(setDoc(ref("gage"), share("gage")));
-    await assertSucceeds(setDoc(doc(as("kaylene"), "publicShares", "tok2"), share("kaylene")));
+  test("the public doc names no household and no owner, and carries only calendar fields", async () => {
+    await seedOwner(owner("gage"));
+    await assertSucceeds(setDoc(pub("gage"), share()));
+    await assertFails(setDoc(pub("gage"), share({ householdId: HH })));
+    await assertFails(setDoc(pub("gage"), share({ ownerUid: "gage" })));
+    await assertFails(setDoc(pub("gage"), share({ chat: [] })));
+    await assertSucceeds(setDoc(pub("gage"), share({ people: {}, from: "2026-10-01", to: "2026-12-01", updatedAt: 1 })));
   });
 
-  test("a caregiver, a stranger, or a wrong uid can't create one", async () => {
-    await assertFails(setDoc(ref("daisy"), share("daisy")));                         // supporting
-    await assertFails(setDoc(ref("stranger"), share("stranger")));                   // not a member
-    await assertFails(setDoc(ref("kaylene"), share("gage")));                        // someone else's uid
-    await assertFails(setDoc(ref("gage"), share("gage", { householdId: OTHER_HH }))); // not theirs
-    await assertFails(setDoc(ref("gage"), { v: 1, ownerUid: "gage" }));              // names no household
+  test("nobody reads the owner doc: not a member, not the owner, not a guest", async () => {
+    await seedOwner(owner("gage"));
+    for (const uid of ["gage", "kaylene", "daisy", "stranger"]) await assertFails(getDoc(own(uid)));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "shareOwners", TOKEN)));
+  });
+
+  test("an admin or partner publishes their household's share", async () => {
+    await assertSucceeds(publish("gage"));
+    await assertSucceeds(publish("kaylene", "tok2"));
+  });
+
+  test("the public doc can't be created before its owner doc", async () => {
+    await assertFails(setDoc(pub("gage"), share()));
+  });
+
+  test("a caregiver, a stranger, or a wrong uid can't create an owner doc", async () => {
+    await assertFails(setDoc(own("daisy"), owner("daisy")));                          // supporting
+    await assertFails(setDoc(own("stranger"), owner("stranger")));                    // not a member
+    await assertFails(setDoc(own("kaylene"), owner("gage")));                         // someone else's uid
+    await assertFails(setDoc(own("gage"), owner("gage", OTHER_HH)));                  // not theirs
+    await assertFails(setDoc(own("gage"), { ownerUid: "gage" }));                     // names no household
+    await assertFails(setDoc(own("gage"), { ...owner("gage"), extra: 1 }));
   });
 
   test("a stranger can't overwrite or delete someone else's share", async () => {
-    await seedShare(share("gage"));
-    await assertFails(setDoc(ref("stranger"), share("stranger", { householdName: "Fake schedule" })));
-    await assertFails(setDoc(ref("stranger"), share("stranger", { householdId: OTHER_HH })));
-    await assertFails(setDoc(ref("other"), share("other", { householdId: OTHER_HH })));  // another household's admin
-    await assertFails(deleteDoc(ref("stranger")));
-    await assertFails(deleteDoc(ref("other")));
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertFails(setDoc(pub("stranger"), share({ householdName: "Fake schedule" })));
+    await assertFails(setDoc(pub("other"), share({ householdName: "Fake" })));        // another household's admin
+    await assertFails(deleteDoc(pub("stranger")));
+    await assertFails(deleteDoc(pub("other")));
   });
 
-  test("a caregiver can't overwrite or delete the share either", async () => {
-    await seedShare(share("gage"));
-    await assertFails(setDoc(ref("daisy"), share("daisy")));
-    await assertFails(deleteDoc(ref("daisy")));
+  test("nor claim it by writing an owner doc of their own", async () => {
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertFails(setDoc(own("other"), owner("other", OTHER_HH)));                // another household's admin
+    await assertFails(setDoc(own("stranger"), owner("stranger", HH)));
+    await assertFails(deleteDoc(own("other")));
+    await assertFails(deleteDoc(own("stranger")));
+  });
+
+  test("a caregiver can't overwrite or delete the share, or its owner doc", async () => {
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertFails(setDoc(pub("daisy"), share({ householdName: "Daisy's" })));
+    await assertFails(deleteDoc(pub("daisy")));
+    await assertFails(setDoc(own("daisy"), owner("daisy")));
+    await assertFails(deleteDoc(own("daisy")));
   });
 
   test("the partner republishes over the admin's share, and the admin over the partner's", async () => {
-    await seedShare(share("gage"));
-    await assertSucceeds(setDoc(ref("kaylene"), share("kaylene", { days: [{ date: "2026-10-09" }] })));
-    await assertSucceeds(setDoc(ref("gage"), share("gage")));
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertSucceeds(publish("kaylene"));
+    await assertSucceeds(publish("gage"));
   });
 
   test("the owner can update and delete; so can the household's admin and partner", async () => {
-    await seedShare(share("kaylene"));
-    await assertSucceeds(setDoc(ref("kaylene"), share("kaylene", { householdName: "Edited" })));
-    await assertSucceeds(deleteDoc(ref("gage")));          // admin removes a partner-owned share
-    await seedShare(share("gage"));
-    await assertSucceeds(deleteDoc(ref("kaylene")));       // partner removes an admin-owned share
+    await seedShare(share());
+    await seedOwner(owner("kaylene"));
+    await assertSucceeds(setDoc(pub("kaylene"), share({ householdName: "Edited" })));
+    await assertSucceeds(deleteDoc(pub("gage")));          // admin removes a partner-owned share
+    await assertSucceeds(deleteDoc(own("gage")));
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertSucceeds(deleteDoc(pub("kaylene")));       // partner removes an admin-owned share
+    await assertSucceeds(deleteDoc(own("kaylene")));
   });
 
   test("a share can't be moved to another household", async () => {
-    await seedShare(share("gage"));
-    await assertFails(setDoc(ref("gage"), share("gage", { householdId: OTHER_HH })));
+    await seedShare(share());
+    await seedOwner(owner("gage"));
+    await assertFails(setDoc(own("gage"), owner("gage", OTHER_HH)));
+    await assertFails(setDoc(own("other"), owner("other", OTHER_HH)));
   });
 
   test("the old owner keeps control after leaving the household", async () => {
-    await seedShare(share("former", { householdId: HH }));
-    await assertSucceeds(setDoc(ref("former"), share("former", { householdName: "Edited" })));
-    await assertSucceeds(deleteDoc(ref("former")));
+    await seedShare(share());
+    await seedOwner(owner("former"));
+    await assertSucceeds(setDoc(own("former"), owner("former")));
+    await assertSucceeds(setDoc(pub("former"), share({ householdName: "Edited" })));
+    await assertSucceeds(deleteDoc(pub("former")));
+    await assertSucceeds(deleteDoc(own("former")));
   });
 
-  test("a share from before householdId was stamped can be republished by its owner", async () => {
-    await seedShare({ v: 1, ownerUid: "gage", householdName: "Old" });
-    await assertSucceeds(setDoc(ref("gage"), share("gage")));
+  test("a public doc whose owner doc is gone is closed: nobody re-claims it", async () => {
+    await seedShare(share());
+    for (const uid of ["gage", "kaylene", "stranger", "other"]) {
+      await assertFails(setDoc(own(uid), owner(uid, uid === "other" ? OTHER_HH : HH)));
+      await assertFails(setDoc(pub(uid), share({ householdName: "Fake" })));
+      await assertFails(deleteDoc(pub(uid)));
+    }
+  });
+
+  describe("a share made before shareOwners existed", () => {
+    test("is still readable, and still kept up by its owner and its household's managers", async () => {
+      await seedShare(legacy("gage"));
+      await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "publicShares", TOKEN)));
+      await assertSucceeds(setDoc(pub("gage"), share({ householdName: "Edited" })));
+      await seedShare(legacy("gage"));
+      await assertSucceeds(setDoc(pub("kaylene"), share({ householdName: "Edited" })));
+      await seedShare(legacy("gage"));
+      await assertSucceeds(deleteDoc(pub("kaylene")));
+    });
+
+    test("an owner doc moves the ids out: the owner or a manager writes it, then republishes without them", async () => {
+      await seedShare(legacy("gage"));
+      await assertSucceeds(publish("gage"));
+      await seedShare(legacy("gage"), "tok2");
+      await assertSucceeds(publish("kaylene", "tok2"));
+    });
+
+    test("a stranger holding the link can't claim it with an owner doc of their own", async () => {
+      await seedShare(legacy("gage"));
+      await assertFails(setDoc(own("other"), owner("other", OTHER_HH)));        // another household's admin
+      await assertFails(setDoc(own("stranger"), owner("stranger", HH)));        // not a manager of HH
+      await assertFails(setDoc(own("daisy"), owner("daisy", HH)));              // a caregiver
+      await assertFails(setDoc(pub("other"), share({ householdName: "Fake" })));
+      await assertFails(deleteDoc(pub("other")));
+    });
+
+    test("a manager can't point it at a household it doesn't name", async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), "households", OTHER_HH), {
+          memberUids: ["other", "gage"], roles: { other: "admin", gage: "partner" }, createdBy: "other",
+        });
+      });
+      await seedShare(legacy("gage"));
+      await assertFails(setDoc(own("gage"), owner("gage", OTHER_HH)));
+      await assertSucceeds(setDoc(own("gage"), owner("gage", HH)));
+    });
+
+    test("one that names no household can be anchored only by the uid it was stamped with", async () => {
+      await seedShare({ v: 1, ownerUid: "gage", householdName: "Old" });
+      await assertFails(setDoc(own("kaylene"), owner("kaylene")));
+      await assertFails(setDoc(own("stranger"), owner("stranger")));
+      await assertSucceeds(publish("gage"));
+    });
+
+    test("the old fields can't be written back into the public doc", async () => {
+      await seedShare(legacy("gage"));
+      await assertFails(setDoc(pub("gage"), legacy("gage")));
+    });
+  });
+});
+
+describe("share owner docs: the move from the old fields", () => {
+  test("a share made now is a pair: owner doc first, then the calendar", async () => {
+    await assertSucceeds(setDoc(doc(as("gage"), "shareOwners", "fresh"), { ownerUid: "gage", householdId: HH }));
+    await assertSucceeds(setDoc(doc(as("gage"), "publicShares", "fresh"), { v: 1, householdName: "Home", days: [] }));
+    const seen = await getDoc(doc(env.unauthenticatedContext().firestore(), "publicShares", "fresh"));
+    assert.equal("householdId" in seen.data(), false);
+    assert.equal("ownerUid" in seen.data(), false);
   });
 });
 
