@@ -36,7 +36,7 @@ interface Props {
 type Phase =
   | { kind: "upload" }
   | { kind: "parsing"; step: ParseStep }
-  | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number; source: "photo" | "sheet" }
+  | { kind: "review"; rows: EditableRow[]; monthCovered?: string; countedDays?: number; onCallDates?: string[]; source: "photo" | "sheet" }
   | { kind: "saving" }
   | { kind: "saved"; count: number };
 
@@ -184,6 +184,7 @@ export function ScheduleImportModal({
         rows: editable,
         monthCovered: sheet.result.monthCovered,
         countedDays: sheet.result.countedDays,
+        onCallDates: def.target === "partner" ? sheet.result.onCallDates : undefined,
         source: "sheet",
       });
       return;
@@ -224,7 +225,10 @@ export function ScheduleImportModal({
       rid: `r${i}`,
       skipped: false,
     }));
-    setPhase({ kind: "review", rows: editable, monthCovered: result.monthCovered, countedDays: result.countedDays, source: "photo" });
+    setPhase({
+      kind: "review", rows: editable, monthCovered: result.monthCovered, countedDays: result.countedDays,
+      onCallDates: def.target === "partner" ? result.onCallDates : undefined, source: "photo",
+    });
   };
 
   const onSave = async () => {
@@ -267,7 +271,8 @@ export function ScheduleImportModal({
         ...(r.note ? { note: r.note } : {}),
       };
     });
-    if (rows.length === 0) {
+    const onCallDates = phase.onCallDates ?? [];
+    if (rows.length === 0 && onCallDates.length === 0) {
       setErr("Nothing to add — every row is skipped, needs a shift type, or still has a flag to clear.");
       return;
     }
@@ -279,6 +284,7 @@ export function ScheduleImportModal({
         scheduleId: def.id,
         target: def.target,
         rows,
+        onCallDates,
         monthCovered: phase.monthCovered,
         newShiftTypes,
       });
@@ -286,7 +292,7 @@ export function ScheduleImportModal({
       // the generic "N shifts added" notice quiet when the write echoes back.
       muteChangeNotices();
       notify(
-        `You just uploaded ${rows.length} shift${rows.length === 1 ? "" : "s"} — you should see them populate now.`      );
+        `You just uploaded ${rows.length} shift${rows.length === 1 ? "" : "s"}${onCallDates.length ? ` and ${onCallDates.length} on-call day${onCallDates.length === 1 ? "" : "s"}` : ""} — you should see them populate now.`      );
       setPhase({ kind: "saved", count: rows.length });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save the import.");
@@ -295,6 +301,7 @@ export function ScheduleImportModal({
         rows: phase.rows,
         monthCovered: phase.monthCovered,
         countedDays: phase.countedDays,
+        onCallDates: phase.onCallDates,
         source: phase.source,
       });
     }
@@ -425,6 +432,7 @@ export function ScheduleImportModal({
             dark={dark}
             contextMonth={contextMonth}
             countedDays={phase.countedDays}
+            onCallCount={phase.onCallDates?.length ?? 0}
             source={phase.source}
             image={image}
             onUpdate={updateRow}
@@ -523,7 +531,7 @@ function flagFor(row: EditableRow, validIds: Set<string>, contextMonth: string):
 }
 
 function ReviewPhase({
-  rows, shiftTypes, t, dark, contextMonth, countedDays, source, image, onUpdate,
+  rows, shiftTypes, t, dark, contextMonth, countedDays, onCallCount, source, image, onUpdate,
 }: {
   rows: EditableRow[];
   shiftTypes: Array<{ id: string; name: string; start: string; end: string }>;
@@ -531,6 +539,8 @@ function ReviewPhase({
   dark: boolean;
   contextMonth: string;
   countedDays?: number;
+  /** Asterisk (on-call) days read alongside the rows; saved with them. */
+  onCallCount: number;
   source: "photo" | "sheet";
   image: { dataUrl: string } | null;
   onUpdate: (rid: string, patch: Partial<EditableRow>) => void;
@@ -580,6 +590,7 @@ function ReviewPhase({
         {chip(readyCount, "ready to save", "ok")}
         {needTypeCount > 0 && chip(needTypeCount, "need a shift type", "warn")}
         {offMonth.length > 0 && chip(offMonth.length, `fall in ${offMonthName}`, "warn")}
+        {onCallCount > 0 && chip(onCallCount, onCallCount === 1 ? "on-call day (*)" : "on-call days (*)", "ok")}
         {firstProblem && (
           <button
             type="button"

@@ -227,5 +227,5 @@ export async function applyCoverageRewrite(
     }
   }
 
-  await writeHouseholdState(householdId, current, { ...current, coverageRequests: kept });
+  await writeHouseholdState(householdId, { ...current, coverageRequests: kept });
 }

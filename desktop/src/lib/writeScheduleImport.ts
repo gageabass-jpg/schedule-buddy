@@ -36,6 +36,10 @@ export interface WriteImportInput {
   scheduleId: string;
   target: ImportTarget;
   rows: ImportRow[];
+  /** Days to mark on call (partner imports only): the asterisks on her
+   *  schedule. Merged into partner.onCall; a day can be on call with no shift,
+   *  so these can arrive without any rows. */
+  onCallDates?: string[];
   monthCovered?: string;
   /** Types the review table asked to create, from hours the photo showed that
    *  nothing in the catalog matched. Added before the rows are validated. */
@@ -53,7 +57,8 @@ function newId(): string {
  */
 export async function writeScheduleImport(input: WriteImportInput): Promise<ImportRecord> {
   const { householdId, scheduleId, target, rows } = input;
-  if (!rows.length) throw new WriteImportError("Nothing to save.");
+  const onCallDates = target === "partner" ? [...new Set(input.onCallDates ?? [])] : [];
+  if (!rows.length && !onCallDates.length) throw new WriteImportError("Nothing to save.");
 
   let current: HouseholdState | null;
   try {
@@ -90,7 +95,11 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
     ...current,
     shiftTypes: catalog,
     ot: [...(current.ot ?? [])],
-    partner: { ...current.partner, shifts: [...(current.partner?.shifts ?? [])] },
+    partner: {
+      ...current.partner,
+      shifts: [...(current.partner?.shifts ?? [])],
+      ...(current.partner?.onCall ? { onCall: [...current.partner.onCall] } : {}),
+    },
     dependents: { ...(current.dependents ?? {}) },
     imports: [...(current.imports ?? [])],
   };
@@ -115,6 +124,13 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
           ...(r.note ? { note: r.note } : {}),
         };
         next.partner.shifts.push(entry);
+      }
+      if (onCallDates.length) {
+        const have = new Set((next.partner.onCall ?? []).map((o) => o.date));
+        next.partner.onCall = [
+          ...(next.partner.onCall ?? []),
+          ...onCallDates.filter((d) => !have.has(d)).map((date) => ({ date })),
+        ];
       }
       break;
     }
@@ -147,7 +163,7 @@ export async function writeScheduleImport(input: WriteImportInput): Promise<Impo
   next.imports!.push(record);
 
   try {
-    await writeHouseholdState(householdId, current, next);
+    await writeHouseholdState(householdId, next);
   } catch (e) {
     throw new WriteImportError("Couldn't save the import. Check your connection.", e);
   }

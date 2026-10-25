@@ -3,7 +3,6 @@ import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap }
 import { buildShiftMap, compactTime, type Event as SbEvent, type HouseholdState } from "../state";
 import { personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
-import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import {
   computeOverlapCandidates, parentDayRanges, parentDaySegments,
@@ -15,11 +14,14 @@ import type { StretchDay } from "../lib/stretch";
 import { HolidayPayTag } from "./HolidayPayTag";
 import { BlockTip } from "./BlockTip";
 import { PhotoAv } from "./PhotoAv";
+import { CaregiverChip } from "./CaregiverChip";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
 import type { CommuteResult } from "../lib/commute";
 import { FLAG_RED } from "./DayFlagPopover";
 import { useHouseholdLook } from "../lib/householdLook";
+import { OnCallRow } from "./OnCallBadge";
+import { onCallOn } from "../lib/onCall";
 
 interface Props {
   selected: string;
@@ -44,9 +46,7 @@ interface Props {
   onEditEvent: (ev: SbEvent) => void;
   onSendCoverageForDay: (date: string) => void;
   onToggleChildcareOff: (date: string, off: boolean) => void;
-  onSelectDate?: (date: string) => void;
   onOpenScheduleBlock: () => void;
-  onOpenCleaner: () => void;
   /** Reminder cards above the day card. `reminderUpdate` is the 4-week
    *  cadence nudge; `reminderCaregiver` is condition-driven (uncovered days). */
   reminderUpdate?: boolean;
@@ -64,9 +64,8 @@ interface Props {
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, stretches, commute, state, selfName, partnerName,
   onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay: _onSendCoverageForDay,
-  onToggleChildcareOff: _onToggleChildcareOff, onSelectDate,
-  onOpenScheduleBlock, onOpenCleaner: _onOpenCleaner,
-  reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
+  onToggleChildcareOff: _onToggleChildcareOff,
+  onOpenScheduleBlock, reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
   onDismissReminder, onSendCaregiverRequests, onAsk, wvuGames,
 }: Props) {
   const look = useHouseholdLook();
@@ -88,7 +87,7 @@ export function Inspector({
   // red striped notice card right under the Selected Day header.
   const dayBlock = blockForDate(state?.scheduleBlocks, selected);
   // Daisy's (caregiver) school time on the selected day — when she can't cover.
-  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || (look.familyPhotos ? "Daisy" : "Caregiver");
 
   // Overview rail tabs (design boards): the header stays tied to the tapped
   // day; the tabs below switch the broader view (Month / Childcare / Life).
@@ -189,6 +188,10 @@ export function Inspector({
                 ? `${selfName} works`
                 : `${partnerName} works`}
         </div>
+        {(() => {
+          const onCall = onCallOn(state, selected);
+          return onCall ? <OnCallRow entry={onCall} name={partnerName} color={palette.K} t={t} fontSize={13.5} margin="8px 0 0" /> : null;
+        })()}
         <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
           {(shifts ?? []).map((s, i) => {
             const c = personColor(s.who, palette);
@@ -232,6 +235,7 @@ export function Inspector({
                 <span style={{ width: 4, alignSelf: "stretch", minHeight: 22, borderRadius: 2, background: c, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
+                  {s.who === "D" && daisyName !== "Caregiver" && <CaregiverChip t={t} fontSize={12} />}
                   {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
                   {(() => {
                     // Leave by, from the traffic check before this shift.
@@ -540,17 +544,9 @@ export function Inspector({
       </div>
       )}
 
-      {/* Month tab — one card: fatigue quilt, then this-month totals. */}
+      {/* Month tab — one card: this-month totals, then the week deltas. */}
       {railTab === "month" && (
         <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-          <FatigueHeatmap
-            shifts={allShifts}
-            state={state}
-            anchorDate={selected}
-            t={t}
-            onSelectDate={onSelectDate}
-          />
-          <div style={{ height: 1, background: t.sep }} />
           <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
           <div style={{ height: 1, background: t.sep }} />
           <MonthWeekDeltas selected={selected} state={state} t={t} />

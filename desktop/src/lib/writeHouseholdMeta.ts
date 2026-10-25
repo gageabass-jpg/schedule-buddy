@@ -24,7 +24,7 @@ export async function setHouseholdName(householdId: string, name: string): Promi
   const next: HouseholdState = { ...current };
   if (trimmed) next.householdName = trimmed;
   else delete next.householdName;
-  try { await writeHouseholdState(householdId, current, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the household name.", e); }
 }
 
@@ -41,7 +41,7 @@ export async function setTimeZone(householdId: string, tz: string): Promise<void
   const next: HouseholdState = { ...current };
   if (trimmed) next.timeZone = trimmed;
   else delete next.timeZone;
-  try { await writeHouseholdState(householdId, current, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the time zone.", e); }
 }
 
@@ -65,6 +65,6 @@ export async function setEmployer(
   else delete employers[who];
   const next: HouseholdState = { ...current, employers };
   if (Object.keys(employers).length === 0) delete next.employers;
-  try { await writeHouseholdState(householdId, current, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new WriteHouseholdMetaError("Couldn't save the employer.", e); }
 }

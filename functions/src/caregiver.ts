@@ -10,16 +10,13 @@
 //     `sync` rebuilds the view on demand, for a household whose view doesn't
 //     exist yet.
 //
-// A household on the any-household model has no state/main to trigger on:
-// onHouseholdEdit (index.ts) calls refreshCaregiverView after each save, and
-// caregiverAction's change goes through editLegacyState like any other edit.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { applyCaregiverAction, buildCaregiverView, CaregiverInputError } from "./caregiverLogic";
-import { editLegacyState, readLegacyState } from "./householdState";
+import { editHouseholdState, readHouseholdState } from "./householdState";
 
 const viewRef = (householdId: string) =>
   getFirestore().collection("households").doc(householdId).collection("caregiverView").doc("main");
@@ -73,15 +70,15 @@ export const caregiverAction = onCall<CaregiverActionRequest, Promise<{ ok: true
     }
 
     if (request.data.action === "sync") {
-      const state = await readLegacyState(householdId);
+      const state = await readHouseholdState(householdId);
       await viewRef(householdId).set(buildCaregiverView((state ?? undefined) as Record<string, unknown> | undefined));
       return { ok: true };
     }
 
     const now = new Date();
     try {
-      if (!(await readLegacyState(householdId))) throw new CaregiverInputError("The schedule isn't set up yet.");
-      await editLegacyState(householdId, uid, (fresh) => {
+      if (!(await readHouseholdState(householdId))) throw new CaregiverInputError("The schedule isn't set up yet.");
+      await editHouseholdState(householdId, (fresh) => {
         const patch = applyCaregiverAction(fresh as unknown as Record<string, unknown>, request.data, {
           uid,
           nowIso: now.toISOString(),

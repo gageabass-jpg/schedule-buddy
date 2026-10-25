@@ -47,8 +47,6 @@ Both clients must authenticate the same human to the same `auth.uid` so househol
 inviteCodes/{code}                         — flat lookup of code → householdId
 households/{householdId}                    — household root doc
 households/{householdId}/state/main         — the shared schedule state (the big one)
-households/{householdId}/otApprovals/{id}   — overtime decisions
-households/{householdId}/feedback/{id}      — (legacy: chat messages — feature removed in iOS app, but rules still allow it)
 ```
 
 ### 3.1 `households/{householdId}` — root doc
@@ -114,17 +112,6 @@ The live JS shape (also see `defaultState()` in `public/index.html`):
     // ...
   ],
 
-  // ---- Available OT (offered, awaiting partner approval) ----
-  // Joined to otApprovals subcollection by index — see §3.3
-  otOpportunities: [
-    {
-      date:        "YYYY-MM-DD",
-      shiftTypeId: string,
-      coworkers:   string,
-    },
-    // ...
-  ],
-
   // ---- One-off changes that override the recurring template ----
   overrides: [
     {
@@ -139,7 +126,7 @@ The live JS shape (also see `defaultState()` in `public/index.html`):
   range: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" },
 
   calName:   "Work schedule",
-  calView:   "schedule" | "fatigue" | "childcare" | "couple",  // visualization mode
+  calView:   "schedule" | "childcare",                       // visualization mode
 
   // ---- Self / partner identity ----
   selfName: "Gage",
@@ -148,6 +135,10 @@ The live JS shape (also see `defaultState()` in `public/index.html`):
     shifts: [                               // partner is a manual list of dated shifts
       { date: "YYYY-MM-DD", shiftTypeId: string, label: string },
       // ...
+    ],
+    onCall: [                               // the asterisks on her schedule: days she is on call.
+      { date: "YYYY-MM-DD", pending?: true, importId?: string },   // Independent of shifts — she can be on call on a day off.
+      // ...                                // `pending` = from a photo import awaiting the manager's approval
     ],
   },
 
@@ -159,7 +150,7 @@ The live JS shape (also see `defaultState()` in `public/index.html`):
 
   // ---- Calendar UI prefs (mobile + desktop view layout) ----
   ui: {
-    calLayout:     "month" | "week" | "agenda",
+    calLayout:     "month" | "agenda",
     viewMonth:     "YYYY-MM-DD",            // first day of visible month
     viewWeekStart: "YYYY-MM-DD",            // Sunday of visible week
   },
@@ -171,25 +162,7 @@ The live JS shape (also see `defaultState()` in `public/index.html`):
 
 **Default values** are produced by `defaultState()` and `builtInShiftTypes()` in `public/index.html`. The default `shiftTypes` includes 6 builtins (`day12`, `day8`, `evening`, `night12`, `night8`, `morning4`) — each has a stable id like `st_day12`. Admins may add custom types alongside.
 
-### 3.3 `households/{householdId}/otApprovals/{otop_<index>}`
-
-One doc per OT opportunity (at index `<index>` in `state.main.otOpportunities`). Doc id pattern is literally `otop_0`, `otop_1`, etc.
-
-```js
-{
-  status:        "pending" | "approved" | "denied",
-  comment:       string,                    // optional
-  decidedBy:     string,                    // uid
-  decidedByName: string,
-  decidedAt:     Timestamp,
-}
-```
-
-### 3.4 `households/{householdId}/feedback/{msgId}` — (legacy)
-
-The household chat feature was removed from the iOS app, but the collection and security rules still exist. The desktop app should **ignore** this collection unless you choose to revive chat.
-
-### 3.5 `inviteCodes/{code}`
+### 3.3 `inviteCodes/{code}`
 
 Flat lookup so a partner can join by code without scanning the whole `households` collection.
 
@@ -206,7 +179,7 @@ Only `read` and `create` are allowed. No update / delete in the rules — once a
 (See `firestore.rules` for source of truth.)
 
 - **Household root doc:** any signed-in user can `read` / `update` / `delete` only if their uid is in `memberUids`. `create` requires their uid in the new doc's `memberUids`. `update` also allows joining (someone adding their own uid for the first time).
-- **`state/{any}`, `otApprovals/{any}`, `feedback/{any}`:** read+write iff the caller's uid is in the parent household's `memberUids` (verified via a `get()` lookup at rule eval time — slightly more expensive but secure).
+- **`state/{any}`:** read+write iff the caller's role in the household is `admin` or `partner` (verified via a `get()` lookup at rule eval time). A caregiver (`supporting`) reads `caregiverView/main` instead. A member with no entry in `roles` is locked out of the schedule.
 - **`inviteCodes/{code}`:** any authenticated user can `read` and `create`. Cannot modify or delete.
 
 **Implication for the desktop app:** as long as your authenticated user is a member of the household, you can read and write everything that matters. There is no separate "admin write, partner read-only" enforcement at the rules layer — that's a UI convention. If you want to enforce admin-only writes server-side, tighten the rules first (let me know if you want this and I'll author the change).
@@ -237,7 +210,7 @@ If conflicts ever bite, switch to a Firestore transaction (`db.runTransaction`) 
 On read, the iOS app passes Firestore data through `mergeStateFromFirestore(data)` which is a **strict allowlist**. Fields not in the allowlist are dropped. The current allowlist is:
 
 ```
-shiftTypes, template, alt, ot, otOpportunities, overrides,
+shiftTypes, template, alt, ot, overrides,
 range, calName, calView, activeTab, selfName, partner,
 caregiverBlackouts, ui, _migrations
 ```
@@ -300,7 +273,7 @@ To honor that split cleanly:
 - Caregiver blackouts
 - One-off overrides (`overrides`)
 - Partner's dated shifts (`partner.shifts`)
-- OT decisions (`ot`, `otOpportunities`, `otApprovals`)
+- Extra shifts (`ot`)
 - Date range (`range`) and calendar name (`calName`)
 
 **On the iOS side (read-only after split):**

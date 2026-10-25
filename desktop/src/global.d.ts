@@ -27,6 +27,9 @@ export interface ParseScheduleResult {
   /** How many dated squares the reader counted, before extracting rows — a
    *  cross-check against rows.length so a missed day is visible. */
   countedDays?: number;
+  /** Days marked with an asterisk (*): on call. YYYY-MM-DD, sorted. A day can
+   *  be on call without a shift, so these are not rows. */
+  onCallDates?: string[];
   error?: string;
 }
 
@@ -47,7 +50,6 @@ export interface SbmApi {
   onMenuEditTemplate: (cb: () => void) => () => void;
   onMenuOpenCoverageRequests: (cb: () => void) => () => void;
   onMenuOpenScheduleBlock: (cb: () => void) => () => void;
-  onMenuOpenCleaner: (cb: () => void) => () => void;
 }
 
 declare global {

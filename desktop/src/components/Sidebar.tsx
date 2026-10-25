@@ -25,14 +25,13 @@ interface SidebarProps {
   refreshing?: boolean;
   onOpenImprovements: () => void;
   viewFilter: ViewFilter;
-  viewCounts: { all: number; both: number; couple: number; week: number; g: number; k: number };
+  viewCounts: { all: number; week: number; g: number; k: number };
   onSetViewFilter: (f: ViewFilter) => void;
   onToggleThisWeek: () => void;
   onOpenScheduleImport: (id: string) => void;
   /** Right-click (two-finger click) a schedule row to edit that person's week. */
   onEditSchedule: (id: string) => void;
   onOpenFamilyConsole: () => void;
-  onSendCoverage: () => void;
   onOpenCoverageRequests: () => void;
   onOpenChildcare: () => void;
   pendingCoverageCount: number;
@@ -42,7 +41,7 @@ export function Sidebar({
   palette, t, dark, shifts, viewYear, viewMonth, selected, onSelectDate,
   householdName, memberCount, syncStatus, onRefresh, refreshing, onOpenImprovements: _onOpenImprovements,
   viewFilter, viewCounts, onSetViewFilter, onToggleThisWeek, onOpenScheduleImport, onEditSchedule,
-  onOpenFamilyConsole, onSendCoverage, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
+  onOpenFamilyConsole, onOpenCoverageRequests, onOpenChildcare: _onOpenChildcare, pendingCoverageCount,
 }: SidebarProps) {
   const look = useHouseholdLook();
   return (
@@ -139,24 +138,6 @@ export function Sidebar({
           onClick={onToggleThisWeek}
           t={t}
         />
-        {look.hasPartner && (
-          <>
-            <ListRow
-              label="Both working"
-              count={viewCounts.both}
-              active={viewFilter === "both"}
-              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-              t={t}
-            />
-            <ListRow
-              label="Couple time"
-              count={viewCounts.couple}
-              active={viewFilter === "couple"}
-              onClick={() => onSetViewFilter(viewFilter === "couple" ? "all" : "couple")}
-              t={t}
-            />
-          </>
-        )}
         {look.childcare && <ListRow
           label="Coverage"
           count={pendingCoverageCount > 0 ? pendingCoverageCount : undefined}
@@ -185,16 +166,6 @@ export function Sidebar({
               count={viewCounts.k}
               active={viewFilter === "k"}
               onClick={() => onSetViewFilter(viewFilter === "k" ? "all" : "k")}
-              t={t}
-            />
-            <ListRow
-              color={palette.BOTH}
-              label="Overlap"
-              count={viewCounts.both}
-              active={viewFilter === "both"}
-              onClick={() => onSetViewFilter(viewFilter === "both" ? "all" : "both")}
-              onContextMenu={(e) => { e.preventDefault(); onSendCoverage(); }}
-              title="Right-click to send coverage requests to caregiver"
               t={t}
             />
           </>

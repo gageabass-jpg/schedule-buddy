@@ -27,6 +27,9 @@ export interface XlsxParseResult {
   /** Names found in the sheet's first column, when the person isn't there. */
   peopleFound: string[];
   monthCovered?: string;
+  /** Days whose cell carries an asterisk: on call. A bare "*" is on call with
+   *  no shift, so it is here and not in rows (or countedDays). */
+  onCallDates?: string[];
   error?: string;
 }
 
@@ -156,11 +159,15 @@ export function parseScheduleXlsx(
     if (personIdx < 0) continue;
 
     const rows: ParsedShiftRow[] = [];
+    const onCallDates: string[] = [];
     let countedDays = 0;
     const personRow = grid[personIdx] ?? [];
 
     for (const { col, date } of dates) {
-      const text = cellText(personRow[col]);
+      const raw = cellText(personRow[col]);
+      // An asterisk marks the day on call, with or without a shift beside it.
+      if (raw.includes("*")) onCallDates.push(dateKey(date));
+      const text = raw.replace(/\*/g, " ").replace(/\s+/g, " ").trim();
       if (!text || OFF_MARKERS.has(text.toLowerCase())) continue;
       countedDays++;
       const times = parseTimeRange(text);
@@ -184,7 +191,8 @@ export function parseScheduleXlsx(
 
     rows.sort((a, b) => a.date.localeCompare(b.date));
     const monthCovered = rows.length ? rows[0].date.slice(0, 7) : undefined;
-    return { rows, countedDays, peopleFound: people, monthCovered };
+    onCallDates.sort();
+    return { rows, countedDays, peopleFound: people, monthCovered, onCallDates };
   }
 
   return {

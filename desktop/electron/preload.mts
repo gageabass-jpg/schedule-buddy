@@ -89,12 +89,6 @@ const api = {
     ipcRenderer.on("menu:open-schedule-block", handler);
     return () => ipcRenderer.removeListener("menu:open-schedule-block", handler);
   },
-  /** Fires when the user picks "Cleaner…" from the Tools menu. */
-  onMenuOpenCleaner: (cb: () => void): (() => void) => {
-    const handler = (): void => cb();
-    ipcRenderer.on("menu:open-cleaner", handler);
-    return () => ipcRenderer.removeListener("menu:open-cleaner", handler);
-  },
 };
 
 contextBridge.exposeInMainWorld("sbm", api);

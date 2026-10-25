@@ -36,7 +36,7 @@ export async function setPaydaySchedule(
     delete paydays[who];
   }
   try {
-    await writeHouseholdState(householdId, current, { ...current, paydays });
+    await writeHouseholdState(householdId, { ...current, paydays });
   } catch (e) {
     throw new PaydayError("Couldn't save payday schedule.", e);
   }

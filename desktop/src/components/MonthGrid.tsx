@@ -7,13 +7,13 @@ import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette,
 import { BrandMark } from "./BrandMark";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhotoAv } from "./PhotoAv";
 import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
 import { FLAG_RED } from "./DayFlagPopover";
 import type { DayFlag } from "../lib/dayFlags";
 import { ShinyButton } from "@/components/ui/shiny-button";
 import { CircleCheckIcon, type CircleCheckIconHandle } from "@/components/ui/circle-check";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { YearView } from "./YearView";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { AgendaView } from "./AgendaView";
@@ -21,6 +21,8 @@ import { wvuGameLabel, type WvuGame } from "../lib/wvuSchedule";
 import { shortcut } from "../lib/platform";
 import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
 import { STRETCH_RED } from "./StretchBadge";
+import { SmartPhone02Icon } from "@/components/ui/smart-phone-02";
+import { onCallOn, onCallLabel } from "../lib/onCall";
 import type { StretchDay } from "../lib/stretch";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
@@ -91,6 +93,8 @@ export function MonthGrid({
   eventsByDate, onEditEvent, wvuGames, dayFlags, onFlagDay, toolbarEnd, stretches, careConfirmedAt,
 }: Props) {
   const look = useHouseholdLook();
+  // The original household never stored a name for her; the avatar is Daisy's.
+  const daisyName = state?.dependents?.daisy?.name?.trim() || (look.familyPhotos ? "Daisy" : "Caregiver");
   // Two-finger swipe (horizontal trackpad scroll) moves a month (a week in
   // week view, a day in day view), anywhere in the window: over a chip, the
   // rail, the toolbar,
@@ -258,7 +262,7 @@ export function MonthGrid({
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-          {(["day", "week", "month", "year", "agenda"] as const).map((v) => {
+          {(["day", "week", "month", "agenda"] as const).map((v) => {
             const active = calLayout === v;
             return (
               <button
@@ -341,23 +345,6 @@ export function MonthGrid({
         </Tooltip>
         {toolbarEnd}
       </div>
-
-      {calLayout === "year" && (
-        <YearView
-          palette={palette}
-          t={t}
-          dark={dark}
-          shifts={shifts}
-          viewYear={viewYear}
-          selected={selected}
-          onSelectDate={onSelectDate}
-          onDrillIntoMonth={(mo) => {
-            onSetCalLayout("month");
-            // viewMonth is owned by App.tsx — selecting a date drills there.
-            onSelectDate(fmtDate(viewYear, mo, 1));
-          }}
-        />
-      )}
 
       {calLayout === "week" && (
         <WeekView
@@ -464,8 +451,6 @@ export function MonthGrid({
                 const holiday = holidayOn(key);
                 const matchesFilter =
                   viewFilter === "all" ||
-                  (viewFilter === "both" && kind === "both") ||
-                  (viewFilter === "couple" && kind === "off") ||
                   (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey) ||
                   (viewFilter === "g" && (kind === "g" || kind === "both")) ||
                   (viewFilter === "k" && (kind === "k" || kind === "both")) ||
@@ -635,6 +620,18 @@ export function MonthGrid({
                           >$</span>
                         )}
                         {(() => {
+                          // On call (the asterisk on her schedule): a phone in her
+                          // colour, with or without a shift that day.
+                          const onCall = onCallOn(state, key);
+                          if (!onCall) return null;
+                          const label = onCallLabel(partnerName, onCall);
+                          return (
+                            <span title={label} role="img" aria-label={label} style={{ display: "flex", color: palette.K, opacity: onCall.pending ? 0.6 : 1 }}>
+                              <SmartPhone02Icon size={12} />
+                            </span>
+                          );
+                        })()}
+                        {(() => {
                           const dayEvents = eventsByDate[key] ?? [];
                           const totalItems = (dayShifts?.length ?? 0) + dayEvents.length;
                           return totalItems > 1 ? (
@@ -648,15 +645,29 @@ export function MonthGrid({
                       // In the Coverage view a coverage day leads with where its
                       // cover stands, and gives up one of the three rows for it.
                       const cover = viewFilter === "coverage" ? coverageMarks?.get(key) : undefined;
-                      const shiftSlice = (dayShifts ?? []).slice(0, cover ? 2 : 3);
-                      const eventSlice = dayEvents.slice(0, Math.max(0, (cover ? 2 : 3) - shiftSlice.length));
+                      // The cell's bottom corner belongs to the care check, the
+                      // stretch flame and the game logo, so when any of them is
+                      // there (or the day has more items than fit) the chips give
+                      // up their last row, and whatever is left over folds into a
+                      // footer: the hidden people's avatars and a "+N".
+                      const allShifts = dayShifts ?? [];
+                      const rows = cover ? 2 : 3;
+                      const hasMarks = wvuGames.has(key) || !!stretches?.get(key) || (confirmedCareDates.has(key) && !noCareByDate.has(key));
+                      const cap = hasMarks || allShifts.length + dayEvents.length > rows ? rows - 1 : rows;
+                      const shiftSlice = allShifts.slice(0, cap);
+                      const eventSlice = dayEvents.slice(0, Math.max(0, cap - shiftSlice.length));
+                      const hiddenShifts = allShifts.slice(shiftSlice.length);
+                      const hiddenEvents = dayEvents.slice(eventSlice.length);
+                      const hiddenCount = hiddenShifts.length + hiddenEvents.length;
+                      const hiddenWho = [...new Set(hiddenShifts.map((s) => s.who))].slice(0, 2);
                       if (!cover && shiftSlice.length === 0 && eventSlice.length === 0) return null;
                       return (
+                        <>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={state?.dependents?.daisy?.name || "Caregiver"} />}
+                          {cover && <CoverageChip mark={cover} t={t} dark={dark} daisyName={daisyName} />}
                           {shiftSlice.map((s, i) => {
                             const color = personColor(s.who, palette);
-                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : (state?.dependents?.daisy?.name || "Caregiver");
+                            const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName;
                             const st = state?.shiftTypes?.find((x) => x.id === s.shiftTypeId);
                             const hours = st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
                             // White chip with the person's hue as a left-edge bar
@@ -743,11 +754,58 @@ export function MonthGrid({
                             </div>
                             </TooltipTrigger>
                             <TooltipContent side="top" size="sm" className="max-w-64">
-                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={state?.dependents?.daisy?.name || "Caregiver"} t={t} />
+                              <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={daisyName} t={t} />
                             </TooltipContent>
                             </Tooltip>
                           ))}
                         </div>
+                        {(hasMarks || hiddenCount > 0) && (
+                          <div style={{ marginTop: "auto", flexShrink: 0, height: 20, display: "flex", alignItems: "center", gap: 4, paddingLeft: 2 }}>
+                            {hiddenCount > 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, cursor: "default" }}>
+                                    {hiddenWho.length > 0 && (
+                                      <span style={{ display: "flex" }}>
+                                        {hiddenWho.map((w, i) => (
+                                          <span key={w} style={{ display: "flex", marginLeft: i ? -5 : 0, borderRadius: "50%", boxShadow: `0 0 0 1.5px ${t.bgElev}` }}>
+                                            <PhotoAv who={w} size={16} palette={palette} dark={dark} />
+                                          </span>
+                                        ))}
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: 10.5, fontWeight: 700, color: t.text2, fontVariantNumeric: "tabular-nums" }}>+{hiddenCount}</span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" size="sm" className="max-w-64">
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                    {hiddenShifts.map((s, i) => {
+                                      const name = s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName;
+                                      const st = state?.shiftTypes?.find((x) => x.id === s.shiftTypeId);
+                                      const hours = st ? `${compactTime(st.start)}–${compactTime(st.end)}` : s.label;
+                                      // The label is usually just the start time, which the hours
+                                      // already open with; only a real name ("Day") earns a place.
+                                      const detail = /^\d/.test(s.label) || s.label === hours ? hours : `${s.label} · ${hours}`;
+                                      return (
+                                        <div key={`h${i}`} style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
+                                          <span aria-hidden="true" style={{ width: 3, borderRadius: 2, background: personColor(s.who, palette), flexShrink: 0 }} />
+                                          <div style={{ display: "flex", flexDirection: "column" }}>
+                                            <span style={{ fontWeight: 600 }}>{name}</span>
+                                            <span className="text-muted-foreground">{detail}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    {hiddenEvents.map((ev) => (
+                                      <EventTip key={ev.id} ev={ev} selfName={selfName} partnerName={partnerName} daisyName={daisyName} t={t} />
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        )}
+                        </>
                       );
                     })()}
                   </button>
@@ -816,7 +874,7 @@ export function MonthGrid({
           {viewFilter === "coverage" && (["has", "waiting", "nobody"] as const).map((k) => (
             <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
               <CoverageDot kind={k} dark={dark} />
-              {k === "has" ? `${state?.dependents?.daisy?.name || "Caregiver"} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
+              {k === "has" ? `${daisyName} has it` : k === "waiting" ? "Waiting on her" : "Nobody has the kids"}
             </span>
           ))}
           {viewFilter !== "coverage" && look.childcare && (<>
@@ -860,9 +918,6 @@ function ToolbarTitle({
     <span style={{ fontSize: 22, fontWeight: 400, color: t.text2, letterSpacing: "-0.02em", fontFamily: BRAND_FONT }}>{s}</span>
   );
 
-  if (calLayout === "year") {
-    return big(String(viewYear));
-  }
   if (calLayout === "month") {
     return (
       <>

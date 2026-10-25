@@ -37,7 +37,7 @@ async function readState(householdId: string): Promise<HouseholdState> {
   return state;
 }
 async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
-  await writeHouseholdState(householdId, base, next);
+  await writeHouseholdState(householdId, next);
 }
 
 /** Sanitized snapshot in the exact shape share.html + icsFeed expect. */

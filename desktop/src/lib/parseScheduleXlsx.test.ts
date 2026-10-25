@@ -95,6 +95,36 @@ describe("parseScheduleXlsx", () => {
     expect(res.rows.every((r) => r.shiftTypeId === null)).toBe(true);
   });
 
+  describe("on call (the asterisk)", () => {
+    const onCall = [
+      ["Revised 9/23", "M", "T", "W", "TH"],
+      [null, D("2026-09-28"), D("2026-09-29"), D("2026-09-30"), D("2026-10-01")],
+      ["Kaylene", "6-230* Lacey", "*", "/", "6-230 Terra"],
+    ];
+
+    it("marks a day on call whether or not it also has a shift", () => {
+      const res = parseScheduleXlsx(sheet(onCall), "Kaylene", TYPES);
+      expect(res.onCallDates).toEqual(["2026-09-28", "2026-09-29"]);
+    });
+
+    it("keeps the asterisk out of the shift's label and note", () => {
+      const res = parseScheduleXlsx(sheet(onCall), "Kaylene", TYPES);
+      const row = res.rows.find((r) => r.date === "2026-09-28");
+      expect(row).toMatchObject({ shiftTypeId: "t_day", label: "6-230", note: "Lacey" });
+    });
+
+    it("does not turn an asterisk-only day into a shift, or count it as one", () => {
+      const res = parseScheduleXlsx(sheet(onCall), "Kaylene", TYPES);
+      expect(res.rows.map((r) => r.date)).toEqual(["2026-09-28", "2026-10-01"]);
+      expect(res.countedDays).toBe(res.rows.length);
+    });
+
+    it("reports no on-call days when there are no asterisks", () => {
+      const res = parseScheduleXlsx(sheet(rows), "Kaylene", TYPES);
+      expect(res.onCallDates).toEqual([]);
+    });
+  });
+
   it("names who it did find when the person isn't in the sheet", () => {
     const res = parseScheduleXlsx(sheet(rows), "Daisy", TYPES);
     expect(res.error).toMatch(/Daisy/);

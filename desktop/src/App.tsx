@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
-export type ViewFilter = "all" | "this-week" | "both" | "couple" | "g" | "k" | "coverage";
-export type CalLayout = "day" | "week" | "month" | "year" | "agenda";
+export type ViewFilter = "all" | "this-week" | "g" | "k" | "coverage";
+export type CalLayout = "day" | "week" | "month" | "agenda";
 export type ThemePref = "system" | "light" | "dark";
 
 const THEME_PREF_KEY = "sbm.theme";
@@ -41,11 +41,9 @@ import { TopBar } from "./components/TopBar";
 import { MonthGrid } from "./components/MonthGrid";
 import { Inspector } from "./components/Inspector";
 import { ScheduleBlockModal } from "./components/ScheduleBlockModal";
-import { CleanerModal } from "./components/CleanerModal";
 import { SignIn } from "./components/SignIn";
 import { JoinHousehold } from "./components/JoinHousehold";
 import { HouseholdLookContext, lookOf } from "./lib/householdLook";
-import { SetupWizard } from "./components/SetupWizard";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { NewShiftModal } from "./components/NewShiftModal";
 import { TemplateEditor } from "./components/TemplateEditor";
@@ -63,7 +61,6 @@ import { CoverageRequestModal } from "./components/CoverageRequestModal";
 import { CoverageRequestsPanel } from "./components/CoverageRequestsPanel";
 import { ImprovementsModal } from "./components/ImprovementsModal";
 import { ChildcarePanel } from "./components/ChildcarePanel";
-import { ChatManagerPanel } from "./components/ChatManagerPanel";
 import { AskClaudePanel } from "./components/AskClaudePanel";
 import { NewRequestModal } from "./components/NewRequestModal";
 import { ShiftDetailPopover } from "./components/ShiftDetailPopover";
@@ -162,7 +159,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // Setting up a new household. Kept here, not in the join screen: the
   // household exists (and the join screen goes away) before the wizard has
   // shown the invite codes.
-  const [settingUp, setSettingUp] = useState(false);
   useEffect(() => {
     if (householdStatus.status !== "loading") onReady();
   }, [householdStatus.status, onReady]);
@@ -194,7 +190,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [scheduleBlockOpen, setScheduleBlockOpen] = useState(false);
-  const [cleanerOpen, setCleanerOpen] = useState(false);
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
   const [familyConsoleOpen, setFamilyConsoleOpen] = useState(false);
   const [coverageModalOpen, setCoverageModalOpen] = useState(false);
@@ -208,7 +203,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     endTime?: string;
     notes?: string;
   } | null>(null);
-  const [chatManagerOpen, setChatManagerOpen] = useState(false);
   const [askClaudeOpen, setAskClaudeOpen] = useState(false);
   // The day nucleusAI was opened about (Ask on a popover); null = no day.
   const [askContext, setAskContext] = useState<AskContext | null>(null);
@@ -293,10 +287,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     const unsub = window.sbm?.onMenuOpenScheduleBlock(() => setScheduleBlockOpen(true));
     return () => { unsub?.(); };
   }, []);
-  useEffect(() => {
-    const unsub = window.sbm?.onMenuOpenCleaner(() => setCleanerOpen(true));
-    return () => { unsub?.(); };
-  }, []);
 
   // Live state if available, otherwise demo data (so we never render an empty
   // calendar — useful for first-run before a household has any shifts saved).
@@ -358,30 +348,22 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   }, [state, viewYear, viewMonth]);
 
   // Counts shown next to the Views entries in the sidebar.
-  // All / Both / Couple are scoped to the visible month; This week scans the
+  // All is scoped to the visible month; This week scans the
   // calendar week (Sun..Sat) containing today.
   const viewCounts = useMemo(() => {
     let all = 0;
-    let both = 0;
-    let couple = 0;
     let g = 0;
     let k = 0;
     const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate();
     for (let d = 1; d <= lastDay; d++) {
       const key = fmtDate(viewYear, viewMonth, d);
       const list = shifts[key];
-      if (!list || list.length === 0) {
-        couple++;
-        continue;
-      }
+      if (!list || list.length === 0) continue;
       all += list.length;
       const hasG = list.some((s) => s.who === "G");
       const hasK = list.some((s) => s.who === "K");
       if (hasG) g++;
       if (hasK) k++;
-      if (hasG && hasK) both++;
-      // Both parents off is couple time even when Daisy has class.
-      if (!hasG && !hasK) couple++;
     }
 
     let week = 0;
@@ -395,7 +377,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
       const key = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
       week += (shifts[key] ?? []).length;
     }
-    return { all, both, couple, week, g, k };
+    return { all, week, g, k };
   }, [shifts, viewYear, viewMonth, tY, tM, tD]);
 
   const householdName = state?.householdName || "Your household";
@@ -428,9 +410,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           return m - 1;
         });
         break;
-      case "year":
-        setViewYear((y) => y - 1);
-        break;
       case "week":
         shiftSelectedBy(-7);
         break;
@@ -446,9 +425,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           if (m === 11) { setViewYear((y) => y + 1); return 0; }
           return m + 1;
         });
-        break;
-      case "year":
-        setViewYear((y) => y + 1);
         break;
       case "week":
         shiftSelectedBy(7);
@@ -653,11 +629,8 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
     }
   };
 
-  if (settingUp) {
-    return <SetupWizard dark={dark} onCancel={() => setSettingUp(false)} onDone={() => setSettingUp(false)} />;
-  }
   if (householdStatus.status === "no-household") {
-    return <JoinHousehold dark={dark} onCreate={() => setSettingUp(true)} />;
+    return <JoinHousehold dark={dark} />;
   }
 
   return (
@@ -689,7 +662,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         refreshing={refreshing}
         onOpenImprovements={() => setImprovementsOpen(true)}
         onOpenFamilyConsole={() => setFamilyConsoleOpen(true)}
-        onSendCoverage={() => setCoverageModalOpen(true)}
         onOpenCoverageRequests={() => setCoverageRequestsOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
@@ -790,9 +762,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           setNewRequestOpen(true);
         }}
         onToggleChildcareOff={handleToggleChildcareOff}
-        onSelectDate={(iso) => setSelected(iso)}
         onOpenScheduleBlock={() => setScheduleBlockOpen(true)}
-        onOpenCleaner={() => setCleanerOpen(true)}
         reminderUpdate={scheduleReminder.showUpdate}
         reminderCaregiver={scheduleReminder.showCaregiver}
         coverageNeedsCount={new Set(coverageNeeds.map((c) => c.date)).size}
@@ -811,19 +781,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           householdId={householdId}
           state={state}
           defaultDate={selected}
-        />
-      </ModalPresence>
-      <ModalPresence open={cleanerOpen}>
-        <CleanerModal
-          open={cleanerOpen}
-          onClose={() => setCleanerOpen(false)}
-          palette={palette}
-          t={t}
-          dark={dark}
-          householdId={householdId}
-          state={state}
-          selfName={selfName}
-          partnerName={partnerName}
         />
       </ModalPresence>
       <ModalPresence open={newShiftOpen}>
@@ -919,7 +876,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           state={state}
           themePref={themePref}
           onSetThemePref={onSetThemePref}
-          onOpenChatManager={() => { setFamilyConsoleOpen(false); setChatManagerOpen(true); }}
         />
       </ModalPresence>
       <ModalPresence open={coverageModalOpen}>
@@ -967,15 +923,6 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
           onSendSingle={() => setNewRequestOpen(true)}
         />
       </ModalPresence>
-      <ChatManagerPanel
-        open={chatManagerOpen}
-        onClose={() => setChatManagerOpen(false)}
-        palette={palette}
-        t={t}
-        dark={dark}
-        householdId={householdId}
-        household={householdStatus.status === "ready" ? householdStatus.household : null}
-      />
       <ModalPresence open={askClaudeOpen}>
         <AskClaudePanel
           context={askContext}

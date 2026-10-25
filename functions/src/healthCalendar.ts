@@ -17,7 +17,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
-import { editLegacyState, readLegacyState } from "./householdState";
+import { editHouseholdState, readHouseholdState } from "./householdState";
 
 const HEALTH_CAL_URL = defineSecret("HEALTH_CAL_URL");
 const HEALTH_CAL_HOUSEHOLD = defineString("HEALTH_CAL_HOUSEHOLD", {
@@ -150,11 +150,11 @@ export const syncHealthCalendar = onCall(
     const todayLocal = localDateStr(now, tz);
     const horizonLocal = localDateStr(new Date(now.getTime() + 180 * 86400000), tz);
 
-    if (!(await readLegacyState(householdId))) throw new HttpsError("not-found", "No schedule doc.");
+    if (!(await readHouseholdState(householdId))) throw new HttpsError("not-found", "No schedule doc.");
 
     // Worked out from the events as they are at the moment of saving, so an
     // event added meanwhile is kept.
-    const { added, updated } = await editLegacyState(householdId, "healthCalendar", (fresh) => {
+    const { added, updated } = await editHouseholdState(householdId, (fresh) => {
       const existing: EventRec[] = Array.isArray(fresh.events) ? (fresh.events as unknown as EventRec[]) : [];
 
       const idByHealthId = new Map<string, string>();

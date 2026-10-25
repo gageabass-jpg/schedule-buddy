@@ -16,7 +16,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
-import { readLegacyState } from "./householdState";
+import { readHouseholdState } from "./householdState";
 
 interface WallTokenDoc {
   householdId: string;
@@ -279,7 +279,7 @@ export const getWallState = onRequest(
     const memberNames: Record<string, string> = hhData.memberNames ?? {};
 
     // Load state.
-    const loaded = await readLegacyState(householdId);
+    const loaded = await readHouseholdState(householdId);
     if (!loaded) {
       res.status(404).json({ error: "state not initialized" });
       return;

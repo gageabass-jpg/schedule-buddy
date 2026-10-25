@@ -4,11 +4,9 @@ export { syncHealthCalendar } from "./healthCalendar";
 export { getWallState } from "./wallState";
 export { icsFeed } from "./icsFeed";
 export { wvuSchedule } from "./wvuSchedule";
-export { cleanSchedule } from "./cleanSchedule";
 export { placesAutocomplete } from "./placesAutocomplete";
 export { checkCommutes } from "./commute";
 export { mirrorCaregiverView, caregiverAction } from "./caregiver";
-export { migrateHousehold, unmigrateHousehold } from "./migrate";
 export { setNowPlaying, getNowPlaying } from "./nowPlaying";
 export { sendPiCommand, getPiCommand } from "./piCommand";
 
@@ -19,12 +17,8 @@ import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/fire
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { logger } from "firebase-functions";
-import { readLegacyState } from "./householdState";
+import { readHouseholdState } from "./householdState";
 import type { HouseholdState } from "./shared/state";
-import { loadHousehold, revertChanges, type EditEntry } from "./shared/store";
-import { toLegacy } from "./shared/toLegacy";
-import { modelStore } from "./modelStore";
-import { refreshCaregiverView } from "./caregiver";
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
@@ -186,7 +180,6 @@ async function tokensForRoles(
  *
  *   caregiver      → requests awaiting her reply (unanswered + proposed changes)
  *   admin/partner  → caregiver responses needing review + caregiver-raised requests
- *   everyone       → unread chat messages
  *
  * Best-effort: any failure returns 0 rather than blocking the notification.
  */
@@ -196,7 +189,7 @@ async function badgeCountFor(householdId: string, uid: string): Promise<number> 
     const hh = await db.collection("households").doc(householdId).get();
     const role = (hh.data()?.roles ?? {})[uid] ?? "partner";
 
-    const st = (await readLegacyState(householdId)) ?? ({} as Partial<HouseholdState>);
+    const st = (await readHouseholdState(householdId)) ?? ({} as Partial<HouseholdState>);
     const coverage = (st.coverageRequests ?? []) as CoverageRequest[];
 
     let count = 0;
@@ -211,25 +204,6 @@ async function badgeCountFor(householdId: string, uid: string): Promise<number> 
         .filter((c) => c && c.status === "new").length;
     }
 
-    // Unread chat — chatRead/{uid}.lastReadAt is written when the pane opens.
-    const readSnap = await db.collection("households").doc(householdId)
-      .collection("chatRead").doc(uid).get();
-    const lastRead = readSnap.data()?.lastReadAt;
-    const lastReadMs = lastRead && typeof lastRead.toMillis === "function" ? lastRead.toMillis() : 0;
-    const chatSnap = await db.collection("households").doc(householdId)
-      .collection("chat").orderBy("createdAt", "desc").limit(50).get();
-    chatSnap.forEach((doc) => {
-      const m = doc.data() as {
-        senderId?: string;
-        toUids?: string[];
-        createdAt?: { toMillis?: () => number };
-      };
-      if (m.senderId === uid) return;
-      // Addressed messages only count for their recipients.
-      if (Array.isArray(m.toUids) && m.toUids.length > 0 && !m.toUids.includes(uid)) return;
-      const ms = m.createdAt && typeof m.createdAt.toMillis === "function" ? m.createdAt.toMillis() : 0;
-      if (ms > lastReadMs) count++;
-    });
     return count;
   } catch (e) {
     logger.warn("badgeCountFor failed", { householdId, uid, error: String(e) });
@@ -311,9 +285,7 @@ export const onCoverageRequestsChange = onDocumentUpdated(
 
 /**
  * The notifications one save deserves, from the household's state before and
- * after it. Called by the state/main trigger above, and by onHouseholdEdit for
- * a household on the any-household model (which rebuilds the two states from
- * its edit log).
+ * after it. Called by the state/main trigger above.
  */
 async function notifyScheduleDiff(
   householdId: string,
@@ -335,7 +307,6 @@ async function notifyScheduleDiff(
     for (const s of arr(partner?.shifts)) if (s?.date) keys.add(`pk:${s.date}`);
     const daisy = (d.dependents as { daisy?: { shifts?: unknown } } | undefined)?.daisy;
     for (const s of arr(daisy?.shifts)) if (s?.date) keys.add(`dz:${s.date}`);
-    for (const op of arr(d.otOpportunities)) if (op?.date) keys.add(`ot:${op.date}:${op.shiftTypeId ?? ""}`);
     return keys;
   };
   const beforeKeys = scheduleKeys(beforeDoc);
@@ -568,33 +539,6 @@ async function notifyScheduleDiff(
   }
 }
 
-// ──────────── Saves on the any-household model ────────────
-//
-// A household on the any-household model has no state/main to trigger on.
-// Each save instead writes one edits/{id} entry with the records it changed,
-// before and after (commitEdit in shared/store.ts). This rebuilds the
-// household's state before and after that save, sends exactly what the
-// state/main trigger would, refreshes the caregiver's view, and removes the
-// entry. One save, one notification, however many records it touched.
-export const onHouseholdEdit = onDocumentCreated(
-  "households/{householdId}/edits/{editId}",
-  async (event) => {
-    const householdId = event.params.householdId;
-    const entry = event.data?.data() as EditEntry | undefined;
-    try {
-      if (!entry?.changes?.length) return;
-      const model = await loadHousehold(modelStore(), householdId);
-      if (!model) return;
-      const plainState = (m: typeof model) => JSON.parse(JSON.stringify(toLegacy(m).state)) as Record<string, unknown>;
-      const after = plainState(model);
-      await notifyScheduleDiff(householdId, plainState(revertChanges(model, entry.changes)), after);
-      await refreshCaregiverView(householdId, after);
-    } finally {
-      await event.data?.ref.delete().catch(() => undefined);
-    }
-  },
-);
-
 // Convenience: when a household is first created (initial state doc
 // creation) there's no `before` snapshot, so onDocumentUpdated misses the
 // very first batch of requests. Mirror the trigger on create.
@@ -677,7 +621,7 @@ export const checkScheduleCadence = onSchedule(
     for (const hh of households.docs) {
       const householdId = hh.id;
       try {
-        const st = (await readLegacyState(householdId)) as { alt?: { refSat?: string } } | null;
+        const st = (await readHouseholdState(householdId)) as { alt?: { refSat?: string } } | null;
         const refSat = st?.alt?.refSat;
         if (!refSat || !/^\d{4}-\d{2}-\d{2}$/.test(refSat)) {
           logger.info("cadence: no usable refSat anchor", { householdId });
@@ -733,63 +677,3 @@ export const checkScheduleCadence = onSchedule(
   },
 );
 
-// ──────────────────── Family chat: push on new message ───────────────────
-// Push to every member's tokens except the sender's. iOS / Mac receivers
-// only show the notification when the app isn't already focused on chat —
-// that's handled client-side; the function just fans out.
-
-interface ChatMessageDoc {
-  senderId?: string;
-  senderName?: string;
-  text?: string;
-  /** True for messages composed via the Mac's Chat Manager. */
-  fromManager?: boolean;
-  /** Specific recipient uids; absent = the whole household. */
-  toUids?: string[];
-}
-
-export const onChatMessageCreate = onDocumentCreated(
-  "households/{householdId}/chat/{messageId}",
-  async (event) => {
-    const householdId = event.params.householdId;
-    const data = event.data?.data() as ChatMessageDoc | undefined;
-    if (!data || !data.senderId || !data.text) return;
-
-    // Pull every push token for this household and filter out the sender.
-    const db = getFirestore();
-    const tokSnap = await db
-      .collection("households").doc(householdId)
-      .collection("pushTokens")
-      .get();
-    const toUids = Array.isArray(data.toUids) && data.toUids.length > 0 ? data.toUids : null;
-    const tokens: { token: string; uid: string }[] = [];
-    tokSnap.forEach((d) => {
-      const tdata = d.data() as { token?: string; uid?: string } | undefined;
-      const uid = tdata?.uid || d.id;
-      if (!tdata?.token || uid === data.senderId) return;
-      // Addressed messages only notify the people they were sent to.
-      if (toUids && !toUids.includes(uid)) return;
-      tokens.push({ token: tdata.token, uid });
-    });
-    logger.info("Chat push targets", {
-      householdId, recipients: tokens.length,
-      targeted: !!toUids, fromManager: !!data.fromManager,
-    });
-    if (tokens.length === 0) return;
-
-    const senderName = (data.senderName && data.senderName.trim()) || "Family member";
-    // Manager messages get the generic body — contents stay off lock screens.
-    // Member-to-member messages show who wrote it and what they said.
-    const notification = data.fromManager
-      ? { title: "Manager", body: "You have a new In-Basket Message. Tap to View" }
-      : {
-          title: senderName,
-          body: data.text.length > 120 ? data.text.slice(0, 117) + "…" : data.text,
-        };
-    await sendToTokens(tokens, notification, {
-      kind: "chat_message",
-      householdId,
-      messageId: event.params.messageId,
-    }, householdId);
-  },
-);

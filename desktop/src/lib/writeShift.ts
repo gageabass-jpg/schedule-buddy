@@ -149,7 +149,7 @@ export async function writeNewShift(input: NewShiftInput): Promise<void> {
   }
 
   try {
-    await writeHouseholdState(householdId, current, next);
+    await writeHouseholdState(householdId, next);
   } catch (e) {
     throw new WriteShiftError("Couldn't save the new shift. Check your connection and try again.", e);
   }
@@ -164,7 +164,7 @@ async function readState(householdId: string): Promise<HouseholdState> {
 }
 
 async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
-  try { await writeHouseholdState(householdId, base, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new WriteShiftError("Couldn't save the change. Check your connection and try again.", e); }
 }
 

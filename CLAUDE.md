@@ -5,7 +5,7 @@
 
 ## What this repo is
 
-**Nucleus** (formerly Schedule Buddy) is a household shift-schedule + childcare-coverage + overtime-management app for **Gage** (admin) and **Kaylene** (partner). The Firebase project id, hosting URL, GitHub repo, iOS bundle id, and app group keep the `schedule-buddy` name on purpose — renaming those would create a new app. Three surfaces share one Firestore backend:
+**Nucleus** (formerly Schedule Buddy) is a household shift-schedule + childcare-coverage app for **Gage** (admin) and **Kaylene** (partner). The Firebase project id, hosting URL, GitHub repo, iOS bundle id, and app group keep the `schedule-buddy` name on purpose — renaming those would create a new app. Three surfaces share one Firestore backend:
 
 | Surface | Path | Deploy |
 |---|---|---|
@@ -48,13 +48,23 @@ Source of truth: the Nucleus brand board (Claude Design export). What is applied
   - Verified end-to-end in the simulator (Gage direct + Kaylene pending + Manager approve/reject).
   - NOTE: one stray shift type ("6:45PM-7:15AM") from an early test may linger in Settings → Shift Types; safe to delete.
 
+## Scope (decided Oct 2026)
+
+Nucleus is a **fixed Gage / Kaylene / Daisy household app**. The any-household data model (people/shifts records, setup wizard, create-household, migration, edit log, the phone's `NucleusModel` bundle) was built and then **removed**; state lives in `households/{id}/state/main` and the code reads and writes it directly. Joining by invite code stays (a new device or account for one of the three).
+
+Also cut in the same pass: the phone's Insights pane and Monthly Changes, the fatigue and couple-time heatmap views, the retired phone Week/Day views, the weekly-template and alternating-weekend editors on the phone, Preview & Export, overtime opportunities and their approval flow, in-basket chat (phone, Mac Chat Manager, `onChatMessageCreate`, `chat`/`chatRead`/`feedback`/`otApprovals` rules), the schedule cleaner (Mac + `cleanSchedule` function), the Mac Year view, and the Mac console's placeholder tabs (Notifications, Billing, fake connectors and feeds).
+
+Kept on purpose: kitchen wall display (+ Pi keypad, now playing, photos, occasions), WVU football, "leave by" commute alerts, health calendar sync, public share link + ICS feed (redesign is on the distant to-do list: `docs/TODO.md`), the improvements light-bulb.
+
+**On call** (the asterisk on Kaylene's schedule) is `state.partner.onCall = [{date, pending?, importId?}]`: a day-level mark independent of her shifts. Photo import (`parseSchedule` and the Mac's vision call) and the Mac `.xlsx` reader detect asterisks; nucleusAI has `add_partner_on_call` / `remove_partner_on_call`.
+
 ## Firebase
 
 - **Project ID:** `schedule-buddy-dd2cf`
 - **Console:** https://console.firebase.google.com/project/schedule-buddy-dd2cf
 - **Live URL:** https://schedule-buddy-dd2cf.web.app
 - Auth providers: Apple, Google, Email/Password. iOS uses `@capacitor-firebase/authentication` with `skipNativeAuth: true` (native sheets → `signInWithCredential`).
-- Security rules: `firestore.rules` (households, state/main, otApprovals, feedback, inviteCodes) and `storage.rules`
+- Security rules: `firestore.rules` (households, state/main, caregiverView, inviteCodes, …) and `storage.rules`
 
 ## Repo layout
 

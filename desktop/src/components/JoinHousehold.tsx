@@ -4,7 +4,7 @@ import { doSignOut } from "../hooks/useAuth";
 import { themeTokens, getPalette } from "../theme";
 import { BrandMark } from "./BrandMark";
 
-export function JoinHousehold({ dark = true, onCreate }: { dark?: boolean; onCreate?: () => void }) {
+export function JoinHousehold({ dark = true }: { dark?: boolean }) {
   const t = themeTokens(dark);
   const palette = getPalette("modern");
   const [code, setCode] = useState("");
@@ -106,25 +106,6 @@ export function JoinHousehold({ dark = true, onCreate }: { dark?: boolean; onCre
           <div style={{ fontSize: 12, color: t.clayText, textAlign: "center", maxWidth: "100%" }}>
             {err}
           </div>
-        )}
-
-        {onCreate && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", color: t.text3, fontSize: 11, letterSpacing: "0.08em" }}>
-              <span style={{ flex: 1, height: 1, background: t.sep }} />OR<span style={{ flex: 1, height: 1, background: t.sep }} />
-            </div>
-            <button
-              type="button"
-              onClick={onCreate}
-              style={{
-                width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${t.sep}`,
-                background: "transparent", color: t.text, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                fontFamily: "inherit", letterSpacing: "-0.01em",
-              }}
-            >
-              Set up a new household
-            </button>
-          </>
         )}
 
         <button

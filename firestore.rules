@@ -66,107 +66,11 @@ service cloud.firestore {
     // Schedule state — admin and partner only. A caregiver (supporting) sees
     // caregiverView/main instead, and changes things only through the
     // caregiverAction function, which applies one checked change at a time.
-    // Once a household has moved to the any-household model (schemaVersion
-    // ≥ 2) this is a read-only copy: an out-of-date app fails to save rather
-    // than writing where nothing reads.
     match /households/{householdId}/state/{docId} {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner']
-        && get(/databases/$(database)/documents/households/$(householdId)).data.get('schemaVersion', 1) < 2;
-    }
-
-    // What a migration kept and found (shared/migrate.ts): the copy of
-    // state/main taken first, and a report of each attempt. Written only by
-    // the migration functions.
-    match /households/{householdId}/legacyBackups/{id} {
-      allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
-      allow write: if false;
-    }
-    match /households/{householdId}/migrations/{id} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
-      allow write: if false;
-    }
-
-    // ── The any-household model (docs/data-model.md, shared/store.ts) ──────
-    // One document per record, so access is per record: admin and partner
-    // read and write everything; a caregiver reads who's who, the shift
-    // types, and only what is theirs — their details, their shifts, their
-    // days off, the coverage requests addressed to them, the requests they
-    // sent. A caregiver writes nothing directly; their changes go through
-    // the caregiverAction function. Not yet used by any client.
-    function householdData(hid) {
-      return get(/databases/$(database)/documents/households/$(hid)).data;
-    }
-    function isHouseholdMember(hid) {
-      return request.auth != null && request.auth.uid in householdData(hid).memberUids;
-    }
-    function isHouseholdManager(hid) {
-      return request.auth != null
-        && householdData(hid).roles.get(request.auth.uid, '') in ['admin', 'partner'];
-    }
-    // The caller is this person (their people/ record names the caller's account).
-    function isPerson(hid, pid) {
-      return request.auth != null
-        && get(/databases/$(database)/documents/households/$(hid)/people/$(pid)).data.get('uid', '') == request.auth.uid;
-    }
-
-    match /households/{hid}/people/{pid} {
-      allow read: if isHouseholdMember(hid);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/personDetails/{pid} {
-      allow read: if isHouseholdManager(hid) || isPerson(hid, pid);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/shiftTypes/{id} {
-      allow read: if isHouseholdMember(hid);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/shifts/{id} {
-      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.personId);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/caregiverOff/{id} {
-      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.personId);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/coverageRequests/{id} {
-      allow read: if isHouseholdManager(hid) || isPerson(hid, resource.data.caregiverId);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/caregiverRequests/{id} {
-      allow read: if isHouseholdManager(hid)
-        || (isHouseholdMember(hid) && resource.data.createdBy == request.auth.uid);
-      allow write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/events/{id} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/scheduleBlocks/{id} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/occasions/{id} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/shiftOffers/{id} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/imports/{id} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    match /households/{hid}/settings/{docId} {
-      allow read, write: if isHouseholdManager(hid);
-    }
-    // The edit log: one entry per save, naming who made it. The onHouseholdEdit
-    // function sends the notifications for it and removes it.
-    match /households/{hid}/edits/{editId} {
-      allow read: if isHouseholdManager(hid);
-      allow create: if isHouseholdManager(hid) && request.resource.data.by == request.auth.uid;
-      allow update, delete: if false;
     }
 
     // The caregiver's slice of the schedule: coverage requests and names.
@@ -175,18 +79,6 @@ service cloud.firestore {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
       allow write: if false;
-    }
-
-    // OT approvals — scoped to household
-    match /households/{householdId}/otApprovals/{approvalId} {
-      allow read, write: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.roles.get(request.auth.uid, '') in ['admin', 'partner'];
-    }
-
-    // Feedback messages
-    match /households/{householdId}/feedback/{msgId} {
-      allow read, write: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
     }
 
     // Invite codes — authenticated users can read (to join) and create (during household setup)
@@ -215,37 +107,6 @@ service cloud.firestore {
         && tokenDocId == request.auth.uid;
     }
 
-    // Family chat — one doc per message. Any member can read; only the
-    // sender can create their own (senderId pinned to uid) and only the
-    // sender can delete. Messages are immutable once posted.
-    //
-    // Manager-only fields: fromManager / toUids drive "sent as Manager"
-    // rendering, targeted visibility, and the generic push. Every client and
-    // the push function trust them, so only manager roles (admin / partner)
-    // may write them — and only managers may claim the name "Manager".
-    // Without this, a supporting member could impersonate the Manager with
-    // messages targeted to be invisible to the real managers.
-    match /households/{householdId}/chat/{messageId} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid])
-        && request.resource.data.senderId == request.auth.uid
-        && (
-          (
-            !request.resource.data.keys().hasAny(['fromManager', 'toUids'])
-            && request.resource.data.senderName != 'Manager'
-          )
-          || get(/databases/$(database)/documents/households/$(householdId)).data.roles[request.auth.uid] in ['admin', 'partner']
-        );
-      allow delete: if request.auth != null
-        && resource.data.senderId == request.auth.uid;
-      allow update: if false;
-    }
-
-    // Per-user read-state — when each member last opened the chat. Used
-    // to compute unread badges. Doc id = uid, writeable only by self,
-    // readable by any member.
     // Notification history — written by Cloud Functions only (recordNotification
     // in functions/src/index.ts). Members read them and may mark one read or
     // unread for themselves: an update can change nothing but readBy, and only
@@ -271,13 +132,6 @@ service cloud.firestore {
         && request.resource.data.flaggedBy == request.auth.uid
         && request.resource.data.remarks is string
         && request.resource.data.remarks.size() <= 1000;
-    }
-
-    match /households/{householdId}/chatRead/{uid} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/households/$(householdId)).data.memberUids.hasAny([request.auth.uid]);
-      allow create, update, delete: if request.auth != null
-        && uid == request.auth.uid;
     }
 
     // Wall display photos — metadata only (the bytes live in Firebase

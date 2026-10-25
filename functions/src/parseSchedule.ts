@@ -16,7 +16,7 @@ import { defineSecret } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import Anthropic from "@anthropic-ai/sdk";
-import { readLegacyState } from "./householdState";
+import { readHouseholdState } from "./householdState";
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
@@ -44,6 +44,9 @@ interface ParsedShift {
 }
 interface ParseResponse {
   shifts: ParsedShift[];
+  /** Days marked on-call with an asterisk (*), whether or not a shift is
+   *  also scheduled that day. YYYY-MM-DD, sorted, no duplicates. */
+  onCallDates: string[];
   note: string;
 }
 
@@ -83,7 +86,7 @@ export const parseSchedule = onCall<ParseRequest, Promise<ParseResponse>>(
     }
 
     // 2. Load shift types for mapping context.
-    const state = ((await readLegacyState(householdId)) ?? {}) as HouseholdState;
+    const state = ((await readHouseholdState(householdId)) ?? {}) as HouseholdState;
     const shiftTypes = state.shiftTypes ?? [];
     const today = isoToday();
     const year = today.slice(0, 4);
@@ -106,12 +109,16 @@ export const parseSchedule = onCall<ParseRequest, Promise<ParseResponse>>(
       `  - crossesMidnight: true if the shift ends the next calendar day (e.g. 19:00-07:30)\n` +
       `  - label: a short human label exactly as written on the schedule (e.g. "7p-730a", "Day", "8a-12p")\n` +
       `  - matchedShiftTypeId: if the hours match one of the shift types above, put its id; otherwise null\n\n` +
+      `On-call: some days carry an asterisk (*) meaning ${whoLabel} is ON CALL that day. The asterisk may sit\n` +
+      `on a day that also has a shift, or on a day with no shift at all. Report every asterisk-marked day in\n` +
+      `"onCallDates" (YYYY-MM-DD). A day marked only with an asterisk is NOT a shift: do not add it to "shifts".\n` +
+      `Keep the asterisk out of each shift's "label".\n\n` +
       `Rules:\n` +
-      `- Only include days that are actually scheduled/worked. Skip blank/off days.\n` +
+      `- Only include days that are actually scheduled/worked in "shifts". Skip blank/off days.\n` +
       `- If a cell shows only a code like "7p-730a", convert it to start/end 24h times.\n` +
       `- If you cannot determine the exact date, make your best inference from the visible month/day headers.\n` +
       `- Return STRICT JSON only, no prose, in exactly this shape:\n` +
-      `{"shifts":[{"date":"2026-04-14","start":"15:00","end":"23:30","crossesMidnight":false,"label":"3p-1130p","matchedShiftTypeId":null}],"note":"one short sentence about what you saw"}\n`;
+      `{"shifts":[{"date":"2026-04-14","start":"15:00","end":"23:30","crossesMidnight":false,"label":"3p-1130p","matchedShiftTypeId":null}],"onCallDates":["2026-04-16"],"note":"one short sentence about what you saw"}\n`;
 
     // 3. Vision call.
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
@@ -165,7 +172,11 @@ export const parseSchedule = onCall<ParseRequest, Promise<ParseResponse>>(
           .sort((a, b) => a.date.localeCompare(b.date))
       : [];
 
-    logger.info("parseSchedule: parsed", { householdId, person, count: shifts.length });
-    return { shifts, note: String(parsed.note ?? "").slice(0, 200) };
+    const onCallDates = Array.isArray(parsed.onCallDates)
+      ? [...new Set(parsed.onCallDates.map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort()
+      : [];
+
+    logger.info("parseSchedule: parsed", { householdId, person, count: shifts.length, onCall: onCallDates.length });
+    return { shifts, onCallDates, note: String(parsed.note ?? "").slice(0, 200) };
   },
 );

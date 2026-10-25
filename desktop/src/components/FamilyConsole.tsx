@@ -21,9 +21,7 @@ import { Button01 } from "@/components/ui/nextjsshop-button";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
-import { migrateToModel, moveBackFromModel, watchDataFormat, type MigrationReport } from "../lib/migrateHousehold";
 import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, setCommuteCushion, DEFAULT_CUSHION, type CommuteConfig, type CommutePlace } from "../lib/commute";
-import { useHouseholdLook } from "../lib/householdLook";
 
 /** Where the Piper Locke mark in the corner goes (opens in the browser). */
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
@@ -36,15 +34,13 @@ const APP_VERSION = "0.1.0";
 
 const API_KEYS_URL = "https://console.anthropic.com/settings/keys";
 
-type NavKey = "general" | "people" | "wall" | "integrations" | "notifications" | "billing";
+type NavKey = "general" | "people" | "wall" | "integrations";
 
 const NAV: Array<{ key: NavKey; label: string }> = [
   { key: "general", label: "General" },
   { key: "people", label: "People" },
   { key: "wall", label: "Wall display" },
   { key: "integrations", label: "Integrations" },
-  { key: "notifications", label: "Notifications" },
-  { key: "billing", label: "Billing" },
 ];
 
 interface Props {
@@ -59,12 +55,11 @@ interface Props {
   themePref: ThemePref;
   onSetThemePref: (pref: ThemePref) => void;
   /** Opens the Chat Manager panel (closes the console first). */
-  onOpenChatManager: () => void;
 }
 
 export function FamilyConsole({
   open, onClose, palette, t, dark, householdId, household, state,
-  themePref, onSetThemePref, onOpenChatManager,
+  themePref, onSetThemePref,
 }: Props) {
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -387,16 +382,12 @@ export function FamilyConsole({
             )}
 
             {tab === "wall" && (
-              <WallTab t={t} palette={palette} householdId={householdId} state={state} onOpenChatManager={onOpenChatManager} />
+              <WallTab t={t} palette={palette} householdId={householdId} state={state} />
             )}
 
             {tab === "integrations" && (
               <IntegrationsTab t={t} palette={palette} householdId={householdId} state={state} />
             )}
-
-            {tab === "notifications" && <NotificationsTab t={t} />}
-
-            {tab === "billing" && <BillingTab t={t} hhName={hhName} />}
 
             {err && <div style={{ fontSize: 12.5, color: t.clayText, marginTop: 16 }}>{err}</div>}
           </div>
@@ -543,7 +534,6 @@ function GeneralTab(p: {
       </Section>
 
       {/* DATA FORMAT — the move to the any-household model. */}
-      {p.householdId && <DataFormatSection t={t} householdId={p.householdId} />}
 
       {/* APPEARANCE */}
       <Section t={t} label="Appearance" desc="Match macOS or pick a fixed mode.">
@@ -627,14 +617,6 @@ function PeopleTab(p: {
   const [editing, setEditing] = useState<string | null>(null);
   const toggle = (id: string) => setEditing((cur) => (cur === id ? null : id));
 
-  // WHAT NUCLEUSAI MAY DO — per member. Not saved yet (TODO wire to the
-  // household doc's aiPermission; see the ai-permission-gate patch).
-  const [aiPerms, setAiPerms] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    for (const m of p.members) init[m.uid] = m.role === "supporting" ? "read" : "draft";
-    return init;
-  });
-
   // The fields behind each person's Edit.
   const editor = (key: PersonKey | null, name: string, memberUid: string | null) => (
     <div
@@ -694,26 +676,6 @@ function PeopleTab(p: {
             Any one payday and how often it repeats. A $ chip marks each one on the calendar.
           </div>
           <PaydayRow who={key} label={name} color={personColor(key, palette)} schedule={p.state?.paydays?.[key] ?? null} householdId={p.householdId} t={t} />
-        </div>
-      )}
-
-      {memberUid && (
-        <div>
-          <FieldLabel t={t}>What nucleusAI may do</FieldLabel>
-          <div style={{ fontSize: 12, color: t.text2, marginBottom: 8, lineHeight: 1.45 }}>
-            The most {name} may let the assistant do on their behalf.
-          </div>
-          <select
-            value={aiPerms[memberUid] ?? "draft"}
-            onChange={(e) => setAiPerms((s) => ({ ...s, [memberUid]: e.target.value }))}
-            aria-label={`What nucleusAI may do for ${name}`}
-            style={{ ...inputStyle(t), width: 200, cursor: "pointer" }}
-          >
-            <option value="draft">Draft</option>
-            <option value="read">Read only</option>
-            <option value="off">Off</option>
-          </select>
-          <div style={{ fontSize: 11.5, color: t.text3, marginTop: 6 }}>Not saved yet — this setting is coming soon.</div>
         </div>
       )}
 
@@ -811,9 +773,6 @@ function PeopleTab(p: {
               </div>
               <RoleChip t={t} role="dependent" />
               {editBtn("dependent:daisy", p.daisy.name || "Caregiver")}
-              <button type="button" aria-label="Remove Daisy" title="Remove" onClick={() => { /* TODO wire dependent remove */ }} style={{ ...iconBtn(t), color: t.clayText }}>
-                <RedTrash />
-              </button>
             </div>
             {editing === "dependent:daisy" && editor("D", p.daisy.name || "Caregiver", null)}
           </div>
@@ -831,7 +790,7 @@ function PeopleTab(p: {
 // WALL DISPLAY
 // ════════════════════════════════════════════════════════════════════════════
 
-function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null; onOpenChatManager: () => void }) {
+function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null }) {
   const { t } = p;
   const [sub, setSub] = useState<"display" | "photos" | "occasions">("display");
   return (
@@ -850,9 +809,6 @@ function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | nu
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <Section t={t} label="Wall display" desc="The wall shows today and tomorrow in large type, then the photos rotate in. The page auto-refreshes every 30s.">
             <WallDisplaySection householdId={p.householdId} t={t} palette={p.palette} />
-          </Section>
-          <Section t={t} label="Chat Manager" desc="Post a message to the wall display's in-basket as Manager.">
-            <button type="button" onClick={p.onOpenChatManager} style={secondaryBtn(t)}>Open Chat Manager</button>
           </Section>
         </div>
       )}
@@ -876,235 +832,17 @@ function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | nu
 
 function IntegrationsTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null }) {
   const { t } = p;
-  const [sub, setSub] = useState<"apps" | "feeds">("apps");
-  return (
-    <div>
-      <SubTabBar
-        t={t}
-        value={sub}
-        onChange={(v) => setSub(v as typeof sub)}
-        options={[
-          { value: "apps", label: "Apps" },
-          { value: "feeds", label: "Feeds" },
-        ]}
-      />
-      {sub === "apps" && <AppsSubTab t={t} />}
-      {sub === "feeds" && <FeedsSubTab t={t} />}
-    </div>
-  );
-}
-
-function AppsSubTab({ t }: { t: ThemeTokens }) {
-  // Connector cards — visual placeholders, no real OAuth (TODO wire).
-  const [connected, setConnected] = useState<Record<string, boolean>>({});
-  const connectors = [
-    { key: "slack", name: "Slack", desc: "Posts open shifts to #bass-household", icon: <SlackIcon /> },
-    { key: "apple", name: "Apple Calendar", desc: "Writes shifts to your household's calendar", icon: <CalendarIcon /> },
-    { key: "google", name: "Google Calendar", desc: "Two-way, for anyone not on an iPhone", icon: <CalendarIcon /> },
-  ];
-
-  const [limit, setLimit] = useState("200");
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* AI PROVIDER API */}
       <Section t={t} label="AI provider API" desc="An API is required for nucleusAI to function. The key is encrypted locally (macOS Keychain).">
         <AiProviderCard t={t} />
       </Section>
-
-      {/* APPS */}
-      <Section t={t} label="Apps">
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {connectors.map((c) => {
-            const on = !!connected[c.key];
-            return (
-              <div key={c.key} style={{ ...rowCard(t), gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 4, border: `1px solid ${t.sep}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.text2, flexShrink: 0 }}>
-                  {c.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{c.name}</div>
-                  <div style={{ fontSize: 12, color: t.text2 }}>{c.desc}</div>
-                </div>
-                <StatusChip t={t} on={on} onLabel="CONNECTED" offLabel="OFF" />
-                <button
-                  type="button"
-                  onClick={() => setConnected((s) => ({ ...s, [c.key]: !on }))}
-                  style={on ? destructiveBtn(t) : secondaryBtn(t)}
-                >
-                  {on ? "Disconnect" : "Connect"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* API USAGE THIS MONTH — placeholder */}
-      <Section t={t} label="API usage this month">
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: t.text2 }}>
-            <span>47 of 200 photos read in September</span>
-            <span style={{ fontWeight: 600, color: t.text }}>24%</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 4, background: t.bgElev2, overflow: "hidden" }}>
-            <div style={{ width: "24%", height: "100%", background: BRAND_TEAL }} />
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 6 }}>
-            <div>
-              <FieldLabel t={t}>Monthly limit</FieldLabel>
-              <input type="number" value={limit} onChange={(e) => setLimit(e.target.value)} style={{ ...inputStyle(t), width: 140 }} />
-            </div>
-            <button type="button" onClick={() => { /* TODO wire monthly limit */ }} style={primaryBtn}>Save</button>
-          </div>
-          <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>
-            NucleusAI pauses reading photos once you hit the limit for the month.
-          </div>
-        </div>
-      </Section>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 16, borderTop: `1px solid ${t.sep}`, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: t.text3 }}>
-          Nucleus works without any of these. Each one is off until you turn it on.
-        </span>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, paddingTop: 16, borderTop: `1px solid ${t.sep}` }}>
         <a href={API_KEYS_URL} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: t.tealText, fontWeight: 600, textDecoration: "none" }}>
           Where do I get an API key?
         </a>
       </div>
     </div>
-  );
-}
-
-interface FeedRow { id: string; name: string; url: string; where: "WALL" | "WALL & CALENDAR"; checked: string; }
-
-// RSS/Atom feeds that surface on the wall beside the schedule. Local/placeholder
-// list (TODO wire to a real feed reader) — reads title + date only, never a shift.
-function FeedsSubTab({ t }: { t: ThemeTokens }) {
-  // These placeholder feeds are one family's local ones; anyone else starts empty.
-  const look = useHouseholdLook();
-  const [feeds, setFeeds] = useState<FeedRow[]>(() => !look.familyPhotos ? [] : [
-    { id: "kcs", name: "Kanawha County Schools", url: "kcs.k12.wv.us/feed/closings.xml", where: "WALL & CALENDAR", checked: "checked 6 minutes ago" },
-    { id: "th", name: "Thomas Hospital notices", url: "thomashealth.org/news/rss", where: "WALL", checked: "checked 6 minutes ago" },
-    { id: "wx", name: "Weather alerts · Charleston", url: "alerts.weather.gov/cap/wv.php", where: "WALL", checked: "checked 2 minutes ago" },
-  ]);
-  const [addr, setAddr] = useState("");
-  const [name, setName] = useState("");
-  const [showOn, setShowOn] = useState<FeedRow["where"]>("WALL");
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Re-check every feed. (Real polling isn't wired yet, so this just stamps
-  // each row as freshly checked; when a reader is added it triggers that.)
-  const onRefreshFeeds = () => {
-    if (refreshing) return;
-    setRefreshing(true);
-    setTimeout(() => {
-      setFeeds((fs) => fs.map((f) => ({ ...f, checked: "checked just now" })));
-      setRefreshing(false);
-    }, 600);
-  };
-
-  const feedChip: React.CSSProperties = {
-    fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-    padding: "2px 8px", borderRadius: 4, background: t.bgElev2, color: t.text2, whiteSpace: "nowrap",
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Section
-        t={t}
-        label="Feeds"
-        desc="A feed puts school closings, weather and notices on the wall beside the schedule."
-        action={
-          <button
-            type="button"
-            onClick={onRefreshFeeds}
-            disabled={refreshing}
-            aria-label="Re-check all feeds"
-            title="Re-check all feeds"
-            style={{ ...iconBtn(t), cursor: refreshing ? "default" : "pointer" }}
-          >
-            <RefreshIcon spinning={refreshing} />
-          </button>
-        }
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {feeds.map((f) => (
-            <div key={f.id} style={{ ...rowCard(t), gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 4, border: `1px solid ${t.sep}`, display: "inline-flex", alignItems: "center", justifyContent: "center", color: t.text2, flexShrink: 0 }}>
-                <RssIcon />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
-                <div style={{ fontSize: 12, color: t.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.url}</div>
-              </div>
-              <span style={feedChip}>{f.where}</span>
-              <span style={{ fontSize: 12, color: t.text3, whiteSpace: "nowrap" }}>{f.checked}</span>
-              <button type="button" aria-label={`Edit ${f.name}`} title="Edit" onClick={() => { /* TODO wire feed edit */ }} style={iconBtn(t)}><PencilIcon /></button>
-              <button type="button" aria-label={`Remove ${f.name}`} title="Remove" onClick={() => setFeeds((fs) => fs.filter((x) => x.id !== f.id))} style={{ ...iconBtn(t), color: t.clayText }}><RedTrash /></button>
-            </div>
-          ))}
-          {feeds.length === 0 && <div style={{ fontSize: 12.5, color: t.text3 }}>No feeds yet.</div>}
-        </div>
-      </Section>
-
-      <Section t={t} label="Add a feed" desc="Paste the address of an RSS or Atom feed. Nucleus reads the title and the date, nothing else.">
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <FieldLabel t={t}>Feed address</FieldLabel>
-            <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="https://school.k12.wv.us/rss" style={inputStyle(t)} />
-          </div>
-          <div style={{ width: 180 }}>
-            <FieldLabel t={t}>Name it</FieldLabel>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="School closings" style={inputStyle(t)} />
-          </div>
-          <div style={{ width: 170 }}>
-            <FieldLabel t={t}>Show it on</FieldLabel>
-            <select value={showOn} onChange={(e) => setShowOn(e.target.value as FeedRow["where"])} style={inputStyle(t)}>
-              <option value="WALL">Wall display</option>
-              <option value="WALL & CALENDAR">Wall &amp; calendar</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            style={primaryBtn}
-            onClick={() => {
-              const a = addr.trim(); if (!a) return;
-              setFeeds((fs) => [...fs, { id: `f${Date.now()}`, name: name.trim() || a, url: a.replace(/^https?:\/\//, ""), where: showOn, checked: "not checked yet" }]);
-              setAddr(""); setName("");
-            }}
-          >
-            Add feed
-          </button>
-        </div>
-      </Section>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 16, borderTop: `1px solid ${t.sep}`, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: t.text3 }}>Feeds are read only. Nucleus never posts to them, and nothing from a feed becomes a shift.</span>
-        <span style={{ fontSize: 12, color: t.text3 }}>Checked every 15 minutes</span>
-      </div>
-    </div>
-  );
-}
-
-function RssIcon() {
-  return (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
-      <circle cx="5" cy="19" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-
-function RefreshIcon({ spinning }: { spinning?: boolean }) {
-  return (
-    <svg
-      width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-      style={{ animation: spinning ? "sbmSpin 0.6s linear infinite" : undefined }}
-    >
-      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-      <path d="M21 3v5h-5" />
-    </svg>
   );
 }
 
@@ -1178,59 +916,6 @@ function AiProviderCard({ t }: { t: ThemeTokens }) {
       </div>
       {err && <div style={{ fontSize: 12.5, color: t.clayText }}>{err}</div>}
     </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// NOTIFICATIONS
-// ════════════════════════════════════════════════════════════════════════════
-
-function NotificationsTab({ t }: { t: ThemeTokens }) {
-  // Local placeholder state (TODO wire).
-  const [on, setOn] = useState<Record<string, boolean>>({
-    coverage: true, reminders: true, wallOffline: false,
-  });
-  const rows = [
-    { key: "coverage", label: "Coverage requests", desc: "When someone asks for coverage or responds to a request." },
-    { key: "reminders", label: "Schedule reminders", desc: "A heads-up the night before a shift you're on." },
-    { key: "wallOffline", label: "Wall display offline", desc: "If the kitchen display stops checking in." },
-  ];
-  return (
-    <Section t={t} label="Notifications" desc="What Nucleus lets you know about. These are per-Mac and off until you turn them on.">
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {rows.map((r) => (
-          <div key={r.key} style={{ ...rowCard(t), gap: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{r.label}</div>
-              <div style={{ fontSize: 12, color: t.text2 }}>{r.desc}</div>
-            </div>
-            <Switch t={t} on={!!on[r.key]} onToggle={() => setOn((s) => ({ ...s, [r.key]: !s[r.key] }))} />
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// BILLING
-// ════════════════════════════════════════════════════════════════════════════
-
-function BillingTab({ t, hhName }: { t: ThemeTokens; hhName: string }) {
-  return (
-    <Section t={t} label="Plan">
-      <div style={rowCard(t)}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Nucleus — Free / Household</div>
-          <div style={{ fontSize: 12, color: t.text2 }}>{hhName} · Nucleus Manager {APP_VERSION}</div>
-        </div>
-        <StatusChip t={t} on onLabel="ACTIVE" offLabel="OFF" />
-      </div>
-      <div style={{ fontSize: 12, color: t.text3, marginTop: 10, lineHeight: 1.5 }}>
-        Nucleus is a household app — there's nothing to pay. AI photo parsing bills to your own Anthropic API key
-        (see Integrations → Apps).
-      </div>
-    </Section>
   );
 }
 
@@ -1344,88 +1029,6 @@ function CommuteCushion({ t, householdId, cushion }: { t: ThemeTokens; household
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// DATA FORMAT — moving the household to the any-household model and back
-// (docs/data-model.md step 4). Everyone sees which format it's in; only the
-// admin can move it.
-// ════════════════════════════════════════════════════════════════════════════
-
-function DataFormatSection({ t, householdId }: { t: ThemeTokens; householdId: string }) {
-  const [info, setInfo] = useState<{ migrated: boolean; isAdmin: boolean; last: MigrationReport | null } | null>(null);
-  const [busy, setBusy] = useState<"move" | "back" | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => watchDataFormat(householdId, setInfo, auth.currentUser?.uid), [householdId]);
-  if (!info) return null;
-
-  const onMove = async () => {
-    const ok = window.confirm(
-      "Move your household to the new format?\n\n" +
-      "Nucleus copies your schedule to a backup, converts it, and checks the new version draws " +
-      "exactly the same calendar and coverage before switching. If anything differs, nothing " +
-      "changes and you'll see what.\n\n" +
-      "Every Mac, Windows PC and phone must be up to date first: an older app won't be able to save.",
-    );
-    if (!ok) return;
-    setErr(null);
-    setBusy("move");
-    try { await migrateToModel(householdId); }
-    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't move the household."); }
-    finally { setBusy(null); }
-  };
-  const onBack = async () => {
-    if (!window.confirm("Move your household back to the classic format? Everything done since the move is kept.")) return;
-    setErr(null);
-    setBusy("back");
-    try { await moveBackFromModel(householdId); }
-    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't move the household back."); }
-    finally { setBusy(null); }
-  };
-
-  const last = info.last;
-  const when = (ms: number) => new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  return (
-    <Section
-      t={t}
-      label="Data format"
-      desc={info.migrated
-        ? "New format: each shift, event and request is saved on its own, so edits from different devices never overwrite each other."
-        : "Classic format: the whole schedule is saved as one record. The new format saves each shift, event and request on its own."}
-    >
-      {last && (
-        <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10 }}>
-          {last.outcome === "migrated" && `Moved on ${when(last.at)}. The check found no differences.`}
-          {last.outcome === "moved back" && `Moved back on ${when(last.at)}.`}
-          {last.outcome === "refused" && (
-            <>
-              <div style={{ color: t.clayText }}>
-                On {when(last.at)} the check found differences, so the household stayed in the classic format:
-              </div>
-              <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-                {last.problems.map((pr) => <li key={pr}>{pr}</li>)}
-              </ul>
-            </>
-          )}
-        </div>
-      )}
-      {info.isAdmin ? (
-        info.migrated ? (
-          <button type="button" onClick={onBack} disabled={!!busy} style={{ ...secondaryBtn(t), opacity: busy ? 0.5 : 1 }}>
-            {busy === "back" ? "Moving back…" : "Move back to classic"}
-          </button>
-        ) : (
-          <button type="button" onClick={onMove} disabled={!!busy} style={{ ...primaryBtn, opacity: busy ? 0.5 : 1 }}>
-            {busy === "move" ? "Moving and checking…" : "Move to the new format"}
-          </button>
-        )
-      ) : (
-        <div style={{ fontSize: 11.5, color: t.text3 }}>Only the household's admin can change this.</div>
-      )}
-      {err && <div style={{ fontSize: 12, color: t.clayText, marginTop: 6 }}>{err}</div>}
-    </Section>
-  );
-}
-
 function Section({ label, desc, t, action, children }: { label: string; desc?: string; t: ThemeTokens; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
@@ -1443,6 +1046,19 @@ function Section({ label, desc, t, action, children }: { label: string; desc?: s
 
 function FieldLabel({ t, children }: { t: ThemeTokens; children: React.ReactNode }) {
   return <div style={{ fontSize: 12.5, fontWeight: 600, color: t.text, marginBottom: 6 }}>{children}</div>;
+}
+
+function StatusChip({ t, on, onLabel, offLabel }: { t: ThemeTokens; on: boolean; onLabel: string; offLabel: string }) {
+  return (
+    <span
+      style={{
+        fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 4,
+        background: on ? t.tealTint : t.bgElev2, color: on ? t.tealText : t.text2, flexShrink: 0,
+      }}
+    >
+      {on ? onLabel : offLabel}
+    </span>
+  );
 }
 
 function SubTabBar({ t, value, onChange, options }: {
@@ -1502,29 +1118,6 @@ function Segmented({ t, options, value, onChange }: {
   );
 }
 
-function Switch({ t, on, onToggle }: { t: ThemeTokens; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={onToggle}
-      style={{
-        width: 44, height: 26, borderRadius: 999, border: `1px solid ${on ? BRAND_TEAL : t.sep}`,
-        background: on ? BRAND_TEAL : t.bgElev2, position: "relative", cursor: "pointer", padding: 0,
-        flexShrink: 0, transition: "background .12s",
-      }}
-    >
-      <span
-        style={{
-          position: "absolute", top: 2, left: on ? 20 : 2, width: 20, height: 20, borderRadius: "50%",
-          background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.3)", transition: "left .12s",
-        }}
-      />
-    </button>
-  );
-}
-
 function RoleChip({ t, role }: { t: ThemeTokens; role: "admin" | "partner" | "supporting" | "dependent" }) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
     admin: { bg: t.tealTint, fg: t.tealText, label: "ADMIN" },
@@ -1536,19 +1129,6 @@ function RoleChip({ t, role }: { t: ThemeTokens; role: "admin" | "partner" | "su
   return (
     <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 4, background: c.bg, color: c.fg, flexShrink: 0 }}>
       {c.label}
-    </span>
-  );
-}
-
-function StatusChip({ t, on, onLabel, offLabel }: { t: ThemeTokens; on: boolean; onLabel: string; offLabel: string }) {
-  return (
-    <span
-      style={{
-        fontSize: 9.5, fontWeight: 700, letterSpacing: "0.06em", padding: "2px 8px", borderRadius: 4,
-        background: on ? t.tealTint : t.bgElev2, color: on ? t.tealText : t.text2, flexShrink: 0,
-      }}
-    >
-      {on ? onLabel : offLabel}
     </span>
   );
 }
@@ -1592,25 +1172,6 @@ function PencilIcon() {
     </svg>
   );
 }
-function SlackIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="10" width="6" height="4" rx="2" />
-      <rect x="10" y="4" width="4" height="6" rx="2" />
-      <rect x="14" y="10" width="6" height="4" rx="2" />
-      <rect x="10" y="14" width="4" height="6" rx="2" />
-    </svg>
-  );
-}
-function CalendarIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
 // ── Style helpers (reskin tokens) ───────────────────────────────────────────
 
 function inputStyle(t: ThemeTokens): React.CSSProperties {
