@@ -308,7 +308,7 @@ export class Workspace {
     return this.change(id, () => {
       let projectId: string | null = null;
       let taskId: string | null = null;
-      let touch: string | null = null;
+      let touch: string | null;
       if (input.projectId) {
         projectId = this.project(input.projectId).id;
         touch = projectId;

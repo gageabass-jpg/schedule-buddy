@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useData } from "./store";
 
 // Where the person is (the view, the selected date) and which dialog is open.
@@ -77,8 +77,6 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [confirming, setConfirming] = useState<UiValue["confirming"]>(null);
   const [captureTick, setCaptureTick] = useState(0);
   const [inboxOpen, setInboxOpen] = useState(false);
-  const viewName = useRef(view.name);
-  viewName.current = view.name;
 
   const go = useCallback((v: View) => {
     setView(v);
@@ -87,7 +85,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
 
   const selectDate = useCallback((iso: string) => {
     setSelectedDate(iso);
-    if (viewName.current !== "timeline") setView({ name: "day", date: iso });
+    setView((v) => (v.name === "timeline" ? v : { name: "day", date: iso }));
   }, []);
 
   const confirm = useCallback(

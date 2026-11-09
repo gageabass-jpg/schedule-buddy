@@ -158,13 +158,15 @@ export function dashboard(s: Snapshot, today: string, nowMs: number): Dashboard 
     .filter((t) => t.dueDate && t.dueDate >= today && t.dueDate <= addDays(today, DUE_SOON_DAYS))
     .sort(compareTasks);
 
-  // Not already in the overdue list: a high-priority task due within a week, or one
-  // that has been "in progress" for a week without being touched.
+  // What falls through the cracks: work that Overdue and Due soon do not already show.
+  //  - high priority and no date at all (nothing will ever remind you of it);
+  //  - "in progress" for a week without being touched (it has probably stalled).
+  const listed = new Set([...overdue, ...dueSoon].map((t) => t.id));
   const attention: Attention[] = [];
   for (const t of open) {
-    if (isOverdue(t, today)) continue;
-    if (t.priority === "high" && t.dueDate && t.dueDate <= addDays(today, 7)) {
-      attention.push({ task: t, reason: `High priority · due ${relativeDay(t.dueDate, today).toLowerCase()}` });
+    if (listed.has(t.id)) continue;
+    if (t.priority === "high" && !t.dueDate && t.status === "not_started") {
+      attention.push({ task: t, reason: "High priority · no due date" });
     } else if (t.status === "in_progress" && nowMs - t.updatedAt >= STALE_DAYS * DAY_MS) {
       const days = Math.floor((nowMs - t.updatedAt) / DAY_MS);
       attention.push({ task: t, reason: `In progress · untouched ${days} days` });

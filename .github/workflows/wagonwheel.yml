@@ -1,0 +1,56 @@
+# Nucleus Wagonwheel: its own checks. It builds and tests on its own, and never needs Nucleus
+# Manager to run. It does compile the shared primitives in shared-ui/, so a change there is
+# checked here too.
+name: Wagonwheel
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["wagonwheel/**", "shared-ui/**", ".github/workflows/wagonwheel.yml"]
+  push:
+    branches: [main]
+    paths: ["wagonwheel/**", "shared-ui/**", ".github/workflows/wagonwheel.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wagonwheel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wagonwheel:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: wagonwheel
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Display and libraries Electron needs
+        working-directory: .
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1 libxss1 libxtst6
+      - name: Install (with the Electron binary)
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck (renderer and main process)
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests (SQLite layer, dates, dashboard maths)
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: End-to-end tests and the dashboard screenshot
+        # Opens the real built app, creates and edits data through its window, restarts it,
+        # backs up and restores, and compares the dashboard with e2e/baseline/dashboard.png.
+        run: node e2e/run.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wagonwheel-screenshots
+          path: wagonwheel/e2e/.artifacts
+          if-no-files-found: ignore
