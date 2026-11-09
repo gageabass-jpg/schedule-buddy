@@ -28,6 +28,8 @@ build/
 # …but DO ship desktop/build/icon.png — electron-builder uses it.
 !desktop/build/
 !desktop/build/icon.png
+# …and Wagonwheel's icon and its source.
+!wagonwheel/build/
 *.ipa
 *.dSYM
 *.dSYM.zip

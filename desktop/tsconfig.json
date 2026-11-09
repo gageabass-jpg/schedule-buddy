@@ -17,7 +17,23 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "@nucleus/ui/*": ["../shared-ui/src/*"],
+      // ../shared-ui has no node_modules of its own. Point the packages it
+      // imports at this app's copies. Only these ten: no catch-all, which
+      // would change how every other import in the app resolves.
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "radix-ui": ["./node_modules/radix-ui"],
+      "@radix-ui/react-slot": ["./node_modules/@radix-ui/react-slot"],
+      "@radix-ui/react-tooltip": ["./node_modules/@radix-ui/react-tooltip"],
+      "lucide-react": ["./node_modules/lucide-react"],
+      "class-variance-authority": ["./node_modules/class-variance-authority"],
+      "clsx": ["./node_modules/clsx"],
+      "tailwind-merge": ["./node_modules/tailwind-merge"],
+      "motion/react": ["./node_modules/motion/dist/react.d.ts"]
+    }
   },
-  "include": ["src", "../shared"]
+  "include": ["src", "../shared", "../shared-ui/src"]
 }

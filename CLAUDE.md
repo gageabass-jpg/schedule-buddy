@@ -15,6 +15,15 @@
 
 Cloud Functions live in `functions/` (askClaude, **parseSchedule**, cleanSchedule, nowPlaying, piCommand, wallState, plus push triggers).
 
+## Protection rules (permanent)
+
+Three folders have owners. **Read `docs/nucleus-protection.md` before touching any of them.**
+
+- `desktop/` is Nucleus Manager. `shared-ui/` is the protected shared library both apps compile. `wagonwheel/` is Nucleus Wagonwheel.
+- **Work on Wagonwheel never changes `desktop/` or `shared-ui/`**: not components, CSS, theme, config, dependencies, build config or tests. Need something a shared component lacks? Write a wrapper or component inside `wagonwheel/`.
+- A change to `shared-ui/` goes in its own pull request. CI then builds Nucleus from `main` and from the change and fails if the compiled CSS differs, lints and type-checks `shared-ui/`, and launches Nucleus to check its UI starts.
+- CI rejects a pull request that changes `desktop/` or `shared-ui/` when the change is attributable to Wagonwheel (`scripts/guard-wagonwheel-isolation.mjs`).
+
 ## Brand (Nucleus)
 
 Source of truth: the Nucleus brand board (Claude Design export). What is applied in code:
