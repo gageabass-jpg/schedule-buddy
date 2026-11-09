@@ -136,9 +136,24 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1 libxss1 libxtst6
-      - name: Install Nucleus Manager (with its Electron binary)
+      - name: Install Nucleus Manager
         working-directory: desktop
         run: npm ci --no-audit --no-fund
+      - name: Download the Electron binary, with retries
+        # The release server sometimes answers 504, and the binary is otherwise fetched lazily by
+        # the first thing that launches Electron, which would then fail with a confusing message.
+        working-directory: desktop
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if node node_modules/electron/install.js && test -f node_modules/electron/path.txt; then
+              echo "Electron is installed: $(cat node_modules/electron/path.txt)"
+              exit 0
+            fi
+            echo "Download attempt $attempt failed. Waiting before the next try."
+            sleep $((attempt * 15))
+          done
+          echo "::error::The Electron binary could not be downloaded after 5 attempts."
+          exit 1
       - name: Install the smoke test
         working-directory: ci/smoke
         run: npm ci --no-audit --no-fund
