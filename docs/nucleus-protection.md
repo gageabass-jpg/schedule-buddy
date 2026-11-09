@@ -37,12 +37,11 @@ A Nucleus fix with no link to Wagonwheel is not blocked by this guard. It still 
 
 To change `shared-ui/` or `desktop/`: open a **separate pull request** that does not touch `wagonwheel/` and does not mention Wagonwheel.
 
-## The one sanctioned exception
+## There are no exceptions
 
-`.github/wagonwheel-guard.allow` lists one commit by patch-id: the one that moved the shared primitives out of `desktop/` into `shared-ui/` (`c009199`). The owner chose to keep `shared-ui/`. The guard reports it as a warning on every run.
+The guard has no allowlist and no override label. If `shared-ui/` or `desktop/` must change, do it in a **separate pull request** that does not touch `wagonwheel/` and does not name Wagonwheel. That passes the guard with no bypass.
 
-- **Delete that entry once the commit is on `main`.**
-- Do not add entries to make a check pass. Move the change to its own pull request.
+This is how the shared library came to exist: the primitives were moved out of `desktop/` in their own pull request (#18), checked against `main` (compiled CSS byte-identical, 70 of 70 tests, a launch test), and merged before any Wagonwheel code. Do the same for any later change.
 
 ## Limits (read these)
 

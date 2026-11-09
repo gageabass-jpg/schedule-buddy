@@ -15,15 +15,14 @@
 // no link to Wagonwheel (a Nucleus fix, say) passes this guard; the other Nucleus
 // protection checks still apply to it.
 //
-// ONE SANCTIONED EXCEPTION, listed in .github/wagonwheel-guard.allow by patch-id (so a
-// rebase does not break it): the commit that moved the shared primitives out of
-// desktop/ into shared-ui/. It is reported on every run. Delete the entry once that
-// commit is on main.
+// There are NO exceptions. If shared-ui/ or desktop/ must change (the extraction of the shared
+// primitives was one such change), do it in its own pull request that does not touch
+// wagonwheel/ and does not name Wagonwheel: that passes this guard without any bypass.
 //
 // This guard prevents accidents. It does not stop a determined author from editing the
 // guard: put branch protection and CODEOWNERS on .github/ and scripts/ for that.
 //
-// Usage: guard-wagonwheel-isolation.mjs --base <rev> --head <rev> [--repo <dir>] [--allow <file>]
+// Usage: guard-wagonwheel-isolation.mjs --base <rev> --head <rev> [--repo <dir>]
 // Environment: PR_TITLE, PR_BRANCH, PR_LABELS (comma separated).
 // Exit: 0 pass, 1 violation, 2 bad usage or git failure.
 
@@ -44,10 +43,9 @@ const repo = path.resolve(arg("repo") ?? process.cwd());
 const baseRev = arg("base");
 const headRev = arg("head");
 if (!baseRev || !headRev) {
-  console.error("usage: guard-wagonwheel-isolation.mjs --base <rev> --head <rev> [--repo <dir>] [--allow <file>]");
+  console.error("usage: guard-wagonwheel-isolation.mjs --base <rev> --head <rev> [--repo <dir>]");
   process.exit(2);
 }
-const allowFile = path.resolve(repo, arg("allow") ?? ".github/wagonwheel-guard.allow");
 
 const git = (args, input) =>
   execFileSync("git", args, { cwd: repo, encoding: "utf8", input, maxBuffer: 256 * 1024 * 1024 });
@@ -57,21 +55,6 @@ const inWagonwheel = (file) => file.startsWith(WAGONWHEEL);
 
 /** Files a commit changed. No rename detection: a file moved OUT of desktop/ lists both paths. */
 const filesOf = (sha) => git(["diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "--root", "-z", sha]).split("\0").filter(Boolean);
-
-/** Stable across rebase and cherry-pick: it hashes the change, not the commit. */
-function patchIdOf(sha) {
-  const diff = git(["diff-tree", "-p", "--no-renames", "--root", sha]);
-  if (!diff.trim()) return null;
-  return git(["patch-id", "--stable"], diff).split(/\s+/)[0] || null;
-}
-
-function readAllowlist() {
-  if (!fs.existsSync(allowFile)) return new Set();
-  const ids = fs.readFileSync(allowFile, "utf8").split("\n")
-    .map((l) => l.replace(/#.*/, "").trim().split(/\s+/)[0])
-    .filter((id) => /^[0-9a-f]{40}$/.test(id));
-  return new Set(ids);
-}
 
 let mergeBase;
 let commits;
@@ -92,8 +75,6 @@ const labels = (process.env.PR_LABELS ?? "").split(",").map((s) => s.trim()).fil
 const prTouchesWagonwheel = prFiles.some(inWagonwheel);
 const prNamesWagonwheel = NAMED.test(title) || NAMED.test(branch) || labels.some((l) => NAMED.test(l));
 
-const allow = readAllowlist();
-const sanctioned = [];
 const violations = [];
 
 for (const sha of commits) {
@@ -101,12 +82,7 @@ for (const sha of commits) {
   const touched = files.filter(inProtected);
   if (touched.length === 0) continue;
 
-  const id = patchIdOf(sha);
   const subject = git(["log", "-1", "--format=%s", sha]).trim();
-  if (id && allow.has(id)) {
-    sanctioned.push({ sha, subject, count: touched.length });
-    continue;
-  }
 
   const message = git(["log", "-1", "--format=%B", sha]);
   const reasons = [];
@@ -117,13 +93,9 @@ for (const sha of commits) {
   if (reasons.length) violations.push({ sha, subject, touched, reasons });
 }
 
-for (const s of sanctioned) {
-  console.log(`::warning title=Sanctioned exception::${s.sha.slice(0, 9)} "${s.subject}" changes ${s.count} file(s) under desktop/ or shared-ui/. It is on .github/wagonwheel-guard.allow.`);
-}
-
 if (violations.length === 0) {
   const scope = prTouchesWagonwheel || prNamesWagonwheel ? "Wagonwheel pull request" : "pull request";
-  console.log(`OK: this ${scope} makes no Wagonwheel-attributable change under desktop/ or shared-ui/ (${commits.length} commit(s) checked, ${sanctioned.length} sanctioned).`);
+  console.log(`OK: this ${scope} makes no Wagonwheel-attributable change under desktop/ or shared-ui/ (${commits.length} commit(s) checked).`);
   process.exit(0);
 }
 

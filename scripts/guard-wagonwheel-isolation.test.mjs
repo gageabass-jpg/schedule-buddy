@@ -125,46 +125,20 @@ test("an unknown revision is a usage error, not a pass", () => withRepo((r) => {
   assert.equal(res.status, 2);
 }));
 
-// ── The sanctioned exception ────────────────────────────────────────────────
+// ── There is no bypass ──────────────────────────────────────────────────────
 
-const patchId = (r, sha) => {
-  const diff = r.git("diff-tree", "-p", "--no-renames", "--root", sha);
-  return execFileSync("git", ["patch-id", "--stable"], { cwd: r.dir, input: diff, encoding: "utf8" }).split(/\s+/)[0];
-};
-
-test("a commit on the allowlist passes, still warns, and survives a rebase (cherry-pick)", () => withRepo((r) => {
-  const extraction = r.commit({ "desktop/a.ts": "moved\n", "shared-ui/b.ts": "moved\n" }, "Extract shared UI primitives");
-  r.commit({ ".github/wagonwheel-guard.allow": `${patchId(r, extraction)}  # the extraction\n` }, "allow the extraction");
+test("an allowlist file does nothing: there is no exception mechanism", () => withRepo((r) => {
+  const sha = r.commit({ "shared-ui/b.ts": "changed\n" }, "adjust padding");
+  const id = execFileSync("git", ["patch-id", "--stable"], { cwd: r.dir, input: r.git("diff-tree", "-p", "--no-renames", "--root", sha), encoding: "utf8" }).split(/\s+/)[0];
+  r.commit({ ".github/wagonwheel-guard.allow": `${id}  # try to excuse it\n` }, "add an allowlist");
   r.commit({ "wagonwheel/x.ts": "x\n" }, "wagonwheel: x");
-  let g = guard(r);
-  assert.equal(g.code, 0, g.err);
-  assert.match(g.out, /Sanctioned exception/);
-
-  // The same change on top of a different base has a different commit id but the same patch-id.
-  r.git("checkout", "-q", "main");
-  r.commit({ "unrelated.txt": "u\n" }, "unrelated work lands on main");
-  r.git("checkout", "-q", "-b", "rebased");
-  r.git("cherry-pick", extraction);
-  r.commit({ ".github/wagonwheel-guard.allow": `${patchId(r, extraction)}\n` }, "allow");
-  r.commit({ "wagonwheel/x.ts": "x\n" }, "wagonwheel: x");
-  g = guard(r);
-  assert.equal(g.code, 0, g.err);
-}));
-
-test("the allowlist excuses only the commit it names", () => withRepo((r) => {
-  const extraction = r.commit({ "shared-ui/b.ts": "moved\n" }, "Extract shared UI primitives");
-  r.commit({ ".github/wagonwheel-guard.allow": `${patchId(r, extraction)}\n` }, "allow the extraction");
-  r.commit({ "wagonwheel/x.ts": "x\n" }, "wagonwheel: x");
-  r.commit({ "shared-ui/b.ts": "a second, different change\n" }, "tidy");
   const g = guard(r);
   assert.equal(g.code, 1);
-  assert.match(g.err, /tidy/);
-  assert.doesNotMatch(g.err, /Extract shared UI/);
+  assert.match(g.err, /adjust padding/);
 }));
 
-test("a made-up patch-id excuses nothing", () => withRepo((r) => {
-  r.commit({ "shared-ui/b.ts": "changed\n" }, "adjust");
-  r.commit({ ".github/wagonwheel-guard.allow": `${"0".repeat(40)}  # nothing\n` }, "allow nothing");
-  r.commit({ "wagonwheel/x.ts": "x\n" }, "wagonwheel: x");
-  assert.equal(guard(r).code, 1);
+test("a separate Nucleus pull request, with no link to Wagonwheel, passes with no bypass (how the extraction landed)", () => withRepo((r) => {
+  r.commit({ "desktop/a.ts": "moved\n", "shared-ui/b.ts": "moved\n" }, "Extract shared UI primitives into shared-ui/");
+  const g = guard(r, { PR_TITLE: "Extract shared UI primitives into shared-ui/ (no behaviour change)", PR_BRANCH: "claude/shared-ui-extraction" });
+  assert.equal(g.code, 0, g.err);
 }));
