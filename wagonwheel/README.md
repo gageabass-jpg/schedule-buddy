@@ -78,7 +78,7 @@ Things Wagonwheel does itself because the shared version does not fit: the Gantt
 npm test                 # 57 unit tests: SQLite layer, exports, dates, dashboard maths, colours
 npm run typecheck
 npm run lint
-npm run test:e2e         # builds, then drives the real app (19 tests + the screenshot comparison)
+npm run test:e2e         # builds, then drives the real app (19 tests + 6 tests of the screenshot comparison)
 ```
 
 On Linux the end-to-end tests start a virtual display for you (`xvfb-run`). On a Mac they open real windows for a moment.
@@ -87,13 +87,22 @@ The end-to-end suite creates, edits, completes and deletes projects, tasks, subt
 
 ### The screenshot test
 
-`e2e/baseline/dashboard.png` is the dashboard with sample data on a fixed date (2026-06-01), 1440×900. The test fails if more than 0.15% of pixels differ. It was made on Linux, the same as CI. After a **deliberate** visual change:
+`e2e/baseline/dashboard.png` is the dashboard with sample data on a fixed date (2026-06-01), 1440×900.
+
+It is **not** compared pixel by pixel. The same build draws text with slightly different edge softness on different machines. A GitHub runner differed from the machine that made the baseline in 12,100 pixels, all of them glyph edges, which is more than a recoloured button. So both pictures are averaged into 6×6 blocks first, and two things are checked:
+
+| Check | Limit | Measured |
+|---|---|---|
+| blocks that differ visibly | 10 | runner: 1. A recoloured chip: 126. A recoloured button: 166. The title strip changed: 255. |
+| mean colour of the whole picture, per channel | 1.0 level | runner: 0.04. A subtle +6 tint: 6.0. |
+
+It does **not** see a few changed letters in small text. Test text with the end-to-end assertions. After a **deliberate** visual change:
 
 ```bash
 UPDATE_SNAPSHOTS=1 npm run test:e2e   # then LOOK at e2e/baseline/dashboard.png before committing it
 ```
 
-Do not commit a baseline made on a Mac. Text anti-aliasing differs between machines; if CI fails on a fresh runner with a diff in the text only, re-make the baseline in CI and check it.
+On a failure, CI uploads `e2e/artifacts/` (the actual picture and a full-resolution diff). Run locally with `npm run test:e2e`; the same folder appears in `wagonwheel/e2e/artifacts/`.
 
 ## Design
 

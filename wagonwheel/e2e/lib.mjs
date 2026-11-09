@@ -22,9 +22,10 @@ export async function launch({ dataDir, realClock = false, extraEnv = {} } = {})
   const executablePath = createRequire(path.join(appDir, "package.json"))("electron");
   const app = await _electron.launch({
     executablePath,
-    // The rendering flags make text draw the same on every machine (no hinting, no LCD
-    // anti-aliasing, a fixed locale), so a screenshot made here matches one made in CI.
-    args: [appDir, "--no-sandbox", "--disable-gpu", "--font-render-hinting=none", "--disable-lcd-text", "--disable-font-subpixel-positioning", "--lang=en-US", "--force-device-scale-factor=1"],
+    // --disable-font-subpixel-positioning snaps glyphs to whole pixels, which makes this machine's
+    // own screenshots repeat exactly. It does NOT make them match another machine's (see
+    // screenshot.mjs for why, and how the comparison copes). The other two keep the page at 1x.
+    args: [appDir, "--no-sandbox", "--disable-gpu", "--disable-font-subpixel-positioning", "--lang=en-US", "--force-device-scale-factor=1"],
     env: { ...process.env, NODE_ENV: "production", WAGONWHEEL_DATA_DIR: dataDir, TZ: "UTC", ...extraEnv },
     timeout: 60_000,
   });
