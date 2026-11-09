@@ -1,0 +1,8 @@
+{
+  "name": "nucleus-smoke",
+  "private": true,
+  "description": "Launches Nucleus Manager under Playwright and checks that its UI starts. Used by CI. Not part of any app.",
+  "type": "module",
+  "scripts": { "smoke": "node nucleus-smoke.mjs" },
+  "devDependencies": { "playwright-core": "1.63.0" }
+}

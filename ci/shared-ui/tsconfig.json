@@ -1,0 +1,34 @@
+{
+  // Type-checks shared-ui/ on its own, with the same strictness as desktop/. shared-ui has no
+  // node_modules, so the packages it imports are found in desktop/ (npm ci there first).
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "react": ["../../desktop/node_modules/@types/react"],
+      "react/jsx-runtime": ["../../desktop/node_modules/@types/react/jsx-runtime"],
+      "radix-ui": ["../../desktop/node_modules/radix-ui"],
+      "@radix-ui/react-slot": ["../../desktop/node_modules/@radix-ui/react-slot"],
+      "@radix-ui/react-tooltip": ["../../desktop/node_modules/@radix-ui/react-tooltip"],
+      "lucide-react": ["../../desktop/node_modules/lucide-react"],
+      "class-variance-authority": ["../../desktop/node_modules/class-variance-authority"],
+      "clsx": ["../../desktop/node_modules/clsx"],
+      "tailwind-merge": ["../../desktop/node_modules/tailwind-merge"],
+      "motion/react": ["../../desktop/node_modules/motion/dist/react.d.ts"]
+    }
+  },
+  "include": ["../../shared-ui/src"]
+}
