@@ -55,3 +55,4 @@ desktop/
 - Sign-in via Firebase Auth (Apple / Google / Email).
 - Replace demo `SHIFTS` with live `state/main` Firestore subscription.
 - Wire each write surface: shift type CRUD, weekly template, alt weekends, caregiver blackouts, one-off overrides, partner shifts, OT decisions.
+ruleset test
