@@ -52,5 +52,6 @@ jobs:
         if: failure()
         with:
           name: wagonwheel-screenshots
-          path: wagonwheel/e2e/.artifacts
-          if-no-files-found: ignore
+          path: wagonwheel/e2e/artifacts
+          if-no-files-found: warn
+          include-hidden-files: true

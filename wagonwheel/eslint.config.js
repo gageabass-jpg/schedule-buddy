@@ -14,7 +14,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
  * @nucleus/ui alias, which is the library's public door.
  */
 export default tseslint.config(
-  { ignores: ["dist", "dist-electron", "release", "node_modules", "e2e/.artifacts"] },
+  { ignores: ["dist", "dist-electron", "release", "node_modules", "e2e/artifacts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx,mts}"],

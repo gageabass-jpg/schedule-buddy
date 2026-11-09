@@ -8,6 +8,12 @@ import { addDays, diffDays, formatShort, relativeDay } from "./dates";
 export const isOpen = (t: Task): boolean => t.status !== "done";
 export const isOverdue = (t: Task, today: string): boolean => isOpen(t) && !!t.dueDate && t.dueDate < today;
 
+/** Most recently active first. Ties (two projects touched in the same millisecond) are settled
+ *  by creation time, then name, then id, so the order never depends on a random id. */
+export function compareByActivity(a: Project, b: Project): number {
+  return b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
 export const byId = <T extends { id: string }>(items: T[]): Map<string, T> => new Map(items.map((i) => [i.id, i]));
 
 /** Tasks in a project that has not been archived, and tasks with no project (the inbox). */
@@ -182,11 +188,11 @@ export function dashboard(s: Snapshot, today: string, nowMs: number): Dashboard 
 
   return {
     openTasks: open.length,
-    activeProjects: live.filter((p) => p.status !== "completed").sort((a, b) => b.updatedAt - a.updatedAt),
+    activeProjects: live.filter((p) => p.status !== "completed").sort(compareByActivity),
     overdue,
     dueSoon,
     milestones,
-    recent: [...live].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4),
+    recent: [...live].sort(compareByActivity).slice(0, 4),
     attention,
   };
 }

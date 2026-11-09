@@ -3,6 +3,7 @@ import { FolderKanban, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@nucleus/ui/ui/tabs";
 import { useData } from "@/lib/store";
 import { useUi } from "@/lib/ui-state";
+import { compareByActivity } from "@/lib/derive";
 import { EmptyState, PageHeader } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
 import { ProjectCard } from "@/components/ProjectCard";
@@ -17,11 +18,10 @@ export function Projects() {
 
   const groups = useMemo(() => {
     const live = snapshot.projects.filter((p) => !p.archivedAt);
-    const newest = (a: { updatedAt: number }, b: { updatedAt: number }) => b.updatedAt - a.updatedAt;
     return {
-      active: live.filter((p) => p.status !== "completed").sort(newest),
-      all: [...live].sort(newest),
-      archived: snapshot.projects.filter((p) => p.archivedAt).sort(newest),
+      active: live.filter((p) => p.status !== "completed").sort(compareByActivity),
+      all: [...live].sort(compareByActivity),
+      archived: snapshot.projects.filter((p) => p.archivedAt).sort(compareByActivity),
     };
   }, [snapshot.projects]);
   const shown = groups[filter];

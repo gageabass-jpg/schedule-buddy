@@ -2,7 +2,7 @@
 //
 // Text is anti-aliased slightly differently from one machine to the next, so a small
 // share of pixels may differ. Anything past that fails and writes the actual image and a
-// diff to e2e/.artifacts/. To accept a deliberate change: UPDATE_SNAPSHOTS=1 npm run test:e2e
+// diff to e2e/artifacts/. To accept a deliberate change: UPDATE_SNAPSHOTS=1 npm run test:e2e
 //
 // The baseline is made on Linux (Xvfb), the same as CI. Do not commit one made on a Mac.
 
@@ -14,7 +14,8 @@ import pixelmatch from "pixelmatch";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const BASELINE_DIR = path.join(here, "baseline");
-export const ARTIFACT_DIR = path.join(here, ".artifacts");
+// Not a dot-folder: actions/upload-artifact skips hidden folders unless told otherwise.
+export const ARTIFACT_DIR = path.join(here, "artifacts");
 
 /** Per-pixel colour tolerance (0 strict, 1 loose) and the share of pixels allowed to differ. */
 export const PIXEL_THRESHOLD = 0.05;
@@ -48,7 +49,7 @@ export function expectScreenshot(buffer, name) {
     fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
     fs.writeFileSync(path.join(ARTIFACT_DIR, `${name}.actual.png`), buffer);
     if (result.diffPng) fs.writeFileSync(path.join(ARTIFACT_DIR, `${name}.diff.png`), result.diffPng);
-    throw new Error(`Screenshot "${name}" changed: ${result.reason}. See e2e/.artifacts/${name}.actual.png and ${name}.diff.png`);
+    throw new Error(`Screenshot "${name}" changed: ${result.reason}. See e2e/artifacts/${name}.actual.png and ${name}.diff.png`);
   }
   return { updated: false };
 }

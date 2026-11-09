@@ -5,4 +5,4 @@ release
 out
 .DS_Store
 *.log
-e2e/.artifacts
+e2e/artifacts

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Milestone, Project, Snapshot, Task } from "@shared/types";
-import { compareTasks, dashboard, dayContents, dayMarkers, describeMarkers, inboxTasks, projectProgress, subtaskProgress, visibleTasks } from "./derive";
+import { compareByActivity, compareTasks, dashboard, dayContents, dayMarkers, describeMarkers, inboxTasks, projectProgress, subtaskProgress, visibleTasks } from "./derive";
 
 const TODAY = "2026-11-09";
 const NOW = Date.UTC(2026, 10, 9, 12);
@@ -141,5 +141,19 @@ describe("dashboard", () => {
     expect(d.milestones.map((m) => m.targetDate)).toEqual(["2026-11-12", "2026-11-15"]);
     expect(d.activeProjects.map((x) => x.id)).toEqual([q.id, p.id]);   // newest activity first; the completed one is not active
     expect(d.recent[0].id).toBe(done.id);
+  });
+});
+
+describe("most recently active first", () => {
+  it("settles a tie the same way every time: creation time, then name, then id", () => {
+    const a = project({ name: "Alpha", updatedAt: 100, createdAt: 1, id: "z" });
+    const b = project({ name: "Beta", updatedAt: 100, createdAt: 2, id: "y" });
+    const c = project({ name: "Gamma", updatedAt: 100, createdAt: 2, id: "x" });
+    const newest = project({ name: "Zeta", updatedAt: 200, createdAt: 0, id: "w" });
+    const want = [newest.id, b.id, c.id, a.id];   // newest first; then the later-created; then by name
+    // Every input order gives the same answer, so a random id order cannot change what you see.
+    for (const input of [[a, b, c, newest], [newest, c, b, a], [c, a, newest, b], [b, newest, a, c]]) {
+      expect([...input].sort(compareByActivity).map((p) => p.id)).toEqual(want);
+    }
   });
 });
