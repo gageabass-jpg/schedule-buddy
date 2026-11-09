@@ -1,0 +1,148 @@
+/*
+ * The glass system. Four layers, each a class:
+ *
+ *   .ww-backdrop  the ground: near-black burgundy with two soft red glows.
+ *   .glass-panel  a floating pane (sidebar, main). Blurs what is behind it.
+ *   .glass-card   a card inside a pane. No blur (cheap), a lighter wash.
+ *   .glass-inset  a well: inputs, pills, tracks. Darker than its surround.
+ *
+ * Every edge is a 1px gradient line that is brightest top-left, the way light
+ * catches glass, plus a hairline highlight just inside the top. No heavy shadows.
+ */
+
+@layer components {
+.ww-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 620px at 6% -8%, rgba(198, 40, 69, 0.26), transparent 62%),
+    radial-gradient(820px 640px at 104% 108%, rgba(143, 24, 52, 0.34), transparent 60%),
+    radial-gradient(600px 420px at 62% 38%, rgba(75, 20, 38, 0.34), transparent 70%),
+    linear-gradient(180deg, #160f14 0%, #0e0a0d 100%);
+}
+
+.glass-panel,
+.glass-card,
+.glass-inset {
+  position: relative;
+  border-radius: var(--ww-r, 16px);
+}
+
+/* The gradient edge. A masked pseudo-element draws only the 1px ring. */
+.glass-panel::before,
+.glass-card::before,
+.glass-inset::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.04) 36%, rgba(217, 139, 155, 0.1) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.glass-panel {
+  --ww-r: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015) 40%),
+    var(--ww-glass);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  backdrop-filter: blur(28px) saturate(1.5);
+  box-shadow:
+    inset 0 1px 0 var(--ww-highlight),
+    0 18px 50px rgba(0, 0, 0, 0.38);
+}
+
+.glass-card {
+  --ww-r: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.glass-card[data-interactive="true"] { cursor: default; }
+.glass-card[data-interactive="true"]:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.glass-card[data-interactive="true"]:active { transform: scale(0.995); }
+
+.glass-inset {
+  --ww-r: 12px;
+  background: var(--ww-glass-inset);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.glass-inset::before { opacity: 0.55; }
+
+/* Primary action: crimson glass. Lit from above, white label. */
+.btn-crimson {
+  background: linear-gradient(180deg, var(--ww-crimson-hi), var(--ww-crimson-lo));
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 6px 18px rgba(198, 40, 69, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-crimson:hover:not(:disabled) { filter: brightness(1.07); }
+.btn-crimson:active:not(:disabled) { transform: scale(0.98); filter: brightness(0.96); }
+
+/* Quiet action: a glass chip. */
+.btn-glass {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--ww-text);
+  border: 1px solid var(--ww-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.btn-glass:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.btn-glass:active:not(:disabled) { transform: scale(0.98); }
+
+/* Form controls (native select / date / text), as wells. */
+.ww-field {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--ww-text);
+  background: var(--ww-glass-inset);
+  border: 1px solid var(--ww-line);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+textarea.ww-field { padding: 9px 12px; line-height: 1.45; resize: vertical; }
+.ww-field::placeholder { color: var(--ww-text-3); }
+.ww-field:focus { border-color: rgba(217, 139, 155, 0.7); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(198, 40, 69, 0.22); }
+select.ww-field {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23bfb1b6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+select.ww-field option { background: #2a1d24; color: var(--ww-text); }
+input[type="date"].ww-field::-webkit-calendar-picker-indicator { filter: invert(0.8) sepia(0.3) hue-rotate(300deg); opacity: 0.7; cursor: pointer; }
+
+/* A row that highlights on hover and on selection. */
+.ww-row { transition: background-color 0.14s ease; }
+.ww-row:hover { background: rgba(255, 255, 255, 0.06); }
+.ww-row[data-active="true"] { background: rgba(198, 40, 69, 0.2); box-shadow: inset 0 0 0 1px rgba(217, 139, 155, 0.22); }
+
+/* The window drag region. */
+.ww-drag { -webkit-app-region: drag; }
+.ww-no-drag { -webkit-app-region: no-drag; }
+
+.ww-rise { animation: ww-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* A short sidebar drops the long empty-state text. */
+@media (max-height: 800px) {
+  .ww-hide-short { display: none; }
+}
+}
+
+/* Views fade and rise in. */
+@keyframes ww-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
