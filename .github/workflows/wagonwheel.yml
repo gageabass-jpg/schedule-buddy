@@ -1,12 +1,17 @@
 # Nucleus Wagonwheel: its own checks. It builds and tests on its own, and never needs Nucleus
 # Manager to run. It does compile the shared primitives in shared-ui/, so a change there is
 # checked here too.
+#
+# The `wagonwheel` job is meant to be a REQUIRED status check on main (the "Protect main" ruleset),
+# so it must run on EVERY pull request. Do not add a `paths` filter to `pull_request`: GitHub never
+# starts a workflow that a path filter skips, and a required check that never starts stays
+# "Expected" for ever and blocks the merge. The `push` trigger keeps its filter; nothing requires
+# a check on a push.
 name: Wagonwheel
 
 on:
   pull_request:
     branches: [main]
-    paths: ["wagonwheel/**", "shared-ui/**", ".github/workflows/wagonwheel.yml"]
   push:
     branches: [main]
     paths: ["wagonwheel/**", "shared-ui/**", ".github/workflows/wagonwheel.yml"]
