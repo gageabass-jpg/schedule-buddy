@@ -259,6 +259,8 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
     `- A blank cell for that person means no shift that day — do NOT emit a row for it.`,
     `- A cell shaded or highlighted still counts if it has a time written in it; the colour is the unit's own marking, not a cancellation.`,
     ``,
+    `On call: a day marked with an asterisk (*) means ${req.personLabel} is ON CALL that day. The asterisk can be on a day that also has a shift, or on a day with no shift at all. List every asterisk-marked day in "onCallDates". A day with ONLY an asterisk is not a shift: do not emit a row for it. Keep the asterisk out of each row's "label", and do not count an asterisk-only day in "countedDays".`,
+    ``,
     `Available shift types in the user's catalog:`,
     typesList || "  (none — every shiftTypeId must be null)",
     ``,
@@ -266,6 +268,7 @@ function buildVisionPrompt(req: ParseScheduleRequest): string {
     `{`,
     `  "monthCovered": "YYYY-MM" or null,`,
     `  "countedDays": <integer>,`,
+    `  "onCallDates": ["YYYY-MM-DD"],`,
     `  "rows": [`,
     `    { "date": "YYYY-MM-DD", "shiftTypeId": "<one of: ${validIds}> or null", "label": "7p" or "school" or "", "confidence": 0.0..1.0 }`,
     `  ]`,
@@ -348,7 +351,7 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
   const close = fenceless.lastIndexOf("}");
   const cleaned = open >= 0 && close > open ? fenceless.slice(open, close + 1) : fenceless;
 
-  let parsed: { rows?: unknown; monthCovered?: unknown; countedDays?: unknown };
+  let parsed: { rows?: unknown; monthCovered?: unknown; countedDays?: unknown; onCallDates?: unknown };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
@@ -373,9 +376,14 @@ ipcMain.handle("vision:parse", async (_e, req: ParseScheduleRequest) => {
     }
   }
 
+  const onCallDates = Array.isArray(parsed.onCallDates)
+    ? [...new Set(parsed.onCallDates.filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort()
+    : [];
+
   return {
     ok: true,
     rows,
+    onCallDates,
     monthCovered: typeof parsed.monthCovered === "string" ? parsed.monthCovered : undefined,
     countedDays:
       typeof parsed.countedDays === "number" && Number.isFinite(parsed.countedDays)
@@ -401,7 +409,11 @@ async function createWindow() {
           titleBarOverlay: { color: "#0A4F48", symbolColor: "#FFFFFF", height: 28 },
           icon: iconPath(false),
         }),
-    backgroundColor: "#0F0F12",
+    // On a Mac the window is a frosted material the desktop shows through (the app
+    // draws its glass panels over it), so its own background is clear.
+    ...(process.platform === "darwin"
+      ? { vibrancy: "under-window" as const, backgroundColor: "#00000000" }
+      : { backgroundColor: "#0F0F12" }),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
@@ -467,7 +479,6 @@ function installAppMenu(): void {
   const sendEditTemplate = (): void => { focused()?.webContents.send("menu:edit-template"); };
   const sendOpenCoverageRequests = (): void => { focused()?.webContents.send("menu:open-coverage-requests"); };
   const sendOpenScheduleBlock = (): void => { focused()?.webContents.send("menu:open-schedule-block"); };
-  const sendOpenCleaner = (): void => { focused()?.webContents.send("menu:open-cleaner"); };
 
   const isMac = process.platform === "darwin";
 
@@ -568,10 +579,6 @@ function installAppMenu(): void {
           accelerator: "CmdOrCtrl+Shift+B",
           click: sendOpenScheduleBlock,
         },
-        {
-          label: "Cleaner…",
-          click: sendOpenCleaner,
-        },
       ],
     },
     { role: "windowMenu" },
@@ -637,7 +644,12 @@ function setDockAppearance(dark: boolean) {
   app.dock.setIcon(img);
   dockDark = dark;
 }
-ipcMain.on("appearance:set", (_e, dark: unknown) => setDockAppearance(dark === true));
+// The window's material and the native dialogs follow the app's own Light / Dark /
+// System choice, so a Light app on a dark Mac doesn't sit on a dark material.
+ipcMain.on("appearance:set", (_e, dark: unknown, pref: unknown) => {
+  if (pref === "light" || pref === "dark" || pref === "system") nativeTheme.themeSource = pref;
+  setDockAppearance(dark === true);
+});
 
 // Windows has no menu bar under a hidden title bar; the top bar's menu button
 // opens the same application menu as a popup instead.

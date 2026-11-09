@@ -2,7 +2,6 @@
   "hosting": {
     "public": "public",
     "predeploy": [
-      "npm run build:phone-model",
       "node scripts/predeploy-gate.mjs"
     ],
     "ignore": [

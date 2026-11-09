@@ -11,19 +11,13 @@
 //     `sync` rebuilds the view on demand, for a household whose view doesn't
 //     exist yet.
 //
-// A household on the any-household model has no caregiver view at all: its
-// caregivers read the records addressed to them (shared/store.ts
-// watchCaregiver), and migrateHousehold drops the view. caregiverAction's change
-// goes through editLegacyState like any other edit.
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
 import { applyCaregiverAction, buildCaregiverView, CaregiverForbiddenError, CaregiverInputError } from "./caregiverLogic";
-import { editLegacyState, isMigrated, readLegacyState } from "./householdState";
-import { collectionPath } from "./shared/store";
-import { modelStore } from "./modelStore";
+import { editHouseholdState, readHouseholdState } from "./householdState";
 
 const viewRef = (householdId: string) =>
   getFirestore().collection("households").doc(householdId).collection("caregiverView").doc("main");
@@ -43,22 +37,6 @@ export const mirrorCaregiverView = onDocumentWritten(
     await viewRef(householdId).set(next);
   },
 );
-
-/** Remove the caregiver view. A household on the model has none: it held every
- *  coverage request, so a caregiver there reads their own requests from the
- *  records instead. (Moving back to state/main rebuilds it, through the
- *  state/main write mirrorCaregiverView listens to.) */
-export async function dropCaregiverView(householdId: string): Promise<void> {
-  await viewRef(householdId).delete().catch(() => {});
-}
-
-/** The people records that are this account, on a household on the any-household
- *  model; undefined on one still on state/main (see ActionContext). */
-export async function callerPersonIds(householdId: string, uid: string, root: Record<string, unknown> | undefined): Promise<string[] | undefined> {
-  if (!isMigrated(root)) return undefined;
-  const people = await modelStore().list(collectionPath(householdId, "people"));
-  return people.filter((p) => p.data.uid === uid).map((p) => p.id);
-}
 
 interface CaregiverActionRequest {
   householdId?: string;
@@ -84,24 +62,20 @@ export const caregiverAction = onCall<CaregiverActionRequest, Promise<{ ok: true
     }
 
     if (request.data.action === "sync") {
-      // Nothing to build for a household on the model.
-      if (isMigrated(hh.data())) return { ok: true };
-      const state = await readLegacyState(householdId);
+      const state = await readHouseholdState(householdId);
       await viewRef(householdId).set(buildCaregiverView((state ?? undefined) as Record<string, unknown> | undefined));
       return { ok: true };
     }
 
     const now = new Date();
-    const personIds = await callerPersonIds(householdId, uid, hh.data());
     try {
-      if (!(await readLegacyState(householdId))) throw new CaregiverInputError("The schedule isn't set up yet.");
-      await editLegacyState(householdId, uid, (fresh) => {
+      if (!(await readHouseholdState(householdId))) throw new CaregiverInputError("The schedule isn't set up yet.");
+      await editHouseholdState(householdId, (fresh) => {
         const patch = applyCaregiverAction(fresh as unknown as Record<string, unknown>, request.data, {
           uid,
           nowIso: now.toISOString(),
           nowMs: now.getTime(),
           newId: `ev_${now.getTime().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-          callerPersonIds: personIds,
         });
         return { result: null, next: { ...fresh, ...patch } };
       });

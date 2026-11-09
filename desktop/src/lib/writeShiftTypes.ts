@@ -65,7 +65,7 @@ async function readState(householdId: string): Promise<HouseholdState> {
 }
 
 async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
-  try { await writeHouseholdState(householdId, base, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new ShiftTypeError("Couldn't save the change. Check your connection.", e); }
 }
 

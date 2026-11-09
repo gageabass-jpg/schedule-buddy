@@ -40,12 +40,6 @@ export interface OTShift {
   note?: string;
 }
 
-export interface OTOpportunity {
-  date: string;
-  shiftTypeId: string;
-  coworkers: string;
-}
-
 export interface Override {
   date: string;
   shiftTypeId: string | null;   // null = "this day is off"
@@ -60,6 +54,17 @@ export interface PartnerShift {
   label: string;
   /** Free text carried over from an import — e.g. who else is on. */
   note?: string;
+}
+
+/**
+ * A day the partner is on call (the asterisk on her schedule). Independent of
+ * shifts: she can be on call on a day she also works, or on a day off.
+ */
+export interface OnCallDay {
+  date: string;
+  /** From a photo import still awaiting the manager's review. */
+  pending?: boolean;
+  importId?: string;
 }
 
 export interface CaregiverBlackout {
@@ -91,6 +96,12 @@ export interface ImportRecord {
   monthCovered?: string;       // YYYY-MM if Claude detected one
   addedDates: string[];        // dates added or replaced by this import
   noteCount: number;           // total shifts written
+  /** The last day the uploaded schedule has a shift for this person (YYYY-MM-DD):
+   *  where the calendar marks the end of the schedule period. addedDates isn't
+   *  enough for that, since a comparison only writes the days that differed.
+   *  Records from before this field existed don't have it; the calendar falls
+   *  back to the last of their addedDates. */
+  lastShiftDate?: string;
 }
 
 export type EventWho = "G" | "K" | "Daisy" | "family";
@@ -275,13 +286,12 @@ export interface HouseholdState {
     sun: string | null;
   };
   ot: OTShift[];
-  otOpportunities: OTOpportunity[];
   overrides: Override[];
   range: { from: string; to: string };
   calName: string;
   calView: "schedule" | "fatigue" | "childcare" | "couple";
   selfName: string;
-  partner: { name: string; shifts: PartnerShift[] };
+  partner: { name: string; shifts: PartnerShift[]; onCall?: OnCallDay[] };
   caregiverBlackouts: CaregiverBlackout[];
   ui: { calLayout: string; viewMonth: string; viewWeekStart: string };
   /** Dependents (kids, pets, etc) — schedules written by the desktop manager

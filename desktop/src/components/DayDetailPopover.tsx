@@ -13,10 +13,13 @@ import { useModalMotion } from "../lib/modalMotion";
 import { StretchBadge } from "./StretchBadge";
 import type { StretchDay } from "../lib/stretch";
 import { HolidayPayTag } from "./HolidayPayTag";
+import { CaregiverChip } from "./CaregiverChip";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
 import { TriangleAlertIcon, type TriangleAlertIconHandle } from "@/components/ui/triangle-alert";
 import { useHouseholdLook } from "../lib/householdLook";
+import { OnCallRow } from "./OnCallBadge";
+import { onCallOn } from "../lib/onCall";
 
 const BRAND_TEAL = "#0F6E64";
 const CLAY = "#8A4B38";
@@ -78,7 +81,7 @@ export function DayDetailPopover({
 
   const [y, mo, d] = date.split("-").map(Number);
   const dow = new Date(y, mo - 1, d).getDay();
-  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || (look.familyPhotos ? "Daisy" : "Caregiver");
 
   const kind = dayKindFromShifts(dayShifts);
   const block = (state?.scheduleBlocks ?? []).find((b) => b.startDate <= date && date <= b.endDate);
@@ -120,13 +123,14 @@ export function DayDetailPopover({
   return (
     <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
-        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
+        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, "var(--glass-fill-strong)")} />}
         {/* Banners on the card's right edge: a schedule block (red) and
             confirmed childcare (Teal). With both, they stack in the header. */}
         {block && <BlockedRibbon label={block.label} top={careConfirmed ? 8 : 31} />}
         {careConfirmed && <CoveredRibbon top={block ? 40 : 31} delay={block ? 240 : 140} />}
         <div
           ref={cardRef}
+          className="glass-pop"
           role="dialog"
           aria-label="Day detail"
           style={{
@@ -177,6 +181,19 @@ export function DayDetailPopover({
             </>
           )}
 
+          {/* On call: stands apart from the shifts, since it can fall on a day off. */}
+          {(() => {
+            const onCall = onCallOn(state, date);
+            return onCall ? (
+              <>
+                <div style={{ ...section }}>
+                  <OnCallRow entry={onCall} name={partnerName} color={palette.K} t={t} />
+                </div>
+                <div style={rule} />
+              </>
+            ) : null;
+          })()}
+
           {/* Shifts on this day — each row drills into the shift popover. */}
           {dayShifts.length > 0 && (
             <div style={{ padding: "4px 16px 12px" }}>
@@ -201,6 +218,7 @@ export function DayDetailPopover({
                     <span style={{ width: 4, alignSelf: "stretch", minHeight: 20, borderRadius: 2, background: c, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {name}
+                      {s.who === "D" && daisyName !== "Caregiver" && <CaregiverChip t={t} />}
                       {/* Whatever the source said beyond the hours — usually who
                           else is on. Bracketed because the note is typically a
                           name too, and "Kaylene Lacey" reads as one person. */}

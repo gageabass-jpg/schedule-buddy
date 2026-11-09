@@ -35,7 +35,7 @@ async function readState(householdId: string): Promise<HouseholdState> {
 }
 
 async function writeState(householdId: string, base: HouseholdState, next: HouseholdState): Promise<void> {
-  try { await writeHouseholdState(householdId, base, next); }
+  try { await writeHouseholdState(householdId, next); }
   catch (e) { throw new WriteEventError("Couldn't save the change.", e); }
 }
 

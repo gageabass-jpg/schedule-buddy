@@ -56,7 +56,7 @@ export async function saveWeeklyTemplates(
   else delete next.weeklyTemplates;
 
   try {
-    await writeHouseholdState(householdId, current, next);
+    await writeHouseholdState(householdId, next);
   } catch (e) {
     throw new WriteTemplateError("Couldn't save the template. Check your connection and try again.", e);
   }

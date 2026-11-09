@@ -34,11 +34,11 @@ import {
 import { dayKindFromShifts, type ShiftMap } from "./shared/schedule";
 import { holidayOn } from "./shared/holidays";
 import { computeOverlapCandidates, parentDaySegments } from "./shared/computeOverlap";
-import { editLegacyState, readLegacyState } from "./householdState";
+import { editHouseholdState, readHouseholdState } from "./householdState";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
-const MODEL = "claude-opus-4-8";
+export const MODEL = "claude-opus-4-8";
 
 /** Tools that only read. Read-only mode is handed these and nothing else, so
  *  the model cannot write even if it decides to. */
@@ -60,7 +60,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     name: "summarize_period",
     description:
       "Get a compact summary of what's scheduled (shifts, OT, events) in " +
-      "a date range, with each day's federal holiday if it's one. Use for read-only " +
+      "a date range, with each day's federal holiday if it's one and whether Kaylene is on call. Use for read-only " +
       "questions like \"what's my week look like?\" or \"am I working any holidays?\".",
     input_schema: {
       type: "object",
@@ -241,6 +241,27 @@ const TOOLS: Anthropic.Messages.Tool[] = [
     },
   },
   {
+    name: "add_partner_on_call",
+    description:
+      "Mark Kaylene as on call on a specific date (the asterisk on her schedule). " +
+      "On call is NOT a shift: she can be on call on a day she works or on a day off, " +
+      "so never add a shift to record it, and never remove her shift when marking her on call.",
+    input_schema: {
+      type: "object",
+      properties: { date: { type: "string", description: "YYYY-MM-DD" } },
+      required: ["date"],
+    },
+  },
+  {
+    name: "remove_partner_on_call",
+    description: "Take Kaylene off call on a specific date. Leaves any shift she has that day alone.",
+    input_schema: {
+      type: "object",
+      properties: { date: { type: "string", description: "YYYY-MM-DD" } },
+      required: ["date"],
+    },
+  },
+  {
     name: "add_event",
     description:
       "Add a personal event / appointment to the calendar. `who` is the " +
@@ -342,7 +363,7 @@ function isoToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function genEventId(): string {
+export function genEventId(): string {
   return `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -366,7 +387,7 @@ function datesInRange(from: string, to: string): string[] {
 
 // ───────────────── Tool execution ──────────────────────────────────────
 
-interface ExecCtx {
+export interface ExecCtx {
   householdId: string;
   uid: string;
   /** What the user asked, kept on the undo record so it can say what it undoes. */
@@ -389,7 +410,7 @@ interface ExecCtx {
 // which is what undoNucleusChange restores from. A reply that moves a shift
 // (two writes) is therefore undone as one.
 
-interface ChangeRecord {
+export interface ChangeRecord {
   id: string;
   tools: string[];
   /** Field → value before this reply first touched it (null = absent). */
@@ -398,7 +419,7 @@ interface ChangeRecord {
   after: Record<string, unknown>;
 }
 
-function newChangeRecord(householdId: string): ChangeRecord {
+export function newChangeRecord(householdId: string): ChangeRecord {
   const id = getFirestore().collection("households").doc(householdId)
     .collection("nucleusChanges").doc().id;
   return { id, tools: [], before: {}, after: {} };
@@ -413,7 +434,7 @@ function plain(v: unknown): unknown {
  *  and the fields to write (none when there's nothing to change). */
 type Built = { result: unknown; patch?: Partial<HouseholdState> };
 
-function commit(
+export function commit(
   ctx: ExecCtx,
   tool: string,
   build: (fresh: HouseholdState) => Built,
@@ -433,7 +454,7 @@ async function commitNow(
   type Out =
     | { result: unknown; wrote: false }
     | { result: unknown; wrote: true; before: Record<string, unknown>; after: Record<string, unknown>; tools: string[] };
-  const out = await editLegacyState<Out>(ctx.householdId, ctx.uid, (fresh) => {
+  const out = await editHouseholdState<Out>(ctx.householdId, (fresh) => {
     const { result, patch } = build(fresh);
     if (!patch) return { result: { result, wrote: false } };
 
@@ -474,7 +495,7 @@ async function execTool(
   input: Record<string, unknown>,
   ctx: ExecCtx,
 ): Promise<unknown> {
-  const state = ((await readLegacyState(ctx.householdId)) ?? {}) as HouseholdState;
+  const state = ((await readHouseholdState(ctx.householdId)) ?? {}) as HouseholdState;
   // A template slot can hold an inline custom time rather than a catalog id.
   // The app expands those into synthetic shift types before it renders; without
   // the same step the day has no resolvable type and silently disappears —
@@ -672,6 +693,8 @@ async function execTool(
               }
             : (self.source.kind === "override" ? "off (override set)" : "off"),
           kaylene: k ? { shift: stName(k.shiftTypeId), shiftTypeId: k.shiftTypeId, note: k.note ?? null } : "off",
+          // Independent of her shift: she can be on call on a day she's off.
+          kayleneOnCall: (state.partner?.onCall ?? []).some((o) => o.date === date),
           ot: o ? { shift: stName(o.shiftTypeId), shiftTypeId: o.shiftTypeId, note: o.note ?? null } : null,
           daisy: (() => {
             const hers = (rendered[date] ?? []).filter((x) => x.who === "D");
@@ -768,6 +791,31 @@ async function execTool(
           return { result: { ok: true, info: `No shift existed on ${date}.` } };
         }
         return { result: { ok: true, date }, patch: { partner: { ...partner, shifts } } };
+      });
+    }
+
+    case "add_partner_on_call": {
+      const date = String(input.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: `"${input.date}" isn't a date; use YYYY-MM-DD.` };
+      return commit(ctx, name, (fresh) => {
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const onCall = partner.onCall ?? [];
+        if (onCall.some((o) => o.date === date)) {
+          return { result: { ok: true, info: `Kaylene was already on call on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { partner: { ...partner, onCall: [...onCall, { date }] } } };
+      });
+    }
+
+    case "remove_partner_on_call": {
+      const date = String(input.date);
+      return commit(ctx, name, (fresh) => {
+        const partner = fresh.partner ?? { name: "Kaylene", shifts: [] };
+        const onCall = (partner.onCall ?? []).filter((o) => o.date !== date);
+        if (onCall.length === (partner.onCall ?? []).length) {
+          return { result: { ok: true, info: `Kaylene wasn't on call on ${date}.` } };
+        }
+        return { result: { ok: true, date }, patch: { partner: { ...partner, onCall } } };
       });
     }
 
@@ -925,7 +973,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
     }
 
     // 2. Load current state for system-prompt context.
-    const state = ((await readLegacyState(householdId)) ?? {}) as HouseholdState;
+    const state = ((await readHouseholdState(householdId)) ?? {}) as HouseholdState;
     const today = isoToday();
     const memberNames = householdData.memberNames ?? {};
     const userName = String(memberNames[uid] ?? "the user");
@@ -952,6 +1000,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- When Gage takes off a day he normally works, use add_override (action="off").\n` +
       `- When Gage picks up extra hours on a side gig, use add_ot.\n` +
       `- Kaylene's shifts always go through add_partner_shift.\n` +
+      `- Kaylene being "on call" is not a shift. Use add_partner_on_call / remove_partner_on_call; it works on a day she is working or off, and it never changes her shifts. summarize_period reports it per day as kayleneOnCall.\n` +
       `- "Daisy's coverage window" on a day means the childcare coverage request asked of her (list_coverage_requests): the hours she watches the kids. To change when it starts or ends ("she's leaving class at 2, so start her coverage at 2 on the 28th"), use update_coverage_request, one call per date. That is separate from her class days (add_school_day / remove_school_day), which you only touch if the user says her class itself changed.\n` +
       `- To mark days with NO childcare (Daisy scheduled off, or "block off" a week for childcare), use block_childcare with a from/to range — it stamps the whole range in ONE call, so a full week is reliably covered. Never use add_event or add_override for childcare availability. Use unblock_childcare to restore childcare.\n\n` +
       `Editing Gage's shifts:\n` +
@@ -971,7 +1020,7 @@ export const askClaude = onCall<AskRequest, Promise<AskResponse>>(
       `- coverage_gaps and rest_windows run the same engine the app's Childcare tab draws, so quote them\n` +
       `  rather than working coverage out yourself from shifts — your arithmetic will disagree with the screen.\n` +
       `- For changes, first describe what you'll do in plain English and ASK for confirmation. ` +
-      `Only call write tools (add_override, add_ot, add_partner_shift, add_event, remove_*) after the user confirms.\n` +
+      `Only call write tools (add_override, add_ot, add_partner_shift, add_partner_on_call, add_event, remove_*) after the user confirms.\n` +
       `- Always state dates in human-friendly form (e.g. "Friday June 19") in your replies.\n` +
       `- Keep replies short. One paragraph max unless the user asks for more detail.\n\n` +
       `IMPORTANT formatting rules:\n` +
@@ -1127,7 +1176,7 @@ export const undoNucleusChange = onCall<UndoRequest, Promise<UndoResponse>>(
 
     // A second undo racing this one finds the fields no longer as nucleusAI
     // left them, and stops at the check below.
-    return editLegacyState<UndoResponse>(hh.id, uid, (fresh) => {
+    return editHouseholdState<UndoResponse>(hh.id, (fresh) => {
       const current = fresh as unknown as Record<string, unknown>;
       const before = change.before ?? {};
       const after = change.after ?? {};

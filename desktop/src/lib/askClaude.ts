@@ -42,6 +42,34 @@ export async function askClaude(
   return result.data;
 }
 
+export interface EmailScanResponse {
+  reply: string;
+  model: string;
+  /** Emails the scan looked at. */
+  scanned: number;
+  added: Array<{ id: string; date: string; title: string; who: "G" | "K" | "Daisy" | "family"; startTime?: string }>;
+  /** Proposals dropped because the calendar already had them. */
+  skipped: number;
+  /** Present when events were added; pass `id` to undoChange to take them all back. */
+  change?: { id: string; tools: string[] };
+}
+
+// A scan reads mail and calls the model several times, so it outlasts the
+// default 70-second callable timeout.
+const callScan = httpsCallable<{ instruction?: string; gmailToken: string }, EmailScanResponse>(
+  fns, "scanEmailForEvents", { timeout: 180_000 },
+);
+
+/**
+ * Look through the user's Gmail for appointments and events and add them to the
+ * calendar. `gmailToken` is the short-lived read token from getGmailAccessToken;
+ * the function uses it for this request only.
+ */
+export async function scanEmail(instruction: string, gmailToken: string): Promise<EmailScanResponse> {
+  const result = await callScan({ instruction, gmailToken });
+  return result.data;
+}
+
 const callUndo = httpsCallable<{ changeId: string }, { ok: true; restored: string[] }>(
   fns, "undoNucleusChange",
 );

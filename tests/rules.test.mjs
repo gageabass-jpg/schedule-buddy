@@ -169,10 +169,6 @@ describe("the schedule record", () => {
     await assertFails(setDoc(doc(as("daisy"), "households", HH, "state", "main"), { selfName: "x" }));
     await assertFails(updateDoc(doc(as("daisy"), "households", HH, "state", "main"), { coverageRequests: [] }));
   });
-  test("a caregiver can't see overtime approvals", async () => {
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "otApprovals", "0")));
-    await assertSucceeds(getDoc(doc(as("gage"), "households", HH, "otApprovals", "0")));
-  });
 });
 
 describe("the caregiver view", () => {
@@ -189,104 +185,47 @@ describe("the caregiver view", () => {
   });
 });
 
-// ── The any-household model ────────────────────────────────────────────────
-// Gage and Kaylene are people with accounts; Daisy is the caregiver.
-
-const P = { gage: "pG", kaylene: "pK", daisy: "pD" };
-const path = (...p) => [HH, ...p].join("/");
-
-async function seedModel() {
-  await env.withSecurityRulesDisabled(async (ctx) => {
+describe("linked inboxes (weekly email scan)", () => {
+  const seed = () => env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    const put = (p, data) => setDoc(doc(db, "households", ...p.split("/")), data);
-    for (const [uid, pid] of Object.entries(P)) {
-      await put(path("people", pid), { name: uid, role: uid === "daisy" ? "caregiver" : "adult", uid, order: 0 });
-      await put(path("personDetails", pid), { employer: `${uid}'s work`, payday: { anchor: "2026-09-04", freq: "weekly" } });
-      await put(path("shifts", `2026-10-01_${pid}_replace`), { personId: pid, date: "2026-10-01", mode: "replace", shiftTypeId: "d" });
+    await setDoc(doc(db, "households", HH, "gmailLinks", "L1"), { email: "gage@gmail.com", ownerCode: "G", status: "active" });
+    await setDoc(doc(db, "households", HH, "gmailSecrets", "L1"), { refreshToken: "1//secret", scope: "gmail.readonly" });
+    await setDoc(doc(db, "gmailLinkRequests", "nonce1"), { householdId: HH, ownerCode: "K" });
+  });
+
+  test("admin and partner can see which inboxes are linked", async () => {
+    await seed();
+    await assertSucceeds(getDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1")));
+    await assertSucceeds(getDoc(doc(as("kaylene"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("a caregiver and a stranger can't", async () => {
+    await seed();
+    await assertFails(getDoc(doc(as("daisy"), "households", HH, "gmailLinks", "L1")));
+    await assertFails(getDoc(doc(as("stranger"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("no one links or unlinks from a client: only the functions write it", async () => {
+    await seed();
+    await assertFails(setDoc(doc(as("gage"), "households", HH, "gmailLinks", "L2"), { email: "x@gmail.com", ownerCode: "G" }));
+    await assertFails(updateDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1"), { status: "active" }));
+    await assertFails(deleteDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("the refresh tokens are unreadable and unwritable to everyone, admin included", async () => {
+    await seed();
+    for (const uid of ["gage", "kaylene", "daisy", "stranger"]) {
+      await assertFails(getDoc(doc(as(uid), "households", HH, "gmailSecrets", "L1")));
+      await assertFails(setDoc(doc(as(uid), "households", HH, "gmailSecrets", "L1"), { refreshToken: "mine" }));
     }
-    await put(path("shiftTypes", "d"), { name: "Day", start: "07:00", end: "19:00", crossesMidnight: false });
-    await put(path("coverageRequests", "cov1"), { caregiverId: P.daisy, date: "2026-10-02", startTime: "06:00", endTime: "18:00", status: "pending", createdAt: 1 });
-    await put(path("coverageRequests", "cov2"), { caregiverId: "pSomeoneElse", date: "2026-10-03", startTime: "06:00", endTime: "18:00", status: "pending", createdAt: 2 });
-    await put(path("caregiverOff", `2026-10-04_${P.daisy}`), { personId: P.daisy, date: "2026-10-04" });
-    await put(path("caregiverRequests", "cr1"), { createdBy: "daisy", type: "other", date: "2026-10-05", status: "new", createdAt: 3 });
-    await put(path("caregiverRequests", "cr2"), { createdBy: "gage", type: "other", date: "2026-10-05", status: "new", createdAt: 4 });
-    await put(path("events", "e1"), { date: "2026-10-06", title: "Cardiology", personId: P.gage, healthId: "h1" });
-    await put(path("settings", "main"), { shareToken: "secret" });
-  });
-}
-
-const colOf = (uid, name) => collection(as(uid), "households", HH, name);
-
-describe("the new model: who reads what", () => {
-  beforeEach(seedModel);
-
-  test("every member sees who's who and the shift types; a stranger doesn't", async () => {
-    await assertSucceeds(getDocs(colOf("daisy", "people")));
-    await assertSucceeds(getDocs(colOf("daisy", "shiftTypes")));
-    await assertFails(getDocs(colOf("stranger", "people")));
+    await assertFails(getDocs(collection(as("gage"), "households", HH, "gmailSecrets")));
   });
 
-  test("a person's details: managers, and the person themself", async () => {
-    await assertSucceeds(getDocs(colOf("kaylene", "personDetails")));
-    await assertSucceeds(getDoc(doc(as("daisy"), "households", HH, "personDetails", P.daisy)));
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "personDetails", P.gage)));
-    await assertFails(getDocs(colOf("daisy", "personDetails")));
-  });
-
-  test("a caregiver lists their own shifts, never everyone's", async () => {
-    const { query, where } = await import("firebase/firestore");
-    await assertSucceeds(getDocs(query(colOf("daisy", "shifts"), where("personId", "==", P.daisy))));
-    await assertFails(getDocs(colOf("daisy", "shifts")));
-    await assertFails(getDocs(query(colOf("daisy", "shifts"), where("personId", "==", P.gage))));
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "shifts", `2026-10-01_${P.gage}_replace`)));
-    await assertSucceeds(getDocs(colOf("kaylene", "shifts")));
-  });
-
-  test("a caregiver sees only the coverage requests addressed to them", async () => {
-    const { query, where } = await import("firebase/firestore");
-    await assertSucceeds(getDocs(query(colOf("daisy", "coverageRequests"), where("caregiverId", "==", P.daisy))));
-    await assertFails(getDocs(colOf("daisy", "coverageRequests")));
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "coverageRequests", "cov2")));
-  });
-
-  test("a caregiver sees their own days off and the requests they sent", async () => {
-    const { query, where } = await import("firebase/firestore");
-    await assertSucceeds(getDocs(query(colOf("daisy", "caregiverOff"), where("personId", "==", P.daisy))));
-    await assertSucceeds(getDocs(query(colOf("daisy", "caregiverRequests"), where("createdBy", "==", "daisy"))));
-    await assertFails(getDocs(colOf("daisy", "caregiverRequests")));
-  });
-
-  test("a caregiver can't see events, settings, blocks, offers or imports", async () => {
-    for (const name of ["events", "scheduleBlocks", "shiftOffers", "imports", "occasions"]) {
-      await assertFails(getDocs(colOf("daisy", name)));
-    }
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "events", "e1")));
-    await assertFails(getDoc(doc(as("daisy"), "households", HH, "settings", "main")));
-    await assertSucceeds(getDoc(doc(as("kaylene"), "households", HH, "settings", "main")));
-  });
-});
-
-describe("the new model: who writes what", () => {
-  beforeEach(seedModel);
-
-  test("admin and partner write records", async () => {
-    await assertSucceeds(setDoc(doc(as("kaylene"), "households", HH, "shifts", "x"), { personId: P.kaylene, date: "2026-10-09", mode: "add", shiftTypeId: "d" }));
-    await assertSucceeds(setDoc(doc(as("gage"), "households", HH, "people", "pNew"), { name: "Kid", role: "child", order: 3 }));
-  });
-
-  test("a caregiver writes nothing directly", async () => {
-    await assertFails(setDoc(doc(as("daisy"), "households", HH, "shifts", "x"), { personId: P.daisy, date: "2026-10-09", mode: "add", shiftTypeId: "d" }));
-    await assertFails(updateDoc(doc(as("daisy"), "households", HH, "coverageRequests", "cov1"), { status: "confirmed" }));
-    await assertFails(updateDoc(doc(as("daisy"), "households", HH, "personDetails", P.daisy), { employer: "x" }));
-    await assertFails(updateDoc(doc(as("daisy"), "households", HH, "people", P.daisy), { name: "x" }));
-  });
-
-  test("a caregiver can't make themself someone else", async () => {
-    await assertFails(updateDoc(doc(as("daisy"), "households", HH, "people", P.gage), { uid: "daisy" }));
-  });
-
-  test("a stranger writes nothing", async () => {
-    await assertFails(setDoc(doc(as("stranger"), "households", HH, "events", "x"), { date: "2026-10-09", title: "x" }));
+  test("the one-time link codes are unreadable and unwritable to everyone", async () => {
+    await seed();
+    await assertFails(getDoc(doc(as("gage"), "gmailLinkRequests", "nonce1")));
+    await assertFails(setDoc(doc(as("gage"), "gmailLinkRequests", "nonce2"), { householdId: HH, ownerCode: "G" }));
+    await assertFails(getDocs(collection(as("gage"), "gmailLinkRequests")));
   });
 });
 
@@ -407,14 +346,9 @@ describe("the caregiver view", () => {
   beforeEach(() => env.withSecurityRulesDisabled((ctx) =>
     setDoc(doc(ctx.firestore(), "households", HH, "caregiverView", "main"), { coverageRequests: [{ id: "r1" }] })));
 
-  test("while the household is on state/main, every member reads it and nobody writes it", async () => {
+  test("every member reads it and nobody writes it", async () => {
     for (const uid of ["gage", "kaylene", "daisy"]) await assertSucceeds(getDoc(view(uid)));
     await assertFails(setDoc(view("gage"), { coverageRequests: [] }));
     await assertFails(getDoc(view("stranger")));
-  });
-
-  test("once the household is on the model it's closed to everyone: it held every request, and caregivers read their own from the records", async () => {
-    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), "households", HH), { schemaVersion: 2 }));
-    for (const uid of ["gage", "kaylene", "daisy", "stranger"]) await assertFails(getDoc(view(uid)));
   });
 });

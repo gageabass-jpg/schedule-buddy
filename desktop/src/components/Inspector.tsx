@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { dayKindFromShifts, MONTHS_LONG, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import { buildShiftMap, compactTime, type Event as SbEvent, type HouseholdState } from "../state";
 import { personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
-import { FatigueHeatmap } from "./FatigueHeatmap";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import {
   computeOverlapCandidates, parentDayRanges,
-  hmToMin, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
+  hmToMin, MIN_WINDOW_MIN, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
 } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
 import { StretchBadge } from "./StretchBadge";
@@ -15,11 +15,18 @@ import type { StretchDay } from "../lib/stretch";
 import { HolidayPayTag } from "./HolidayPayTag";
 import { BlockTip } from "./BlockTip";
 import { PhotoAv } from "./PhotoAv";
+import { CaregiverChip } from "./CaregiverChip";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
-import type { CommuteResult } from "../lib/commute";
+import { leaveByRange, type CommuteResult } from "../lib/commute";
 import { FLAG_RED } from "./DayFlagPopover";
 import { useHouseholdLook } from "../lib/householdLook";
+import { OnCallRow } from "./OnCallBadge";
+import { RouteMap } from "./RouteMap";
+import { onCallOn } from "../lib/onCall";
+
+/** localStorage key: whether the Month card's "This week" half is open. */
+const WEEK_OPEN_KEY = "sbm.rail.weekOpen";
 
 interface Props {
   selected: string;
@@ -44,9 +51,7 @@ interface Props {
   onEditEvent: (ev: SbEvent) => void;
   onSendCoverageForDay: (date: string) => void;
   onToggleChildcareOff: (date: string, off: boolean) => void;
-  onSelectDate?: (date: string) => void;
   onOpenScheduleBlock: () => void;
-  onOpenCleaner: () => void;
   /** Reminder cards above the day card. `reminderUpdate` is the 4-week
    *  cadence nudge; `reminderCaregiver` is condition-driven (uncovered days). */
   reminderUpdate?: boolean;
@@ -64,35 +69,74 @@ interface Props {
 export function Inspector({
   selected, palette, t, dark, shifts: allShifts, stretches, commute, state, selfName, partnerName,
   onEditShift, onDeleteShift, onOpenShiftDetail, events, eventsByDate, onAddEvent, onEditEvent, onSendCoverageForDay: _onSendCoverageForDay,
-  onToggleChildcareOff: _onToggleChildcareOff, onSelectDate,
-  onOpenScheduleBlock, onOpenCleaner: _onOpenCleaner,
-  reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
+  onToggleChildcareOff: _onToggleChildcareOff,
+  onOpenScheduleBlock, reminderUpdate, reminderCaregiver, coverageNeedsCount = 0,
   onDismissReminder, onSendCaregiverRequests, onAsk, wvuGames,
 }: Props) {
   const look = useHouseholdLook();
-  const [y, m, d] = selected.split("-").map(Number);
+
+  // The day cards slide between the selected day and the one after it. `page`
+  // belongs to a selection: choosing another day starts back on the first card.
+  const nextDate = shiftIso(selected, 1);
+  const [pageState, setPageState] = useState<{ date: string; page: 0 | 1 }>({ date: selected, page: 0 });
+  const page = pageState.date === selected ? pageState.page : 0;
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const slideA = useRef<HTMLDivElement>(null);
+  const slideB = useRef<HTMLDivElement>(null);
+  // Each slide's height, so the strip is as tall as the card in view rather than
+  // as tall as the taller of the two.
+  const [slideHeights, setSlideHeights] = useState<{ date: string; h: [number, number] } | null>(null);
+  const pagerHeight = slideHeights?.date === selected ? slideHeights.h[page] : undefined;
+  useEffect(() => {
+    const a = slideA.current, b = slideB.current;
+    if (!a || !b) return;
+    const measure = () => setSlideHeights({ date: selected, h: [a.offsetHeight, b.offsetHeight] });
+    const ro = new ResizeObserver(measure);
+    ro.observe(a); ro.observe(b);
+    return () => ro.disconnect();
+  }, [selected]);
+
+  /** The strip follows the finger; this just notes which card is more than half in view. */
+  const onPagerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const next: 0 | 1 = e.currentTarget.scrollLeft > (slideB.current?.offsetLeft ?? 0) / 2 ? 1 : 0;
+    setPageState((cur) => (cur.date === selected && cur.page === next ? cur : { date: selected, page: next }));
+  };
+  const goToPage = (to: 0 | 1, fromKeyboard: boolean) => {
+    const box = pagerRef.current;
+    if (!box) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    box.scrollTo({ left: to === 0 ? 0 : (slideB.current?.offsetLeft ?? 0), behavior: reduce ? "auto" : "smooth" });
+    // The card the button sat on goes inert as the strip moves, which would drop a
+    // keyboard user's focus; hand it to the same control on the card that arrives.
+    if (fromKeyboard) {
+      box.addEventListener("scrollend", () => {
+        (to === 0 ? slideA : slideB).current?.querySelector<HTMLElement>("[data-pager]")?.focus({ preventScroll: true });
+      }, { once: true });
+    }
+  };
+
+  // Schedule block covering the selected day (vacation, travel, etc.) — surfaces
+  // a red striped notice card right under the day cards. Everything under the
+  // cards stays on the selected day while the cards slide.
   const shifts = allShifts[selected];
-  const wvuGame = wvuGames.get(selected);
-  const kind = dayKindFromShifts(shifts);
-  const holiday = holidayOn(selected);
-
-  // Which shift row has its edit/delete buttons revealed. Double-click
-  // the row to toggle. Single-click reading-only state stays calm.
-  const [revealedIdx, setRevealedIdx] = useState<number | null>(null);
-  const dayLabel = `${WEEKDAYS_3[new Date(y, m - 1, d).getDay()]} · ${MONTHS_LONG[m - 1]} ${d}`;
-
-  // Coverage requests on the selected day.
-  // A "gap" worth flagging = both partners working with no caregiver request yet.
-  // Has this day been explicitly marked "no childcare" (caregiver off)?
-  // Schedule block covering this day (vacation, travel, etc.) — surfaces a
-  // red striped notice card right under the Selected Day header.
   const dayBlock = blockForDate(state?.scheduleBlocks, selected);
   // Daisy's (caregiver) school time on the selected day — when she can't cover.
-  const daisyName = state?.dependents?.daisy?.name || "Caregiver";
+  const daisyName = state?.dependents?.daisy?.name?.trim() || (look.familyPhotos ? "Daisy" : "Caregiver");
 
   // Overview rail tabs (design boards): the header stays tied to the tapped
   // day; the tabs below switch the broader view (Month / Childcare / Life).
   const [railTab, setRailTab] = useState<"month" | "childcare" | "life">("month");
+
+  // The Month card's "This week" half folds away, so the rail tucks up and only
+  // scrolls when what's left still doesn't fit. Remembered between launches.
+  const [weekOpen, setWeekOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem(WEEK_OPEN_KEY) !== "0"; } catch { return true; }
+  });
+  const toggleWeek = () => {
+    const next = !weekOpen;
+    setWeekOpen(next);
+    try { localStorage.setItem(WEEK_OPEN_KEY, next ? "1" : "0"); } catch { /* storage unavailable */ }
+  };
 
   // Life tab data: every event in the next 60 days, sorted, with a "clash"
   // flag = the day has an event AND nobody is off (both parents working).
@@ -110,19 +154,25 @@ export function Inspector({
   const isClashDay = (date: string): boolean => dayKindFromShifts(allShifts[date]) === "both";
   const lifeClashCount = upcomingLife.filter((e) => isClashDay(e.date)).length;
 
+  // "Today" / "Tomorrow" for the two cards, when they are that. The second
+  // card says it up front; the first card's slide button names it ("Today").
+  const selectedRel = relativeDay(selected, _todayIso);
+  const nextRel = relativeDay(nextDate, _todayIso);
+  const cardProps = {
+    state, palette, t, dark, selfName, partnerName, daisyName, stretches, commute,
+    onEditShift, onDeleteShift, onOpenShiftDetail,
+  };
+
   return (
     <div
+      className="glass-panel"
       style={{
-        background: dark ? "rgba(21,32,30,0.5)" : "rgba(255,255,255,0.6)",
-        borderLeft: `1px solid ${t.sep}`,
         padding: 14,
         display: "flex",
         flexDirection: "column",
         gap: 12,
         overflowY: "auto",
         overflowX: "hidden",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       {/* Schedule cadence reminders — raised by the last-Friday Cloud Function,
@@ -158,166 +208,64 @@ export function Inspector({
         </div>
       )}
 
-      {/* Selected day card — plain white Surface, near-square corners,
-          a per-person hue swatch up top, then a large Sora title. */}
+      {/* The day cards: the selected day, and one slide over, the day after it
+          ("Tomorrow" when that's what it is). The strip is a scroll-snap row, so a
+          two-finger swipe on the trackpad drags it; the corner button on each card
+          does the same for a mouse and the keyboard. Sliding only changes which day's
+          card you're reading: the maps, schedule block and appointments below
+          stay on the selected day. */}
       <div
+        key={selected}
+        ref={pagerRef}
+        className="day-pager"
+        onScroll={onPagerScroll}
         style={{
-          borderRadius: 4,
-          padding: 16,
-          background: t.bgElev,
-          border: `1px solid ${t.sep}`,
-          // Fixed 2px Clay top accent — the day card's signature (prototype).
-          borderTop: "2px solid #8A4B38",
+          flexShrink: 0,
+          height: pagerHeight,
+          transition: "height 240ms ease-in-out",
         }}
       >
-        <div style={{ ...subhead(t), fontSize: 10 }}>
-          {dayLabel}
-          {holiday && (
-            <span style={{ color: t.tealText }}>
-              {" · "}
-              <GovernmentLineIcon size={11} aria-hidden="true" style={{ color: t.text3, verticalAlign: "-1.5px", marginRight: 3 }} />
-              {holiday.name}
-            </span>
-          )}
+        <div ref={slideA} className="day-pager-slide" inert={page !== 0}>
+          <DayCard
+            date={selected}
+            pager={{ dir: "next", label: nextRel ?? "Next day", onClick: (e) => goToPage(1, e.detail === 0) }}
+            {...cardProps}
+            shifts={allShifts[selected]}
+            wvuGame={wvuGames.get(selected)}
+          />
         </div>
-        <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
-          {kind === "off"
-            ? (look.hasPartner ? "Both off" : "Day off")
-            : kind === "both"
-              ? "Both working"
-              : kind === "g"
-                ? `${selfName} works`
-                : `${partnerName} works`}
+        <div ref={slideB} className="day-pager-slide" inert={page !== 1}>
+          <DayCard
+            date={nextDate}
+            eyebrow={nextRel}
+            pager={{ dir: "prev", label: selectedRel ?? shortDate(selected), onClick: (e) => goToPage(0, e.detail === 0) }}
+            {...cardProps}
+            shifts={allShifts[nextDate]}
+            wvuGame={wvuGames.get(nextDate)}
+          />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
-          {(shifts ?? []).map((s, i) => {
-            const c = personColor(s.who, palette);
-            const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
-            const deletable = !!s.source && !!onDeleteShift;
-            const recurring = s.source?.kind === "template" || s.source?.kind === "alt-weekend";
-            // Pill: shift-type label + start time, no end time.
-            // The user's shift names often embed a "start-end" range
-            // (e.g., "Night (8hr) 11p-730a") which is redundant in the
-            // pill. We strip any trailing "<time>-<time>" pattern from
-            // the name, then append just the compact start time.
-            const stype = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
-            // Strip a trailing time range from the shift name so the pill stays
-            // short — both "11p-730a" style and a parenthesized 24h "(0930-1800)".
-            const TIME_RANGE = /\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*[-–]\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*$/i;
-            const PAREN_RANGE = /\s*\(\s*\d{3,4}\s*[-–]\s*\d{3,4}\s*\)\s*$/;
-            const pillText = stype
-              ? `${stype.name.replace(PAREN_RANGE, "").replace(TIME_RANGE, "").trim()} · ${compactTime(stype.start)}`
-              : s.label;
-            const revealed = revealedIdx === i;
-            const hasActions = editable || deletable;
-            return (
-              <div
-                key={i}
-                onClick={(e) => onOpenShiftDetail?.(selected, s, e.currentTarget.getBoundingClientRect())}
-                onDoubleClick={() => hasActions && setRevealedIdx(revealed ? null : i)}
-                title={hasActions ? "Double-click to reveal edit/delete" : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "11px 2px",
-                  // Hairline above each row — the under-title rule and the
-                  // between-row rules both come from this (prototype).
-                  borderTop: `1px solid ${t.sep}`,
-                  cursor: onOpenShiftDetail || hasActions ? "pointer" : "default",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <span style={{ width: 4, alignSelf: "stretch", minHeight: 22, borderRadius: 2, background: c, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
-                  {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
-                  {(() => {
-                    // Leave by, from the traffic check before this shift.
-                    const c = (s.who === "G" || s.who === "K") ? commute?.get(`${selected}_${s.who}`) : undefined;
-                    if (!c || !stype || c.shiftStart !== stype.start) return null;
-                    const window_ = c.windowFrom && c.windowTo
-                      ? `Leave ${compactTime(c.windowFrom)}–${compactTime(c.windowTo)} · latest ${compactTime(c.leaveBy)}`
-                      : `Leave by ${compactTime(c.leaveBy)}`;
-                    return (
-                      <div
-                        style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: c.heavy ? FLAG_RED : t.text2 }}
-                        title={`${c.durationMin} min to ${c.placeLabel}${c.live ? " right now" : " expected"}${c.usualMin ? ` · usually ${c.usualMin} min` : ""}`}
-                      >
-                        {c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}{window_} · {c.durationMin} min drive
-                      </div>
-                    );
-                  })()}
-                </div>
-                {holiday && (s.who === "G" || s.who === "K") && <HolidayPayTag t={t} fontSize={11.5} />}
-                {s.who === "K" && stretches?.get(selected) && (
-                  <StretchBadge stretch={stretches.get(selected)!} name={partnerName} size={15} fontSize={14} />
-                )}
-                <span
-                  style={{
-                    fontSize: 14,
-                    color: t.text2,
-                    fontVariantNumeric: "tabular-nums",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                  }}
-                  title={pillText}
-                >
-                  {stype ? `${compactTime(stype.start)} – ${compactTime(stype.end)}` : s.label}
-                </span>
-                {hasActions && (
-                  // Slide-out tray. Hidden (translated off the right edge)
-                  // by default; double-click toggles it into view. Width
-                  // animates so the row stays compact when collapsed.
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      gap: 4,
-                      overflow: "hidden",
-                      maxWidth: revealed ? 70 : 0,
-                      opacity: revealed ? 1 : 0,
-                      transform: `translateX(${revealed ? 0 : 12}px)`,
-                      transition:
-                        "max-width 0.22s ease, opacity 0.18s ease, transform 0.22s ease",
-                      pointerEvents: revealed ? "auto" : "none",
-                    }}
-                  >
-                    {editable && (
-                      <button
-                        type="button"
-                        aria-label="Edit shift"
-                        onClick={(e) => { e.stopPropagation(); onEditShift?.(selected, s); }}
-                        style={iconBtnStyle(t)}
-                        title={recurring ? "Edit this date (creates an override)" : "Edit"}
-                      >
-                        ✎
-                      </button>
-                    )}
-                    {deletable && (
-                      <button
-                        type="button"
-                        aria-label="Delete shift"
-                        onClick={(e) => { e.stopPropagation(); onDeleteShift?.(selected, s); }}
-                        style={iconBtnStyle(t)}
-                        title={recurring ? "Mark this date off" : "Delete"}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {(!shifts || shifts.length === 0) && (
-            <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `1px solid ${t.sep}` }}>{look.hasPartner ? "Free day. Plan something together." : "Nothing scheduled."}</div>
-          )}
-        </div>
-
-        {/* Game Day — drops down from the work-status card on WVU game days. */}
-        {wvuGame && <GameDayDropdown game={wvuGame} t={t} dark={dark} />}
       </div>
+
+      {/* Route maps under the day cards: whoever leaves first goes first. They
+          belong to the Month view; Childcare and Life give the room to their own cards. */}
+      {railTab === "month" && (() => {
+        const maps = (["G", "K"] as const)
+          .map((who) => {
+            const sh = (shifts ?? []).find((s) => s.who === who);
+            const stype = sh && state?.shiftTypes.find((x) => x.id === sh.shiftTypeId);
+            const r = commute?.get(`${selected}_${who}`);
+            return r && stype && r.shiftStart === stype.start && r.routes?.length ? { who, r } : null;
+          })
+          .filter((m): m is { who: "G" | "K"; r: CommuteResult } => !!m)
+          .sort((a, b) => a.r.leaveByMs - b.r.leaveByMs);
+        return maps.map(({ who, r }) => (
+          <RouteMap
+            key={who} result={r} t={t} dark={dark}
+            name={who === "G" ? selfName : partnerName}
+            color={personColor(who, palette)}
+          />
+        ));
+      })()}
 
       {/* Schedule block — only renders when the selected day is covered
           by an active block. Red striped header echoes the calendar's
@@ -416,6 +364,18 @@ export function Inspector({
           onAsk={onAsk}
         />
       )}
+      {railTab === "childcare" && look.childcare && (
+        <CoverageCard
+          selected={selected}
+          state={state}
+          t={t}
+          dark={dark}
+          selfName={selfName}
+          partnerName={partnerName}
+          daisyName={daisyName}
+          palette={palette}
+        />
+      )}
 
       {/* Health-calendar appointments for the selected day (styled distinctly). */}
       {events.some((e) => e.healthId) && (
@@ -447,7 +407,7 @@ export function Inspector({
 
       {/* Life tab — the next 60 days of occasions, in one Surface card. */}
       {railTab === "life" && (
-      <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16 }}>
+      <div style={{ background: "var(--glass-fill-soft)", border: `1px solid var(--glass-line)`, borderRadius: 16, boxShadow: "inset 0 1px 0 var(--glass-edge)", padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
           <span style={{ ...subhead(t), marginBottom: 0 }}>Life · next 60 days</span>
           {lifeClashCount > 0 && (
@@ -478,7 +438,10 @@ export function Inspector({
               k === "off" ? (look.hasPartner ? "Both off." : "Day off.") :
               k === "g" ? `${selfName} works · ${partnerName} off.` :
               k === "k" ? `${partnerName} works · ${selfName} off.` : "";
-            const desc = ev.notes && ev.notes.trim() ? ev.notes : cover;
+            // Notes get their own lines under the time; with none, the day's
+            // cover (who's off) takes their place beside it.
+            const notes = ev.notes?.trim() ?? "";
+            const desc = notes ? "" : cover;
             return (
               <button
                 key={ev.id}
@@ -516,6 +479,11 @@ export function Inspector({
                   <div style={{ fontSize: 13, color: clash ? "#8A4B38" : t.text2, lineHeight: 1.4, marginTop: 5 }}>
                     {timeLabel} · {personName}{desc ? ` — ${desc}` : ""}
                   </div>
+                  {notes && (
+                    <div style={{ fontSize: 12.5, color: clash ? "#8A4B38" : t.text3, lineHeight: 1.45, marginTop: 3, whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+                      {notes}
+                    </div>
+                  )}
                 </div>
               </button>
             );
@@ -523,7 +491,7 @@ export function Inspector({
         </div>
         <div style={{ height: 1, background: t.sep, marginTop: 14 }} />
         <div style={{ fontSize: 12, color: t.text3, lineHeight: 1.45, marginTop: 12, padding: "0 2px" }}>
-          A clash means the day matters and nobody is off. Nucleus never moves a shift for you.
+          A clash means a childcare gap has been flagged. Nucleus never moves a shift for you.
         </div>
         <button
           type="button"
@@ -540,28 +508,20 @@ export function Inspector({
       </div>
       )}
 
-      {/* Month tab — one card: fatigue quilt, then this-month totals. */}
+      {/* Month tab — one card: this-month totals, then the week deltas. */}
       {railTab === "month" && (
-        <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-          <FatigueHeatmap
-            shifts={allShifts}
-            state={state}
-            anchorDate={selected}
-            t={t}
-            onSelectDate={onSelectDate}
-          />
-          <div style={{ height: 1, background: t.sep }} />
+        <div style={{ background: "var(--glass-fill-soft)", border: `1px solid var(--glass-line)`, borderRadius: 16, boxShadow: "inset 0 1px 0 var(--glass-edge)", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <MonthTotals state={state} palette={palette} t={t} selfName={selfName} partnerName={partnerName} daisyName={daisyName} />
           <div style={{ height: 1, background: t.sep }} />
-          <MonthWeekDeltas selected={selected} state={state} t={t} />
+          <MonthWeekDeltas selected={selected} state={state} t={t} open={weekOpen} onToggle={toggleWeek} />
         </div>
       )}
 
       {/* Bottom tab bar — Month / Childcare / Life (design boards). The strip
-          behind it is solid and runs out over the rail's 14px padding, so
-          cards scrolling underneath don't show around or below the bar. Its
-          colour is the rail's translucent fill flattened onto the page. */}
+          behind it (.glass-foot) runs out over the rail's 14px padding and
+          frosts whatever scrolls underneath it rather than hiding it. */}
       <div
+        className="glass-foot"
         style={{
           position: "sticky",
           bottom: -14,
@@ -571,7 +531,6 @@ export function Inspector({
           marginRight: -14,
           marginBottom: -14,
           padding: "8px 14px 14px",
-          background: dark ? "#121C1A" : "#FCFBFA",
         }}
       >
         <InspectorTabBar
@@ -582,6 +541,233 @@ export function Inspector({
           t={t}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * One day's card: the Month rail's headline for a date. The rail slides between
+ * two of these (the selected day, then the day after it), so it takes the date
+ * rather than reading the selection, and keeps its own edit-tray state.
+ */
+function DayCard({
+  date, eyebrow, pager, shifts, wvuGame, state, palette, t, dark, selfName, partnerName, daisyName,
+  stretches, commute, onEditShift, onDeleteShift, onOpenShiftDetail,
+}: {
+  date: string;
+  /** "Tomorrow", "Today": set before the date when the card is that day. */
+  eyebrow?: string | null;
+  pager: { dir: "next" | "prev"; label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void };
+  shifts: Shift[] | undefined;
+  wvuGame?: WvuGame;
+  state: HouseholdState | null;
+  palette: Palette;
+  t: ThemeTokens;
+  dark: boolean;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+  stretches?: Map<string, StretchDay>;
+  commute?: Map<string, CommuteResult>;
+  onEditShift?: (date: string, shift: Shift) => void;
+  onDeleteShift?: (date: string, shift: Shift) => void;
+  onOpenShiftDetail?: (date: string, shift: Shift, anchor?: DOMRect) => void;
+}) {
+  const look = useHouseholdLook();
+  const [y, m, d] = date.split("-").map(Number);
+  const kind = dayKindFromShifts(shifts);
+  const holiday = holidayOn(date);
+  const dayLabel = `${WEEKDAYS_3[new Date(y, m - 1, d).getDay()]} · ${MONTHS_LONG[m - 1]} ${d}`;
+  // Which shift row has its edit/delete buttons revealed. Double-click
+  // the row to toggle. Single-click reading-only state stays calm.
+  const [revealedIdx, setRevealedIdx] = useState<number | null>(null);
+
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        padding: 16,
+        background: "var(--glass-fill-soft)",
+        border: "1px solid var(--glass-line)",
+        boxShadow: "inset 0 1px 0 var(--glass-edge)",
+        // Fixed 2px Clay top accent — the day card's signature (prototype).
+        borderTop: "2px solid #8A4B38",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ ...subhead(t), fontSize: 10, minWidth: 0 }}>
+          {eyebrow && <span style={{ color: t.text, fontWeight: 700 }}>{eyebrow} · </span>}
+          {dayLabel}
+          {holiday && (
+            <span style={{ color: t.tealText }}>
+              {" · "}
+              <GovernmentLineIcon size={11} aria-hidden="true" style={{ color: t.text3, verticalAlign: "-1.5px", marginRight: 3 }} />
+              {holiday.name}
+            </span>
+          )}
+        </div>
+        {/* The slide control: next day from the first card, back from the second. */}
+        <button
+          type="button"
+          data-pager=""
+          onClick={pager.onClick}
+          aria-label={pager.dir === "next" ? `Show ${pager.label}'s card` : `Back to ${pager.label}`}
+          className="opacity-80 transition-opacity hover:opacity-100"
+          style={{
+            flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 1,
+            margin: "-3px -4px 0 0", padding: "3px 4px 3px 6px", borderRadius: 6,
+            border: 0, background: "transparent", cursor: "pointer", fontFamily: "inherit",
+            fontSize: 11, fontWeight: 600, letterSpacing: "-0.01em", color: t.text2,
+          }}
+        >
+          {pager.dir === "prev" && <ChevronLeft size={14} aria-hidden="true" />}
+          {pager.label}
+          {pager.dir === "next" && <ChevronRight size={14} aria-hidden="true" />}
+        </button>
+      </div>
+      <div style={{ fontFamily: BRAND_FONT, fontSize: 20, fontWeight: 600, color: t.text, letterSpacing: "-0.02em", marginTop: 4, lineHeight: 1.15 }}>
+        {kind === "off"
+          ? (look.hasPartner ? "Both off" : "Day off")
+          : kind === "both"
+            ? "Both working"
+            : kind === "g"
+              ? `${selfName} works`
+              : `${partnerName} works`}
+      </div>
+      {(() => {
+        const onCall = onCallOn(state, date);
+        return onCall ? <OnCallRow entry={onCall} name={partnerName} color={palette.K} t={t} fontSize={13.5} margin="8px 0 0" /> : null;
+      })()}
+      <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
+        {(shifts ?? []).map((s, i) => {
+          const c = personColor(s.who, palette);
+          const editable = !!s.source && !!s.shiftTypeId && !!onEditShift;
+          const deletable = !!s.source && !!onDeleteShift;
+          const recurring = s.source?.kind === "template" || s.source?.kind === "alt-weekend";
+          // Pill: shift-type label + start time, no end time.
+          // The user's shift names often embed a "start-end" range
+          // (e.g., "Night (8hr) 11p-730a") which is redundant in the
+          // pill. We strip any trailing "<time>-<time>" pattern from
+          // the name, then append just the compact start time.
+          const stype = state?.shiftTypes.find((x) => x.id === s.shiftTypeId);
+          // Strip a trailing time range from the shift name so the pill stays
+          // short — both "11p-730a" style and a parenthesized 24h "(0930-1800)".
+          const TIME_RANGE = /\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*[-–]\s*\d{1,2}:?\d{0,2}\s?[ap]\.?m?\.?\s*$/i;
+          const PAREN_RANGE = /\s*\(\s*\d{3,4}\s*[-–]\s*\d{3,4}\s*\)\s*$/;
+          const pillText = stype
+            ? `${stype.name.replace(PAREN_RANGE, "").replace(TIME_RANGE, "").trim()} · ${compactTime(stype.start)}`
+            : s.label;
+          const revealed = revealedIdx === i;
+          const hasActions = editable || deletable;
+          return (
+            <div
+              key={i}
+              onClick={(e) => onOpenShiftDetail?.(date, s, e.currentTarget.getBoundingClientRect())}
+              onDoubleClick={() => hasActions && setRevealedIdx(revealed ? null : i)}
+              title={hasActions ? "Double-click to reveal edit/delete" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "11px 2px",
+                // Hairline above each row — the under-title rule and the
+                // between-row rules both come from this (prototype).
+                borderTop: `1px solid ${t.sep}`,
+                cursor: onOpenShiftDetail || hasActions ? "pointer" : "default",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <span style={{ width: 4, alignSelf: "stretch", minHeight: 22, borderRadius: 2, background: c, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {s.who === "G" ? selfName : s.who === "K" ? partnerName : daisyName}
+                {s.who === "D" && daisyName !== "Caregiver" && <CaregiverChip t={t} fontSize={12} />}
+                {recurring && <span style={{ fontWeight: 400, color: t.text3 }}> · recurring</span>}
+                {(() => {
+                  // Leave by, from the traffic check before this shift.
+                  const c = (s.who === "G" || s.who === "K") ? commute?.get(`${date}_${s.who}`) : undefined;
+                  if (!c || !stype || c.shiftStart !== stype.start) return null;
+                  const window_ = leaveByRange(c, compactTime);
+                  // Wraps rather than clips: the row's name line is nowrap.
+                  return (
+                    <div
+                      style={{ fontSize: 12, fontWeight: 500, marginTop: 2, color: c.heavy ? FLAG_RED : t.text2, whiteSpace: "normal", lineHeight: 1.35 }}
+                      title={`${c.durationMin} min to ${c.placeLabel}${c.live ? " right now" : " expected"}${c.usualMin ? ` · usually ${c.usualMin} min` : ""}`}
+                    >
+                      <div>{c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}{window_}</div>
+                      <div style={{ fontWeight: 400, color: c.heavy ? FLAG_RED : t.text3 }}>{c.durationMin} min drive</div>
+                    </div>
+                  );
+                })()}
+              </div>
+              {holiday && (s.who === "G" || s.who === "K") && <HolidayPayTag t={t} fontSize={11.5} />}
+              {s.who === "K" && stretches?.get(date) && (
+                <StretchBadge stretch={stretches.get(date)!} name={partnerName} size={15} fontSize={14} />
+              )}
+              <span
+                style={{
+                  fontSize: 14,
+                  color: t.text2,
+                  fontVariantNumeric: "tabular-nums",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+                title={pillText}
+              >
+                {stype ? `${compactTime(stype.start)} – ${compactTime(stype.end)}` : s.label}
+              </span>
+              {hasActions && (
+                // Slide-out tray. Hidden (translated off the right edge)
+                // by default; double-click toggles it into view. Width
+                // animates so the row stays compact when collapsed.
+                <div
+                  style={{
+                    display: "inline-flex",
+                    gap: 4,
+                    overflow: "hidden",
+                    maxWidth: revealed ? 70 : 0,
+                    opacity: revealed ? 1 : 0,
+                    transform: `translateX(${revealed ? 0 : 12}px)`,
+                    transition:
+                      "max-width 0.22s ease, opacity 0.18s ease, transform 0.22s ease",
+                    pointerEvents: revealed ? "auto" : "none",
+                  }}
+                >
+                  {editable && (
+                    <button
+                      type="button"
+                      aria-label="Edit shift"
+                      onClick={(e) => { e.stopPropagation(); onEditShift?.(date, s); }}
+                      style={iconBtnStyle(t)}
+                      title={recurring ? "Edit this date (creates an override)" : "Edit"}
+                    >
+                      ✎
+                    </button>
+                  )}
+                  {deletable && (
+                    <button
+                      type="button"
+                      aria-label="Delete shift"
+                      onClick={(e) => { e.stopPropagation(); onDeleteShift?.(date, s); }}
+                      style={iconBtnStyle(t)}
+                      title={recurring ? "Mark this date off" : "Delete"}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {(!shifts || shifts.length === 0) && (
+          <div style={{ fontSize: 12, color: t.text3, padding: "12px 2px", borderTop: `1px solid ${t.sep}` }}>{look.hasPartner ? "Free day. Plan something together." : "Nothing scheduled."}</div>
+        )}
+      </div>
+
+      {/* Game Day — drops down from the work-status card on WVU game days. */}
+      {wvuGame && <GameDayDropdown game={wvuGame} t={t} dark={dark} />}
     </div>
   );
 }
@@ -608,8 +794,8 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
         gap: 4,
         padding: 4,
         borderRadius: 4,
-        background: t.bgElev2,
-        border: `1px solid ${t.sep}`,
+        background: "var(--glass-cell)",
+        border: "1px solid var(--glass-line)",
       }}
     >
       {tabs.map((x) => {
@@ -633,9 +819,9 @@ function InspectorTabBar({ tab, onTab, childcareCount, lifeCount, t }: {
               fontSize: 12.5,
               fontWeight: 600,
               letterSpacing: "-0.01em",
-              background: active ? t.bgElev : "transparent",
+              background: active ? "var(--glass-chip)" : "transparent",
               color: active ? t.text : t.text2,
-              boxShadow: active ? `inset 0 0 0 1px ${t.sep}` : "none",
+              boxShadow: active ? "inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-edge)" : "none",
             }}
           >
             {x.label}
@@ -888,11 +1074,14 @@ function apptTimeRange(ev: SbEvent): string {
 // uncovered (the coverage engine's real gap hours). Compares this week to the
 // mean of the trailing 8. Together/solo are the parents-only picture, so they
 // can differ slightly from the web app's caregiver-adjusted figures.
-function MonthWeekDeltas({ selected, state, t }: {
+function MonthWeekDeltas({ selected, state, t, open, onToggle }: {
   selected: string;
   state: HouseholdState | null;
   t: ThemeTokens;
+  open: boolean;
+  onToggle: () => void;
 }) {
+  const bodyId = useId();
   if (!state) return null;
   const AXIS_START = 6 * 60, AXIS_END = 24 * 60, SLOT = 15;
   /** Length of an uncovered window in hours, rolling over midnight. */
@@ -960,11 +1149,54 @@ function MonthWeekDeltas({ selected, state, t }: {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+      {/* The heading is the control: it folds the rows away and leaves just itself. */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        style={{
+          display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", gap: 8,
+          padding: 0, border: 0, background: "transparent", cursor: "pointer",
+          fontFamily: "inherit", textAlign: "left", color: "inherit",
+        }}
+      >
         <span style={{ ...subhead(t), marginBottom: 0 }}>This week</span>
-        <span style={{ fontSize: 11, color: t.text2 }}>vs 8-week average</span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              fontSize: 11, color: t.text2,
+              opacity: open ? 1 : 0, transition: "opacity 200ms ease",
+            }}
+          >
+            vs 8-week average
+          </span>
+          <ChevronRight
+            size={14}
+            strokeWidth={2}
+            aria-hidden
+            className="motion-reduce:transition-none"
+            style={{
+              color: t.text3, flexShrink: 0,
+              transform: open ? "rotate(90deg)" : "none", transition: "transform 200ms ease",
+            }}
+          />
+        </span>
+      </button>
+      {/* Rows sit in a 1fr/0fr grid so the card eases shut to the heading's height. */}
+      <div
+        id={bodyId}
+        inert={!open}
+        className="motion-reduce:transition-none"
+        style={{
+          display: "grid",
+          gridTemplateRows: open ? "1fr" : "0fr",
+          opacity: open ? 1 : 0,
+          transition: "grid-template-rows 280ms ease-in-out, opacity 200ms ease",
+        }}
+      >
+      <div style={{ minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 10 }}>
         {metrics.map((mtr) => {
           const cur = mtr.arr[mtr.arr.length - 1] ?? 0;
           const past = mtr.arr.slice(0, -1);
@@ -996,6 +1228,135 @@ function MonthWeekDeltas({ selected, state, t }: {
                     background: i === mtr.arr.length - 1 ? (bad ? "#8A4B38" : "#0F6E64") : t.bgElev2,
                   }} />
                 ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+const AXIS_END = TIMELINE_START_MIN + TIMELINE_SPAN_MIN;
+
+/** The free stretches on the 6am–midnight axis, given a parent's busy ranges. */
+function freeOf(busy: MinuteRange[]): MinuteRange[] {
+  const out: MinuteRange[] = [];
+  let at = TIMELINE_START_MIN;
+  for (const b of busy.slice().sort((a, c) => a.startMin - c.startMin)) {
+    if (b.startMin > at) out.push({ startMin: at, endMin: b.startMin });
+    at = Math.max(at, b.endMin);
+  }
+  if (at < AXIS_END) out.push({ startMin: at, endMin: AXIS_END });
+  return out;
+}
+
+/** Where `free` and `busy` overlap, dropping handoff slivers under an hour. */
+function within(free: MinuteRange[], busy: MinuteRange[]): MinuteRange[] {
+  const out: MinuteRange[] = [];
+  for (const f of free) for (const b of busy) {
+    const a = Math.max(f.startMin, b.startMin), z = Math.min(f.endMin, b.endMin);
+    if (z - a >= MIN_WINDOW_MIN) out.push({ startMin: a, endMin: z });
+  }
+  return out;
+}
+
+const sumHours = (rs: MinuteRange[]) => rs.reduce((n, r) => n + (r.endMin - r.startMin), 0) / 60;
+
+/** The Sunday-to-Saturday week around `selected`, as ISO dates. */
+function weekDays(selected: string): string[] {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const [sy, sm, sd] = selected.split("-").map(Number);
+  const start = new Date(sy, sm - 1, sd);
+  start.setDate(start.getDate() - start.getDay());
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+}
+
+// Childcare coverage card: the week's hours with the kids, 6am to midnight, as
+// one bar each for the two parents and the caregiver. A parent's hours are the
+// time they're home solo (free while the other is out or asleep); the
+// caregiver's are her confirmed requests.
+function CoverageCard({
+  selected, state, t, dark, selfName, partnerName, daisyName, palette,
+}: {
+  selected: string;
+  state: HouseholdState | null;
+  t: ThemeTokens;
+  dark: boolean;
+  selfName: string;
+  partnerName: string;
+  daisyName: string;
+  palette: Palette;
+}) {
+  const look = useHouseholdLook();
+  if (!state) return null;
+  const days = weekDays(selected);
+  const filled: HouseholdState = { ...state, template: state.template ?? [], overrides: state.overrides ?? [], ot: state.ot ?? [] };
+  const prev = new Date(days[0].replace(/-/g, "/")); prev.setDate(prev.getDate() - 1);
+  const next = new Date(days[6].replace(/-/g, "/")); next.setDate(next.getDate() + 2);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const shiftMap = buildShiftMap(filled, iso(prev), iso(next));
+
+  const parents = { G: { solo: 0 }, K: { solo: 0 } };
+  for (const date of days) {
+    const gBusy = parentDayRanges(date, "G", shiftMap, filled);
+    const kBusy = parentDayRanges(date, "K", shiftMap, filled);
+    parents.G.solo += sumHours(within(freeOf(gBusy), kBusy));
+    parents.K.solo += sumHours(within(freeOf(kBusy), gBusy));
+  }
+
+  let confirmed = 0;
+  for (const r of state.coverageRequests ?? []) {
+    if (!days.includes(r.date)) continue;
+    const a = Math.max(hmToMin(r.startTime), TIMELINE_START_MIN);
+    const z = Math.min(hmToMin(r.endTime, r.endsNextDay || r.endTime <= r.startTime), AXIS_END);
+    if (z <= a) continue;
+    if (r.status === "confirmed") confirmed += (z - a) / 60;
+  }
+
+  type Row = { key: "G" | "K" | "D"; name: string; hours: number };
+  const h = (n: number) => `${Math.round(n)}h`;
+  const rows: Row[] = [
+    { key: "G", name: selfName, hours: parents.G.solo },
+    ...(look.hasPartner ? [{ key: "K" as const, name: partnerName, hours: parents.K.solo }] : []),
+    { key: "D", name: daisyName, hours: confirmed },
+  ];
+  const max = Math.max(1, ...rows.map((r) => r.hours));
+  const [wy, wm, wd] = days[0].split("-").map(Number);
+  const [ey, em, ed] = days[6].split("-").map(Number);
+  void wy; void ey;
+  const range = wm === em ? `${MONTHS_LONG[wm - 1].slice(0, 3)} ${wd}–${ed}` : `${MONTHS_LONG[wm - 1].slice(0, 3)} ${wd} – ${MONTHS_LONG[em - 1].slice(0, 3)} ${ed}`;
+
+  return (
+    <div style={{ background: "var(--glass-fill-soft)", border: `1px solid var(--glass-line)`, borderRadius: 16, boxShadow: "inset 0 1px 0 var(--glass-edge)", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span style={{ ...subhead(t), marginBottom: 0 }}>Childcare coverage</span>
+        <span style={{ fontSize: 12, color: t.text3, whiteSpace: "nowrap" }}>{range}</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {rows.map((r) => {
+          const color = personColor(r.key, palette);
+          return (
+            <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <PhotoAv who={r.key} size={26} palette={palette} dark={dark} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{r.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.text, fontVariantNumeric: "tabular-nums" }}>{h(r.hours)}</span>
+                </div>
+                <div
+                  role="img"
+                  aria-label={`${r.name}: ${h(r.hours)}`}
+                  style={{ display: "flex", height: 10, marginTop: 4, borderRadius: 2, background: t.bgElev2, overflow: "hidden" }}
+                >
+                  <div style={{ width: `${(r.hours / max) * 100}%`, background: color }} />
+                </div>
               </div>
             </div>
           );
@@ -1094,7 +1455,21 @@ function ChildcareCard({
     };
   });
   const needCover = rows.filter((r) => r.nobody.length > 0).length;
-  const anyGap = rows.some((r) => r.held.length > 0);
+
+  // Solo with the kids: one parent is free and the other is away or asleep
+  // (the same unavailable ranges the gaps come from). It can't overlap a gap,
+  // which is when neither is free. Handoff slivers under an hour don't count.
+  type Solo = { who: "G" | "K"; startMin: number; endMin: number };
+  const soloByDay: Solo[][] = days.map((date) => {
+    if (!look.hasPartner) return [];
+    const gBusy = parentDayRanges(date, "G", shiftMap, stFilled);
+    const kBusy = parentDayRanges(date, "K", shiftMap, stFilled);
+    return [
+      ...within(freeOf(gBusy), kBusy).map((r) => ({ who: "G" as const, ...r })),
+      ...within(freeOf(kBusy), gBusy).map((r) => ({ who: "K" as const, ...r })),
+    ];
+  });
+  const anyGap = rows.some((r) => r.held.length > 0) || soloByDay.some((d) => d.length > 0);
 
   // The days nobody holds, said as a consequence: what each person who could
   // be home is doing instead.
@@ -1157,7 +1532,7 @@ function ChildcareCard({
     { background: dark ? rgba(CLAY, 0.18) : "#EFDFDB", border: `1.5px dashed ${rgba(CLAY, 0.8)}` };
 
   return (
-    <div style={{ background: t.bgElev, border: `1px solid ${t.sep}`, borderRadius: 4, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ background: "var(--glass-fill-soft)", border: `1px solid var(--glass-line)`, borderRadius: 16, boxShadow: "inset 0 1px 0 var(--glass-edge)", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
         <span style={{ ...subhead(t), marginBottom: 0 }}>Who has the kids this week?</span>
         {needCover > 0 && (
@@ -1196,6 +1571,24 @@ function ChildcareCard({
                         <div style={{
                           position: "absolute", top: 2, bottom: 2, left: `${p.left}%`, width: `${p.width}%`,
                           borderRadius: 2, boxSizing: "border-box", ...barStyle(h.kind),
+                        }} />
+                      </BlockTip>
+                    );
+                  })}
+                  {soloByDay[i].map((x, k) => {
+                    const p = place(x.startMin, x.endMin);
+                    if (!p) return null;
+                    const name = x.who === "G" ? selfName : partnerName;
+                    return (
+                      <BlockTip
+                        key={`s${k}`}
+                        avatar={<PhotoAv who={x.who} size={30} palette={palette} dark={dark} />}
+                        name={`${name} is home solo`}
+                        detail={`${span(x.startMin, x.endMin)} · ${x.who === "G" ? partnerName : selfName} is out`}
+                      >
+                        <div style={{
+                          position: "absolute", top: 5, bottom: 5, left: `${p.left}%`, width: `${p.width}%`,
+                          borderRadius: 2, boxSizing: "border-box", background: personColor(x.who, palette),
                         }} />
                       </BlockTip>
                     );
@@ -1364,6 +1757,27 @@ function AlertCard({
 // ─────────────────── schedule block helpers ───────────────────
 
 const BLOCK_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+/** An ISO date moved by whole days (local time, so DST can't skip a day). */
+function shiftIso(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+/** "Today", "Tomorrow" or "Yesterday" for those dates, otherwise null. */
+function relativeDay(iso: string, today: string): string | null {
+  if (iso === today) return "Today";
+  if (iso === shiftIso(today, 1)) return "Tomorrow";
+  if (iso === shiftIso(today, -1)) return "Yesterday";
+  return null;
+}
+
+/** "Nov 20", for a slide button that has no better name for its day. */
+function shortDate(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  return `${MONTHS_LONG[m - 1].slice(0, 3)} ${d}`;
+}
+
 function humanDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return `${BLOCK_MONTHS[(m ?? 1) - 1]} ${d}, ${y}`;

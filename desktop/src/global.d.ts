@@ -18,6 +18,10 @@ export interface ParsedShiftRow {
   confidence: number;
   /** Anything in the cell that wasn't the time — coworkers, "tmh", "+". */
   note?: string;
+  /** The hours the reader found ("HH:MM"). A sheet that only names the start
+   *  ("3") has no end here. */
+  start?: string;
+  end?: string;
 }
 
 export interface ParseScheduleResult {
@@ -27,6 +31,9 @@ export interface ParseScheduleResult {
   /** How many dated squares the reader counted, before extracting rows — a
    *  cross-check against rows.length so a missed day is visible. */
   countedDays?: number;
+  /** Days marked with an asterisk (*): on call. YYYY-MM-DD, sorted. A day can
+   *  be on call without a shift, so these are not rows. */
+  onCallDates?: string[];
   error?: string;
 }
 
@@ -34,7 +41,7 @@ export interface SbmApi {
   hasApiKey: () => Promise<boolean>;
   platform?: string;
   showAppMenu?: (x: number, y: number) => void;
-  setAppearance?: (dark: boolean) => void;
+  setAppearance?: (dark: boolean, pref?: "system" | "light" | "dark") => void;
   setApiKey: (key: string) => Promise<{ ok: boolean; error?: string }>;
   clearApiKey: () => Promise<void>;
   parseSchedule: (req: ParseScheduleRequest) => Promise<ParseScheduleResult>;
@@ -47,7 +54,6 @@ export interface SbmApi {
   onMenuEditTemplate: (cb: () => void) => () => void;
   onMenuOpenCoverageRequests: (cb: () => void) => () => void;
   onMenuOpenScheduleBlock: (cb: () => void) => () => void;
-  onMenuOpenCleaner: (cb: () => void) => () => void;
 }
 
 declare global {

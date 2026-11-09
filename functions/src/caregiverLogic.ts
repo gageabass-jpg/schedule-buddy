@@ -66,28 +66,18 @@ export interface ActionContext {
   nowMs: number;
   /** A fresh id for a new event. */
   newId: string;
-  /**
-   * The people records whose `uid` is the caller, on a household that has
-   * moved to the any-household model; undefined on one still on state/main,
-   * which has no people records. Requests there name a person (`caregiverId`).
-   */
-  callerPersonIds?: string[];
 }
 
 /**
  * A coverage request is for one caregiver. It names them as `caregiverUid`
- * (set once someone has answered it, and on a household still on state/main)
- * and, on the any-household model, as `caregiverId` (a person). A request
- * that names nobody yet belongs to the household's single caregiver, as before.
- * Without this, any caregiver in the household could answer any request, and
- * one could overwrite another's answer.
+ * (set once someone has answered it). A request that names nobody yet belongs
+ * to the household's single caregiver, as before. Without this, any caregiver
+ * in the household could answer any request, and one could overwrite another's
+ * answer.
  */
 function assertAddressedToCaller(req: Obj, ctx: ActionContext): void {
   const uid = typeof req.caregiverUid === "string" ? req.caregiverUid : "";
-  const person = typeof req.caregiverId === "string" ? req.caregiverId : "";
-  const wrongUid = uid !== "" && uid !== ctx.uid;
-  const wrongPerson = person !== "" && ctx.callerPersonIds !== undefined && !ctx.callerPersonIds.includes(person);
-  if (wrongUid || wrongPerson) throw new CaregiverForbiddenError("That request is for someone else.");
+  if (uid !== "" && uid !== ctx.uid) throw new CaregiverForbiddenError("That request is for someone else.");
 }
 
 /**

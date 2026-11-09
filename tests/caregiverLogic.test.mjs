@@ -155,20 +155,6 @@ test("the caregiver whose request it is can change their own answer", () => {
   assert.doesNotThrow(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "declined", note: "sick" }, ctx));
 });
 
-test("on the any-household model, a request names a person, and only that person's account answers", () => {
-  const s = addressed({ caregiverId: "pDaisy" });
-  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "confirmed" }, { ...ctx, callerPersonIds: ["pDaisy"] }));
-  assert.throws(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "confirmed" }, { ...ctx, callerPersonIds: ["pOtherCaregiver"] }), CaregiverForbiddenError);
-  assert.throws(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "confirmed" }, { ...ctx, callerPersonIds: [] }), CaregiverForbiddenError,
-    "an account with no person record answers nothing");
-  assert.throws(() => applyCaregiverAction(s, { action: "resolveChange", id: "r2", approve: false }, { ...ctx, callerPersonIds: ["pOtherCaregiver"] }), CaregiverForbiddenError);
-});
-
-test("a household still on state/main has no people to match, so a person id alone doesn't block", () => {
-  const s = addressed({ caregiverId: "pDaisy" });
-  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "confirmed" }, ctx));
-});
-
 test("adding an event or a block isn't tied to a request", () => {
   const s = addressed({ caregiverUid: "someoneElse" });
   assert.doesNotThrow(() => applyCaregiverAction(s, { action: "addEvent", date: "2026-10-09", title: "Dentist", who: "Daisy" }, ctx));

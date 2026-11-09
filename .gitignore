@@ -75,5 +75,3 @@ k-schedule/
 firestore-debug.log
 firebase-debug.log
 
-# Built from shared/ by `npm run build:phone-model` (runs before hosting deploys).
-public/js/nucleus-model.js
