@@ -1,7 +1,3 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-/** Join class names, letting later Tailwind classes win over earlier ones. */
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+/* eslint-disable react-refresh/only-export-components -- a re-export file cannot break fast refresh */
+// Moved to shared-ui/ so Nucleus Wagonwheel can use it too. Same module.
+export * from "@nucleus/ui/lib/utils";
