@@ -35,7 +35,7 @@ const api = {
    *  button, since a hidden title bar has no menu bar. x, y in window pixels. */
   showAppMenu: (x: number, y: number): void => ipcRenderer.send("menu:popup", x, y),
   /** Tell the main process the app's effective theme, so the Dock icon matches. */
-  setAppearance: (dark: boolean): void => ipcRenderer.send("appearance:set", dark),
+  setAppearance: (dark: boolean, pref?: string): void => ipcRenderer.send("appearance:set", dark, pref),
   setApiKey: (key: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("key:set", key),
   clearApiKey: (): Promise<void> => ipcRenderer.invoke("key:clear"),

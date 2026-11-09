@@ -409,7 +409,11 @@ async function createWindow() {
           titleBarOverlay: { color: "#0A4F48", symbolColor: "#FFFFFF", height: 28 },
           icon: iconPath(false),
         }),
-    backgroundColor: "#0F0F12",
+    // On a Mac the window is a frosted material the desktop shows through (the app
+    // draws its glass panels over it), so its own background is clear.
+    ...(process.platform === "darwin"
+      ? { vibrancy: "under-window" as const, backgroundColor: "#00000000" }
+      : { backgroundColor: "#0F0F12" }),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
@@ -640,7 +644,12 @@ function setDockAppearance(dark: boolean) {
   app.dock.setIcon(img);
   dockDark = dark;
 }
-ipcMain.on("appearance:set", (_e, dark: unknown) => setDockAppearance(dark === true));
+// The window's material and the native dialogs follow the app's own Light / Dark /
+// System choice, so a Light app on a dark Mac doesn't sit on a dark material.
+ipcMain.on("appearance:set", (_e, dark: unknown, pref: unknown) => {
+  if (pref === "light" || pref === "dark" || pref === "system") nativeTheme.themeSource = pref;
+  setDockAppearance(dark === true);
+});
 
 // Windows has no menu bar under a hidden title bar; the top bar's menu button
 // opens the same application menu as a popup instead.

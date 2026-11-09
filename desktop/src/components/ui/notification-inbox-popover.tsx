@@ -25,6 +25,7 @@ import {
   CircleAlert,
   Clock,
   CalendarSync,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,8 @@ const ICONS: Record<string, LucideIcon> = {
   change_proposed: Clock,
   change_resolved: Clock,
   schedule_reminder: CalendarSync,
+  email_scan: Mail,
+  email_reconnect: CircleAlert,
 };
 
 /** "Just now", "10 minutes ago", "2 hours ago", "3 days ago", then the date. */

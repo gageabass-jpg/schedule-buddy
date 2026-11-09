@@ -13,7 +13,7 @@ import {
   assertFails, assertSucceeds, initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
-  arrayRemove, arrayUnion, collection, deleteField, doc, getDoc, getDocs, setDoc, updateDoc,
+  arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc,
 } from "firebase/firestore";
 
 const HH = "hh1";
@@ -182,5 +182,49 @@ describe("the caregiver view", () => {
   });
   test("a stranger can't read it", async () => {
     await assertFails(getDoc(doc(as("stranger"), "households", HH, "caregiverView", "main")));
+  });
+});
+
+describe("linked inboxes (weekly email scan)", () => {
+  const seed = () => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "households", HH, "gmailLinks", "L1"), { email: "gage@gmail.com", ownerCode: "G", status: "active" });
+    await setDoc(doc(db, "households", HH, "gmailSecrets", "L1"), { refreshToken: "1//secret", scope: "gmail.readonly" });
+    await setDoc(doc(db, "gmailLinkRequests", "nonce1"), { householdId: HH, ownerCode: "K" });
+  });
+
+  test("admin and partner can see which inboxes are linked", async () => {
+    await seed();
+    await assertSucceeds(getDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1")));
+    await assertSucceeds(getDoc(doc(as("kaylene"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("a caregiver and a stranger can't", async () => {
+    await seed();
+    await assertFails(getDoc(doc(as("daisy"), "households", HH, "gmailLinks", "L1")));
+    await assertFails(getDoc(doc(as("stranger"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("no one links or unlinks from a client: only the functions write it", async () => {
+    await seed();
+    await assertFails(setDoc(doc(as("gage"), "households", HH, "gmailLinks", "L2"), { email: "x@gmail.com", ownerCode: "G" }));
+    await assertFails(updateDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1"), { status: "active" }));
+    await assertFails(deleteDoc(doc(as("gage"), "households", HH, "gmailLinks", "L1")));
+  });
+
+  test("the refresh tokens are unreadable and unwritable to everyone, admin included", async () => {
+    await seed();
+    for (const uid of ["gage", "kaylene", "daisy", "stranger"]) {
+      await assertFails(getDoc(doc(as(uid), "households", HH, "gmailSecrets", "L1")));
+      await assertFails(setDoc(doc(as(uid), "households", HH, "gmailSecrets", "L1"), { refreshToken: "mine" }));
+    }
+    await assertFails(getDocs(collection(as("gage"), "households", HH, "gmailSecrets")));
+  });
+
+  test("the one-time link codes are unreadable and unwritable to everyone", async () => {
+    await seed();
+    await assertFails(getDoc(doc(as("gage"), "gmailLinkRequests", "nonce1")));
+    await assertFails(setDoc(doc(as("gage"), "gmailLinkRequests", "nonce2"), { householdId: HH, ownerCode: "G" }));
+    await assertFails(getDocs(collection(as("gage"), "gmailLinkRequests")));
   });
 });

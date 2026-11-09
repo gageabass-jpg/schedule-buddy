@@ -96,6 +96,12 @@ export interface ImportRecord {
   monthCovered?: string;       // YYYY-MM if Claude detected one
   addedDates: string[];        // dates added or replaced by this import
   noteCount: number;           // total shifts written
+  /** The last day the uploaded schedule has a shift for this person (YYYY-MM-DD):
+   *  where the calendar marks the end of the schedule period. addedDates isn't
+   *  enough for that, since a comparison only writes the days that differed.
+   *  Records from before this field existed don't have it; the calendar falls
+   *  back to the last of their addedDates. */
+  lastShiftDate?: string;
 }
 
 export type EventWho = "G" | "K" | "Daisy" | "family";

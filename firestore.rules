@@ -151,6 +151,24 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/households/$(householdId)).data.roles[request.auth.uid] in ['admin', 'partner'];
     }
 
+    // Linked inboxes for the weekly email scan. gmailLinks holds only what the
+    // app shows: which address, whose it is, when it last ran. Admin and partner
+    // may read it; no client writes it (the link functions do, with the Admin
+    // SDK). gmailSecrets holds each inbox's refresh token, and gmailLinkRequests
+    // (top level, below) the one-time codes that start a link: no client may
+    // read or write either, only the functions.
+    match /households/{householdId}/gmailLinks/{linkId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/households/$(householdId)).data.roles[request.auth.uid] in ['admin', 'partner'];
+      allow write: if false;
+    }
+    match /households/{householdId}/gmailSecrets/{linkId} {
+      allow read, write: if false;
+    }
+    match /gmailLinkRequests/{nonce} {
+      allow read, write: if false;
+    }
+
     // "Leave by" results, one doc per shift ({date}_{who}), written only by
     // the checkCommutes function (Admin SDK). Admin and partner may read.
     match /households/{householdId}/commute/{docId} {

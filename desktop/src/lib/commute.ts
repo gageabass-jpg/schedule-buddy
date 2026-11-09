@@ -10,6 +10,7 @@ import {
   collection, doc, onSnapshot, query, setDoc, where, type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import type { DriveExit } from "./driveExit";
 
 export interface CommutePlace { placeId: string; label: string }
 export interface CommuteConfig {
@@ -36,6 +37,11 @@ export interface CommuteResult {
   windowTo?: string;
   leaveBy: string;        // "HH:MM" — the latest departure
   leaveByMs: number;
+  /** The fastest route first, then alternatives, as encoded polylines. */
+  routes?: Array<{ durationMin: number; polyline: string }>;
+  /** The exit to get off on along the fastest route; absent on older results,
+   *  and on a drive with no numbered exit. */
+  exit?: DriveExit;
   heavy: boolean;
   live: boolean;
   checkedAt: number;
@@ -79,4 +85,19 @@ export function subscribeCommuteResults(
     },
     () => onChange(new Map()),
   );
+}
+
+/**
+ * "Leave by 2p to 2:33p": the earliest of the usual window (an hour before the
+ * shift, moved earlier for traffic) to the latest that still makes it with the
+ * ten-minute cushion. Just "Leave by 2:33p" when there's no window left (a long
+ * drive) or the result predates windows.
+ */
+export function leaveByRange(c: CommuteResult, fmt: (hhmm: string) => string): string {
+  const mins = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+  if (c.windowFrom) {
+    const span = (mins(c.leaveBy) - mins(c.windowFrom) + 1440) % 1440;
+    if (span > 0 && span < 720) return `Leave by ${fmt(c.windowFrom)} to ${fmt(c.leaveBy)}`;
+  }
+  return `Leave by ${fmt(c.leaveBy)}`;
 }

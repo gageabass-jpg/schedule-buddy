@@ -18,6 +18,8 @@
 //     Latest = shift start − live drive − time to park and walk in.
 //   - When the window has to move 10+ minutes earlier, that person — only
 //     that person — gets a push. Again only if it moves another 10 minutes.
+//   - Each result also carries the route lines (the fastest drive and up to two
+//     alternatives, as encoded polylines) so the Manager can draw the map.
 //   - The Google key is the same secret as placesAutocomplete; it's
 //     restricted to Places (New) and Routes.
 
@@ -27,6 +29,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
 import { buildShiftMap, expandCustomTemplateTypes, type HouseholdState } from "./shared/state";
+import { exitFromSteps, type DriveExit, type DriveStep } from "./shared/driveExit";
 import { readHouseholdState } from "./householdState";
 
 const GOOGLE_API_KEY = defineSecret("GOOGLE_PLACES_API_KEY");
@@ -56,6 +59,11 @@ interface CommuteConfig {
   cushion?: { min?: number; max?: number };
 }
 
+export interface RouteLine {
+  durationMin: number;       // with traffic
+  polyline: string;          // Google encoded polyline (precision 5)
+}
+
 export interface CommuteDoc {
   date: string;              // YYYY-MM-DD the shift is on
   who: Who;
@@ -70,6 +78,8 @@ export interface CommuteDoc {
   windowTo: string;
   leaveBy: string;           // "HH:MM" local — the latest departure
   leaveByMs: number;
+  routes?: RouteLine[];      // fastest first, then alternatives
+  exit?: DriveExit;          // the exit to get off on, along the fastest route
   heavy: boolean;            // moved ALERT_EARLIER_MIN or more
   live: boolean;             // measured now (true) or predicted ahead (false)
   checkedAt: number;
@@ -119,38 +129,78 @@ function addDays(iso: string, n: number): string {
 
 // ── Google Routes ───────────────────────────────────────────────────────────
 
+interface Drive { durationMin: number; typicalMin: number; routes: RouteLine[]; exit: DriveExit | null }
+
 async function driveMinutes(
   key: string, from: Place, to: Place, departMs: number | null,
-): Promise<{ durationMin: number; typicalMin: number } | null> {
-  const body: Record<string, unknown> = {
-    origin: { placeId: from.placeId },
-    destination: { placeId: to.placeId },
-    travelMode: "DRIVE",
-    routingPreference: departMs ? "TRAFFIC_AWARE_OPTIMAL" : "TRAFFIC_AWARE",
+): Promise<Drive | null> {
+  const request = async (alternatives: boolean, steps: boolean) => {
+    const body: Record<string, unknown> = {
+      origin: { placeId: from.placeId },
+      destination: { placeId: to.placeId },
+      travelMode: "DRIVE",
+      routingPreference: departMs ? "TRAFFIC_AWARE_OPTIMAL" : "TRAFFIC_AWARE",
+      ...(alternatives ? { computeAlternativeRoutes: true } : {}),
+    };
+    if (departMs) {
+      body.departureTime = new Date(departMs).toISOString();
+      body.trafficModel = "BEST_GUESS";
+    }
+    return fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        // The step text is where "take exit 56" comes from (see shared/driveExit).
+        "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.polyline.encodedPolyline"
+          + (steps ? ",routes.legs.steps.navigationInstruction" : ""),
+      },
+      body: JSON.stringify(body),
+    });
   };
-  if (departMs) {
-    body.departureTime = new Date(departMs).toISOString();
-    body.trafficModel = "BEST_GUESS";
+  // The alternatives and the exit are for the map; if Google won't give them, the
+  // drive time still matters, so ask again with less: first without the step
+  // text, then without the alternatives as well.
+  let res = await request(true, true);
+  if (!res.ok) {
+    logger.warn("commute: Routes (with alternatives and steps) returned", res.status, await res.text().catch(() => ""));
+    res = await request(true, false);
   }
-  const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": "routes.duration,routes.staticDuration",
-    },
-    body: JSON.stringify(body),
-  });
+  if (!res.ok) {
+    logger.warn("commute: Routes (with alternatives) returned", res.status, await res.text().catch(() => ""));
+    res = await request(false, false);
+  }
   if (!res.ok) {
     logger.warn("commute: Routes returned", res.status, await res.text().catch(() => ""));
     return null;
   }
-  const json = (await res.json()) as { routes?: Array<{ duration?: string; staticDuration?: string }> };
-  const r = json.routes?.[0];
-  const secs = (s?: string) => (s ? Number(s.replace(/s$/, "")) : NaN);
-  const d = secs(r?.duration), st = secs(r?.staticDuration);
-  if (!Number.isFinite(d)) return null;
-  return { durationMin: Math.round(d / 60), typicalMin: Math.round((Number.isFinite(st) ? st : d) / 60) };
+  const json = (await res.json()) as {
+    routes?: Array<{
+      duration?: string; staticDuration?: string; polyline?: { encodedPolyline?: string };
+      legs?: Array<{ steps?: DriveStep[] }>;
+    }>;
+  };
+  const secs = (v?: string) => (v ? Number(v.replace(/s$/, "")) : NaN);
+  const all = (json.routes ?? [])
+    .map((r) => ({
+      d: secs(r.duration), st: secs(r.staticDuration), line: r.polyline?.encodedPolyline ?? "",
+      steps: (r.legs ?? []).flatMap((l) => l.steps ?? []),
+    }))
+    .filter((r) => Number.isFinite(r.d))
+    .sort((a, b) => a.d - b.d);
+  const best = all[0];
+  if (!best) return null;
+  const routes: RouteLine[] = all
+    .filter((r) => r.line)
+    .slice(0, 3)
+    .map((r) => ({ durationMin: Math.round(r.d / 60), polyline: r.line }));
+  return {
+    durationMin: Math.round(best.d / 60),
+    typicalMin: Math.round((Number.isFinite(best.st) ? best.st : best.d) / 60),
+    routes,
+    // The exit on the fastest route, the one the map's blue line follows.
+    exit: exitFromSteps(best.steps),
+  };
 }
 
 
@@ -272,6 +322,8 @@ export const checkCommutes = onSchedule(
             durationMin: drive.durationMin, typicalMin: drive.typicalMin, usualMin, earlierMin,
             windowFrom: localHhmm(fromMs, tz), windowTo: localHhmm(toMs, tz),
             leaveBy: localHhmm(leaveByMs, tz), leaveByMs,
+            ...(drive.routes.length ? { routes: drive.routes } : {}),
+            ...(drive.exit ? { exit: drive.exit } : {}),
             heavy, live, checkedAt: now,
             ...(prev?.alertedAt ? { alertedAt: prev.alertedAt, alertedEarlier: prev.alertedEarlier } : {}),
           };

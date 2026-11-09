@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Palette, ThemeTokens } from "../theme";
-import { askClaude, undoChange, type AskMessage, type AskMode } from "../lib/askClaude";
+import { askClaude, scanEmail, undoChange, type AskMessage, type AskMode, type EmailScanResponse } from "../lib/askClaude";
+import { getGmailAccessToken } from "../lib/gmailAccess";
+import { compactTime } from "../state";
 import { normalizeImage } from "../lib/normalizeImage";
 import { BrandMark, BRAND_FONT, BRAND_TEAL } from "./BrandMark";
 import { useModalMotion } from "../lib/modalMotion";
@@ -32,6 +34,8 @@ interface UIMessage {
   text: string;
   /** This reply changed the schedule; carries what undo needs. */
   change?: { id: string; tools: string[] };
+  /** What the change line says, when "Changed the schedule" isn't right. */
+  changeLabel?: string;
   undo?: { state: "busy" | "done" } | { state: "error"; message: string };
   /** The day this question was asked about, shown above it. */
   about?: string;
@@ -47,12 +51,44 @@ function suggestionsFor(look: { hasPartner: boolean; names: { K: string } }): st
   ];
 }
 
+/** What the composer can be set to: the two the function knows, plus a scan of
+ *  the user's Gmail that adds the events it finds. */
+type PanelMode = AskMode | "email";
+
+/** The opening suggestions in Search email mode. */
+const EMAIL_SUGGESTIONS = [
+  "Find appointments and events in the last 2 weeks of my email",
+  "Look for school or daycare dates in my email",
+  "Any reservations or confirmations coming up?",
+];
+
 /** Read-only is the default: the panel answers until you let it write. */
-const MODE_LABEL: Record<AskMode, string> = { read: "Read only", write: "Allow Edits" };
-const MODE_CAPTION: Record<AskMode, string> = {
+const MODE_LABEL: Record<PanelMode, string> = { read: "Read only", write: "Allow Edits", email: "Search email" };
+const MODE_CAPTION: Record<PanelMode, string> = {
   read: "Read only: nucleusAI answers. It changes nothing.",
   write: "Allow Edits: nucleusAI confirms with you before it writes.",
+  email: "Search email: nucleusAI reads matching Gmail messages and adds the events it finds. Undo removes them all.",
 };
+const MODE_HINT: Record<PanelMode, string> = {
+  read: "Answers only. Never writes.",
+  write: "Can change the schedule, after confirming.",
+  email: "Reads your Gmail (Google asks first) and adds the events it finds.",
+};
+
+/** "2026-11-12" + "14:30" → "Thu, Nov 12 · 2:30p". */
+function eventWhen(date: string, startTime?: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const day = new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  return startTime ? `${day} · ${compactTime(startTime)}` : day;
+}
+
+/** What an email scan says back: Claude's summary, then each event it added. */
+function scanText(res: EmailScanResponse, names: { G: string; K: string; D: string }): string {
+  if (!res.added.length) return res.reply;
+  const who = (w: string) => (w === "G" ? names.G : w === "K" ? names.K : w === "Daisy" ? names.D : "Family");
+  const lines = res.added.map((e) => `${eventWhen(e.date, e.startTime)} · ${e.title} (${who(e.who)})`);
+  return `${res.reply}\n\n${lines.join("\n")}`;
+}
 
 /** Pretty name for the model id the function reports. */
 function modelLabel(id: string | null): string {
@@ -72,7 +108,9 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [mode, setMode] = useState<AskMode>("read");
+  const [mode, setMode] = useState<PanelMode>("read");
+  // True while a Search email run is going; it takes longer than a question.
+  const [scanning, setScanning] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [model, setModel] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
@@ -131,6 +169,22 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
     setDraft("");
     setBusy(true);
     try {
+      if (mode === "email") {
+        // Google's window first (the first time it asks to allow reading mail),
+        // then the scan. The question rides alone: a day attached to the panel
+        // has nothing to do with what to look for in email.
+        setScanning(true);
+        const res = await scanEmail(message, await getGmailAccessToken());
+        if (res.model) setModel(res.model);
+        const n = res.added.length;
+        setUiMessages((prev) => [...prev, {
+          role: "assistant",
+          text: scanText(res, look.names),
+          change: res.change,
+          changeLabel: `Added ${n} event${n === 1 ? "" : "s"} from your email`,
+        }]);
+        return;
+      }
       const note = undoNoteRef.current;
       undoNoteRef.current = null;
       const outgoing = [note, about?.details, message].filter(Boolean).join("\n\n");
@@ -144,6 +198,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
       setUiMessages((prev) => [...prev, { role: "assistant", text: `(Error) ${msg}` }]);
     } finally {
       setBusy(false);
+      setScanning(false);
     }
   };
 
@@ -363,7 +418,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
             >
               {uiMessages.length === 0 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {suggestionsFor(look).map((s, i) => (
+                  {(mode === "email" ? EMAIL_SUGGESTIONS : suggestionsFor(look)).map((s, i) => (
                     <button
                       key={i}
                       type="button"
@@ -404,7 +459,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                             <span style={{ fontSize: 12, color: t.text2 }}>Undone. The schedule is back how it was.</span>
                           ) : (
                             <>
-                              <span style={{ flex: 1, fontSize: 12, color: t.text2 }}>Changed the schedule</span>
+                              <span style={{ flex: 1, fontSize: 12, color: t.text2 }}>{m.changeLabel ?? "Changed the schedule"}</span>
                               <button
                                 type="button"
                                 onClick={() => onUndo(i)}
@@ -436,7 +491,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
               )}
               {(busy || reading) && (
                 <div style={{ alignSelf: "flex-start", fontSize: 12, color: t.text3, padding: "6px 10px" }}>
-                  {reading ? "Reading the photo…" : (
+                  {reading ? "Reading the photo…" : scanning ? "Searching your email… this can take a minute." : (
                     <span style={{ display: "inline-flex", gap: 4 }}>
                       <span style={dotStyle(0)} /><span style={dotStyle(0.15)} /><span style={dotStyle(0.3)} />
                     </span>
@@ -456,8 +511,8 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                   only on the mode button. */}
               <div
                 style={{
-                  border: `1px solid ${mode === "write" ? "#8A4B38" : t.sep}`,
-                  boxShadow: mode === "write" ? `0 0 0 3px ${dark ? "rgba(138,75,56,0.28)" : "rgba(138,75,56,0.14)"}` : "none",
+                  border: `1px solid ${mode !== "read" ? "#8A4B38" : t.sep}`,
+                  boxShadow: mode !== "read" ? `0 0 0 3px ${dark ? "rgba(138,75,56,0.28)" : "rgba(138,75,56,0.14)"}` : "none",
                   transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   borderRadius: 8, background: dark ? "rgba(255,255,255,0.03)" : "#F7F6F3", padding: "10px 10px 8px",
                 }}
@@ -495,7 +550,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); }
                   }}
-                  placeholder="Ask about the schedule, or drop a photo of it…"
+                  placeholder={mode === "email" ? "What should I look for? e.g. dentist appointments this month" : "Ask about the schedule, or drop a photo of it…"}
                   rows={1}
                   disabled={busy}
                   style={{
@@ -550,7 +605,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                           boxShadow: "0 10px 28px rgba(20,32,30,0.22)", overflow: "hidden",
                         }}
                       >
-                        {(["read", "write"] as AskMode[]).map((m) => (
+                        {(["read", "write", "email"] as PanelMode[]).map((m) => (
                           <button
                             key={m}
                             type="button"
@@ -563,7 +618,7 @@ export function AskClaudePanel({ open, onClose, palette, t, dark, context }: Pro
                           >
                             <div style={{ fontWeight: 600 }}>{MODE_LABEL[m]}</div>
                             <div style={{ fontSize: 11.5, color: t.text3, marginTop: 2 }}>
-                              {m === "read" ? "Answers only. Never writes." : "Can change the schedule, after confirming."}
+                              {MODE_HINT[m]}
                             </div>
                           </button>
                         ))}

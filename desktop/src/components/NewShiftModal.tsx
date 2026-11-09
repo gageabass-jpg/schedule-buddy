@@ -10,7 +10,6 @@ import { useHouseholdLook } from "../lib/householdLook";
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
 const TEAL = "#0F6E64";       // primary / selection
-const TEAL_TINT = "#D8E7E4";  // selected fill (segments, cards, childcare note)
 const CLAY = "#8A4B38";       // attention / error text
 
 type RepeatMode = "none" | "weekly" | "biweekly" | "custom";
@@ -263,7 +262,7 @@ export function NewShiftModal({ open, onClose, palette, t, dark, householdId, st
                       onClick={() => setRepeat(opt.id)}
                       style={{
                         flexGrow: 1, minWidth: 0, height: 36, border: "none", cursor: "pointer",
-                        background: on ? TEAL_TINT : t.bgElev,
+                        background: on ? t.tealTint : t.bgElev,
                         color: on ? t.text : t.text2,
                         fontFamily: "inherit", fontSize: 13, fontWeight: on ? 600 : 400,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 4px",
@@ -393,7 +392,7 @@ function PersonCard({
         textAlign: "left",
         border: `1px solid ${active ? TEAL : t.sep}`,
         borderRadius: 4,
-        background: active ? TEAL_TINT : t.bgElev,
+        background: active ? t.tealTint : t.bgElev,
         cursor: "pointer",
         fontFamily: "inherit",
       }}
@@ -420,7 +419,7 @@ function PersonCard({
           style={{
             fontSize: 14,
             fontWeight: active ? 600 : 400,
-            color: active ? "#14201E" : t.text,
+            color: t.text,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -428,7 +427,7 @@ function PersonCard({
         >
           {name}
         </span>
-        <span style={{ fontSize: 11, color: active ? "#14201E" : t.text2 }}>
+        <span style={{ fontSize: 11, color: t.text2 }}>
           {active ? "Selected" : "Tap to pick"}
         </span>
       </span>

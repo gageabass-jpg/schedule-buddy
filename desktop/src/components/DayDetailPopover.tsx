@@ -123,13 +123,14 @@ export function DayDetailPopover({
   return (
     <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
-        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
+        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, "var(--glass-fill-strong)")} />}
         {/* Banners on the card's right edge: a schedule block (red) and
             confirmed childcare (Teal). With both, they stack in the header. */}
         {block && <BlockedRibbon label={block.label} top={careConfirmed ? 8 : 31} />}
         {careConfirmed && <CoveredRibbon top={block ? 40 : 31} delay={block ? 240 : 140} />}
         <div
           ref={cardRef}
+          className="glass-pop"
           role="dialog"
           aria-label="Day detail"
           style={{

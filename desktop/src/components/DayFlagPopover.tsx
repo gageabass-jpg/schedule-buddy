@@ -73,9 +73,10 @@ export function DayFlagPopover({ date, anchor, flag, householdId, authorName, t,
   return (
     <div onClick={onClose} style={{ ...mm.backdrop, position: "fixed", inset: 0, zIndex: 1000 }}>
       <div data-motion="" style={{ ...wrapperStyle, ...popIn }} onClick={(e) => e.stopPropagation()}>
-        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, t.bgElev)} />}
+        {anchored && pos && <div aria-hidden="true" style={tailStyleFor(pos, "var(--glass-fill-strong)")} />}
         <div
           ref={cardRef}
+          className="glass-pop"
           role="dialog"
           aria-label="Flag this day"
           style={{

@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 
 const tooltipVariants = cva(
-  "z-50 overflow-hidden rounded-ele border border-border bg-card px-3 py-1.5 text-xs text-card-foreground shadow-sm/2 ",
+  "glass-tip z-50 overflow-hidden rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-card-foreground ",
   {
     variants: {
       variant: {

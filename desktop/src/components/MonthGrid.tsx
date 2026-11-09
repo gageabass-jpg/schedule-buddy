@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildMonthGrid, fmtDate, dayKindFromShifts, WEEKDAYS_3, type Shift, type ShiftMap } from "../data";
 import type { CalLayout, EventMap, ViewFilter } from "../App";
-import type { Event as SbEvent, HouseholdState } from "../state";
+import type { Event as SbEvent, HouseholdState, OnCallDay } from "../state";
 import { compactTime, isPaydayOn } from "../state";
 import { dayColors, personColor, rgba, MANAGER_ORANGE, BRAND_FONT, type Palette, type ThemeTokens } from "../theme";
 import { BrandMark } from "./BrandMark";
@@ -9,6 +9,8 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoAv } from "./PhotoAv";
 import { Flag3FilledIcon } from "@/components/ui/flag-3-filled";
+import { RacingFlagIcon } from "@/components/ui/racing-flag";
+import { lastScheduledDay, scheduleEndColor, scheduleEndsByDate, withScheduleEnd } from "../lib/scheduleEnds";
 import { FLAG_RED } from "./DayFlagPopover";
 import type { DayFlag } from "../lib/dayFlags";
 import { ShinyButton } from "@/components/ui/shiny-button";
@@ -23,6 +25,8 @@ import { FireIcon, type FireIconHandle } from "@/components/ui/fire";
 import { STRETCH_RED } from "./StretchBadge";
 import { SmartPhone02Icon } from "@/components/ui/smart-phone-02";
 import { onCallOn, onCallLabel } from "../lib/onCall";
+import { isVetEvent } from "../lib/vetEvent";
+import { CatIcon } from "./ui/cat";
 import type { StretchDay } from "../lib/stretch";
 import { holidayOn } from "../../../shared/holidays";
 import { GovernmentLineIcon } from "./ui/government-line-icon";
@@ -95,6 +99,13 @@ export function MonthGrid({
   const look = useHouseholdLook();
   // The original household never stored a name for her; the avatar is Daisy's.
   const daisyName = state?.dependents?.daisy?.name?.trim() || (look.familyPhotos ? "Daisy" : "Caregiver");
+  // The last shift day of each uploaded schedule: a racing flag in that day's cell.
+  // Plus a fail-safe for Gage: whatever his upload records say (some uploads left
+  // none), his last scheduled shift is where his schedule ends, so it's flagged.
+  const scheduleEnds = useMemo(
+    () => withScheduleEnd(scheduleEndsByDate(state?.imports), state ? lastScheduledDay(state, "G") : null, "G"),
+    [state],
+  );
   // Two-finger swipe (horizontal trackpad scroll) moves a month (a week in
   // week view, a day in day view), anywhere in the window: over a chip, the
   // rail, the toolbar,
@@ -228,7 +239,7 @@ export function MonthGrid({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="glass-panel" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Toolbar. On Windows the mouse wheel over it steps the calendar:
           up for the previous month, down for the next. */}
       <div
@@ -239,7 +250,6 @@ export function MonthGrid({
           gap: 12,
           padding: "16px 18px",
           borderBottom: `0.5px solid ${t.sep}`,
-          background: t.bg,
         }}
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -402,7 +412,7 @@ export function MonthGrid({
       <div style={{ flex: 1, padding: 14, display: "flex", flexDirection: "column", minHeight: 0 }}>
         {/* The calendar is one self-contained card: weekday header, grid, and
             legend share a single border, hairlines drawn by 1px cell gaps. */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: `1px solid ${t.sep}`, borderRadius: 10, overflow: "hidden", background: t.bgElev }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: `1px solid ${t.sep}`, borderRadius: 14, overflow: "hidden", background: "var(--glass-fill-soft)" }}>
         <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: `1px solid ${t.sep}` }}>
           {WEEKDAYS_3.map((w, i) => (
             <div
@@ -424,7 +434,7 @@ export function MonthGrid({
           key={monthIndex}
           data-motion=""
           style={{
-            flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: t.sep,
+            flex: 1, display: "grid", gridTemplateRows: `repeat(${weeks.length}, 1fr)`, gap: 1, minHeight: 0, background: "var(--glass-line)",
             animation: slide ? `nucleus-month-in-${slide} 240ms cubic-bezier(.2,.8,.2,1) both` : undefined,
           }}
         >
@@ -440,7 +450,7 @@ export function MonthGrid({
               else careRuns.push({ start: ci, len: 1, label });
             });
             return (
-            <div key={wi} style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: t.sep }}>
+            <div key={wi} style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "var(--glass-line)" }}>
               {week.map((c, ci) => {
                 const key = fmtDate(c.y, c.mo, c.d);
                 const dayShifts = shifts[key];
@@ -449,6 +459,11 @@ export function MonthGrid({
                 const isToday = key === today;
                 const isSel = key === selected;
                 const holiday = holidayOn(key);
+                // A holiday takes the bottom row of the cell, centred. The corner
+                // marks (care check, on-call, stretch, game logo) ride up above it;
+                // on a no-childcare day the row also clears the dashed pill.
+                const noCareLift = holiday && noCareByDate.has(key) ? 22 : 0;
+                const markBottom = 4 + (holiday ? 18 : 0) + noCareLift;
                 const matchesFilter =
                   viewFilter === "all" ||
                   (viewFilter === "this-week" && key >= weekStartKey && key <= weekEndKey) ||
@@ -471,7 +486,7 @@ export function MonthGrid({
                       padding: 6,
                       cursor: "pointer",
                       textAlign: "left",
-                      background: t.bgElev,
+                      background: "var(--glass-cell)",
                       borderRadius: isToday || isSel ? 6 : 0,
                       opacity: cellOpacity,
                       transition: "opacity 0.15s",
@@ -488,14 +503,22 @@ export function MonthGrid({
                     }}
                   >
                     {confirmedCareDates.has(key) && !noCareByDate.has(key) && (
-                      <CareCheck right={wvuGames.has(key) ? 32 : 5} confirmedAt={careConfirmedAt?.get(key)} />
+                      <CareCheck right={wvuGames.has(key) ? 32 : 5} bottom={markBottom} confirmedAt={careConfirmedAt?.get(key)} />
                     )}
-                    {stretches?.get(key) && (
-                      <StretchMark
-                        stretch={stretches.get(key)!}
-                        name={partnerName}
-                        right={(wvuGames.has(key) ? 32 : 5) + (confirmedCareDates.has(key) && !noCareByDate.has(key) ? 18 : 0)}
-                      />
+                    {(stretches?.get(key) || onCallOn(state, key)) && (
+                      <div
+                        style={{
+                          position: "absolute", bottom: markBottom, height: 15,
+                          right: (wvuGames.has(key) ? 32 : 5) + (confirmedCareDates.has(key) && !noCareByDate.has(key) ? 18 : 0),
+                          display: "flex", alignItems: "center", gap: 5,
+                        }}
+                      >
+                        {(() => {
+                          const onCall = onCallOn(state, key);
+                          return onCall ? <OnCallMark entry={onCall} name={partnerName} color={palette.K} /> : null;
+                        })()}
+                        {stretches?.get(key) && <StretchMark stretch={stretches.get(key)!} name={partnerName} />}
+                      </div>
                     )}
                     {blockByDate.has(key) && (
                       <div
@@ -528,7 +551,7 @@ export function MonthGrid({
                             style={{
                               position: "absolute",
                               right: 4,
-                              bottom: 4,
+                              bottom: markBottom,
                               width: 24,
                               height: 22,
                               objectFit: "contain",
@@ -582,23 +605,30 @@ export function MonthGrid({
                           </Tooltip>
                         ) : mark;
                       })()}
-                      {/* The holiday, centred in the top row between the date
-                          (and its flag) and the payday marks. Centring on the
-                          whole cell would leave room for about "Vete…". */}
-                      {holiday && (
-                        <span
-                          title={holiday.name}
-                          style={{
-                            flex: 1, minWidth: 0, padding: "0 4px",
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
-                            fontSize: 10.5, fontWeight: 600, color: t.tealText,
-                          }}
-                        >
-                          <GovernmentLineIcon size={11} aria-hidden="true" style={{ flexShrink: 0, color: t.text3 }} />
-                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{holiday.short}</span>
-                        </span>
-                      )}
                       <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
+                        {/* End of a schedule period: the last day a shift is scheduled
+                            from an uploaded schedule. Green for Gage, purple for Kaylene;
+                            only while that person still has a shift on the day. */}
+                        {(scheduleEnds.get(key) ?? [])
+                          .filter((who) => dayShifts?.some((s) => s.who === who))
+                          .map((who) => {
+                            const name = who === "G" ? selfName : partnerName;
+                            return (
+                              <Tooltip key={`end-${who}`}>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    role="img"
+                                    aria-label={`${name}'s schedule ends`}
+                                    className="flex"
+                                    style={{ color: scheduleEndColor(who, dark) }}
+                                  >
+                                    <RacingFlagIcon size={14} />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" size="sm">{name}'s schedule ends</TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
                         {state?.paydays?.G && isPaydayOn(key, state.paydays.G) && (
                           <span
                             title="Gage payday"
@@ -620,18 +650,6 @@ export function MonthGrid({
                           >$</span>
                         )}
                         {(() => {
-                          // On call (the asterisk on her schedule): a phone in her
-                          // colour, with or without a shift that day.
-                          const onCall = onCallOn(state, key);
-                          if (!onCall) return null;
-                          const label = onCallLabel(partnerName, onCall);
-                          return (
-                            <span title={label} role="img" aria-label={label} style={{ display: "flex", color: palette.K, opacity: onCall.pending ? 0.6 : 1 }}>
-                              <SmartPhone02Icon size={12} />
-                            </span>
-                          );
-                        })()}
-                        {(() => {
                           const dayEvents = eventsByDate[key] ?? [];
                           const totalItems = (dayShifts?.length ?? 0) + dayEvents.length;
                           return totalItems > 1 ? (
@@ -641,7 +659,11 @@ export function MonthGrid({
                       </div>
                     </div>
                     {(() => {
-                      const dayEvents = eventsByDate[key] ?? [];
+                      // Vet appointments are marked with a cat in the footer (below)
+                      // rather than taking a chip row or counting in "+N".
+                      const dayAllEvents = eventsByDate[key] ?? [];
+                      const vetEvents = dayAllEvents.filter(isVetEvent);
+                      const dayEvents = dayAllEvents.filter((e) => !isVetEvent(e));
                       // In the Coverage view a coverage day leads with where its
                       // cover stands, and gives up one of the three rows for it.
                       const cover = viewFilter === "coverage" ? coverageMarks?.get(key) : undefined;
@@ -651,16 +673,34 @@ export function MonthGrid({
                       // up their last row, and whatever is left over folds into a
                       // footer: the hidden people's avatars and a "+N".
                       const allShifts = dayShifts ?? [];
-                      const rows = cover ? 2 : 3;
-                      const hasMarks = wvuGames.has(key) || !!stretches?.get(key) || (confirmedCareDates.has(key) && !noCareByDate.has(key));
-                      const cap = hasMarks || allShifts.length + dayEvents.length > rows ? rows - 1 : rows;
+                      // The holiday label takes the bottom row, so the chips give up one.
+                      const rows = (cover ? 2 : 3) - (holiday ? 1 : 0);
+                      const hasMarks = wvuGames.has(key) || !!stretches?.get(key) || !!onCallOn(state, key) || (confirmedCareDates.has(key) && !noCareByDate.has(key));
+                      const cap = hasMarks || vetEvents.length > 0 || allShifts.length + dayEvents.length > rows ? rows - 1 : rows;
                       const shiftSlice = allShifts.slice(0, cap);
                       const eventSlice = dayEvents.slice(0, Math.max(0, cap - shiftSlice.length));
                       const hiddenShifts = allShifts.slice(shiftSlice.length);
                       const hiddenEvents = dayEvents.slice(eventSlice.length);
                       const hiddenCount = hiddenShifts.length + hiddenEvents.length;
                       const hiddenWho = [...new Set(hiddenShifts.map((s) => s.who))].slice(0, 2);
-                      if (!cover && shiftSlice.length === 0 && eventSlice.length === 0) return null;
+                      const footer = hasMarks || hiddenCount > 0 || vetEvents.length > 0;
+                      // The holiday, centred along the bottom of the cell. Under the
+                      // chips and the footer; alone, it's pushed down to the edge.
+                      const holidayRow = holiday ? (
+                        <div
+                          title={holiday.name}
+                          style={{
+                            marginTop: footer ? 0 : "auto", marginBottom: noCareLift,
+                            flexShrink: 0, height: 15, padding: "0 2px",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                            fontSize: 10.5, fontWeight: 600, color: t.tealText,
+                          }}
+                        >
+                          <GovernmentLineIcon size={11} aria-hidden="true" style={{ flexShrink: 0, color: t.text3 }} />
+                          <span style={{ minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{holiday.short}</span>
+                        </div>
+                      ) : null;
+                      if (!cover && shiftSlice.length === 0 && eventSlice.length === 0 && vetEvents.length === 0) return holidayRow;
                       return (
                         <>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -688,7 +728,7 @@ export function MonthGrid({
                                   letterSpacing: "-0.01em",
                                   padding: "2px 6px",
                                   borderRadius: 4,
-                                  background: t.bgElev,
+                                  background: "var(--glass-chip)",
                                   color: t.text,
                                   border: `1px solid ${t.sep}`,
                                   borderLeft: `3px solid ${color}`,
@@ -759,8 +799,29 @@ export function MonthGrid({
                             </Tooltip>
                           ))}
                         </div>
-                        {(hasMarks || hiddenCount > 0) && (
+                        {footer && (
                           <div style={{ marginTop: "auto", flexShrink: 0, height: 20, display: "flex", alignItems: "center", gap: 4, paddingLeft: 2 }}>
+                            {/* Vet appointments: a cat, with the time beside it when there's one. */}
+                            {vetEvents.map((ev) => (
+                              <Tooltip key={ev.id}>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    onClick={(e) => { e.stopPropagation(); onEditEvent(ev); }}
+                                    style={{
+                                      display: "flex", alignItems: "center", gap: 3, cursor: "pointer",
+                                      fontSize: 10.5, fontWeight: 600, letterSpacing: "-0.01em",
+                                      color: ev.pending ? "#8A4B38" : t.text2,
+                                    }}
+                                  >
+                                    <CatIcon size={15} aria-hidden="true" style={{ flexShrink: 0 }} />
+                                    {vetEvents.length === 1 && ev.startTime && <span>{formatChipTime(ev.startTime)}</span>}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" size="sm" className="max-w-64">
+                                  <EventTip ev={ev} selfName={selfName} partnerName={partnerName} daisyName={daisyName} t={t} />
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
                             {hiddenCount > 0 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -805,6 +866,7 @@ export function MonthGrid({
                             )}
                           </div>
                         )}
+                        {holidayRow}
                         </>
                       );
                     })()}
@@ -870,7 +932,7 @@ export function MonthGrid({
           })}
         </div>
         {/* Legend — schedule-block states + the reassurance note. */}
-        <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: `1px solid ${t.sep}`, background: t.bg, display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
+        <div style={{ height: 40, flexShrink: 0, boxSizing: "border-box", padding: "0 20px", borderTop: "1px solid var(--glass-line)", background: "var(--glass-cell)", display: "flex", alignItems: "center", gap: 18, fontSize: 12, color: t.text2 }}>
           {viewFilter === "coverage" && (["has", "waiting", "nobody"] as const).map((k) => (
             <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
               <CoverageDot kind={k} dark={dark} />
@@ -982,12 +1044,13 @@ function navBtn(t: ThemeTokens): React.CSSProperties {
 
 
 /**
- * Kaylene's stretch: a red fire in the cell's bottom-right corner, left of
- * the childcare check when there is one. Hovering the day flickers the flame
- * and slides it left to make room for which day of the run it is ("2/3").
- * Like CareCheck it listens on the cell, so a hover doesn't re-render the grid.
+ * Kaylene's stretch: a red fire at the cell's bottom-right, left of the
+ * childcare check when there is one (positioned by the wrapper, which also
+ * holds the on-call mark). Hovering the day flickers the flame and slides it
+ * left to make room for which day of the run it is ("2/3"). Like CareCheck it
+ * listens on the cell, so a hover doesn't re-render the grid.
  */
-function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: string; right: number }) {
+function StretchMark({ stretch, name }: { stretch: StretchDay; name: string }) {
   const holder = useRef<HTMLSpanElement | null>(null);
   const icon = useRef<FireIconHandle | null>(null);
 
@@ -1011,14 +1074,11 @@ function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: stri
       ref={holder}
       role="img"
       aria-label={`${name}'s stretch, day ${stretch.day} of ${stretch.of}`}
-      style={{
-        position: "absolute", right, bottom: 4, height: 15,
-        display: "flex", alignItems: "center", color: STRETCH_RED,
-      }}
+      style={{ display: "flex", alignItems: "center", color: STRETCH_RED }}
     >
       <FireIcon ref={icon} size={15} className="flex" />
-      {/* Grows from nothing on hover; the box is anchored on the right, so
-          the flame is pushed left as it opens. */}
+      {/* Grows from nothing on hover; the wrapper is anchored on the right,
+          so the flame is pushed left as it opens. */}
       <span
         className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out day-hover:ml-0.5 day-hover:max-w-8 day-hover:opacity-100 motion-reduce:transition-none"
         style={{ fontSize: 10.5, fontWeight: 700, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}
@@ -1028,6 +1088,36 @@ function StretchMark({ stretch, name, right }: { stretch: StretchDay; name: stri
     </span>
     </TooltipTrigger>
     <TooltipContent side="top" size="sm">Day {stretch.day} of {stretch.of}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * Kaylene on call (the asterisk on her schedule): a phone in her colour,
+ * beside the stretch flame, that opens on hover to say "On call" the way the
+ * flame opens to "2/3". It shows with or without a shift that day; a pending
+ * one (import awaiting review) is dimmed.
+ */
+function OnCallMark({ entry, name, color }: { entry: OnCallDay; name: string; color: string }) {
+  const label = onCallLabel(name, entry);
+  return (
+    <Tooltip>
+    <TooltipTrigger asChild>
+    <span
+      role="img"
+      aria-label={label}
+      style={{ display: "flex", alignItems: "center", color, opacity: entry.pending ? 0.6 : 1 }}
+    >
+      <SmartPhone02Icon size={14} className="flex" />
+      <span
+        className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out day-hover:ml-0.5 day-hover:max-w-12 day-hover:opacity-100 motion-reduce:transition-none"
+        style={{ fontSize: 10.5, fontWeight: 700, lineHeight: 1 }}
+      >
+        On call
+      </span>
+    </span>
+    </TooltipTrigger>
+    <TooltipContent side="top" size="sm">{label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -1060,7 +1150,7 @@ const CARE_CHECK = "#0F6E64";
  * the check's draw-in once; leaving resets it. It listens on the day cell
  * itself so a hover doesn't re-render the grid.
  */
-function CareCheck({ right, confirmedAt }: { right: number; confirmedAt?: number }) {
+function CareCheck({ right, bottom = 4, confirmedAt }: { right: number; bottom?: number; confirmedAt?: number }) {
   const holder = useRef<HTMLSpanElement | null>(null);
   const icon = useRef<CircleCheckIconHandle | null>(null);
 
@@ -1087,7 +1177,7 @@ function CareCheck({ right, confirmedAt }: { right: number; confirmedAt?: number
           ref={holder}
           role="img"
           aria-label={`Childcare covered. ${when}.`}
-          style={{ position: "absolute", right, bottom: 4, display: "flex" }}
+          style={{ position: "absolute", right, bottom, display: "flex" }}
         >
           <CircleCheckIcon ref={icon} size={15} color={CARE_CHECK} />
         </span>

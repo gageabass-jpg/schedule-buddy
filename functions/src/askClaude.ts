@@ -38,7 +38,7 @@ import { editHouseholdState, readHouseholdState } from "./householdState";
 
 // ───────────────── Tool definitions surfaced to Claude ───────────────────
 
-const MODEL = "claude-opus-4-8";
+export const MODEL = "claude-opus-4-8";
 
 /** Tools that only read. Read-only mode is handed these and nothing else, so
  *  the model cannot write even if it decides to. */
@@ -363,7 +363,7 @@ function isoToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function genEventId(): string {
+export function genEventId(): string {
   return `ev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
@@ -387,7 +387,7 @@ function datesInRange(from: string, to: string): string[] {
 
 // ───────────────── Tool execution ──────────────────────────────────────
 
-interface ExecCtx {
+export interface ExecCtx {
   householdId: string;
   uid: string;
   /** What the user asked, kept on the undo record so it can say what it undoes. */
@@ -410,7 +410,7 @@ interface ExecCtx {
 // which is what undoNucleusChange restores from. A reply that moves a shift
 // (two writes) is therefore undone as one.
 
-interface ChangeRecord {
+export interface ChangeRecord {
   id: string;
   tools: string[];
   /** Field → value before this reply first touched it (null = absent). */
@@ -419,7 +419,7 @@ interface ChangeRecord {
   after: Record<string, unknown>;
 }
 
-function newChangeRecord(householdId: string): ChangeRecord {
+export function newChangeRecord(householdId: string): ChangeRecord {
   const id = getFirestore().collection("households").doc(householdId)
     .collection("nucleusChanges").doc().id;
   return { id, tools: [], before: {}, after: {} };
@@ -434,7 +434,7 @@ function plain(v: unknown): unknown {
  *  and the fields to write (none when there's nothing to change). */
 type Built = { result: unknown; patch?: Partial<HouseholdState> };
 
-function commit(
+export function commit(
   ctx: ExecCtx,
   tool: string,
   build: (fresh: HouseholdState) => Built,

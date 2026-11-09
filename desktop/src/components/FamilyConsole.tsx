@@ -14,10 +14,14 @@ import { auth } from "../firebase";
 import { PhotoAv } from "./PhotoAv";
 import { WallDisplaySection } from "./WallDisplaySection";
 import { ShareLinkSection } from "./ShareLinkSection";
+import { EmailInboxesSection } from "./EmailInboxesSection";
 import { WallPhotosSection } from "./WallPhotosSection";
 import { OccasionsSection } from "./OccasionsSection";
 import { BrandMark, BRAND_TEAL, BRAND_FONT } from "./BrandMark";
 import { Button01 } from "@/components/ui/nextjsshop-button";
+import { Accordion } from "@/components/ui/accordion";
+import { ThemeTabs } from "@/components/ui/theme";
+import { ConsoleNav, type NavKey, type WallSub } from "./ConsoleNav";
 import { useModalMotion } from "../lib/modalMotion";
 import { RedTrash } from "./RedTrash";
 import { EmployerField } from "./EmployerField";
@@ -33,15 +37,6 @@ const CLAY_TINT = "#EFDFDB";
 const APP_VERSION = "0.1.0";
 
 const API_KEYS_URL = "https://console.anthropic.com/settings/keys";
-
-type NavKey = "general" | "people" | "wall" | "integrations";
-
-const NAV: Array<{ key: NavKey; label: string }> = [
-  { key: "general", label: "General" },
-  { key: "people", label: "People" },
-  { key: "wall", label: "Wall display" },
-  { key: "integrations", label: "Integrations" },
-];
 
 interface Props {
   open: boolean;
@@ -90,6 +85,7 @@ export function FamilyConsole({
 
   const [removingUid, setRemovingUid] = useState<string | null>(null);
   const [tab, setTab] = useState<NavKey>("general");
+  const [wallSub, setWallSub] = useState<WallSub>("display");
 
   const selfUid = auth.currentUser?.uid ?? null;
 
@@ -274,41 +270,31 @@ export function FamilyConsole({
             padding: "16px 14px",
             display: "flex",
             flexDirection: "column",
+            minHeight: 0,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {NAV.map((item) => {
-              const on = tab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setTab(item.key)}
-                  style={{
-                    textAlign: "left",
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 4,
-                    border: 0,
-                    background: on ? t.tealTint : "transparent",
-                    color: on ? t.text : t.text2,
-                    fontSize: 14,
-                    fontWeight: on ? 600 : 500,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                  }}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ marginTop: "auto", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 11, color: t.text3 }}>Changes save as you make them.</div>
-            <Button01 href={PIPER_LOCKE_URL} label="Piper Locke website">
-              <img src="assets/piper-locke.png" alt="" />
-            </Button01>
-          </div>
+          <ConsoleNav
+            t={t}
+            tab={tab}
+            wallSub={wallSub}
+            memberCount={members.length}
+            onSelect={(k, sub) => { setTab(k); if (sub) setWallSub(sub); }}
+            onSignOut={() => { void doSignOut(); }}
+            onLeaveHousehold={onLeaveHousehold}
+            footer={
+              /* The Piper Locke button sets the width of this stack: the Appearance
+                 switch and the caption take 0 width of their own and stretch to it. */
+              <div style={{ paddingTop: 14, display: "inline-flex", flexDirection: "column", alignSelf: "flex-start", gap: 12 }}>
+                <div style={{ width: 0, minWidth: "100%" }}>
+                  <ThemeTabs value={themePref} onValueChange={onSetThemePref} size="md" showLabel fill themes={["light", "dark", "system"]} />
+                </div>
+                <div style={{ width: 0, minWidth: "100%", fontSize: 11, color: t.text3 }}>Changes save as you make them.</div>
+                <Button01 href={PIPER_LOCKE_URL} label="Piper Locke website">
+                  <img src="assets/piper-locke.png" alt="" />
+                </Button01>
+              </div>
+            }
+          />
         </div>
 
         {/* Content */}
@@ -343,9 +329,6 @@ export function FamilyConsole({
                   catch { /* swallow */ }
                 }}
                 onNewCaregiver={() => { setCaregiverCode(null); setCaregiverCopied(false); }}
-                themePref={themePref} onSetThemePref={onSetThemePref}
-                onSignOut={() => { void doSignOut(); }}
-                onLeaveHousehold={onLeaveHousehold}
                 householdId={householdId} state={state} palette={palette}
               />
             )}
@@ -382,7 +365,7 @@ export function FamilyConsole({
             )}
 
             {tab === "wall" && (
-              <WallTab t={t} palette={palette} householdId={householdId} state={state} />
+              <WallTab t={t} palette={palette} householdId={householdId} state={state} sub={wallSub} />
             )}
 
             {tab === "integrations" && (
@@ -416,8 +399,6 @@ function GeneralTab(p: {
   caregiverEmail: string; setCaregiverEmail: (v: string) => void;
   caregiverCode: string | null; caregiverCopied: boolean; caregiverBusy: boolean;
   onSendCaregiver: () => void; onCopyCaregiver: () => void; onNewCaregiver: () => void;
-  themePref: ThemePref; onSetThemePref: (v: ThemePref) => void;
-  onSignOut: () => void; onLeaveHousehold: () => void;
   householdId: string | null; state: HouseholdState | null; palette: Palette;
 }) {
   const { t } = p;
@@ -460,112 +441,108 @@ function GeneralTab(p: {
         </div>
       </Section>
 
-      {/* COMMUTE — home address, for "leave by" times and traffic alerts. */}
-      <Section
-        t={t}
-        label="Commute"
-        desc="Your home address, for leave-by times and heavy-traffic alerts before each shift. Only you and your partner can see it."
-      >
-        <CommuteHome t={t} householdId={p.householdId} home={p.commuteHome} />
-        <div style={{ height: 14 }} />
-        <CommuteCushion t={t} householdId={p.householdId} cushion={p.commuteCushion} />
-      </Section>
+      {/* Everything past the household name sits under a header. */}
+      <Accordion
+        type="multiple"
+        items={[
+          {
+            id: "commute",
+            title: "Commute",
+            description: "Home address and when you leave before a shift",
+            content: (
+              <>
+                <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10, lineHeight: 1.45 }}>
+                  Your home address, for leave-by times and heavy-traffic alerts before each shift. Only you and your partner can see it.
+                </div>
+                <CommuteHome t={t} householdId={p.householdId} home={p.commuteHome} />
+                <div style={{ height: 14 }} />
+                <CommuteCushion t={t} householdId={p.householdId} cushion={p.commuteCushion} />
+              </>
+            ),
+          },
+          {
+            id: "sharing",
+            title: "Sharing",
+            description: "Invite codes, caregiver invites, web and calendar links",
+            content: (
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {/* INVITE CODE */}
+                <Section t={t} label="Invite code" desc="Share with a new member to link their Mac or phone.">
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={codeBox(t)}>{p.inviteCode ?? "——————"}</div>
+                    <button
+                      type="button"
+                      onClick={p.onCopyCode}
+                      disabled={!p.inviteCode}
+                      style={p.copied ? primaryBtnShort : secondaryBtn(t)}
+                    >
+                      {p.copied ? "Copied" : "Copy"}
+                    </button>
+                    <button type="button" onClick={p.onCopyCode} style={secondaryBtn(t)}>New code</button>
+                  </div>
+                </Section>
 
-      {/* INVITE CODE */}
-      <Section t={t} label="Invite code" desc="Share with a new member to link their Mac or phone.">
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div style={codeBox(t)}>{p.inviteCode ?? "——————"}</div>
-          <button
-            type="button"
-            onClick={p.onCopyCode}
-            disabled={!p.inviteCode}
-            style={p.copied ? primaryBtnShort : secondaryBtn(t)}
-          >
-            {p.copied ? "Copied" : "Copy"}
-          </button>
-          <button type="button" onClick={p.onCopyCode} style={secondaryBtn(t)}>New code</button>
-        </div>
-      </Section>
+                {/* INVITE A CAREGIVER */}
+                <Section
+                  t={t}
+                  label="Invite a caregiver"
+                  desc="They land as a Supporting account — they only see Coverage Requests, not the full schedule."
+                >
+                  {p.caregiverCode ? (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={codeBox(t)}>{p.caregiverCode}</div>
+                      <button type="button" onClick={p.onCopyCaregiver} style={p.caregiverCopied ? primaryBtnShort : secondaryBtn(t)}>
+                        {p.caregiverCopied ? "Copied" : "Copy"}
+                      </button>
+                      <button type="button" onClick={p.onNewCaregiver} style={secondaryBtn(t)}>New</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                      <div style={{ flex: 1 }}>
+                        <FieldLabel t={t}>Their email</FieldLabel>
+                        <input
+                          type="email"
+                          value={p.caregiverEmail}
+                          onChange={(e) => p.setCaregiverEmail(e.target.value)}
+                          placeholder="caregiver@example.com"
+                          style={inputStyle(t)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={p.onSendCaregiver}
+                        disabled={p.caregiverBusy}
+                        style={{ ...primaryBtn, opacity: p.caregiverBusy ? 0.5 : 1, cursor: p.caregiverBusy ? "not-allowed" : "pointer" }}
+                      >
+                        {p.caregiverBusy ? "Working…" : "Send invite"}
+                      </button>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: t.text3, marginTop: 8, lineHeight: 1.5 }}>
+                    Sends a Supporting-role code to hand off. Email delivery is not wired yet — copy the code and share it.
+                  </div>
+                </Section>
 
-      {/* INVITE A CAREGIVER */}
-      <Section
-        t={t}
-        label="Invite a caregiver"
-        desc="They land as a Supporting account — they only see Coverage Requests, not the full schedule."
-      >
-        {p.caregiverCode ? (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={codeBox(t)}>{p.caregiverCode}</div>
-            <button type="button" onClick={p.onCopyCaregiver} style={p.caregiverCopied ? primaryBtnShort : secondaryBtn(t)}>
-              {p.caregiverCopied ? "Copied" : "Copy"}
-            </button>
-            <button type="button" onClick={p.onNewCaregiver} style={secondaryBtn(t)}>New</button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <FieldLabel t={t}>Their email</FieldLabel>
-              <input
-                type="email"
-                value={p.caregiverEmail}
-                onChange={(e) => p.setCaregiverEmail(e.target.value)}
-                placeholder="caregiver@example.com"
-                style={inputStyle(t)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={p.onSendCaregiver}
-              disabled={p.caregiverBusy}
-              style={{ ...primaryBtn, opacity: p.caregiverBusy ? 0.5 : 1, cursor: p.caregiverBusy ? "not-allowed" : "pointer" }}
-            >
-              {p.caregiverBusy ? "Working…" : "Send invite"}
-            </button>
-          </div>
-        )}
-        <div style={{ fontSize: 11.5, color: t.text3, marginTop: 8, lineHeight: 1.5 }}>
-          Sends a Supporting-role code to hand off. Email delivery is not wired yet — copy the code and share it.
-        </div>
-      </Section>
+                {/* SHARING — read-only web + ICS/webcal link (moved here from Feeds). */}
+                <Section t={t} label="Web & calendar link" desc="A read-only web link and a calendar subscription (ICS / webcal). Shifts + event titles only. Revoke any time.">
+                  <ShareLinkSection householdId={p.householdId} state={p.state} t={t} palette={p.palette} />
+                </Section>
+              </div>
+            ),
+          },
+        ]}
+      />
 
-      {/* SHARING — read-only web + ICS/webcal link (moved here from Feeds). */}
-      <Section t={t} label="Sharing" desc="A read-only web link and a calendar subscription (ICS / webcal). Shifts + event titles only. Revoke any time.">
-        <ShareLinkSection householdId={p.householdId} state={p.state} t={t} palette={p.palette} />
-      </Section>
-
-      {/* DATA FORMAT — the move to the any-household model. */}
-
-      {/* APPEARANCE */}
-      <Section t={t} label="Appearance" desc="Match macOS or pick a fixed mode.">
-        <Segmented
-          t={t}
-          options={[
-            { value: "system", label: "System" },
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
-          ]}
-          value={p.themePref}
-          onChange={(v) => p.onSetThemePref(v as ThemePref)}
-        />
-      </Section>
-
-      {/* Footer */}
+      {/* Footer — Sign out and Leave household now live at the bottom of the nav. */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
+          justifyContent: "flex-end",
           marginTop: "auto",
           paddingTop: 16,
           borderTop: `1px solid ${t.sep}`,
-          flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={p.onSignOut} style={secondaryBtn(t)}>Sign out</button>
-          <button type="button" onClick={p.onLeaveHousehold} style={destructiveBtn(t)}>Leave household</button>
-        </div>
         <div style={{ fontSize: 12, color: t.text3 }}>Nucleus Manager {APP_VERSION}</div>
       </div>
     </div>
@@ -790,21 +767,10 @@ function PeopleTab(p: {
 // WALL DISPLAY
 // ════════════════════════════════════════════════════════════════════════════
 
-function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null }) {
-  const { t } = p;
-  const [sub, setSub] = useState<"display" | "photos" | "occasions">("display");
+function WallTab(p: { t: ThemeTokens; palette: Palette; householdId: string | null; state: HouseholdState | null; sub: WallSub }) {
+  const { t, sub } = p;
   return (
     <div>
-      <SubTabBar
-        t={t}
-        value={sub}
-        onChange={(v) => setSub(v as typeof sub)}
-        options={[
-          { value: "display", label: "Display" },
-          { value: "photos", label: "Photos" },
-          { value: "occasions", label: "Occasions" },
-        ]}
-      />
       {sub === "display" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <Section t={t} label="Wall display" desc="The wall shows today and tomorrow in large type, then the photos rotate in. The page auto-refreshes every 30s.">
@@ -834,14 +800,37 @@ function IntegrationsTab(p: { t: ThemeTokens; palette: Palette; householdId: str
   const { t } = p;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <Section t={t} label="AI provider API" desc="An API is required for nucleusAI to function. The key is encrypted locally (macOS Keychain).">
+      <Section
+        t={t}
+        label="AI provider API"
+        desc="An API is required for nucleusAI to function. The key is encrypted locally (macOS Keychain)."
+        action={
+          <a href={API_KEYS_URL} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: t.tealText, fontWeight: 600, textDecoration: "none" }}>
+            Where do I get an API key?
+          </a>
+        }
+      >
         <AiProviderCard t={t} />
       </Section>
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, paddingTop: 16, borderTop: `1px solid ${t.sep}` }}>
-        <a href={API_KEYS_URL} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: t.tealText, fontWeight: 600, textDecoration: "none" }}>
-          Where do I get an API key?
-        </a>
-      </div>
+      {/* EMAIL INBOXES — the weekly scan of linked Gmail and iCloud inboxes for events. */}
+      <Accordion
+        type="multiple"
+        items={[
+          {
+            id: "email",
+            title: "Email inboxes",
+            description: "Weekly scan of linked Gmail and iCloud inboxes",
+            content: (
+              <>
+                <div style={{ fontSize: 12.5, color: t.text2, marginBottom: 10, lineHeight: 1.45 }}>
+                  Every Sunday at 8 AM Nucleus looks through the inboxes you link for appointments and events, and adds them to the calendar.
+                </div>
+                <EmailInboxesSection householdId={p.householdId} t={t} palette={p.palette} />
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -1058,63 +1047,6 @@ function StatusChip({ t, on, onLabel, offLabel }: { t: ThemeTokens; on: boolean;
     >
       {on ? onLabel : offLabel}
     </span>
-  );
-}
-
-function SubTabBar({ t, value, onChange, options }: {
-  t: ThemeTokens; value: string; onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 14, borderBottom: `1px solid ${t.sep}`, marginBottom: 16 }}>
-      {options.map((o) => {
-        const on = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            style={{
-              border: 0, background: "transparent", cursor: "pointer", fontFamily: "inherit",
-              fontSize: 14, fontWeight: on ? 600 : 500, color: on ? t.text : t.text2,
-              padding: "8px 0", marginBottom: -1,
-              borderBottom: on ? `2px solid ${BRAND_TEAL}` : "2px solid transparent",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Segmented({ t, options, value, onChange }: {
-  t: ThemeTokens; options: Array<{ value: string; label: string }>; value: string; onChange: (v: string) => void;
-}) {
-  return (
-    <div style={{ display: "inline-flex", border: `1px solid ${t.sep}`, borderRadius: 4, overflow: "hidden" }}>
-      {options.map((o, i) => {
-        const on = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            style={{
-              border: 0,
-              borderLeft: i === 0 ? 0 : `1px solid ${t.sep}`,
-              background: on ? t.tealTint : t.bgElev,
-              color: on ? t.tealText : t.text2,
-              fontSize: 13, fontWeight: 600, fontFamily: "inherit",
-              padding: "8px 18px", cursor: "pointer",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

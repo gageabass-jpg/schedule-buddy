@@ -1,5 +1,10 @@
 // Shared motion for every modal and popover.
 //
+// The entrances fill backwards only: once one ends, the element is just itself.
+// A finished animation that still held its end state would keep the element a
+// "backdrop root", and the frosted-glass panels inside could then blur nothing
+// behind them. The exits do fill forwards, to stay invisible until unmounted.
+//
 // On the way in the backdrop fades and the panel rises and settles; on the way
 // out the panel fades and sinks a touch instead of vanishing. Escape closes the
 // topmost one. The keyframes (nucleus-backdrop-*, nucleus-modal-*,
@@ -99,19 +104,19 @@ export function useModalMotion(open: boolean, onClose: () => void): ModalMotion 
     leaving,
     backdrop: {
       ...inert,
-      animation: leaving ? `nucleus-backdrop-out ${EXIT_MS}ms ease both` : "nucleus-backdrop-in 220ms ease both",
+      animation: leaving ? `nucleus-backdrop-out ${EXIT_MS}ms ease both` : "nucleus-backdrop-in 220ms ease backwards",
     },
     panel: {
       ...inert,
       animation: leaving
         ? `nucleus-modal-out ${EXIT_MS}ms cubic-bezier(.4,0,1,1) both`
-        : "nucleus-modal-in 320ms cubic-bezier(.16,1,.3,1) both",
+        : "nucleus-modal-in 320ms cubic-bezier(.16,1,.3,1) backwards",
     },
     popover: {
       ...inert,
       animation: leaving
         ? `nucleus-pop-out ${EXIT_MS - 40}ms cubic-bezier(.4,0,1,1) both`
-        : "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) both",
+        : "nucleus-pop-in 170ms cubic-bezier(.2,.8,.2,1) backwards",
     },
   };
 }

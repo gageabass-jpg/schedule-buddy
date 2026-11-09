@@ -1,4 +1,8 @@
 export { askClaude, undoNucleusChange } from "./askClaude";
+export { scanEmailForEvents } from "./emailEvents";
+export { createGmailLink, gmailLinkStart, gmailOAuthCallback, disconnectGmailLink } from "./gmailLinks";
+export { connectIcloudInbox } from "./icloudLinks";
+export { weeklyEmailScan, scanLinkedInboxes } from "./emailWeekly";
 export { parseSchedule } from "./parseSchedule";
 export { syncHealthCalendar } from "./healthCalendar";
 export { getWallState } from "./wallState";

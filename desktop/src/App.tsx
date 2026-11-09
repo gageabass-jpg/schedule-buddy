@@ -33,6 +33,9 @@ import type { WvuGame } from "./lib/wvuSchedule";
 
 const NO_WVU_GAMES: Map<string, WvuGame> = new Map();
 import { pendingCoverageNeeds, coverageNeedsSignature } from "./lib/pendingCoverageNeeds";
+import { scheduleEndOf } from "./lib/scheduleEnds";
+import { scheduleTasks } from "./lib/scheduleTasks";
+import { useScheduleTasks } from "./hooks/useScheduleTasks";
 import { buildShiftMap, compactTime, expandCustomTemplateTypes, type Event, type HouseholdState } from "./state";
 
 export type EventMap = Record<string, Event[]>;
@@ -97,8 +100,8 @@ export function App() {
   // Dock icon swaps to its dark variant to match.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
-    window.sbm?.setAppearance?.(dark);
-  }, [dark]);
+    window.sbm?.setAppearance?.(dark, themePref);
+  }, [dark, themePref]);
 
   // Track OS preference changes while the user is in "system" mode.
   useEffect(() => {
@@ -550,6 +553,21 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // was computed on — and so this and the modal always resolve the same date.
   const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
   const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
+  // The sidebar's end-of-period to-dos: upload each person's next schedule, then
+  // reconcile the childcare gaps. Only while a period is ending.
+  const dueTasks = useMemo(
+    () => scheduleTasks({
+      refSat: state?.alt?.refSat, today,
+      gEnd: state ? scheduleEndOf(state, "G") : null,
+      kEnd: state ? scheduleEndOf(state, "K") : null,
+      hasPartner: look.hasPartner, childcare: look.childcare,
+      gapDays: new Set(coverageNeeds.map((c) => c.date)).size,
+      names: look.names,
+    }),
+    [state, today, look, coverageNeeds],
+  );
+  // A finished list stays a day, then the sidebar shows its empty state (null).
+  const tasks = useScheduleTasks(householdId, dueTasks);
   // The Coverage view: every day in the loaded months that involves childcare
   // cover, and where it stands. Not coverageNeeds: that list is today-forward
   // and drops any day already asked about (it drives "Ask for more days"), so
@@ -640,12 +658,13 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: t.bg,
+        // The glass panels need something coloured behind them to frost.
+        background: "var(--glass-ambient)",
         color: t.text,
       }}
     >
       <TopBar />
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px 1fr 320px" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "240px 1fr 320px", gap: 10, padding: 10 }}>
       <Sidebar
         palette={palette}
         t={t}
@@ -665,6 +684,10 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         onOpenCoverageRequests={() => setCoverageRequestsOpen(true)}
         onOpenChildcare={() => setChildcareOpen(true)}
         pendingCoverageCount={pendingCoverageCount}
+        householdId={householdId}
+        events={state?.events ?? []}
+        tasks={tasks}
+        onReconcileGaps={() => setCoverageModalOpen(true)}
         viewFilter={viewFilter}
         viewCounts={viewCounts}
         onSetViewFilter={setViewFilter}
@@ -833,14 +856,11 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         <ScheduleImportModal
           scheduleId={importScheduleId}
           onClose={() => setImportScheduleId(null)}
-          onNeedApiKey={() => setApiKeyOpen(true)}
           palette={palette}
           t={t}
           dark={dark}
           householdId={householdId}
           state={state}
-          today={today}
-          contextMonth={`${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`}
         />
       </ModalPresence>
       <ModalPresence open={apiKeyOpen}>

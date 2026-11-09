@@ -8062,6 +8062,10 @@ async function _confirmParseImport() {
   }
 
   const whoName = _eventWhoMeta(person).name;
+  const importId = "imp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // The last day this upload has a shift: where the Mac calendar plants its
+  // end-of-schedule flag. rows is the whole reviewed schedule, not just changes.
+  const lastShiftDate = rows.map(r => r.date).sort().pop() || null;
 
   if (person === "G") {
     // Gage's own imports go in directly — he's the reviewer.
@@ -8069,6 +8073,19 @@ async function _confirmParseImport() {
     for (const s of rows) {
       state.overrides = state.overrides.filter(o => o.date !== s.date);
       state.overrides.push({ date: s.date, action: "work", shiftTypeId: s.shiftTypeId, label: s.label || "" });
+    }
+    // There's no request to review, so keep a small record of the upload (the
+    // shape the Mac writes) so the calendar can mark where this schedule ends.
+    if (rows.length) {
+      if (!Array.isArray(state.imports)) state.imports = [];
+      state.imports.push({
+        id: importId,
+        scheduleId: "gage-nights",
+        importedAt: Date.now(),
+        addedDates: rows.map(r => r.date),
+        noteCount: rows.length,
+        lastShiftDate,
+      });
     }
     saveState();
     renderCalendar();
@@ -8078,7 +8095,6 @@ async function _confirmParseImport() {
   }
 
   // Kaylene / Daisy: land as PENDING for manager review, tagged with importId.
-  const importId = "imp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   if (person === "K") {
     if (!state.partner) state.partner = { name: "Kaylene", shifts: [] };
     if (!Array.isArray(state.partner.shifts)) state.partner.shifts = [];
@@ -8111,6 +8127,7 @@ async function _confirmParseImport() {
     status: "pending",
     days: rows.map(r => ({ date: r.date, shiftTypeId: r.shiftTypeId, label: r.label || "" })),
     onCallDates,
+    lastShiftDate,
     // Shift types auto-created for this import — cleaned up on reject if unused.
     newTypeIds: Object.values(tempToReal),
   });
@@ -8349,7 +8366,19 @@ function approveImport(id) {
   clear(state.partner && state.partner.shifts);
   clear(state.partner && state.partner.onCall);
   clear(state.dependents && state.dependents.daisy && state.dependents.daisy.shifts);
-  state.imports = (state.imports || []).filter(im => im.id !== id);
+  // Approved: drop the photo and the day-by-day list, but keep a small record of
+  // the upload (the shape the Mac writes) so the Mac calendar can still mark
+  // where this schedule ended. Reject, below, removes the record outright.
+  const days = (imp.days || []).map(d => d.date).filter(Boolean).sort();
+  const kept = {
+    id: imp.id,
+    scheduleId: imp.person === "K" ? "kaylene-nights" : "daisy-school",
+    importedAt: imp.createdAt || Date.now(),
+    addedDates: days,
+    noteCount: days.length,
+    lastShiftDate: imp.lastShiftDate || days[days.length - 1] || null,
+  };
+  state.imports = (state.imports || []).map(im => im.id === id ? kept : im);
   saveState();
   renderCalendar();
   if (typeof renderPartnerShifts === "function") renderPartnerShifts();
@@ -9861,9 +9890,12 @@ function leaveByHTML(dISO, who, startTime, withName) {
   if (!c || c.shiftStart !== startTime) return "";
   const who_ = withName ? `${_eventWhoMeta(who).name}: ` : "";
   const leave = withName ? "leave" : "Leave";
-  // The household's usual window (moved earlier for traffic), then the latest.
-  const when = c.windowFrom && c.windowTo
-    ? `${leave} ${compactTime(c.windowFrom)}–${compactTime(c.windowTo)} · latest ${compactTime(c.leaveBy)}`
+  // "Leave by 2p to 2:33p": the earliest of the usual window (moved earlier for
+  // traffic) to the latest that still makes it. Just the latest when no window is left.
+  const mins = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+  const span = c.windowFrom ? (mins(c.leaveBy) - mins(c.windowFrom) + 1440) % 1440 : 0;
+  const when = span > 0 && span < 720
+    ? `${leave} by ${compactTime(c.windowFrom)} to ${compactTime(c.leaveBy)}`
     : `${leave} by ${compactTime(c.leaveBy)}`;
   const text = `${who_}${c.heavy && c.earlierMin ? `Traffic: ${c.earlierMin} min earlier · ` : ""}${when} · ${c.durationMin} min drive`;
   return `<div class="leave-by${c.heavy ? " heavy" : ""}">${escapeHTML(text)}</div>`;
