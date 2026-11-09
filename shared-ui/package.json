@@ -1,0 +1,17 @@
+{
+  "name": "@nucleus/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "UI primitives and pure helpers shared by Nucleus Manager (desktop/) and Nucleus Wagonwheel (wagonwheel/). Source only: no build step, no node_modules.",
+  "peerDependencies": {
+    "@radix-ui/react-slot": "*",
+    "@radix-ui/react-tooltip": "*",
+    "class-variance-authority": "*",
+    "clsx": "*",
+    "lucide-react": "*",
+    "motion": "*",
+    "radix-ui": "*",
+    "react": "*",
+    "tailwind-merge": "*"
+  }
+}
