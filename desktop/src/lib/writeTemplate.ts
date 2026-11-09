@@ -1,5 +1,3 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { HouseholdState, PersonWeeklyTemplate } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";
 

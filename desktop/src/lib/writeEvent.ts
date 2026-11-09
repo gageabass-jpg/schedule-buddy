@@ -1,5 +1,3 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { Event, EventWho, HouseholdState } from "../state";
 import { generateEventId, generateSeriesId } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";

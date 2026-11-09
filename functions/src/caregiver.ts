@@ -5,7 +5,8 @@
 //     caregiver sees actually changed; the desktop saves state/main often).
 //   caregiverAction — the only way a caregiver changes anything: answer a
 //     request, resolve a proposed change, add an event or a block. Checks the
-//     caller is a member of the household, then applies the one change in a
+//     caller is a member of the household and, to answer or resolve a request,
+//     that it is addressed to them (caregiverLogic.ts), then applies the one change in a
 //     transaction (update, not set: nothing else in state/main is touched).
 //     `sync` rebuilds the view on demand, for a household whose view doesn't
 //     exist yet.
@@ -15,7 +16,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions";
-import { applyCaregiverAction, buildCaregiverView, CaregiverInputError } from "./caregiverLogic";
+import { applyCaregiverAction, buildCaregiverView, CaregiverForbiddenError, CaregiverInputError } from "./caregiverLogic";
 import { editHouseholdState, readHouseholdState } from "./householdState";
 
 const viewRef = (householdId: string) =>
@@ -36,15 +37,6 @@ export const mirrorCaregiverView = onDocumentWritten(
     await viewRef(householdId).set(next);
   },
 );
-
-/** Rewrite the caregiver's view from `state` if what it shows has changed. */
-export async function refreshCaregiverView(householdId: string, state: Record<string, unknown> | null): Promise<void> {
-  const ref = viewRef(householdId);
-  const next = buildCaregiverView(state ?? undefined);
-  const cur = (await ref.get()).data();
-  if (cur && JSON.stringify(cur) === JSON.stringify(next)) return;
-  await ref.set(next);
-}
 
 interface CaregiverActionRequest {
   householdId?: string;
@@ -88,6 +80,7 @@ export const caregiverAction = onCall<CaregiverActionRequest, Promise<{ ok: true
         return { result: null, next: { ...fresh, ...patch } };
       });
     } catch (e) {
+      if (e instanceof CaregiverForbiddenError) throw new HttpsError("permission-denied", e.message);
       if (e instanceof CaregiverInputError) throw new HttpsError("invalid-argument", e.message);
       logger.error("caregiverAction failed", { householdId, action: request.data.action, error: String(e) });
       throw new HttpsError("internal", "Couldn't save that. Try again.");

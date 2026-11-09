@@ -16,8 +16,7 @@
 //
 // Used by the Cleaner modal's "Rewrite" utility.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { buildShiftMap, generateCoverageId } from "../state";
 import type { CoverageChangeProposal, CoverageRequest, HouseholdState } from "../state";
 import { computeOverlapCandidates, type OverlapReason } from "./computeOverlap";

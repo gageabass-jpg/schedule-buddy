@@ -1,5 +1,4 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type { CoverageRequest, CoverageStatus, HouseholdState } from "../state";
 import { generateCoverageId } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";

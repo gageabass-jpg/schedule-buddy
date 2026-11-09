@@ -9,7 +9,7 @@
 // Firestore rule: publicShares/{token} is world-readable BY TOKEN; write/delete
 // gated to the authenticated owner (ownerUid == request.auth.uid).
 
-import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { buildShiftMap, type HouseholdState, type ShiftType } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";

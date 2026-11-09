@@ -1,6 +1,4 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import type { HouseholdState, PaydaySchedule } from "../state";
+import type { PaydaySchedule } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";
 
 export class PaydayError extends Error {

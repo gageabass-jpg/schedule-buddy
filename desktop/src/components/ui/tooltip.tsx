@@ -75,7 +75,7 @@ const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   TooltipContentProps
 >(({ className, variant, size, sideOffset = 4, collisionPadding = 8, ...props }, ref) => {
-  const [isVisible, setIsVisible] = React.useState(false);
+  const [, setIsVisible] = React.useState(false);
 
   return (
     <TooltipPrimitive.Portal>

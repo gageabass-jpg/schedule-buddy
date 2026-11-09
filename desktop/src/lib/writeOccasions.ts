@@ -6,8 +6,6 @@
 // drives the match. Suits birthdays (every Aug 12) and fixed holidays
 // (Dec 25). One-off occasions (e.g., a specific trip) use annual=false.
 
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import type { HouseholdState, OccasionEntry, OccasionType } from "../state";
 import { readHouseholdState, writeHouseholdState } from "./householdState";
 

@@ -3,7 +3,7 @@ import { getPalette, themeTokens, type PaletteName } from "./theme";
 import { fmtDate, DEMO_SHIFTS, dayKindFromShifts, type ShiftMap, type Shift } from "./data";
 
 export type ViewFilter = "all" | "this-week" | "g" | "k" | "coverage";
-export type CalLayout = "day" | "week" | "month" | "agenda";
+export type CalLayout = "day" | "week" | "month" | "timeline" | "agenda";
 export type ThemePref = "system" | "light" | "dark";
 
 const THEME_PREF_KEY = "sbm.theme";
@@ -191,6 +191,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   const [importScheduleId, setImportScheduleId] = useState<string | null>(null);
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [calLayout, setCalLayout] = useState<CalLayout>("month");
+  /** Days on screen in the timeline — sizes the ‹ › step. A ref: nothing renders from it. */
+  const timelineSpanDays = useRef(7);
+  const timelineStep = () => Math.max(1, Math.round(timelineSpanDays.current * 0.75));
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [scheduleBlockOpen, setScheduleBlockOpen] = useState(false);
   const [eventEditTarget, setEventEditTarget] = useState<SbEvent | null>(null);
@@ -342,6 +345,15 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // Kaylene's stretches (runs of consecutive days she works), for the fire
   // mark. Built two weeks wider than the shift window so a run crossing its
   // edge still counts every day ("3/4", not "1/2").
+  // The popover can open on any date the timeline pans to, far outside the
+  // month the stretches above are built for, so it gets its own window.
+  const shiftDetailStretch = useMemo(() => {
+    if (!state || !shiftDetail || shiftDetail.shift.who !== "K") return undefined;
+    const [y, m, d] = shiftDetail.date.split("-").map(Number);
+    const iso = (dt: Date) => fmtDate(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    return stretchesFor(buildShiftMap(state, iso(new Date(y, m - 1, d - 14)), iso(new Date(y, m - 1, d + 14))), "K").get(shiftDetail.date);
+  }, [state, shiftDetail]);
+
   const kStretches = useMemo(() => {
     if (!state) return stretchesFor(DEMO_SHIFTS, "K");
     const iso = (d: Date) => fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
@@ -419,6 +431,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
       case "day":
         shiftSelectedBy(-1);
         break;
+      case "timeline":
+        shiftSelectedBy(-timelineStep());
+        break;
     }
   };
   const handleNext = () => {
@@ -434,6 +449,9 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         break;
       case "day":
         shiftSelectedBy(1);
+        break;
+      case "timeline":
+        shiftSelectedBy(timelineStep());
         break;
     }
   };
@@ -551,6 +569,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
   // being LATE keeps it on screen instead of it vanishing with its Friday.
   // `today` is an explicit dependency so the count can't outlive the day it
   // was computed on — and so this and the modal always resolve the same date.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the compiler skips this component; the explicit memo keeps the dependency stable
   const coverageNeeds = useMemo(() => pendingCoverageNeeds(state, today), [state, today]);
   const coverageNeedsSig = coverageNeedsSignature(coverageNeeds);
   // The sidebar's end-of-period to-dos: upload each person's next schedule, then
@@ -737,6 +756,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
         onOpenDayDetail={(date, anchor) => { setShiftDetail(null); setDayDetail({ date, anchor }); }}
         calLayout={calLayout}
         onSetCalLayout={setCalLayout}
+        onTimelineSpan={(days) => { timelineSpanDays.current = days; }}
         eventsByDate={eventsByDate}
         onEditEvent={(ev) => { setEventEditTarget(ev); setEventModalOpen(true); }}
         onOpenAskClaude={() => openAsk()}
@@ -1030,6 +1050,7 @@ function ManagerApp({ dark, themePref, onSetThemePref, onReady }: ManagerAppProp
             selfName={selfName}
             partnerName={partnerName}
             isCoverageGap={coverageNeeds.some((c) => c.date === shiftDetail.date)}
+            stretch={shiftDetailStretch}
             onAsk={() => { const target = shiftDetail; setShiftDetail(null); openAsk(shiftAskContext(target.date, target.shift)); }}
             onEdit={() => { const target = shiftDetail; setShiftDetail(null); handleEditShift(target.date, target.shift); }}
             onHandOff={() => {

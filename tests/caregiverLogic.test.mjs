@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import logic from "../functions/lib/caregiverLogic.js";
 
-const { applyCaregiverAction, buildCaregiverView, CaregiverInputError } = logic;
+const { applyCaregiverAction, buildCaregiverView, CaregiverInputError, CaregiverForbiddenError } = logic;
 
 const ctx = { uid: "daisy", nowIso: "2026-09-29T12:00:00.000Z", nowMs: 1790683200000, newId: "ev_test" };
 
@@ -127,4 +127,36 @@ test("anything else is refused", () => {
   for (const input of [null, {}, { action: "setPaydays" }, { action: "deleteEvent", id: "e1" }]) {
     assert.throws(() => applyCaregiverAction(state(), input, ctx), CaregiverInputError);
   }
+});
+
+// ── Whose request is it ─────────────────────────────────────────────────────
+
+const addressed = (extra) => {
+  const s = state();
+  s.coverageRequests[0] = { ...s.coverageRequests[0], ...extra };
+  s.coverageRequests[1] = { ...s.coverageRequests[1], ...extra };
+  return s;
+};
+
+test("a request that names nobody is still the household's single caregiver's to answer", () => {
+  const s = state();
+  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "confirmed" }, ctx));
+  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "resolveChange", id: "r2", approve: true }, ctx));
+});
+
+test("a caregiver can't answer or resolve a request another caregiver already took", () => {
+  const s = addressed({ caregiverUid: "someoneElse" });
+  assert.throws(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "declined", note: "no" }, ctx), CaregiverForbiddenError);
+  assert.throws(() => applyCaregiverAction(s, { action: "resolveChange", id: "r2", approve: true }, ctx), CaregiverForbiddenError);
+});
+
+test("the caregiver whose request it is can change their own answer", () => {
+  const s = addressed({ caregiverUid: "daisy" });
+  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "respond", id: "r1", status: "declined", note: "sick" }, ctx));
+});
+
+test("adding an event or a block isn't tied to a request", () => {
+  const s = addressed({ caregiverUid: "someoneElse" });
+  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "addEvent", date: "2026-10-09", title: "Dentist", who: "Daisy" }, ctx));
+  assert.doesNotThrow(() => applyCaregiverAction(s, { action: "addBlock", date: "2026-10-10", label: "Away" }, ctx));
 });

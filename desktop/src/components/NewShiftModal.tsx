@@ -10,7 +10,6 @@ import { useHouseholdLook } from "../lib/householdLook";
 // Nucleus palette literals used where the board calls for exact values
 // (independent of the person-hue tokens on `palette`).
 const TEAL = "#0F6E64";       // primary / selection
-const CLAY = "#8A4B38";       // attention / error text
 
 type RepeatMode = "none" | "weekly" | "biweekly" | "custom";
 

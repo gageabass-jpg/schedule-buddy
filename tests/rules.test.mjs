@@ -228,3 +228,127 @@ describe("linked inboxes (weekly email scan)", () => {
     await assertFails(getDocs(collection(as("gage"), "gmailLinkRequests")));
   });
 });
+
+describe("public shares", () => {
+  const TOKEN = "tok1";
+  const share = (ownerUid, extra = {}) => ({ v: 1, ownerUid, householdId: HH, householdName: "Home", days: [], ...extra });
+  const seedShare = (data) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), "publicShares", TOKEN), data));
+  const ref = (uid) => doc(as(uid), "publicShares", TOKEN);
+
+  test("anyone can read a share by its token, signed in or not", async () => {
+    await seedShare(share("gage"));
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), "publicShares", TOKEN)));
+  });
+
+  test("an admin or partner publishes their household's share", async () => {
+    await assertSucceeds(setDoc(ref("gage"), share("gage")));
+    await assertSucceeds(setDoc(doc(as("kaylene"), "publicShares", "tok2"), share("kaylene")));
+  });
+
+  test("a caregiver, a stranger, or a wrong uid can't create one", async () => {
+    await assertFails(setDoc(ref("daisy"), share("daisy")));                         // supporting
+    await assertFails(setDoc(ref("stranger"), share("stranger")));                   // not a member
+    await assertFails(setDoc(ref("kaylene"), share("gage")));                        // someone else's uid
+    await assertFails(setDoc(ref("gage"), share("gage", { householdId: OTHER_HH }))); // not theirs
+    await assertFails(setDoc(ref("gage"), { v: 1, ownerUid: "gage" }));              // names no household
+  });
+
+  test("a stranger can't overwrite or delete someone else's share", async () => {
+    await seedShare(share("gage"));
+    await assertFails(setDoc(ref("stranger"), share("stranger", { householdName: "Fake schedule" })));
+    await assertFails(setDoc(ref("stranger"), share("stranger", { householdId: OTHER_HH })));
+    await assertFails(setDoc(ref("other"), share("other", { householdId: OTHER_HH })));  // another household's admin
+    await assertFails(deleteDoc(ref("stranger")));
+    await assertFails(deleteDoc(ref("other")));
+  });
+
+  test("a caregiver can't overwrite or delete the share either", async () => {
+    await seedShare(share("gage"));
+    await assertFails(setDoc(ref("daisy"), share("daisy")));
+    await assertFails(deleteDoc(ref("daisy")));
+  });
+
+  test("the partner republishes over the admin's share, and the admin over the partner's", async () => {
+    await seedShare(share("gage"));
+    await assertSucceeds(setDoc(ref("kaylene"), share("kaylene", { days: [{ date: "2026-10-09" }] })));
+    await assertSucceeds(setDoc(ref("gage"), share("gage")));
+  });
+
+  test("the owner can update and delete; so can the household's admin and partner", async () => {
+    await seedShare(share("kaylene"));
+    await assertSucceeds(setDoc(ref("kaylene"), share("kaylene", { householdName: "Edited" })));
+    await assertSucceeds(deleteDoc(ref("gage")));          // admin removes a partner-owned share
+    await seedShare(share("gage"));
+    await assertSucceeds(deleteDoc(ref("kaylene")));       // partner removes an admin-owned share
+  });
+
+  test("a share can't be moved to another household", async () => {
+    await seedShare(share("gage"));
+    await assertFails(setDoc(ref("gage"), share("gage", { householdId: OTHER_HH })));
+  });
+
+  test("the old owner keeps control after leaving the household", async () => {
+    await seedShare(share("former", { householdId: HH }));
+    await assertSucceeds(setDoc(ref("former"), share("former", { householdName: "Edited" })));
+    await assertSucceeds(deleteDoc(ref("former")));
+  });
+
+  test("a share from before householdId was stamped can be republished by its owner", async () => {
+    await seedShare({ v: 1, ownerUid: "gage", householdName: "Old" });
+    await assertSucceeds(setDoc(ref("gage"), share("gage")));
+  });
+});
+
+describe("household meta docs", () => {
+  const meta = (uid, id) => doc(as(uid), "households", HH, "meta", id);
+  beforeEach(() => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "households", HH, "meta", "cadence"), { dueCycle: "2026-10-30" });
+    await setDoc(doc(db, "households", HH, "meta", "piCommand"), { nonce: "n1", command: "scene" });
+  }));
+
+  test("admin and partner read and write the cadence flags", async () => {
+    for (const uid of ["gage", "kaylene"]) {
+      await assertSucceeds(getDoc(meta(uid, "cadence")));
+      await assertSucceeds(setDoc(meta(uid, "cadence"), { ackCoverage: "2026-10-12" }, { merge: true }));
+    }
+  });
+
+  test("a caregiver can't write any of them, the wall remote included", async () => {
+    await assertFails(setDoc(meta("daisy", "cadence"), { ackCoverage: "x" }, { merge: true }));
+    await assertFails(setDoc(meta("daisy", "piCommand"), { nonce: "n2", command: "reboot" }));
+    await assertFails(setDoc(meta("daisy", "nowPlaying"), { title: "x" }));
+    await assertFails(deleteDoc(meta("daisy", "piCommand")));
+  });
+
+  test("a caregiver doesn't read them either", async () => {
+    await assertFails(getDoc(meta("daisy", "cadence")));
+    await assertFails(getDoc(meta("daisy", "piCommand")));
+  });
+
+  test("the wall remote and now-playing are the functions' alone: no client writes them", async () => {
+    for (const uid of ["gage", "kaylene"]) {
+      await assertFails(setDoc(meta(uid, "piCommand"), { nonce: "n2", command: "reboot" }));
+      await assertFails(setDoc(meta(uid, "nowPlaying"), { title: "x" }));
+      await assertFails(setDoc(meta(uid, "anythingElse"), { x: 1 }));
+    }
+  });
+
+  test("a stranger reads and writes nothing", async () => {
+    await assertFails(getDoc(meta("stranger", "cadence")));
+    await assertFails(setDoc(meta("stranger", "cadence"), { ackCoverage: "x" }, { merge: true }));
+    await assertFails(setDoc(meta("other", "cadence"), { ackCoverage: "x" }, { merge: true }));  // another household's admin
+  });
+});
+
+describe("the caregiver view", () => {
+  const view = (uid) => doc(as(uid), "households", HH, "caregiverView", "main");
+  beforeEach(() => env.withSecurityRulesDisabled((ctx) =>
+    setDoc(doc(ctx.firestore(), "households", HH, "caregiverView", "main"), { coverageRequests: [{ id: "r1" }] })));
+
+  test("every member reads it and nobody writes it", async () => {
+    for (const uid of ["gage", "kaylene", "daisy"]) await assertSucceeds(getDoc(view(uid)));
+    await assertFails(setDoc(view("gage"), { coverageRequests: [] }));
+    await assertFails(getDoc(view("stranger")));
+  });
+});

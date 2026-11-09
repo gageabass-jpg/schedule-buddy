@@ -232,7 +232,7 @@ export function parentDayRanges(
  *  6am–midnight axis. */
 export interface DaySegments { work: MinuteRange[]; sleep: MinuteRange[]; }
 
-function shiftSegmentsFor(
+export function shiftSegmentsFor(
   shiftTypeId: string | undefined,
   state: HouseholdState,
   offsetMin: number,

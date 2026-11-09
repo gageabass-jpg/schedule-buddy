@@ -31,9 +31,6 @@ import { subscribeCommuteConfig, setCommuteHome, setCommuteWork, setCommuteCushi
 const PIPER_LOCKE_URL = "https://www.piperlocke.studio/";
 
 // ── Brand tokens used only inside this console ──────────────────────────────
-const TEAL_TINT = "#D8E7E4";
-const CLAY = "#8A4B38";
-const CLAY_TINT = "#EFDFDB";
 const APP_VERSION = "0.1.0";
 
 const API_KEYS_URL = "https://console.anthropic.com/settings/keys";

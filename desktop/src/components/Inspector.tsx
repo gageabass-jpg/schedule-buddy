@@ -6,7 +6,7 @@ import { personColor, rgba, BRAND_FONT, type Palette, type ThemeTokens } from ".
 import { BrandMark } from "./BrandMark";
 import { blockForDate } from "../lib/writeScheduleBlock";
 import {
-  computeOverlapCandidates, parentDayRanges, parentDaySegments,
+  computeOverlapCandidates, parentDayRanges,
   hmToMin, MIN_WINDOW_MIN, TIMELINE_START_MIN, TIMELINE_SPAN_MIN, type MinuteRange,
 } from "../lib/computeOverlap";
 import type { WvuGame } from "../lib/wvuSchedule";
