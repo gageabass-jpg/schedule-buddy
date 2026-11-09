@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   DEFAULT_WORKSPACE_NAME, SETTING_WORKSPACE_NAME,
   type Change, type MilestoneInput, type MilestonePatch, type NoteInput, type ProjectInput, type ProjectPatch,
@@ -36,8 +36,12 @@ interface DataValue {
   workspaceName: string;
   /** Today's date; it moves on at midnight. */
   today: string;
+  /** The time, refreshed every 30 seconds. Views read this instead of calling Date.now() while they draw. */
+  now: number;
   act: Actions;
   attempt<T>(fn: () => Promise<T>): Promise<T | undefined>;
+  /** Like attempt, for a change that returns nothing: true if it went through, false if it was refused (and a toast said why). */
+  attemptOk(fn: () => Promise<unknown>): Promise<boolean>;
   reload(): Promise<void>;
   /** Replace the snapshot, for a restore. */
   adopt(snapshot: Snapshot): void;
@@ -46,11 +50,41 @@ interface DataValue {
 
 const Ctx = createContext<DataValue | null>(null);
 
+/** The actions, bound to the store's setter. Each one asks the main process to change SQLite,
+ *  then takes the new workspace it sends back. */
+function makeActions(setSnapshot: Dispatch<SetStateAction<Snapshot>>): Actions {
+  const keepId = async (p: Promise<Change>): Promise<string> => {
+    const c = await p;
+    setSnapshot(c.snapshot);
+    return c.id;
+  };
+  const keep = async (p: Promise<Change | Snapshot>): Promise<void> => {
+    const r = await p;
+    setSnapshot("snapshot" in r ? r.snapshot : r);
+  };
+  return {
+    createProject: (i) => keepId(bridge().createProject(i)),
+    updateProject: (id, p) => keep(bridge().updateProject(id, p)),
+    deleteProject: (id) => keep(bridge().deleteProject(id)),
+    createTask: (i) => keepId(bridge().createTask(i)),
+    updateTask: (id, p) => keep(bridge().updateTask(id, p)),
+    deleteTask: (id) => keep(bridge().deleteTask(id)),
+    createMilestone: (i) => keepId(bridge().createMilestone(i)),
+    updateMilestone: (id, p) => keep(bridge().updateMilestone(id, p)),
+    deleteMilestone: (id) => keep(bridge().deleteMilestone(id)),
+    createNote: (i) => keepId(bridge().createNote(i)),
+    updateNote: (id, b) => keep(bridge().updateNote(id, b)),
+    deleteNote: (id) => keep(bridge().deleteNote(id)),
+    renameWorkspace: (name) => keep(bridge().setSetting(SETTING_WORKSPACE_NAME, name)),
+  };
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
   const [status, setStatus] = useState<DataValue["status"]>("loading");
   const [error, setError] = useState<string | null>(null);
   const [today, setToday] = useState(() => todayIso());
+  const [now, setNow] = useState(() => Date.now());
 
   const reload = useCallback(async () => {
     try {
@@ -67,37 +101,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // The date changes while the app is open overnight.
   useEffect(() => {
-    const id = window.setInterval(() => setToday((t) => { const n = todayIso(); return n === t ? t : n; }), 30_000);
+    const id = window.setInterval(() => {
+      setToday((t) => { const n = todayIso(); return n === t ? t : n; });
+      setNow(Date.now());
+    }, 30_000);
     return () => window.clearInterval(id);
   }, []);
 
-  const actions = useRef<Actions | null>(null);
-  if (!actions.current) {
-    const keepId = async (p: Promise<Change>): Promise<string> => {
-      const c = await p;
-      setSnapshot(c.snapshot);
-      return c.id;
-    };
-    const keep = async (p: Promise<Change | Snapshot>): Promise<void> => {
-      const r = await p;
-      setSnapshot("snapshot" in r ? r.snapshot : r);
-    };
-    actions.current = {
-      createProject: (i) => keepId(bridge().createProject(i)),
-      updateProject: (id, p) => keep(bridge().updateProject(id, p)),
-      deleteProject: (id) => keep(bridge().deleteProject(id)),
-      createTask: (i) => keepId(bridge().createTask(i)),
-      updateTask: (id, p) => keep(bridge().updateTask(id, p)),
-      deleteTask: (id) => keep(bridge().deleteTask(id)),
-      createMilestone: (i) => keepId(bridge().createMilestone(i)),
-      updateMilestone: (id, p) => keep(bridge().updateMilestone(id, p)),
-      deleteMilestone: (id) => keep(bridge().deleteMilestone(id)),
-      createNote: (i) => keepId(bridge().createNote(i)),
-      updateNote: (id, b) => keep(bridge().updateNote(id, b)),
-      deleteNote: (id) => keep(bridge().deleteNote(id)),
-      renameWorkspace: (name) => keep(bridge().setSetting(SETTING_WORKSPACE_NAME, name)),
-    };
-  }
+  // setSnapshot never changes, so the actions are made once.
+  const act = useMemo(() => makeActions(setSnapshot), []);
 
   const attempt = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
     try {
@@ -105,6 +117,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       notify(messageOf(err), { ttl: 8000 });
       return undefined;
+    }
+  }, []);
+
+  const attemptOk = useCallback(async (fn: () => Promise<unknown>): Promise<boolean> => {
+    try {
+      await fn();
+      return true;
+    } catch (err) {
+      notify(messageOf(err), { ttl: 8000 });
+      return false;
     }
   }, []);
 
@@ -121,9 +143,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<DataValue>(() => ({
     status, error, snapshot, today,
     workspaceName: snapshot.settings[SETTING_WORKSPACE_NAME] || DEFAULT_WORKSPACE_NAME,
-    act: actions.current as Actions,
-    attempt, reload, adopt: setSnapshot, startFresh,
-  }), [status, error, snapshot, today, attempt, reload, startFresh]);
+    act, now,
+    attempt, attemptOk, reload, adopt: setSnapshot, startFresh,
+  }), [status, error, snapshot, today, now, act, attempt, attemptOk, reload, startFresh]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -15,7 +15,7 @@ export function csvCell(value: unknown): string {
 function csv(header: string[], rows: unknown[][]): string {
   const lines = [header, ...rows].map((r) => r.map(csvCell).join(","));
   // The BOM makes Excel read the file as UTF-8. CRLF is what RFC 4180 asks for.
-  return `﻿${lines.join("\r\n")}\r\n`;
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
 
 export function buildCsvFiles(s: Snapshot): Record<string, string> {

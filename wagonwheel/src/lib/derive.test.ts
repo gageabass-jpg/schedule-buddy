@@ -110,29 +110,34 @@ describe("ordering", () => {
 });
 
 describe("dashboard", () => {
-  it("separates overdue, due soon, milestones and attention without repeating a task", () => {
+  it("separates overdue, due soon and milestones, and shows in Needs attention only what the others do not", () => {
     const p = project({ updatedAt: 50 });
     const q = project({ updatedAt: 90 });
     const done = project({ status: "completed", updatedAt: 99 });
     const overdue = task({ projectId: p.id, dueDate: "2026-11-02", priority: "high" });
     const soon = task({ projectId: p.id, dueDate: "2026-11-11" });
-    const hot = task({ projectId: p.id, dueDate: "2026-11-13", priority: "high" });
+    const hot = task({ projectId: p.id, dueDate: "2026-11-13", priority: "high" });       // due soon: not repeated in attention
     const far = task({ projectId: p.id, dueDate: "2027-03-01" });
+    const urgentNoDate = task({ projectId: p.id, priority: "high" });                     // nothing will remind you
     const stale = task({ projectId: q.id, status: "in_progress", updatedAt: NOW - 9 * DAY });
+    const staleAndLate = task({ projectId: q.id, status: "in_progress", dueDate: "2026-11-01", updatedAt: NOW - 20 * DAY });   // overdue: not repeated
     const fine = task({ projectId: q.id, status: "in_progress", updatedAt: NOW - 1 * DAY });
     const finished = task({ projectId: q.id, status: "done", dueDate: "2026-11-01" });
     const s = snap({
       projects: [p, q, done],
-      tasks: [overdue, soon, hot, far, stale, fine, finished],
+      tasks: [overdue, soon, hot, far, urgentNoDate, stale, staleAndLate, fine, finished],
       milestones: [milestone({ projectId: p.id, targetDate: "2026-11-15" }), milestone({ projectId: p.id, targetDate: "2026-11-12" }), milestone({ projectId: p.id, completedAt: 1 })],
     });
     const d = dashboard(s, TODAY, NOW);
-    expect(d.openTasks).toBe(6);
-    expect(d.overdue.map((t) => t.id)).toEqual([overdue.id]);
+    expect(d.openTasks).toBe(8);
+    expect(d.overdue.map((t) => t.id).sort()).toEqual([overdue.id, staleAndLate.id].sort());
     expect(d.dueSoon.map((t) => t.id)).toEqual([soon.id, hot.id]);
-    expect(d.attention.map((a) => a.task.id).sort()).toEqual([hot.id, stale.id].sort());
+    expect(d.attention.map((a) => a.task.id).sort()).toEqual([urgentNoDate.id, stale.id].sort());
     expect(d.attention.find((a) => a.task.id === stale.id)!.reason).toBe("In progress · untouched 9 days");
-    expect(d.attention.find((a) => a.task.id === hot.id)!.reason).toBe("High priority · due in 4 days");
+    expect(d.attention.find((a) => a.task.id === urgentNoDate.id)!.reason).toBe("High priority · no due date");
+    // No task appears in two of the three lists.
+    const ids = [...d.overdue, ...d.dueSoon, ...d.attention.map((a) => a.task)].map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
     expect(d.milestones.map((m) => m.targetDate)).toEqual(["2026-11-12", "2026-11-15"]);
     expect(d.activeProjects.map((x) => x.id)).toEqual([q.id, p.id]);   // newest activity first; the completed one is not active
     expect(d.recent[0].id).toBe(done.id);
