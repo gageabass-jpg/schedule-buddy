@@ -1,0 +1,162 @@
+/*
+ * Nucleus Wagonwheel: red Apple-glass theme.
+ *
+ * One file holds every colour. Components use the Tailwind names below
+ * (bg-primary, text-muted-foreground, border-border…) or the --ww-* tokens.
+ * The shared primitives in ../shared-ui read the shadcn names, so they come out
+ * red with no edits.
+ *
+ * Contrast (WCAG, measured): warm white 15.5:1 on a card, soft grey 8.5:1,
+ * dim grey 5.3:1. Raw crimson #C62845 is only 3.2:1 on a card, so it is a FILL
+ * (white text on it is 5.5:1) and never text. Red text is --ww-crimson-text.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+/* The shared primitives live outside this folder, so Tailwind must be told to read them. */
+@source "../../../shared-ui/src";
+@import "./glass.css";
+
+:root {
+  color-scheme: dark;
+
+  /* Ground */
+  --ww-bg: #130f13;
+  --ww-bg-deep: #0e0a0d;
+
+  /* Reds */
+  --ww-crimson: #c62845;
+  --ww-crimson-hi: #d8344f;
+  --ww-crimson-lo: #b31f3c;
+  --ww-deep: #8f1834;
+  --ww-burgundy: #4b1426;
+  --ww-rose: #d98b9b;
+  --ww-crimson-text: #f0728a;   /* red as text or a thin line on dark */
+
+  /* Text */
+  --ww-text: #f5f0f1;
+  --ww-text-2: #bfb1b6;
+  --ww-text-3: #9a8a90;
+
+  /* Meaning */
+  --ww-ok: #6cc49a;
+  --ww-warn: #e6ae5c;
+  --ww-danger: #ff8e72;         /* overdue: coral, so it never reads as the brand red */
+
+  /* Glass layers */
+  --ww-glass: rgba(33, 23, 29, 0.58);
+  --ww-glass-card: rgba(255, 255, 255, 0.045);
+  --ww-glass-card-hover: rgba(255, 255, 255, 0.08);
+  --ww-glass-inset: rgba(0, 0, 0, 0.26);
+  --ww-line: rgba(255, 255, 255, 0.09);
+  --ww-line-strong: rgba(255, 255, 255, 0.17);
+  --ww-highlight: rgba(255, 255, 255, 0.08);
+
+  /* shadcn names → Wagonwheel */
+  --background: #130f13;
+  --foreground: #f5f0f1;
+  --card: #21171d;
+  --card-foreground: #f5f0f1;
+  --popover: #2a1d24;
+  --popover-foreground: #f5f0f1;
+  --primary: #c62845;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.07);
+  --secondary-foreground: #f5f0f1;
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: #bfb1b6;
+  --accent: rgba(198, 40, 69, 0.2);
+  --accent-foreground: #f4b1be;
+  --destructive: #b3243d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.13);
+  --ring: #d98b9b;
+  --radius: 10px;
+}
+
+@theme inline {
+  --font-sans: "Source Sans 3 Variable", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Sora Variable", "Helvetica Neue", Arial, -apple-system, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-crimson: var(--ww-crimson);
+  --color-crimson-text: var(--ww-crimson-text);
+  --color-rose: var(--ww-rose);
+  --color-ok: var(--ww-ok);
+  --color-warn: var(--ww-warn);
+  --color-danger: var(--ww-danger);
+  --color-ink-2: var(--ww-text-2);
+  --color-ink-3: var(--ww-text-3);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-ele: calc(var(--radius) - 2px);
+
+  /* The enhanced button's shine, kept so every shared variant still works. */
+  --animate-shine: shine 3s ease-out infinite;
+  @keyframes shine {
+    0% { background-position: 200% 0; }
+    25% { background-position: -200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+@layer base {
+  * { border-color: var(--border); }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--ww-bg);
+    color: var(--ww-text);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button { font-family: inherit; cursor: default; }
+  input, select, textarea { font-family: inherit; }
+  ::selection { background: rgba(198, 40, 69, 0.55); color: #fff; }
+
+  /* Mac-style overlay scrollbars. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); background-clip: padding-box; border: 2px solid transparent; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

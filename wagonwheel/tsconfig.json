@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"],
+      "@nucleus/ui/*": ["../shared-ui/src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "radix-ui": ["./node_modules/radix-ui"],
+      "@radix-ui/react-slot": ["./node_modules/@radix-ui/react-slot"],
+      "@radix-ui/react-tooltip": ["./node_modules/@radix-ui/react-tooltip"],
+      "lucide-react": ["./node_modules/lucide-react"],
+      "class-variance-authority": ["./node_modules/class-variance-authority"],
+      "clsx": ["./node_modules/clsx"],
+      "tailwind-merge": ["./node_modules/tailwind-merge"],
+      "motion/react": ["./node_modules/motion/dist/react.d.ts"]
+    }
+  },
+  "include": ["src", "shared", "../shared-ui/src"]
+}
