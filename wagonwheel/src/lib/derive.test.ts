@@ -7,10 +7,10 @@ const NOW = Date.UTC(2026, 10, 9, 12);
 const DAY = 86_400_000;
 
 let n = 0;
-const project = (o: Partial<Project> = {}): Project => ({ id: `p${++n}`, name: "P", description: "", status: "active", color: null, startDate: null, targetDate: null, archivedAt: null, createdAt: 1, updatedAt: 1, ...o });
+const project = (o: Partial<Project> = {}): Project => ({ id: `p${++n}`, name: "P", description: "", status: "active", color: null, startDate: null, targetDate: null, githubRepo: null, archivedAt: null, createdAt: 1, updatedAt: 1, ...o });
 const task = (o: Partial<Task> = {}): Task => ({ id: `t${++n}`, projectId: null, parentId: null, title: "T", description: "", status: "not_started", priority: "medium", startDate: null, dueDate: null, completedAt: null, createdAt: n, updatedAt: NOW, ...o });
 const milestone = (o: Partial<Milestone> = {}): Milestone => ({ id: `m${++n}`, projectId: "p", name: "M", description: "", targetDate: TODAY, completedAt: null, createdAt: 1, updatedAt: 1, ...o });
-const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ projects: [], tasks: [], milestones: [], notes: [], settings: {}, ...o });
+const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ projects: [], tasks: [], milestones: [], notes: [], services: [], serviceCharges: [], settings: {}, ...o });
 
 describe("inbox", () => {
   it("is open, unsorted, top-level tasks, newest first", () => {

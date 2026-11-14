@@ -18,7 +18,7 @@ export function TitleBar() {
           pointer-events stay off so the whole strip drags the window. */}
       <span className="pointer-events-none select-none font-display text-[12.5px] leading-none tracking-[-0.02em] text-white">
         <span className="font-semibold">nucleus</span>
-        <span className="font-normal text-white/70"> wagonwheel</span>
+        <span className="font-normal text-white/70"> workspace</span>
       </span>
     </div>
   );

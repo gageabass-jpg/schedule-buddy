@@ -4,9 +4,10 @@ import { X } from "lucide-react";
 import { cn } from "@nucleus/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nucleus/ui/ui/tooltip";
 import { PRIORITY_LABEL, PROJECT_STATUS_LABEL, TASK_STATUS_LABEL, type Priority, type ProjectStatus, type TaskStatus } from "@shared/types";
+import { InboxButton } from "./PageTools";
 
 // Small building blocks every view shares. Nothing here knows about projects or tasks
-// beyond their labels and colours.
+// beyond their labels and colours, except PageHeader, which carries the inbox button.
 
 // ── Colour by meaning ───────────────────────────────────────────────────────
 
@@ -92,7 +93,12 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
         <h1 className="truncate font-display text-[26px] font-semibold leading-tight tracking-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 text-[14px] text-ink-2">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {/* What the page offers, then a thin divider, then the inbox: the same corner on every page. */}
+      <div className="flex shrink-0 items-center gap-2">
+        {actions}
+        {actions && <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-white/15" />}
+        <InboxButton />
+      </div>
     </header>
   );
 }

@@ -1,4 +1,4 @@
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, GitBranch } from "lucide-react";
 import { cn } from "@nucleus/ui/lib/utils";
 import type { Project } from "@shared/types";
 import { useData } from "@/lib/store";
@@ -45,6 +45,12 @@ export function ProjectCard({ project }: { project: Project }) {
         <div className={cn("flex items-center gap-1.5 text-[12.5px]", late ? "font-semibold text-danger" : "text-ink-3")}>
           <CalendarDays size={13} />
           Target {formatShort(project.targetDate, today)} · {relativeDay(project.targetDate, today).toLowerCase()}
+        </div>
+      )}
+      {project.githubRepo && (
+        <div className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3" title={`Connected to ${project.githubRepo} on GitHub`}>
+          <GitBranch size={13} className="shrink-0" />
+          <span className="truncate">{project.githubRepo}</span>
         </div>
       )}
     </button>

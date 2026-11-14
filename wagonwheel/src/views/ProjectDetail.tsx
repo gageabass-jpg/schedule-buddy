@@ -1,13 +1,15 @@
 import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, CalendarDays, Flag, ListChecks, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, CalendarDays, ExternalLink, Flag, GitBranch, ListChecks, Pencil, Plus, Unlink } from "lucide-react";
 import { cn } from "@nucleus/ui/lib/utils";
+import { notify } from "@nucleus/ui/lib/toast";
 import { Tabs, TabsList, TabsTrigger } from "@nucleus/ui/ui/tabs";
+import type { Project } from "@shared/types";
 import { useData } from "@/lib/store";
 import { useUi, type ProjectTab } from "@/lib/ui-state";
 import { compareTasks, projectProgress } from "@/lib/derive";
 import { formatRange, formatShort, relativeDay } from "@/lib/dates";
 import { projectColor } from "@/lib/colors";
-import { EmptyState, PageHeader, ProgressRing, ProjectStatusChip } from "@/components/kit";
+import { EmptyState, IconButton, PageHeader, ProgressRing, ProjectStatusChip } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
 import { Notes } from "@/components/Notes";
 import { TaskRow } from "@/components/TaskRow";
@@ -45,6 +47,7 @@ export function ProjectDetail({ id, tab }: { id: string; tab?: ProjectTab }) {
         </>}
       />
       {project.description && <p className="max-w-[78ch] px-8 pb-3 text-[14px] leading-relaxed text-ink-2">{project.description}</p>}
+      <GithubStrip project={project} />
 
       <div className="px-8 pb-3">
         <Tabs value={current} onValueChange={(v) => setPicked(v as ProjectTab)}>
@@ -75,6 +78,40 @@ export function ProjectDetail({ id, tab }: { id: string; tab?: ProjectTab }) {
         {current === "timeline" && <div className="ww-rise"><TimelineView projectId={id} embedded /></div>}
       </div>
     </>
+  );
+}
+
+/** The project's GitHub connection: the repository it is connected to (with a way to scan it for tasks
+ *  or to disconnect it), or a button to connect one. */
+function GithubStrip({ project }: { project: Project }) {
+  const { openGithub } = useUi();
+  const { act, attemptOk } = useData();
+  const repo = project.githubRepo;
+
+  const disconnect = async () => {
+    if (!repo) return;
+    if (await attemptOk(() => act.updateProject(project.id, { githubRepo: null }))) {
+      notify(`Disconnected from ${repo}. Its tasks stay in the project.`, { ttl: 7000 });
+    }
+  };
+
+  return (
+    <div role="group" aria-label="GitHub" className="flex flex-wrap items-center gap-2 px-8 pb-3">
+      {repo ? (
+        <>
+          <a
+            href={`https://github.com/${repo}`} target="_blank" rel="noreferrer" title="Open on GitHub"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[12.5px] font-semibold text-ink-2 transition-colors hover:text-foreground"
+          >
+            <GitBranch size={13} />{repo}<ExternalLink size={11} />
+          </a>
+          <GlassButton className="!h-8 !text-[12.5px]" onClick={() => openGithub({ mode: "scan-project", projectId: project.id })}>Scan for tasks</GlassButton>
+          <IconButton label="Disconnect repository" onClick={() => void disconnect()}><Unlink size={14} /></IconButton>
+        </>
+      ) : (
+        <GlassButton className="!h-8 !text-[12.5px]" onClick={() => openGithub({ mode: "connect", projectId: project.id })}><GitBranch size={14} />Connect GitHub repo</GlassButton>
+      )}
+    </div>
   );
 }
 

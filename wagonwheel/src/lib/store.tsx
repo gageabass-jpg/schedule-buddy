@@ -1,14 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   DEFAULT_WORKSPACE_NAME, SETTING_WORKSPACE_NAME,
-  type Change, type MilestoneInput, type MilestonePatch, type NoteInput, type ProjectInput, type ProjectPatch,
-  type Snapshot, type TaskInput, type TaskPatch,
+  type Change, type ChargeInput, type MilestoneInput, type MilestonePatch, type NoteInput, type ProjectInput, type ProjectPatch,
+  type ServiceInput, type ServicePatch, type Snapshot, type TaskInput, type TaskPatch,
 } from "@shared/types";
 import { notify } from "@nucleus/ui/lib/toast";
 import { bridge, messageOf } from "./bridge";
 import { todayIso } from "./dates";
+import { isStale } from "./snapshot-order";
 
-const EMPTY: Snapshot = { projects: [], tasks: [], milestones: [], notes: [], settings: {} };
+const EMPTY: Snapshot = { projects: [], tasks: [], milestones: [], notes: [], services: [], serviceCharges: [], settings: {} };
 
 /** Every change goes to SQLite through the main process, which answers with the whole
  *  workspace. The actions throw on a refused change, so a form can show the reason.
@@ -26,6 +27,14 @@ export interface Actions {
   createNote(input: NoteInput): Promise<string>;
   updateNote(id: string, body: string): Promise<void>;
   deleteNote(id: string): Promise<void>;
+  createService(input: ServiceInput): Promise<string>;
+  updateService(id: string, patch: ServicePatch): Promise<void>;
+  deleteService(id: string): Promise<void>;
+  /** Type in what a service charged for a month; replaces the figure already there. */
+  setServiceCharge(input: ChargeInput): Promise<void>;
+  deleteServiceCharge(id: string): Promise<void>;
+  /** Check the usage a provider has billed beyond the plan. Resolves with a sentence to show; no bill is written. */
+  checkUsage(id: string): Promise<string>;
   renameWorkspace(name: string): Promise<void>;
 }
 
@@ -50,9 +59,9 @@ interface DataValue {
 
 const Ctx = createContext<DataValue | null>(null);
 
-/** The actions, bound to the store's setter. Each one asks the main process to change SQLite,
- *  then takes the new workspace it sends back. */
-function makeActions(setSnapshot: Dispatch<SetStateAction<Snapshot>>): Actions {
+/** The actions, bound to the store's `setSnapshot`, which drops a reply older than what is on screen.
+ *  Each one asks the main process to change SQLite, then takes the new workspace it sends back. */
+function makeActions(setSnapshot: (snapshot: Snapshot) => void): Actions {
   const keepId = async (p: Promise<Change>): Promise<string> => {
     const c = await p;
     setSnapshot(c.snapshot);
@@ -75,12 +84,27 @@ function makeActions(setSnapshot: Dispatch<SetStateAction<Snapshot>>): Actions {
     createNote: (i) => keepId(bridge().createNote(i)),
     updateNote: (id, b) => keep(bridge().updateNote(id, b)),
     deleteNote: (id) => keep(bridge().deleteNote(id)),
+    createService: (i) => keepId(bridge().createService(i)),
+    updateService: (id, p) => keep(bridge().updateService(id, p)),
+    deleteService: (id) => keep(bridge().deleteService(id)),
+    setServiceCharge: async (i) => { await keepId(bridge().setServiceCharge(i)); },
+    deleteServiceCharge: (id) => keep(bridge().deleteServiceCharge(id)),
+    checkUsage: async (id) => {
+      const r = await bridge().servicesCheckUsage(id);
+      setSnapshot(r.snapshot);
+      return r.summary;
+    },
     renameWorkspace: (name) => keep(bridge().setSetting(SETTING_WORKSPACE_NAME, name)),
   };
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [snapshot, showSnapshot] = useState<Snapshot>(EMPTY);
+  // Replies can land out of order (a change, the refresh after Claude Code writes, a restore). The snapshot on
+  // screen knows its own revision, so an older reply is dropped and never puts an old workspace back.
+  const setSnapshot = useCallback((next: Snapshot) => {
+    showSnapshot((shown) => (isStale(next, shown.revision ?? -1) ? shown : next));
+  }, []);
   const [status, setStatus] = useState<DataValue["status"]>("loading");
   const [error, setError] = useState<string | null>(null);
   const [today, setToday] = useState(() => todayIso());
@@ -95,7 +119,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setStatus("error");
       setError(messageOf(err));
     }
-  }, []);
+  }, [setSnapshot]);
 
   useEffect(() => { void reload(); }, [reload]);
 
@@ -109,7 +133,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // setSnapshot never changes, so the actions are made once.
-  const act = useMemo(() => makeActions(setSnapshot), []);
+  const act = useMemo(() => makeActions(setSnapshot), [setSnapshot]);
 
   const attempt = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
     try {
@@ -138,14 +162,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setError(messageOf(err));
     }
-  }, []);
+  }, [setSnapshot]);
 
   const value = useMemo<DataValue>(() => ({
     status, error, snapshot, today,
     workspaceName: snapshot.settings[SETTING_WORKSPACE_NAME] || DEFAULT_WORKSPACE_NAME,
     act, now,
     attempt, attemptOk, reload, adopt: setSnapshot, startFresh,
-  }), [status, error, snapshot, today, now, act, attempt, attemptOk, reload, startFresh]);
+  }), [status, error, snapshot, today, now, act, attempt, attemptOk, reload, setSnapshot, startFresh]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

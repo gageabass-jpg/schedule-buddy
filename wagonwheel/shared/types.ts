@@ -41,6 +41,8 @@ export interface Project {
   color: string | null;
   startDate: string | null;
   targetDate: string | null;
+  /** The GitHub repository connected to this project, "owner/name". One repository belongs to one project. */
+  githubRepo: string | null;
   /** Set when archived; archived projects leave the dashboard and the sidebar counts. */
   archivedAt: number | null;
   createdAt: number;
@@ -86,6 +88,61 @@ export interface Note {
   updatedAt: number;
 }
 
+// ── Services: what the workspace pays for each month ───────────────────────
+
+/** Flat fee: the same every month. Usage-based: it moves with use, so it can surprise. */
+export const SERVICE_KINDS = ["flat", "usage"] as const;
+export type ServiceKind = (typeof SERVICE_KINDS)[number];
+export const SERVICE_KIND_LABEL: Record<ServiceKind, string> = { flat: "Flat fee", usage: "Usage-based" };
+
+export const SERVICE_STATUSES = ["active", "cancelled"] as const;
+export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
+
+/** The services whose usage Wagonwheel can check for itself. Every bill is typed in from its invoice. */
+export const SERVICE_PROVIDERS = ["vercel"] as const;
+export type ServiceProvider = (typeof SERVICE_PROVIDERS)[number];
+export const SERVICE_PROVIDER_LABEL: Record<ServiceProvider, string> = { vercel: "Vercel" };
+
+export const CHARGE_SOURCES = ["manual", "vercel"] as const;
+export type ChargeSource = (typeof CHARGE_SOURCES)[number];
+
+/** A service the workspace pays for: Supabase, Vercel, GitHub, Google Workspace, Firebase… */
+export interface Service {
+  id: string;
+  name: string;
+  /** The plan, in words ("Pro", "Business Standard"). May be empty. */
+  plan: string;
+  kind: ServiceKind;
+  /** Whose usage Wagonwheel can check beyond the plan, or null. Bills are always typed in. */
+  provider: ServiceProvider | null;
+  /** The usual monthly fee, in cents. 0 means not set. */
+  amountCents: number;
+  /** The day of the month the bill comes, 1 to 31, or null. */
+  billingDay: number | null;
+  /** The page where the bill lives, an https address, or null. */
+  billingUrl: string | null;
+  notes: string;
+  status: ServiceStatus;
+  /** When the bill was last read from the provider, or null. */
+  lastSyncedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** What one service actually charged for one month. One per service per month. */
+export interface ServiceCharge {
+  id: string;
+  serviceId: string;
+  /** "YYYY-MM". */
+  month: string;
+  amountCents: number;
+  source: ChargeSource;
+  /** False for a bill that has been issued or charged but not paid yet (a failed payment, an overdue invoice). It counts toward the month, and toward what is owed, until it is marked paid. */
+  paid: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type Settings = Record<string, string>;
 
 export const SETTING_WORKSPACE_NAME = "workspaceName";
@@ -98,7 +155,15 @@ export interface Snapshot {
   tasks: Task[];
   milestones: Milestone[];
   notes: Note[];
+  services: Service[];
+  serviceCharges: ServiceCharge[];
   settings: Settings;
+  /**
+   * Which read of the database this is. The app's main process counts up each time it reads one, so the
+   * window can drop a reply that arrives after a newer one. Absent where nothing counts (the connector,
+   * tests, an empty window), and then nothing is dropped.
+   */
+  revision?: number;
 }
 
 // ── Inputs ──────────────────────────────────────────────────────────────────
@@ -110,6 +175,8 @@ export interface ProjectInput {
   color?: string | null;
   startDate?: string | null;
   targetDate?: string | null;
+  /** "owner/name", or null to disconnect. */
+  githubRepo?: string | null;
 }
 export type ProjectPatch = Partial<ProjectInput> & { archived?: boolean };
 
@@ -141,6 +208,31 @@ export interface NoteInput {
   body: string;
 }
 
+export interface ServiceInput {
+  name: string;
+  plan?: string;
+  kind?: ServiceKind;
+  provider?: ServiceProvider | null;
+  /** The usual monthly fee, in cents. */
+  amountCents?: number;
+  billingDay?: number | null;
+  /** An https address, or null for none. */
+  billingUrl?: string | null;
+  notes?: string;
+  status?: ServiceStatus;
+}
+export type ServicePatch = Partial<ServiceInput>;
+
+/** What a service charged for a month, typed in by hand. It replaces any figure already there for that month. */
+export interface ChargeInput {
+  serviceId: string;
+  /** "YYYY-MM". */
+  month: string;
+  amountCents: number;
+  /** Default true. False records a bill that is owed and not yet paid. */
+  paid?: boolean;
+}
+
 // ── Results and errors ──────────────────────────────────────────────────────
 
 /** A change: the id it touched or made, and the workspace as it is now. */
@@ -152,7 +244,10 @@ export interface Change {
 export type ErrorCode =
   | "validation"   // the input is not acceptable; the message says why, in words a person can act on
   | "not_found"
-  | "database";    // SQLite refused, or the file is unusable
+  | "database"     // SQLite refused, or the file is unusable
+  | "github"       // GitHub could not be reached, or refused the sign-in or the request
+  | "services"     // a service's billing could not be reached, or refused the token
+  | "connector";   // Claude Code's tool could not be run, or refused the change
 
 export interface WagonwheelError {
   code: ErrorCode;
@@ -181,6 +276,9 @@ export type MenuCommand =
   | "go-tasks"
   | "go-timeline"
   | "go-inbox"
+  | "go-services"
+  | "scan-github"
+  | "open-connectors"
   | "focus-capture"
   | "backup"
   | "export-json"

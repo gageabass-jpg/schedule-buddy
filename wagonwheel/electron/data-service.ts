@@ -6,7 +6,9 @@ import type { DataInfo, SavedFile, Snapshot } from "../shared/types.js";
 import { backupDatabase, checkBackupFile, openDatabase, replaceDatabaseFile, SCHEMA_VERSION } from "./db/database.js";
 import { AppError } from "./db/errors.js";
 import { buildCsvFiles, buildJsonExport } from "./db/exporters.js";
+import { watchForOtherWriters } from "./db/external-changes.js";
 import { Workspace } from "./db/repo.js";
+import { nextRevision } from "./db/revision.js";
 
 const stamp = (d = new Date()): string => {
   const p = (n: number): string => String(n).padStart(2, "0");
@@ -31,7 +33,7 @@ export class DataService {
   private tryOpen(): void {
     try {
       this.db = openDatabase(this.file);
-      this.workspace = new Workspace(this.db);
+      this.workspace = new Workspace(this.db, undefined, undefined, nextRevision);
       this.openError = null;
     } catch (err) {
       this.db = null;
@@ -51,6 +53,11 @@ export class DataService {
   private live(): DatabaseSync {
     this.ws();
     return this.db as DatabaseSync;
+  }
+
+  /** Calls `onChange` when another process (Claude Code, through the connector) changes the workspace file. */
+  watchOtherWriters(onChange: () => void): { stop(): void } {
+    return watchForOtherWriters(() => this.db, onChange);
   }
 
   close(): void {
