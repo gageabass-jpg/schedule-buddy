@@ -434,15 +434,18 @@ export function buildTools(ws: Workspace, options: ToolOptions = {}): McpTool[] 
       return { created: taskView(made, change.snapshot, today(), true) };
     }),
 
-    write("update_task", "Change a task. Only the fields you give are changed. Dates can be cleared with null. Move it with project (a name or id), or send it back to the inbox with project: null.", obj({
+    write("update_task", "Change a task. Only the fields you give are changed. Dates can be cleared with null. Move it with project (a name or id), or send it back to the inbox with project: null. Make it a subtask (or move a subtask to another parent) with parent; parent: null lifts a subtask back to a top-level task.", obj({
       task: { type: "string", description: "The task's id (or its exact title, when unique)." },
       title: STRING, description: STRING, priority: PRIORITY, status: STATUS,
       start_date: NULLABLE_DATE, due_date: NULLABLE_DATE,
-      project: { type: ["string", "null"], description: "Project name or id; null moves it to the inbox. Subtasks cannot move on their own." },
+      project: { type: ["string", "null"], description: "Project name or id; null moves it to the inbox. A subtask stays in its parent's project, so it cannot move on its own." },
+      parent: { type: ["string", "null"], description: "Parent task id (or its exact title): makes this a subtask of it, in its project. null makes a subtask a top-level task again, in the project it is in. A task that has subtasks cannot become one. Its id and notes stay." },
     }, ["task"]), (a, snap) => {
       const t = findTask(snap, text(a, "task", true) as string);
       const where = clearable(a, "project");
+      const under = clearable(a, "parent");
       const change = ws.updateTask(t.id, {
+        parentId: under === undefined ? undefined : under === null ? null : findTask(snap, under).id,
         title: text(a, "title"),
         description: text(a, "description"),
         priority: choice(a, "priority", PRIORITIES),

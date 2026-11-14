@@ -496,6 +496,26 @@ describe("update_task and complete_task", () => {
     expect("completed_at" in open).toBe(false);
   });
 
+  it("makes a task a subtask of another, and lifts it back out, keeping its id", async () => {
+    const ids = seed();
+    const moved = (await call("update_task", { task: "Paint the hall", parent: ids.later })).json.updated;
+    expect(moved.id).toBe(ids.paint);
+    expect(ws.snapshot().tasks.find((t) => t.id === ids.paint)).toMatchObject({ parentId: ids.later, projectId: ws.snapshot().tasks.find((t) => t.id === ids.later)!.projectId });
+    // By the parent's exact title too, and null lifts it out again, staying where it is.
+    const there = ws.snapshot().tasks.find((t) => t.id === ids.paint)!.projectId;
+    expect((await call("update_task", { task: ids.paint, parent: null })).isError).toBe(false);
+    expect(ws.snapshot().tasks.find((t) => t.id === ids.paint)).toMatchObject({ parentId: null, projectId: there });
+    expect((await call("update_task", { task: ids.paint, parent: "Plan the launch" })).isError).toBe(false);
+    expect(ws.snapshot().tasks.find((t) => t.id === ids.paint)?.parentId).toBe(ids.later);
+  });
+
+  it("refuses a subtask of a subtask, and says why", async () => {
+    const ids = seed();
+    const r = await call("update_task", { task: ids.paint, parent: ids.sub });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("A subtask cannot have subtasks of its own.");
+  });
+
   it("explains a missing task or a bad value", async () => {
     seed();
     expect((await call("update_task", { task: "ghost", title: "x" })).isError).toBe(true);

@@ -191,7 +191,9 @@ export interface TaskInput {
   startDate?: string | null;
   dueDate?: string | null;
 }
-export type TaskPatch = Partial<Omit<TaskInput, "parentId">>;
+/** `parentId` moves a task: a task id makes it (or moves it to be) a subtask of that task, in that task's project;
+ *  null lifts a subtask back to a top-level task, in the project it is in. Its id and notes stay either way. */
+export type TaskPatch = Partial<TaskInput>;
 
 export interface MilestoneInput {
   projectId: string;

@@ -115,7 +115,7 @@ How it stays safe: the panel only **reads** Claude Code's list of connectors (`m
 | `list_services` | What the workspace pays each month (Services screen): the total against last month's, and for each service its plan, type, usual fee, the month's amount (recorded, or the usual fee as an estimate, and which), the next bill date, and any bill notably higher than usual. Read-only, also in read-only mode. |
 | `record_service_bill` | Records what a service charged for a month, in US dollars, from a receipt, paid invoice or statement the user has confirmed (never a failed payment or an estimate). It records the same figure twice as one, and will not replace a *different* figure already there unless `replace: true`; the answer says what was replaced. Not offered in read-only mode. A service's plan, fee and billing day are changed in the app. |
 | `list_tasks`, `get_task` | Find tasks by project, inbox, status, priority, overdue, due-date range or words; one task with its subtasks and notes. |
-| `create_task`, `update_task`, `complete_task` | Add a task (to a project, the inbox, or under another task); change any field, clear dates with `null`, move it; tick it done or reopen it. |
+| `create_task`, `update_task`, `complete_task` | Add a task (to a project, the inbox, or under another task); change any field, clear dates with `null`, move it (to another project, under another task with `parent`, or back out to top level with `parent: null`; its id and notes stay); tick it done or reopen it. |
 | `create_project`, `update_project` | Start a project; change one, connect or disconnect its repository, archive it. |
 | `create_milestone`, `update_milestone`, `add_note` | Add or complete a milestone; add a note to a project or a task. |
 

@@ -296,16 +296,34 @@ export class Workspace {
 
       // A subtask always lives in its parent's project; only a top-level task can move.
       let projectId = cur.projectId;
-      if (!cur.parentId && patch.projectId !== undefined) {
+      let parentId = cur.parentId;
+      const newParent = patch.parentId === undefined ? undefined : patch.parentId || null;
+      if (newParent !== undefined && newParent !== cur.parentId) {
+        if (newParent === null) {
+          // Promoted to a top-level task: it stays in the project it is in, unless the same patch moves it.
+          parentId = null;
+          if (patch.projectId !== undefined) projectId = patch.projectId ? this.project(patch.projectId).id : null;
+        } else {
+          // Made (or moved to be) a subtask: one level deep, in the new parent's project. Its id and notes stay.
+          if (newParent === id) throw invalid("A task cannot be a subtask of itself.");
+          const parent = this.task(newParent);
+          if (parent.parentId) throw invalid("A subtask cannot have subtasks of its own.");
+          if (this.get("SELECT 1 AS n FROM tasks WHERE parent_id = ? LIMIT 1", id)) {
+            throw invalid("This task has subtasks of its own, so it cannot become a subtask. Move or remove them first.");
+          }
+          parentId = parent.id;
+          projectId = parent.projectId;
+        }
+      } else if (!cur.parentId && patch.projectId !== undefined) {
         projectId = patch.projectId ? this.project(patch.projectId).id : null;
       }
 
       const t = this.now();
       const completedAt = status === "done" ? (cur.status === "done" ? cur.completedAt ?? t : t) : null;
       this.run(
-        `UPDATE tasks SET project_id = ?, title = ?, description = ?, status = ?, priority = ?, start_date = ?,
+        `UPDATE tasks SET project_id = ?, parent_id = ?, title = ?, description = ?, status = ?, priority = ?, start_date = ?,
                 due_date = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        projectId, title, description, status, priority, startDate, dueDate, completedAt, t, id,
+        projectId, parentId, title, description, status, priority, startDate, dueDate, completedAt, t, id,
       );
       if (projectId !== cur.projectId) {
         this.run("UPDATE tasks SET project_id = ?, updated_at = ? WHERE parent_id = ?", projectId, t, id);
