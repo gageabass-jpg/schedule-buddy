@@ -63,6 +63,8 @@ export interface Task {
   startDate: string | null;
   dueDate: string | null;
   completedAt: number | null;
+  /** The GitHub scan's id for the item this came from ("owner/name#12"), or null. A rescan looks here, not at the description. */
+  githubRef: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -74,6 +76,8 @@ export interface Milestone {
   description: string;
   targetDate: string;
   completedAt: number | null;
+  /** The GitHub scan's id for the milestone this came from ("owner/name@milestone:3"), or null. */
+  githubRef: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -190,10 +194,13 @@ export interface TaskInput {
   priority?: Priority;
   startDate?: string | null;
   dueDate?: string | null;
+  /** Set only when the task is made from a GitHub scan; see Task.githubRef. One per project. */
+  githubRef?: string | null;
 }
 /** `parentId` moves a task: a task id makes it (or moves it to be) a subtask of that task, in that task's project;
- *  null lifts a subtask back to a top-level task, in the project it is in. Its id and notes stay either way. */
-export type TaskPatch = Partial<TaskInput>;
+ *  null lifts a subtask back to a top-level task, in the project it is in. Its id and notes stay either way.
+ *  Where an item came from on GitHub is set when it is made and does not change. */
+export type TaskPatch = Partial<Omit<TaskInput, "githubRef">>;
 
 export interface MilestoneInput {
   projectId: string;
@@ -201,8 +208,10 @@ export interface MilestoneInput {
   description?: string;
   targetDate: string;
   completed?: boolean;
+  /** Set only when the milestone is made from a GitHub scan; see Milestone.githubRef. One per project. */
+  githubRef?: string | null;
 }
-export type MilestonePatch = Partial<Omit<MilestoneInput, "projectId">>;
+export type MilestonePatch = Partial<Omit<MilestoneInput, "projectId" | "githubRef">>;
 
 export interface NoteInput {
   projectId?: string | null;

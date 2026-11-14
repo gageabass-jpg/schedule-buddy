@@ -11,10 +11,10 @@ const project = (over: Partial<Project>): Project => ({
 });
 const task = (over: Partial<Task>): Task => ({
   id: "t", projectId: "p", parentId: null, title: "T", description: "", status: "not_started", priority: "medium",
-  startDate: null, dueDate: null, completedAt: null, createdAt: 0, updatedAt: 0, ...over,
+  startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: 0, updatedAt: 0, ...over,
 });
 const milestone = (over: Partial<Milestone>): Milestone => ({
-  id: "m", projectId: "p", name: "M", description: "", targetDate: "2026-12-01", completedAt: null, createdAt: 0, updatedAt: 0, ...over,
+  id: "m", projectId: "p", name: "M", description: "", targetDate: "2026-12-01", completedAt: null, githubRef: null, createdAt: 0, updatedAt: 0, ...over,
 });
 const proposal = (over: Partial<GithubProposal>): GithubProposal => ({
   id: "x", kind: "issue", title: "Fix it", description: "Body\n\nFrom GitHub: https://github.com/o/r/issues/1",
@@ -124,17 +124,53 @@ describe("isImported", () => {
   });
 });
 
+describe("isImported, for items that kept the scan's id", () => {
+  const issue = proposal({ id: "o/r#1" });
+
+  it("knows an issue by its id, even after the description was rewritten", () => {
+    const tasks = [task({ githubRef: "o/r#1", description: "My own notes now" })];
+    expect(isImported(issue, undefined, tasks, [])).toBe(true);
+  });
+
+  it("compares ids without regard to case", () => {
+    expect(isImported(issue, undefined, [task({ githubRef: "O/R#1" })], [])).toBe(true);
+  });
+
+  it("does not take issue 1 for issue 12, nor another repository's issue 1", () => {
+    expect(isImported(issue, undefined, [task({ githubRef: "o/r#12" })], [])).toBe(false);
+    expect(isImported(issue, undefined, [task({ githubRef: "other/r#1" })], [])).toBe(false);
+  });
+
+  it("does not let the old link-line rule claim an item that has a different id", () => {
+    const tasks = [task({ githubRef: "o/r#99", description: "Body\n\nFrom GitHub: https://github.com/o/r/issues/1" })];
+    expect(isImported(issue, undefined, tasks, [])).toBe(false);
+  });
+
+  it("knows a roadmap item by id after it was retitled, and not by a same-titled task with another id", () => {
+    const item = proposal({ id: "o/r:README.md:dark-mode", kind: "roadmap", title: "Dark mode" });
+    expect(isImported(item, "p", [task({ githubRef: "o/r:README.md:dark-mode", title: "Make it dark" })], [])).toBe(true);
+    expect(isImported(item, "p", [task({ githubRef: "o/r:TODO.md:dark-mode", title: "Dark mode" })], [])).toBe(false);
+    expect(isImported(item, "p", [task({ githubRef: "o/r:README.md:dark-mode", projectId: "other" })], [])).toBe(false);
+  });
+
+  it("knows a dated milestone by id after it was renamed", () => {
+    const m = proposal({ id: "o/r@milestone:3", kind: "milestone", asMilestone: true, title: "v1.0" });
+    expect(isImported(m, "p", [], [milestone({ githubRef: "o/r@milestone:3", name: "Launch" })])).toBe(true);
+    expect(isImported(m, "p", [], [milestone({ githubRef: "o/r@milestone:4", name: "v1.0" })])).toBe(false);
+  });
+});
+
 describe("what a ticked proposal creates", () => {
-  it("is a task with the proposal's title, notes, priority and date", () => {
+  it("is a task with the proposal's title, notes, priority and date, and where it came from", () => {
     expect(taskInputFor(proposal({}), "p9")).toEqual({
       title: "Fix it", description: "Body\n\nFrom GitHub: https://github.com/o/r/issues/1",
-      projectId: "p9", priority: "high", status: "not_started", dueDate: "2026-12-05",
+      projectId: "p9", priority: "high", status: "not_started", dueDate: "2026-12-05", githubRef: "x",
     });
   });
 
-  it("is a milestone for a dated GitHub milestone", () => {
-    const m = proposal({ kind: "milestone", asMilestone: true, title: "v1.0", dueDate: "2026-12-31", description: "D" });
-    expect(milestoneInputFor(m, "p9")).toEqual({ projectId: "p9", name: "v1.0", description: "D", targetDate: "2026-12-31" });
+  it("is a milestone for a dated GitHub milestone, and remembers which one", () => {
+    const m = proposal({ id: "o/r@milestone:3", kind: "milestone", asMilestone: true, title: "v1.0", dueDate: "2026-12-31", description: "D" });
+    expect(milestoneInputFor(m, "p9")).toEqual({ projectId: "p9", name: "v1.0", description: "D", targetDate: "2026-12-31", githubRef: "o/r@milestone:3" });
   });
 });
 

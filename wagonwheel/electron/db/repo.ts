@@ -51,6 +51,14 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], what: str
   return value as T;
 }
 
+/** The scan's id for an item that came from GitHub ("owner/name#12"): one token, no spaces, not absurdly long. Empty is none. */
+function githubRef(value: string | null | undefined): string | null {
+  const v = (value ?? "").trim();
+  if (v === "") return null;
+  if (v.length > 300 || /\s/.test(v)) throw invalid("The GitHub reference is not valid.");
+  return v;
+}
+
 function color(value: string | null | undefined): string | null {
   if (value == null || value === "") return null;
   if (!/^#[0-9A-Fa-f]{6}$/.test(value)) throw invalid("The colour must look like #C62845.");
@@ -122,12 +130,13 @@ const toTask = (r: Row): Task => ({
   title: str(r.title), description: str(r.description),
   status: str(r.status) as TaskStatus, priority: str(r.priority) as Priority,
   startDate: strOrNull(r.start_date), dueDate: strOrNull(r.due_date),
-  completedAt: numOrNull(r.completed_at), createdAt: num(r.created_at), updatedAt: num(r.updated_at),
+  completedAt: numOrNull(r.completed_at), githubRef: strOrNull(r.github_ref),
+  createdAt: num(r.created_at), updatedAt: num(r.updated_at),
 });
 
 const toMilestone = (r: Row): Milestone => ({
   id: str(r.id), projectId: str(r.project_id), name: str(r.name), description: str(r.description),
-  targetDate: str(r.target_date), completedAt: numOrNull(r.completed_at),
+  targetDate: str(r.target_date), completedAt: numOrNull(r.completed_at), githubRef: strOrNull(r.github_ref),
   createdAt: num(r.created_at), updatedAt: num(r.updated_at),
 });
 
@@ -259,6 +268,7 @@ export class Workspace {
     const startDate = date(input.startDate, "The start date");
     const dueDate = date(input.dueDate, "The due date");
     order(startDate, dueDate, "The start date is after the due date.");
+    const ref = githubRef(input.githubRef);
     const id = this.newId();
     const t = this.now();
     return this.change(id, () => {
@@ -272,12 +282,13 @@ export class Workspace {
       } else if (input.projectId) {
         projectId = this.project(input.projectId).id;
       }
+      this.assertNewGithubRef("tasks", projectId, ref);
       this.run(
         `INSERT INTO tasks (id, project_id, parent_id, title, description, status, priority, start_date, due_date,
-                            completed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            completed_at, github_ref, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id, projectId, parentId, title, description, status, priority, startDate, dueDate,
-        status === "done" ? t : null, t, t,
+        status === "done" ? t : null, ref, t, t,
       );
       this.touchProject(projectId, t);
     });
@@ -349,14 +360,16 @@ export class Workspace {
     const description = text(input.description, "The description");
     const targetDate = date(input.targetDate, "The target date");
     if (!targetDate) throw invalid("A milestone needs a target date.");
+    const ref = githubRef(input.githubRef);
     const id = this.newId();
     const t = this.now();
     return this.change(id, () => {
       const project = this.project(input.projectId);
+      this.assertNewGithubRef("milestones", project.id, ref);
       this.run(
-        `INSERT INTO milestones (id, project_id, name, description, target_date, completed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        id, project.id, milestoneName, description, targetDate, input.completed ? t : null, t, t,
+        `INSERT INTO milestones (id, project_id, name, description, target_date, completed_at, github_ref, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, project.id, milestoneName, description, targetDate, input.completed ? t : null, ref, t, t,
       );
       this.touchProject(project.id, t);
     });
@@ -600,6 +613,13 @@ export class Workspace {
       this.db.exec("ROLLBACK");
       throw err;
     }
+  }
+
+  /** One GitHub item, once, per project (the unique index says so too; this says it in words). */
+  private assertNewGithubRef(table: "tasks" | "milestones", projectId: string | null, ref: string | null): void {
+    if (!ref) return;
+    const taken = this.get(`SELECT 1 AS n FROM ${table} WHERE coalesce(project_id, '') = ? AND lower(github_ref) = lower(?) LIMIT 1`, projectId ?? "", ref);
+    if (taken) throw invalid(`That item from GitHub (${ref}) is already ${projectId ? "in this project" : "in the inbox"}.`);
   }
 
   private change(id: string, fn: () => void): Change {

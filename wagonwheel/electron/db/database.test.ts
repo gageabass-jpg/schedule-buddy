@@ -150,7 +150,7 @@ describe("migrate", () => {
     old.close();
 
     const db = openDatabase(file);   // what the app does on launch
-    expect(version(db)).toBe(4);
+    expect(version(db)).toBe(SCHEMA_VERSION);   // this test is about the 3 to 4 step, but the app goes on to the latest
     const snap = new Workspace(db).snapshot();
     expect(snap.services.map((s) => s.name)).toEqual(["Vercel"]);
     expect(snap.serviceCharges.map((c) => [c.id, c.month, c.amountCents, c.source, c.paid])).toEqual([["c2", "2026-09", 2120, "vercel", true], ["c1", "2026-10", 2120, "manual", true]]);

@@ -10,6 +10,28 @@ export interface Migration {
 
 const HEX_COLOR = "#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]";
 
+// For migration 5: reading a GitHub item's id back out of the "From GitHub: <address>" line an earlier scan wrote.
+const GITHUB_LINK = "From GitHub: https://github.com/";
+/** The text after "https://github.com/" on that line, for a description column. */
+const linkPath = (col: string): string =>
+  `trim(substr(${col}, instr(${col}, '${GITHUB_LINK}') + ${GITHUB_LINK.length}), ' ' || char(9) || char(10) || char(13))`;
+/** True when the description has the line and what follows is one plain "owner/name/<kind>/<number>" address. */
+const IS_PLAIN_LINK = (col: string): string => {
+  const p = linkPath(col);
+  return `instr(${col}, '${GITHUB_LINK}') > 0 AND instr(${p}, ' ') = 0 AND instr(${p}, char(10)) = 0 AND instr(${p}, char(13)) = 0
+        AND length(${p}) - length(replace(${p}, '/', '')) = 3
+        AND (${p} GLOB '*/*/issues/[0-9]*' OR ${p} GLOB '*/*/pull/[0-9]*' OR ${p} GLOB '*/*/milestone/[0-9]*')`;
+};
+/** The scan's id for it: owner/name#12, owner/name!12, owner/name@milestone:3. */
+const REF_FROM_LINK = (col: string): string => {
+  const p = linkPath(col);
+  return `CASE
+          WHEN ${p} GLOB '*/*/issues/[0-9]*' THEN replace(${p}, '/issues/', '#')
+          WHEN ${p} GLOB '*/*/pull/[0-9]*' THEN replace(${p}, '/pull/', '!')
+          ELSE replace(${p}, '/milestone/', '@milestone:')
+        END`;
+};
+
 export const MIGRATIONS: Migration[] = [
   {
     version: 1,
@@ -137,6 +159,36 @@ export const MIGRATIONS: Migration[] = [
       -- 1 = paid (every bill recorded so far was a paid one), 0 = billed but not paid yet. Unpaid bills are what
       -- "what I owe right now" adds up; a figure read from a provider keeps whatever this says.
       ALTER TABLE service_charges ADD COLUMN paid INTEGER NOT NULL DEFAULT 1 CHECK (paid IN (0, 1));
+    `,
+  },
+  {
+    version: 5,
+    name: "tasks.github_ref and milestones.github_ref",
+    sql: `
+      -- Where an item came from on GitHub: the scan's stable id for it ("owner/name#12" for an issue,
+      -- "owner/name!12" for a pull request, "owner/name@milestone:3" for a milestone, "owner/name:path:slug"
+      -- for a line of a roadmap file), or NULL. A later scan looks here, not in the description's text, so
+      -- editing a description or renaming an item cannot make it come back as new.
+      ALTER TABLE tasks ADD COLUMN github_ref TEXT;
+      ALTER TABLE milestones ADD COLUMN github_ref TEXT;
+
+      -- What earlier scans made ends its description with "From GitHub: <address>". Read the id back from that
+      -- line where it is a plain issue, pull request or milestone address on a line of its own; anything else
+      -- (a roadmap line, a description that was edited) stays NULL and is still matched by the old text rules.
+      UPDATE tasks SET github_ref = ${REF_FROM_LINK("description")} WHERE ${IS_PLAIN_LINK("description")};
+      UPDATE milestones SET github_ref = ${REF_FROM_LINK("description")} WHERE ${IS_PLAIN_LINK("description")};
+
+      -- Two copies of one item (made by exactly the bug this fixes) cannot both hold it: the oldest keeps it.
+      UPDATE tasks SET github_ref = NULL WHERE github_ref IS NOT NULL AND rowid > (
+        SELECT min(o.rowid) FROM tasks o
+        WHERE coalesce(o.project_id, '') = coalesce(tasks.project_id, '') AND lower(o.github_ref) = lower(tasks.github_ref));
+      UPDATE milestones SET github_ref = NULL WHERE github_ref IS NOT NULL AND rowid > (
+        SELECT min(o.rowid) FROM milestones o
+        WHERE o.project_id = milestones.project_id AND lower(o.github_ref) = lower(milestones.github_ref));
+
+      -- One GitHub item, once, per project.
+      CREATE UNIQUE INDEX idx_tasks_github_ref ON tasks(coalesce(project_id, ''), lower(github_ref)) WHERE github_ref IS NOT NULL;
+      CREATE UNIQUE INDEX idx_milestones_github_ref ON milestones(project_id, lower(github_ref)) WHERE github_ref IS NOT NULL;
     `,
   },
 ];

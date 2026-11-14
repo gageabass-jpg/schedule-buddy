@@ -50,13 +50,24 @@ export function parseRepoRef(text: string): string | null {
 const hasLinkLine = (description: string, url: string): boolean =>
   description.split("\n").some((line) => line.trim() === `${FROM_GITHUB} ${url}`);
 
+/** Is this the GitHub item the stored id names? (GitHub's names are not case-sensitive.) */
+const sameRef = (ref: string | null, p: GithubProposal): boolean => !!ref && ref.toLowerCase() === p.id.toLowerCase();
+
 /** Whether a proposal is already in the workspace, so a second scan does not add it twice.
- *  Issues, pull requests and undated milestones are found by their link line; a roadmap item has no
- *  address of its own, so it is found by its title in the project; a dated milestone by its name. */
+ *
+ *  An item made from a scan keeps the scan's id for it (`githubRef`), and that is what is compared, so editing
+ *  its description or renaming it changes nothing. Items made before ids were kept have none, and are found the
+ *  old way: issues, pull requests and undated milestones by their "From GitHub:" line; a roadmap item (which has
+ *  no address of its own) by its title in the project; a dated milestone by its name. An item that does have an
+ *  id is never matched by the old rules, so a different issue with the same title is not mistaken for it. */
 export function isImported(p: GithubProposal, projectId: string | undefined, tasks: Task[], milestones: Milestone[]): boolean {
-  if (p.asMilestone) return !!projectId && milestones.some((m) => m.projectId === projectId && m.name === p.title);
-  if (p.kind === "roadmap") return !!projectId && tasks.some((t) => t.projectId === projectId && t.title === p.title);
-  return tasks.some((t) => hasLinkLine(t.description, p.url));
+  if (p.asMilestone) {
+    return !!projectId && milestones.some((m) => m.projectId === projectId && (sameRef(m.githubRef, p) || (!m.githubRef && m.name === p.title)));
+  }
+  if (p.kind === "roadmap") {
+    return !!projectId && tasks.some((t) => t.projectId === projectId && (sameRef(t.githubRef, p) || (!t.githubRef && t.title === p.title)));
+  }
+  return tasks.some((t) => sameRef(t.githubRef, p) || (!t.githubRef && hasLinkLine(t.description, p.url)));
 }
 
 export const taskInputFor = (p: GithubProposal, projectId: string): TaskInput => ({
@@ -66,6 +77,7 @@ export const taskInputFor = (p: GithubProposal, projectId: string): TaskInput =>
   priority: p.priority,
   status: "not_started",
   dueDate: p.dueDate,
+  githubRef: p.id,
 });
 
 export const milestoneInputFor = (p: GithubProposal, projectId: string): MilestoneInput => ({
@@ -73,6 +85,7 @@ export const milestoneInputFor = (p: GithubProposal, projectId: string): Milesto
   name: p.title,
   description: p.description,
   targetDate: p.dueDate ?? "",
+  githubRef: p.id,
 });
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
