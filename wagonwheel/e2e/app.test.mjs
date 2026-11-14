@@ -30,7 +30,7 @@ async function withApp(fn, opts = {}) {
 // A snapshot's `revision` counts reads, so it is different every time. It is left out, so two snapshots of an
 // unchanged workspace compare equal.
 const snap = (page) => page.evaluate(async () => {
-  const { revision, ...workspace } = await window.wagonwheel.getSnapshot();   // eslint-disable-line no-unused-vars
+  const { revision, ...workspace } = await window.wagonwheel.getSnapshot();
   return workspace;
 });
 const nav = (page, label) => page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: new RegExp(`^${label}`) }).click();
