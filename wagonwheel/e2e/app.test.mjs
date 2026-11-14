@@ -27,7 +27,12 @@ async function withApp(fn, opts = {}) {
   }
 }
 
-const snap = (page) => page.evaluate(() => window.wagonwheel.getSnapshot());
+// A snapshot's `revision` counts reads, so it is different every time. It is left out, so two snapshots of an
+// unchanged workspace compare equal.
+const snap = (page) => page.evaluate(async () => {
+  const { revision, ...workspace } = await window.wagonwheel.getSnapshot();   // eslint-disable-line no-unused-vars
+  return workspace;
+});
 const nav = (page, label) => page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: new RegExp(`^${label}`) }).click();
 const dialog = (page, name) => page.getByRole("dialog", { name });
 // The inbox and the GitHub scan live in the page header (the sidebar no longer has either row).
@@ -1241,9 +1246,9 @@ test("services: the new screen's data survives a restart and reaches the exports
     assert.deepEqual(s.serviceCharges.map((c) => [c.month, c.amountCents]), [["2026-05", 1975]]);
     await nav(page, "Services");
     await page.getByText("$20 expected in June").waitFor();
-    // The database itself holds both tables at the new version.
+    // The database itself holds both tables, at version 4 (where the paid flag arrived) or later.
     const db = new DatabaseSync(path.join(dataDir, "wagonwheel.db"), { readOnly: true });
-    assert.equal(Number(db.prepare("PRAGMA user_version").get().user_version), 4);
+    assert.ok(Number(db.prepare("PRAGMA user_version").get().user_version) >= 4);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM service_charges").get().n), 1);
     db.close();
   }, { dataDir }));
