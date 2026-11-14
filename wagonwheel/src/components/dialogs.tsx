@@ -13,6 +13,9 @@ import { PROJECT_COLORS, projectColor } from "@/lib/colors";
 import { cn } from "@nucleus/ui/lib/utils";
 import { Field, FormError, IconButton, Modal } from "./kit";
 import { GlassButton } from "./GlassButton";
+import { ConnectorsDialog } from "./ConnectorsDialog";
+import { ServiceDialog } from "./ServiceDialog";
+import { GithubDialog } from "./GithubDialog";
 import { Notes } from "./Notes";
 import { TaskCheck } from "./TaskRow";
 
@@ -28,6 +31,9 @@ export function Dialogs() {
       {ui.taskDialog && <TaskDialog key={ui.taskDialog.id ?? "new"} />}
       {ui.projectDialog && <ProjectDialog key={ui.projectDialog.id ?? "new"} />}
       {ui.milestoneDialog && <MilestoneDialog key={ui.milestoneDialog.id ?? "new"} />}
+      {ui.serviceDialog && <ServiceDialog key={ui.serviceDialog.id ?? "new"} />}
+      {ui.connectorsDialog && <ConnectorsDialog />}
+      {ui.githubDialog && <GithubDialog key={ui.githubDialog.mode === "scan" ? "scan" : `${ui.githubDialog.mode}:${ui.githubDialog.projectId}`} state={ui.githubDialog} />}
       <ConfirmDialog />
     </>
   );

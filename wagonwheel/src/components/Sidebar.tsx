@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  ArchiveRestore, ChartGantt, Check, ChevronDown, ChevronUp, DatabaseBackup, FileJson, FileSpreadsheet,
-  FolderKanban, FolderOpen, Inbox, LayoutDashboard, ListChecks, Plus,
+  ArchiveRestore, ChartGantt, Check, ChevronDown, ChevronUp, CreditCard, DatabaseBackup, FileJson, FileSpreadsheet,
+  FolderKanban, FolderOpen, Inbox, LayoutDashboard, ListChecks, Plug, Plus,
 } from "lucide-react";
 import { cn } from "@nucleus/ui/lib/utils";
 import { NucleusMark } from "@nucleus/ui/brand/nucleusMark";
@@ -10,6 +10,7 @@ import type { DataInfo } from "@shared/types";
 import { useData } from "@/lib/store";
 import { useUi, type View } from "@/lib/ui-state";
 import { inboxTasks, isOpen, liveProjects, visibleTasks } from "@/lib/derive";
+import { flaggedServices, monthOf, owedNow } from "@/lib/services";
 import { bridge, messageOf } from "@/lib/bridge";
 import { backupDatabase, exportCsv, exportJson, restoreBackup, revealDataFolder } from "@/lib/tools";
 import { MiniCalendar } from "./MiniCalendar";
@@ -52,20 +53,22 @@ function BrandLockup() {
 // ── Navigation ──────────────────────────────────────────────────────────────
 
 function Nav() {
-  const { snapshot } = useData();
+  const { snapshot, today } = useData();
   const { view, go } = useUi();
   const counts = useMemo(() => ({
     projects: liveProjects(snapshot).length,
     tasks: visibleTasks(snapshot).filter(isOpen).length,
-    inbox: inboxTasks(snapshot.tasks).length,
-  }), [snapshot]);
+    services: snapshot.services.filter((s) => s.status === "active").length,
+    // A bill that is higher than usual, or one that is owed and unpaid, turns the Services count red, so it is seen without opening the screen.
+    flagged: flaggedServices(snapshot.services, snapshot.serviceCharges, monthOf(today)).length + owedNow(snapshot.services, snapshot.serviceCharges).bills.length,
+  }), [snapshot, today]);
 
   const items: { label: string; to: View; icon: ReactNode; count?: number; hot?: boolean; match: (v: View) => boolean }[] = [
     { label: "Dashboard", to: { name: "dashboard" }, icon: <LayoutDashboard size={16} />, match: (v) => v.name === "dashboard" },
     { label: "All Projects", to: { name: "projects" }, icon: <FolderKanban size={16} />, count: counts.projects, match: (v) => v.name === "projects" || v.name === "project" },
     { label: "All Tasks", to: { name: "tasks" }, icon: <ListChecks size={16} />, count: counts.tasks, match: (v) => v.name === "tasks" },
     { label: "Timeline", to: { name: "timeline" }, icon: <ChartGantt size={16} />, match: (v) => v.name === "timeline" },
-    { label: "Inbox", to: { name: "inbox" }, icon: <Inbox size={16} />, count: counts.inbox, hot: counts.inbox > 0, match: (v) => v.name === "inbox" },
+    { label: "Services", to: { name: "services" }, icon: <CreditCard size={16} />, count: counts.services || undefined, hot: counts.flagged > 0, match: (v) => v.name === "services" },
   ];
 
   return (
@@ -202,6 +205,7 @@ function InboxSection() {
 /** The workspace card, and its menu: rename it, and look after the data. */
 function WorkspaceMenu() {
   const { workspaceName, snapshot, act, attemptOk, adopt } = useData();
+  const { openConnectors } = useUi();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(workspaceName);
   const [info, setInfo] = useState<DataInfo | null>(null);
@@ -251,6 +255,7 @@ function WorkspaceMenu() {
           />
         </label>
         <div className="my-2.5 h-px bg-white/[0.08]" />
+        <MenuItem icon={<Plug size={15} />} onClick={run(async () => openConnectors())}>Connectors…</MenuItem>
         <MenuItem icon={<DatabaseBackup size={15} />} onClick={run(backupDatabase)}>Back up database…</MenuItem>
         <MenuItem icon={<FileJson size={15} />} onClick={run(exportJson)}>Export as JSON…</MenuItem>
         <MenuItem icon={<FileSpreadsheet size={15} />} onClick={run(exportCsv)}>Export as CSV…</MenuItem>
