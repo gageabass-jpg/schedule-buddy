@@ -1,6 +1,7 @@
 import { DatabaseSync, backup } from "node:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { APP_BUSY_TIMEOUT_MS } from "./busy.js";
 import { AppError } from "./errors.js";
 import { MIGRATIONS, SCHEMA_VERSION, type Migration } from "./migrations.js";
 
@@ -12,8 +13,9 @@ export { SCHEMA_VERSION };
 const userVersion = (db: DatabaseSync): number =>
   Number((db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version);
 
-/** Open (and create, and migrate) the database file. Throws AppError("database"). */
-export function openDatabase(file: string): DatabaseSync {
+/** Open (and create, and migrate) the database file. Throws AppError("database").
+ *  `busyTimeoutMs` is how long this connection waits for another writer before giving up. */
+export function openDatabase(file: string, busyTimeoutMs: number = APP_BUSY_TIMEOUT_MS): DatabaseSync {
   let db: DatabaseSync | null = null;
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -22,7 +24,7 @@ export function openDatabase(file: string): DatabaseSync {
     db.exec("PRAGMA journal_mode = WAL");
     db.exec("PRAGMA foreign_keys = ON");
     db.exec("PRAGMA synchronous = NORMAL");
-    db.exec("PRAGMA busy_timeout = 3000");
+    db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.trunc(busyTimeoutMs))}`);
     migrate(db, existed ? file : null);
     return db;
   } catch (err) {

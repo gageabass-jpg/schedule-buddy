@@ -7,6 +7,7 @@ import {
   type Service, type ServiceCharge, type ServiceInput, type ServiceKind, type ServicePatch, type ServiceProvider, type ServiceStatus,
   type Settings, type Snapshot, type Task, type TaskInput, type TaskPatch, type TaskStatus,
 } from "../../shared/types.js";
+import { beginImmediate } from "./busy.js";
 import { invalid, notFound } from "./errors.js";
 
 // All the SQL for the workspace. The renderer never sees it.
@@ -157,6 +158,8 @@ export class Workspace {
     private readonly newId: () => string = randomUUID,
     /** Counts the reads. The app gives it one so the window can ignore a reply that arrives late; without one a snapshot carries no revision. */
     private readonly nextRevision?: () => number,
+    /** How many more times to try starting a write when the other connection holds the lock. The app waits and fails; the connector retries. */
+    private readonly beginRetries: number = 0,
   ) {}
 
   // Reading
@@ -571,7 +574,7 @@ export class Workspace {
   }
 
   private tx(fn: () => void): void {
-    this.db.exec("BEGIN IMMEDIATE");
+    beginImmediate(this.db, this.beginRetries);
     try {
       fn();
       this.db.exec("COMMIT");

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { CONNECTOR_BEGIN_RETRIES, CONNECTOR_BUSY_TIMEOUT_MS } from "../db/busy.js";
 import { openDatabase } from "../db/database.js";
 import { Workspace } from "../db/repo.js";
 import { createMcpServer, serveStdio } from "./protocol.js";
@@ -40,13 +41,15 @@ function main(): void {
     process.stderr.write(`Wagonwheel has no workspace at ${file} yet. Open the app once, then try again.\n`);
     process.exit(1);
   }
-  const db = openDatabase(file);
+  // The connector has no window to freeze, so it waits longer than the app for the other writer, and tries
+  // again to start a write a couple of times before it reports the file busy.
+  const db = openDatabase(file, CONNECTOR_BUSY_TIMEOUT_MS);
   const readOnly = process.argv.includes("--read-only") || process.env.WAGONWHEEL_MCP_READONLY === "1";
   const server = createMcpServer({
     name: "wagonwheel",
     version: version(),
     instructions: WAGONWHEEL_INSTRUCTIONS + (readOnly ? "\nThis connection is read-only." : ""),
-    tools: buildTools(new Workspace(db), { readOnly }),
+    tools: buildTools(new Workspace(db, undefined, undefined, undefined, CONNECTOR_BEGIN_RETRIES), { readOnly }),
   });
   void serveStdio(server).then(() => { try { db.close(); } catch { /* already closed */ } process.exit(0); });
 }
