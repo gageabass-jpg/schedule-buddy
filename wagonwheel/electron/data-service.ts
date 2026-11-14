@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { DataInfo, SavedFile, Snapshot } from "../shared/types.js";
-import { backupDatabase, checkBackupFile, openDatabase, replaceDatabaseFile, SCHEMA_VERSION } from "./db/database.js";
+import { backupDatabase, openDatabase, replaceDatabaseFile, SCHEMA_VERSION, stageRestore } from "./db/database.js";
 import { AppError } from "./db/errors.js";
 import { buildCsvFiles, buildJsonExport } from "./db/exporters.js";
 import { watchForOtherWriters } from "./db/external-changes.js";
@@ -122,34 +122,47 @@ export class DataService {
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
     if (result.canceled || result.filePaths.length === 0) return null;
     const source = result.filePaths[0];
-    checkBackupFile(source);
 
-    const safetyCopy = path.join(path.dirname(this.file), `before-restore-${stamp()}.db`);
-    const box = {
-      type: "warning" as const,
-      buttons: ["Replace my workspace", "Cancel"],
-      defaultId: 1,
-      cancelId: 1,
-      message: "Replace your workspace with this backup?",
-      detail: `Everything in the app now is replaced by the contents of:\n${source}\n\nYour current workspace is saved first, as:\n${safetyCopy}`,
+    // Only the rows of the backup are used, copied into a new file with this app's own schema, so nothing the
+    // backup carries inside itself (a trigger, say) ever runs here. This also finds out, before anything is asked
+    // or changed, that a file cannot be used. Nothing live is touched until the person agrees.
+    const staged = `${this.file}.restoring`;
+    stageRestore(source, staged);
+    const discardStaged = (): void => {
+      for (const suffix of ["", "-wal", "-shm"]) {
+        try { fs.rmSync(staged + suffix, { force: true }); } catch { /* none */ }
+      }
     };
-    const answer = win ? await dialog.showMessageBox(win, box) : await dialog.showMessageBox(box);
-    if (answer.response !== 0) return null;
-
-    // Save what is there now, while the database is still open and consistent.
-    await backupDatabase(this.live(), safetyCopy);
-    this.close();
     try {
-      replaceDatabaseFile(this.file, source);
-      this.tryOpen();
-      if (!this.workspace) throw this.openError;
-    } catch (err) {
-      // Put the old workspace back.
-      replaceDatabaseFile(this.file, safetyCopy);
-      this.tryOpen();
-      throw new AppError("database", `The backup could not be used, so your workspace was left as it was. (${err instanceof Error ? err.message : String(err)})`);
+      const safetyCopy = path.join(path.dirname(this.file), `before-restore-${stamp()}.db`);
+      const box = {
+        type: "warning" as const,
+        buttons: ["Replace my workspace", "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+        message: "Replace your workspace with this backup?",
+        detail: `Everything in the app now is replaced by the contents of:\n${source}\n\nYour current workspace is saved first, as:\n${safetyCopy}`,
+      };
+      const answer = win ? await dialog.showMessageBox(win, box) : await dialog.showMessageBox(box);
+      if (answer.response !== 0) return null;
+
+      // Save what is there now, while the database is still open and consistent.
+      await backupDatabase(this.live(), safetyCopy);
+      this.close();
+      try {
+        replaceDatabaseFile(this.file, staged);
+        this.tryOpen();
+        if (!this.workspace) throw this.openError;
+      } catch (err) {
+        // Put the old workspace back.
+        replaceDatabaseFile(this.file, safetyCopy);
+        this.tryOpen();
+        throw new AppError("database", `The backup could not be used, so your workspace was left as it was. (${err instanceof Error ? err.message : String(err)})`);
+      }
+      return this.ws().snapshot();
+    } finally {
+      discardStaged();
     }
-    return this.ws().snapshot();
   }
 
   /** The file would not open. Keep it under another name and begin again. */

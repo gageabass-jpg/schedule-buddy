@@ -31,7 +31,7 @@ Use **workspace menu → Show data folder**, or File → Back Up Database…. To
 | **Back up database…** | A consistent single-file copy of the live database (SQLite's own backup). |
 | **Export as JSON…** | Everything in one file. |
 | **Export as CSV…** | `projects.csv`, `tasks.csv`, `milestones.csv`, `notes.csv`, `services.csv`, `service_charges.csv` in a new folder. UTF-8 with a BOM for Excel; cells that start with `=`, `+`, `-` or `@` are neutralised. |
-| **Restore from backup…** | Checks the file (integrity, schema), asks, saves your current workspace first as `before-restore-….db`, then swaps. |
+| **Restore from backup…** | Checks the file (integrity, and that it holds only this app's tables: a trigger, a view or an unknown table is refused), copies its rows into a new database with this app's own schema, asks, saves your current workspace first as `before-restore-….db`, then swaps. Nothing a backup carries inside itself ever runs. An older backup works; its newer columns take their defaults. |
 
 If the database file cannot be opened, the app says why and offers *Start a new workspace*. That keeps the unreadable file under another name and never deletes it.
 
