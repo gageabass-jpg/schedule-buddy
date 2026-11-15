@@ -329,6 +329,14 @@ export class Workspace {
         projectId = patch.projectId ? this.project(patch.projectId).id : null;
       }
 
+      // Going to another project must not make a second copy of a GitHub item that is already there: not for
+      // this task, and not for its subtasks, which go with it. (The unique index would refuse too, but in SQLite's words.)
+      if (projectId !== cur.projectId) {
+        this.assertNewGithubRef("tasks", projectId, cur.githubRef, { id, title: cur.title });
+        const children = this.db.prepare("SELECT id, title, github_ref FROM tasks WHERE parent_id = ?").all(id) as Row[];
+        for (const c of children) this.assertNewGithubRef("tasks", projectId, strOrNull(c.github_ref), { id: str(c.id), title: str(c.title) });
+      }
+
       const t = this.now();
       const completedAt = status === "done" ? (cur.status === "done" ? cur.completedAt ?? t : t) : null;
       this.run(
@@ -615,11 +623,19 @@ export class Workspace {
     }
   }
 
-  /** One GitHub item, once, per project (the unique index says so too; this says it in words). */
-  private assertNewGithubRef(table: "tasks" | "milestones", projectId: string | null, ref: string | null): void {
+  /** One GitHub item, once, per project (the unique index says so too; this says it in words).
+   *  `moving` is a task that is already in the workspace and is about to go to `projectId`: it is not its own duplicate. */
+  private assertNewGithubRef(table: "tasks" | "milestones", projectId: string | null, ref: string | null, moving?: { id: string; title: string }): void {
     if (!ref) return;
-    const taken = this.get(`SELECT 1 AS n FROM ${table} WHERE coalesce(project_id, '') = ? AND lower(github_ref) = lower(?) LIMIT 1`, projectId ?? "", ref);
-    if (taken) throw invalid(`That item from GitHub (${ref}) is already ${projectId ? "in this project" : "in the inbox"}.`);
+    const taken = this.get(
+      `SELECT 1 AS n FROM ${table} WHERE coalesce(project_id, '') = ? AND lower(github_ref) = lower(?) AND id <> ? LIMIT 1`,
+      projectId ?? "", ref, moving?.id ?? "",
+    );
+    if (!taken) return;
+    const where = projectId ? "in that project" : "in the inbox";
+    throw invalid(moving
+      ? `"${moving.title}" cannot go there: that item from GitHub (${ref}) is already ${where}.`
+      : `That item from GitHub (${ref}) is already ${projectId ? "in this project" : "in the inbox"}.`);
   }
 
   private change(id: string, fn: () => void): Change {

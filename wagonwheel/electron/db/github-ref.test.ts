@@ -133,3 +133,54 @@ describe("migration 5 reads the id back out of what earlier scans wrote", () => 
     expect(after.snapshot().tasks).toHaveLength(5);   // nothing was dropped
   });
 });
+
+describe("moving an imported task into a project that already has that GitHub item", () => {
+  it("says so in words instead of showing SQLite's error, and changes nothing", () => {
+    const a = ws.createProject({ name: "A" }).id;
+    const b = ws.createProject({ name: "B" }).id;
+    ws.createTask({ title: "Already in B", projectId: b, githubRef: "o/r#1" });
+    const t = ws.createTask({ title: "Same item in A", projectId: a, githubRef: "o/r#1" }).id;
+    expect(message(() => ws.updateTask(t, { projectId: b }))).toBe('validation: "Same item in A" cannot go there: that item from GitHub (o/r#1) is already in that project.');
+    expect(ws.snapshot().tasks.find((x) => x.id === t)?.projectId).toBe(a);
+  });
+
+  it("says the inbox when the inbox is where the copy is", () => {
+    const a = ws.createProject({ name: "A" }).id;
+    ws.createTask({ title: "Loose", githubRef: "o/r#1" });
+    const t = ws.createTask({ title: "In A", projectId: a, githubRef: "o/r#1" }).id;
+    expect(message(() => ws.updateTask(t, { projectId: null }))).toBe('validation: "In A" cannot go there: that item from GitHub (o/r#1) is already in the inbox.');
+  });
+
+  it("checks the subtasks too, since they go with the task", () => {
+    const a = ws.createProject({ name: "A" }).id;
+    const b = ws.createProject({ name: "B" }).id;
+    ws.createTask({ title: "Copy in B", projectId: b, githubRef: "o/r#7" });
+    const parent = ws.createTask({ title: "Parent", projectId: a }).id;
+    ws.createTask({ title: "Child", parentId: parent, githubRef: "o/r#7" });
+    expect(message(() => ws.updateTask(parent, { projectId: b }))).toBe('validation: "Child" cannot go there: that item from GitHub (o/r#7) is already in that project.');
+    expect(ws.snapshot().tasks.find((x) => x.id === parent)?.projectId).toBe(a);
+  });
+
+  it("applies when a subtask is lifted out with a new project, or moved under a parent in another project", () => {
+    const a = ws.createProject({ name: "A" }).id;
+    const b = ws.createProject({ name: "B" }).id;
+    ws.createTask({ title: "Copy in B", projectId: b, githubRef: "o/r#2" });
+    const parentA = ws.createTask({ title: "Parent A", projectId: a }).id;
+    const parentB = ws.createTask({ title: "Parent B", projectId: b }).id;
+    const sub = ws.createTask({ title: "Sub", parentId: parentA, githubRef: "o/r#2" }).id;
+    expect(message(() => ws.updateTask(sub, { parentId: null, projectId: b }))).toContain("cannot go there");
+    expect(message(() => ws.updateTask(sub, { parentId: parentB }))).toContain("cannot go there");
+    expect(ws.snapshot().tasks.find((x) => x.id === sub)).toMatchObject({ parentId: parentA, projectId: a });
+  });
+
+  it("lets a move through when the other project holds a different item, and when the project does not change", () => {
+    const a = ws.createProject({ name: "A" }).id;
+    const b = ws.createProject({ name: "B" }).id;
+    ws.createTask({ title: "Other item in B", projectId: b, githubRef: "o/r#2" });
+    const t = ws.createTask({ title: "In A", projectId: a, githubRef: "o/r#1" }).id;
+    expect(message(() => ws.updateTask(t, { title: "Renamed" }))).toBeUndefined();       // not a move
+    expect(message(() => ws.updateTask(t, { projectId: a }))).toBeUndefined();            // same project
+    expect(message(() => ws.updateTask(t, { projectId: b }))).toBeUndefined();            // different item there
+    expect(ws.snapshot().tasks.find((x) => x.id === t)?.projectId).toBe(b);
+  });
+});
