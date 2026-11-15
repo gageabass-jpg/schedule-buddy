@@ -38,15 +38,15 @@ export function buildCsvFiles(s: Snapshot): Record<string, string> {
       }),
     ),
     "tasks.csv": csv(
-      ["id", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "description", "created_at", "updated_at"],
+      ["id", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
       s.tasks.map((t) => [
         t.id, t.projectId ? projectName.get(t.projectId) ?? "" : "(inbox)", t.parentId ? taskTitle.get(t.parentId) ?? "" : "",
-        t.title, t.status, t.priority, t.startDate, t.dueDate, iso(t.completedAt), t.description, iso(t.createdAt), iso(t.updatedAt),
+        t.title, t.status, t.priority, t.startDate, t.dueDate, iso(t.completedAt), t.githubRef, t.description, iso(t.createdAt), iso(t.updatedAt),
       ]),
     ),
     "milestones.csv": csv(
-      ["id", "project", "name", "target_date", "completed_at", "description", "created_at", "updated_at"],
-      s.milestones.map((m) => [m.id, projectName.get(m.projectId) ?? "", m.name, m.targetDate, iso(m.completedAt), m.description, iso(m.createdAt), iso(m.updatedAt)]),
+      ["id", "project", "name", "target_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
+      s.milestones.map((m) => [m.id, projectName.get(m.projectId) ?? "", m.name, m.targetDate, iso(m.completedAt), m.githubRef, m.description, iso(m.createdAt), iso(m.updatedAt)]),
     ),
     "notes.csv": csv(
       ["id", "project", "task", "body", "created_at", "updated_at"],

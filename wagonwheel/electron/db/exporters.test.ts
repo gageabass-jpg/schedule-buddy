@@ -6,11 +6,11 @@ const snap: Snapshot = {
   settings: { workspaceName: "Gage's Workspace" },
   projects: [{ id: "p1", name: "Wagon, wheel", description: 'He said "go"', status: "active", color: "#C62845", startDate: "2026-11-01", targetDate: "2026-12-01", githubRepo: "gageabass-jpg/wagonwheel", archivedAt: null, createdAt: 0, updatedAt: 0 }],
   tasks: [
-    { id: "t1", projectId: "p1", parentId: null, title: "Top", description: "", status: "done", priority: "high", startDate: null, dueDate: "2026-11-20", completedAt: 5000, createdAt: 0, updatedAt: 0 },
-    { id: "t2", projectId: "p1", parentId: "t1", title: "Sub", description: "", status: "not_started", priority: "low", startDate: null, dueDate: null, completedAt: null, createdAt: 0, updatedAt: 0 },
-    { id: "t3", projectId: null, parentId: null, title: "=HYPERLINK(\"x\")", description: "", status: "not_started", priority: "medium", startDate: null, dueDate: null, completedAt: null, createdAt: 0, updatedAt: 0 },
+    { id: "t1", projectId: "p1", parentId: null, title: "Top", description: "", status: "done", priority: "high", startDate: null, dueDate: "2026-11-20", completedAt: 5000, githubRef: "o/r#1", createdAt: 0, updatedAt: 0 },
+    { id: "t2", projectId: "p1", parentId: "t1", title: "Sub", description: "", status: "not_started", priority: "low", startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: 0, updatedAt: 0 },
+    { id: "t3", projectId: null, parentId: null, title: "=HYPERLINK(\"x\")", description: "", status: "not_started", priority: "medium", startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: 0, updatedAt: 0 },
   ],
-  milestones: [{ id: "m1", projectId: "p1", name: "Ship", description: "", targetDate: "2026-12-01", completedAt: null, createdAt: 0, updatedAt: 0 }],
+  milestones: [{ id: "m1", projectId: "p1", name: "Ship", description: "", targetDate: "2026-12-01", completedAt: null, githubRef: "o/r@milestone:3", createdAt: 0, updatedAt: 0 }],
   notes: [{ id: "n1", projectId: null, taskId: "t1", body: "line one\nline two", createdAt: 0, updatedAt: 0 }],
   services: [{ id: "v1", name: "Vercel", plan: "Pro", kind: "usage", provider: "vercel", amountCents: 2050, billingDay: 5, billingUrl: "https://vercel.com/account/billing", notes: "", status: "active", lastSyncedAt: 5000, createdAt: 0, updatedAt: 0 }],
   serviceCharges: [
@@ -67,6 +67,34 @@ describe("buildCsvFiles", () => {
     expect(lines[2]).toContain(",Top,Sub,");   // parent_task = Top, title = Sub
     expect(lines[3]).toContain("(inbox)");
     expect(lines[3]).toContain("'=HYPERLINK");
+  });
+
+  it("carries where an item came from on GitHub, blank for the rest", () => {
+    // The project is called "Wagon, wheel", so the cells have to be read the way a spreadsheet reads them.
+    const cells = (line: string): string[] => {
+      const out: string[] = [];
+      let cur = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (quoted) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') quoted = false;
+          else cur += ch;
+        } else if (ch === '"') quoted = true;
+        else if (ch === ",") { out.push(cur); cur = ""; }
+        else cur += ch;
+      }
+      out.push(cur);
+      return out;
+    };
+    const [header, top, sub] = files["tasks.csv"].replace("﻿", "").split("\r\n").map(cells);
+    const at = header.indexOf("github_ref");
+    expect(at).toBeGreaterThan(-1);
+    expect(top[at]).toBe("o/r#1");
+    expect(sub[at]).toBe("");
+    const [mHeader, mRow] = files["milestones.csv"].replace("﻿", "").split("\r\n").map(cells);
+    expect(mRow[mHeader.indexOf("github_ref")]).toBe("o/r@milestone:3");
   });
 
   it("writes services with dollars, and each charge under its service's name", () => {
