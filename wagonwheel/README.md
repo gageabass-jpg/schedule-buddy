@@ -156,6 +156,8 @@ scripts/             afterPackIcon.cjs (electron-builder afterPack hook for the 
 
 A project's progress is the share of its top-level tasks that are done (a subtask is part of its task). A task with no project is *unsorted*: it is in the inbox until it gets one.
 
+A task dialog has a **Part of** picker: choose another task to make this one its subtask (it then lives in that task's project), or "Nothing" to lift a subtask back out as a task of its own. A task that has subtasks cannot go under another (subtasks are one level deep). To reach a subtask, open its parent and click the subtask's title. Id and notes stay through any move. Moving a task from GitHub into a project that already has that GitHub item is refused in words.
+
 SQLite is the only source of truth. Each change goes to the main process, runs in one transaction, and returns the whole workspace. That is simple and always consistent, and it is fast at personal scale (thousands of tasks). If you ever have tens of thousands, change `snapshot()` to send patches.
 
 ## Shared components, and the rule

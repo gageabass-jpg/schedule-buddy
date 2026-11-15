@@ -206,6 +206,48 @@ test("subtasks: add, tick off, and the parent shows how many are done", () => wi
   assert.equal(s.tasks.filter((t) => t.parentId).length, 2);
 }));
 
+test("subtasks: the task dialog moves a task under another and lifts a subtask back out", () => withApp(async ({ page }) => {
+  const alpha = await page.evaluate(() => window.wagonwheel.createProject({ name: "Alpha" }));
+  const bravo = await page.evaluate(() => window.wagonwheel.createProject({ name: "Bravo" }));
+  const house = await page.evaluate((p) => window.wagonwheel.createTask({ title: "Move house", projectId: p }), bravo.id);
+  const van = await page.evaluate((p) => window.wagonwheel.createTask({ title: "Book the van", projectId: p }), alpha.id);
+  await page.reload();
+  await page.waitForSelector('[aria-label="Sidebar"]');
+  await nav(page, "All Tasks");
+
+  // Put "Book the van" (in Alpha) under "Move house" (in Bravo). It goes where its parent is.
+  await main(page).getByText("Book the van").click();
+  let d = dialog(page, "Task");
+  await d.getByLabel("Part of").selectOption({ label: "Move house · Bravo" });
+  await d.getByText("Goes in Bravo, with its parent.").waitFor();
+  assert.equal(await d.getByLabel("Project").count(), 0, "a subtask has no project of its own to pick");
+  await d.getByRole("button", { name: "Save" }).click();
+  await page.waitForFunction(async ({ id, parent }) => {
+    const t = (await window.wagonwheel.getSnapshot()).tasks.find((x) => x.id === id);
+    return t.parentId === parent;
+  }, { id: van.id, parent: house.id });
+  let t = (await snap(page)).tasks.find((x) => x.id === van.id);
+  assert.deepEqual([t.parentId, t.projectId], [house.id, bravo.id]);
+
+  // A task that has subtasks cannot itself go under another.
+  await main(page).getByText("Move house").click();
+  d = dialog(page, "Task");
+  assert.equal(await d.getByLabel("Part of").isDisabled(), true);
+  await d.getByText("This task has subtasks, so it cannot go under another.").waitFor();
+
+  // Open the subtask from its parent's dialog, and lift it out. It stays in Bravo, and the Project field is back.
+  await d.getByRole("button", { name: "Book the van" }).click();
+  d = dialog(page, "Subtask");
+  await d.getByText('Part of "Move house"').waitFor();
+  assert.equal(await d.getByLabel("Project").count(), 0);
+  await d.getByLabel("Part of").selectOption({ label: "Nothing (a task of its own)" });
+  assert.equal(await d.getByLabel("Project").inputValue(), bravo.id);
+  await d.getByRole("button", { name: "Save" }).click();
+  await page.waitForFunction(async (id) => (await window.wagonwheel.getSnapshot()).tasks.find((x) => x.id === id).parentId === null, van.id);
+  t = (await snap(page)).tasks.find((x) => x.id === van.id);
+  assert.deepEqual([t.parentId, t.projectId], [null, bravo.id]);
+}));
+
 // ── milestones and notes ────────────────────────────────────────────────────
 
 test("milestones: add, complete, see it on the timeline, delete", () => withApp(async ({ page }) => {

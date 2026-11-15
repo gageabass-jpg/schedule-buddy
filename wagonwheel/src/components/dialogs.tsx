@@ -66,16 +66,21 @@ function ConfirmDialog() {
 // ── Task ────────────────────────────────────────────────────────────────────
 
 function TaskDialog() {
-  const { taskDialog, closeTask, confirm } = useUi();
+  const { taskDialog, closeTask, confirm, editTask } = useUi();
   const { snapshot, act, attempt, attemptOk, today } = useData();
   const existing = taskDialog?.id ? snapshot.tasks.find((t) => t.id === taskDialog.id) : undefined;
   const defaults = taskDialog?.id === null ? taskDialog.defaults : undefined;
+  // The parent the task has now (or will start with): this decides the heading, the width and whether the Subtasks box shows.
   const parent = (existing?.parentId ?? defaults?.parentId) ? snapshot.tasks.find((t) => t.id === (existing?.parentId ?? defaults?.parentId)) : undefined;
   const isSub = !!parent;
 
   const [title, setTitle] = useState(existing?.title ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [projectId, setProjectId] = useState(existing?.projectId ?? defaults?.projectId ?? "");
+  // "Part of": the parent picked in the form, "" for none. It can differ from the saved one until Save.
+  const [parentPick, setParentPick] = useState(parent?.id ?? "");
+  const pickedParent = parentPick ? snapshot.tasks.find((t) => t.id === parentPick) : undefined;
+  const underParent = !!pickedParent;   // a subtask lives in its parent's project, so the Project field only shows when this is false
   const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "not_started");
   const [priority, setPriority] = useState<Priority>(existing?.priority ?? "medium");
   const [startDate, setStartDate] = useState(existing?.startDate ?? "");
@@ -91,6 +96,18 @@ function TaskDialog() {
   }, [snapshot, existing]);
   const subtasks = existing ? subtasksOf(snapshot.tasks, existing.id) : [];
 
+  // What the task can be moved under: any other top-level task. (Subtasks are one level deep, so a task that has
+  // subtasks cannot go under another, and a subtask cannot be a parent.)
+  const parentChoices = useMemo(() => {
+    if (!existing) return [];
+    const where = (t: { projectId: string | null }) => (t.projectId ? snapshot.projects.find((p) => p.id === t.projectId)?.name ?? "" : "Inbox");
+    return snapshot.tasks
+      .filter((t) => !t.parentId && t.id !== existing.id)
+      .map((t) => ({ id: t.id, label: `${t.title} · ${where(t)}` }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [snapshot, existing]);
+  const hasSubtasks = subtasks.length > 0;
+
   // The task can vanish under the dialog (deleted elsewhere). Close rather than show stale data.
   useEffect(() => { if (taskDialog?.id && !existing) closeTask(); }, [taskDialog, existing, closeTask]);
 
@@ -100,8 +117,15 @@ function TaskDialog() {
     setError(null);
     try {
       const fields = { title, description, priority, status, startDate: nullIfBlank(startDate), dueDate: nullIfBlank(dueDate) };
-      if (existing) await act.updateTask(existing.id, { ...fields, projectId: isSub ? undefined : projectId || null });
-      else await act.createTask({ ...fields, projectId: projectId || null, parentId: defaults?.parentId ?? null });
+      if (existing) {
+        // Only a changed "Part of" is sent. Under a parent, the project follows the parent, so none is sent.
+        const moved = parentPick !== (existing.parentId ?? "");
+        await act.updateTask(existing.id, {
+          ...fields,
+          projectId: underParent ? undefined : projectId || null,
+          ...(moved ? { parentId: parentPick || null } : {}),
+        });
+      } else await act.createTask({ ...fields, projectId: projectId || null, parentId: defaults?.parentId ?? null });
       closeTask();
     } catch (err) {
       setError(messageOf(err));
@@ -148,11 +172,26 @@ function TaskDialog() {
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs doing?" autoFocus maxLength={120} className="ww-field !min-h-10 !text-[15px]" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          {!isSub && (
+          {!underParent && (
             <Field label="Project">
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="ww-field">
                 <option value="">Inbox (no project)</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.archivedAt ? " (archived)" : ""}</option>)}
+              </select>
+            </Field>
+          )}
+          {existing && (
+            <Field
+              label="Part of"
+              hint={
+                hasSubtasks ? "This task has subtasks, so it cannot go under another."
+                : pickedParent ? `Goes in ${pickedParent.projectId ? snapshot.projects.find((p) => p.id === pickedParent.projectId)?.name ?? "its project" : "the inbox"}, with its parent.`
+                : undefined
+              }
+            >
+              <select value={parentPick} onChange={(e) => setParentPick(e.target.value)} disabled={hasSubtasks} className="ww-field">
+                <option value="">Nothing (a task of its own)</option>
+                {parentChoices.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </Field>
           )}
@@ -187,7 +226,13 @@ function TaskDialog() {
             {subtasks.map((s) => (
               <li key={s.id} className="ww-row flex items-center gap-2.5 rounded-lg px-2 py-1.5">
                 <TaskCheck task={s} />
-                <span className={cn("min-w-0 flex-1 truncate text-[14px]", s.status === "done" && "text-ink-3 line-through decoration-white/25")}>{s.title}</span>
+                {/* Opens the subtask itself, which is where it can be moved under another task or lifted out. */}
+                <button
+                  type="button"
+                  onClick={() => editTask(s.id)}
+                  title="Open this subtask"
+                  className={cn("min-w-0 flex-1 truncate text-left text-[14px] hover:underline decoration-white/30 underline-offset-2", s.status === "done" && "text-ink-3 line-through decoration-white/25")}
+                >{s.title}</button>
                 <IconButton label="Delete subtask" onClick={() => void attempt(() => act.deleteTask(s.id))}><TrashIcon size={14} /></IconButton>
               </li>
             ))}
