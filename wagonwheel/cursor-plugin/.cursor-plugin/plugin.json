@@ -1,0 +1,7 @@
+{
+  "name": "wagonwheel",
+  "version": "0.1.0",
+  "description": "Your Nucleus Wagonwheel projects, tasks, milestones, notes and monthly bills inside Cursor. Runs the connector that ships inside the Wagonwheel app, on this Mac only.",
+  "keywords": ["wagonwheel", "projects", "tasks", "planning", "mcp"],
+  "logo": "assets/logo.svg"
+}

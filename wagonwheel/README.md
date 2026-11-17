@@ -128,6 +128,24 @@ How it stays safe: the panel only **reads** Claude Code's list of connectors (`m
 
 Code: `electron/mcp/` (`protocol.ts` the MCP wire protocol, `tools.ts` the tools, `server.ts` the entry point), `electron/db/external-changes.ts` (the refresh).
 
+## Cursor plugin
+
+The same connector, packaged for [Cursor](https://cursor.com/docs/reference/plugins). `cursor-plugin/` is a Cursor plugin: a manifest, an `mcp.json` that starts the connector exactly as the Claude Code registration above does (the app's own Node, the server inside the app bundle), a `wagonwheel` skill that tells Cursor's agent how to use the tools, and a `/wagonwheel-week` command ("what is on my plate", changes nothing). Nothing else is installed, nothing is downloaded, and no token or variable is involved.
+
+```bash
+npm run cursor-plugin:check     # starts the server as mcp.json says, shakes hands, lists its tools (reads nothing)
+npm run cursor-plugin:install   # copies cursor-plugin/ to ~/.cursor/plugins/local/wagonwheel
+```
+
+Then run **Developer: Reload Window** in Cursor (or restart it). The server shows up as `plugin-wagonwheel-wagonwheel`, and its tool calls go through Cursor's usual approval prompts. Run the install again after changing anything in `cursor-plugin/`.
+
+- **It is the same data, with the same rules.** Cursor's agent reads and changes the same database file as the app and as Claude Code, with the same tools (including the same absence of delete tools). The skill adds the Cursor-specific part: match the repository you are in to a project by its connected GitHub repository, offer to tick off a task you just finished, and record a bill only from a receipt you confirmed.
+- **Read-only.** Add `"--read-only"` to the `args` in `cursor-plugin/mcp.json` (after the server path) and Cursor sees only the read tools.
+- **The app must be at `/Applications/Nucleus Wagonwheel.app`** and have been opened once. If it lives elsewhere, edit the two paths in `mcp.json`; a test checks they match the registration above.
+- **A local plugin, not a marketplace one.** It only works with the Wagonwheel app installed on this Mac at that path, so there is nothing for anyone else to install from a marketplace. It holds no personal data (the repository is public): the manifest, the server path, the instructions and the app icon.
+
+Code: `cursor-plugin/`, `scripts/check-cursor-plugin.mjs`, `scripts/install-cursor-plugin.sh`; `electron/mcp/cursor-plugin.test.ts` checks the manifest, that the server matches the Claude Code registration, and that every tool the skill names exists.
+
 ## Layout
 
 ```
