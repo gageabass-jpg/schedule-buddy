@@ -18,6 +18,8 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:web && npm run build:electron",
     "start": "electron .",
+    "cursor-plugin:check": "node scripts/check-cursor-plugin.mjs",
+    "cursor-plugin:install": "bash scripts/install-cursor-plugin.sh",
     "dist": "npm run build && electron-builder --mac --arm64"
   },
   "dependencies": {

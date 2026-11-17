@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "wagonwheel": {
+      "command": "/Applications/Nucleus Wagonwheel.app/Contents/MacOS/Nucleus Wagonwheel",
+      "args": [
+        "/Applications/Nucleus Wagonwheel.app/Contents/Resources/app.asar/dist-electron/electron/mcp/server.js"
+      ],
+      "env": {
+        "ELECTRON_RUN_AS_NODE": "1"
+      }
+    }
+  }
+}
