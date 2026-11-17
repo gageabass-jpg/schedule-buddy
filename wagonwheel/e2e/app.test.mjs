@@ -355,7 +355,7 @@ test("page header: Scan GitHub sits with New task and New project, the inbox but
   assert.equal(await side.getByRole("button", { name: /Scan GitHub/ }).count(), 0, "no Scan GitHub in the sidebar");
 
   // where something can be created, Scan GitHub is beside it, and the inbox is to the right of all of them
-  for (const [view, create] of [["Dashboard", "New task"], ["Dashboard", "New project"], ["All Tasks", "New task"], ["Board", "New task"], ["All Projects", "New project"]]) {
+  for (const [view, create] of [["Dashboard", "New task"], ["Dashboard", "New project"], ["All Tasks", "New task"], ["All Projects", "New project"]]) {
     await nav(page, view);
     const scan = header.getByRole("button", { name: "Scan GitHub", exact: true });
     const made = header.getByRole("button", { name: create, exact: true });
@@ -365,7 +365,7 @@ test("page header: Scan GitHub sits with New task and New project, the inbox but
   }
 
   // where nothing is created from, there is no Scan GitHub, but the inbox is still in the corner
-  for (const view of ["Timeline", "Services"]) {
+  for (const view of ["Board", "Timeline", "Services"]) {
     await nav(page, view);
     await inboxButton(page).waitFor();
     assert.equal(await header.getByRole("button", { name: "Scan GitHub", exact: true }).count(), 0, `${view}: no Scan GitHub`);
@@ -1468,6 +1468,16 @@ test("board: a row for each project, a column for each status, a box with an ide
   await cell("Started").getByRole("button", { name: /^RXM-2:/ }).click();
   await page.getByRole("button", { name: "Open task" }).click();
   await dialog(page, "Task").getByText("RXM-2", { exact: false }).waitFor();
+  await page.keyboard.press("Escape");
+
+  // a task is added from its project's row, so it lands on the Board (a header New task would have made an inbox task, which the Board does not show)
+  assert.equal(await main(page).locator("header").getByRole("button", { name: "New task", exact: true }).count(), 0, "no New task in the Board's header");
+  await main(page).getByRole("button", { name: "Add a task to Rx app" }).click();
+  const made = dialog(page, "New task");
+  assert.equal(await made.getByLabel("Project").inputValue(), (await projectByName(page, "Rx app")).id, "the dialog opens on this project");
+  await made.getByLabel("Title").fill("Plan the Android port");
+  await made.getByRole("button", { name: "Add task" }).click();
+  await cell("Queued").getByRole("button", { name: /^RXM-10:/ }).waitFor();
 }));
 
 test("board: a project's status line is typed on the board, kept, and shown on the project page", () => withApp(async ({ page }) => {
