@@ -1468,7 +1468,8 @@ test("board: a row for each project, a column for each status, a box with an ide
   await cell("Started").getByRole("button", { name: /^RXM-2:/ }).click();
   await page.getByRole("button", { name: "Open task" }).click();
   await dialog(page, "Task").getByText("RXM-2", { exact: false }).waitFor();
-  await page.keyboard.press("Escape");
+  await dialog(page, "Task").getByRole("button", { name: "Cancel" }).click();
+  await dialog(page, "Task").waitFor({ state: "detached" });   // an open dialog hides the page behind it from the test, and from a screen reader
 
   // a task is added from its project's row, so it lands on the Board (a header New task would have made an inbox task, which the Board does not show)
   assert.equal(await main(page).locator("header").getByRole("button", { name: "New task", exact: true }).count(), 0, "no New task in the Board's header");
