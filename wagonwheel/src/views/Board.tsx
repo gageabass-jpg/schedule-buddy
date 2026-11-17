@@ -8,11 +8,10 @@ import { useUi } from "@/lib/ui-state";
 import { buildBoard, CELL_LIMIT, isClosedColumn, visibleInCell, type BoardRow } from "@/lib/board";
 import { dueLabel, isOpen, isOverdue, subtaskProgress } from "@/lib/derive";
 import { projectColor } from "@/lib/colors";
-import { EmptyState, PageHeader, PriorityMark, TASK_STATUS_TONE } from "@/components/kit";
+import { EmptyState, IconButton, PageHeader, PriorityMark, TASK_STATUS_TONE } from "@/components/kit";
 import { TONES } from "@/lib/tones";
 import { GlassButton } from "@/components/GlassButton";
 import { StatusLine } from "@/components/StatusLine";
-import { ScanGithubButton } from "@/components/PageTools";
 
 // The Board: every project down the left, every status across the top, a small box with the task's identifier in the
 // cell where it stands. The tracker above the table counts each status and colours its column. A closed column (Complete,
@@ -35,7 +34,7 @@ const gridStyle = { gridTemplateColumns: `${LABEL_W}px repeat(${TASK_STATUSES.le
 
 export function Board() {
   const { snapshot } = useData();
-  const { newTask, newProject } = useUi();
+  const { newProject } = useUi();
   const board = useMemo(() => buildBoard(snapshot), [snapshot]);
   const [showAllClosed, setShowAllClosed] = useState(false);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -51,16 +50,16 @@ export function Board() {
       <PageHeader
         title="Board"
         subtitle={`${board.tasks} ${board.tasks === 1 ? "task" : "tasks"} across ${board.rows.length} ${board.rows.length === 1 ? "project" : "projects"}`}
-        actions={<>
+        // No New task here: with no project to put it in, it would go to the inbox, which the Board does not show.
+        // A task is added from its project's row instead.
+        actions={
           <Switch
             checked={showAllClosed}
             onChange={setShowAllClosed}
             label="Show all closed"
             title="Open the Complete and Discontinued columns in full, instead of the latest few"
           />
-          <ScanGithubButton />
-          <GlassButton tone="primary" onClick={() => newTask()}><Plus size={15} />New task</GlassButton>
-        </>}
+        }
       />
       {board.rows.length === 0 ? (
         <EmptyState
@@ -104,16 +103,20 @@ function Tracker({ status, count }: { status: TaskStatus; count: number }) {
 }
 
 function Row({ row, showAllClosed, expanded, onToggle }: { row: BoardRow; showAllClosed: boolean; expanded: ReadonlySet<string>; onToggle: (key: string) => void }) {
-  const { go } = useUi();
+  const { go, newTask } = useUi();
   const { project } = row;
   const color = projectColor(project.color);
   return (
     <div role="row" className="grid items-stretch gap-2" style={gridStyle}>
       <div role="rowheader" className="glass-card sticky left-0 z-[5] flex min-w-0 flex-col gap-1.5 p-3">
-        <button type="button" onClick={() => go({ name: "project", id: project.id })} className="flex min-w-0 items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Open the project">
-          <i className="size-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}88` }} />
-          <span className="truncate text-[14.5px] font-semibold tracking-tight">{project.name}</span>
-        </button>
+        <div className="flex min-w-0 items-center gap-1">
+          <button type="button" onClick={() => go({ name: "project", id: project.id })} className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Open the project">
+            <i className="size-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}88` }} />
+            <span className="truncate text-[14.5px] font-semibold tracking-tight">{project.name}</span>
+          </button>
+          {/* Adds the task to this project, so it lands in this row's Queued cell. */}
+          <IconButton label={`Add a task to ${project.name}`} onClick={() => newTask({ projectId: project.id })} className="-my-1 -mr-1.5 size-7"><Plus size={14} /></IconButton>
+        </div>
         <div className="flex items-center gap-2 text-[12px] text-ink-3">
           <span className="rounded border border-white/10 bg-white/[0.05] px-1.5 font-mono text-[11px] font-semibold text-ink-2" title="The project's key: the front of its task identifiers">{project.key || "—"}</span>
           <span>{row.open} open · {row.closed} closed</span>
