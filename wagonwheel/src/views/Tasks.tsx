@@ -11,7 +11,8 @@ import { GlassButton } from "@/components/GlassButton";
 import { ScanGithubButton } from "@/components/PageTools";
 import { TaskRow } from "@/components/TaskRow";
 
-type Show = "open" | "done" | "all";
+// "closed" is Complete and Discontinued together: everything that is no longer to do.
+type Show = "open" | "closed" | "all";
 
 /** Every task, grouped by when it is due. Filter by state, project, priority or words. */
 export function Tasks() {
@@ -39,7 +40,7 @@ export function Tasks() {
       { title: "Next 7 days", tasks: mine.filter((t) => isOpen(t) && !!t.dueDate && t.dueDate > today && t.dueDate <= week) },
       { title: "Later", tasks: mine.filter((t) => isOpen(t) && !!t.dueDate && t.dueDate > week) },
       { title: "No date", tasks: mine.filter((t) => isOpen(t) && !t.dueDate) },
-      { title: "Done", tasks: mine.filter((t) => !isOpen(t)) },
+      { title: "Closed", tasks: mine.filter((t) => !isOpen(t)) },
     ];
     return { total: mine.length, buckets: buckets.filter((b) => b.tasks.length) };
   }, [all, show, project, priority, query, today]);
@@ -60,7 +61,7 @@ export function Tasks() {
         <Tabs value={show} onValueChange={(v) => setShow(v as Show)}>
           <TabsList>
             <TabsTrigger value="open">Open</TabsTrigger>
-            <TabsTrigger value="done">Done</TabsTrigger>
+            <TabsTrigger value="closed">Closed</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -83,7 +84,7 @@ export function Tasks() {
         {groups.total === 0 ? (
           <EmptyState
             icon={<ListChecks size={20} />}
-            title={filtered ? "No tasks match" : show === "done" ? "Nothing done yet" : "No tasks"}
+            title={filtered ? "No tasks match" : show === "closed" ? "Nothing closed yet" : "No tasks"}
             body={filtered ? "Try a different search or clear a filter." : "Add a task, or capture one in the inbox."}
             action={filtered ? <GlassButton onClick={() => { setProject(""); setPriority(""); setQuery(""); }}>Clear filters</GlassButton> : <GlassButton tone="primary" onClick={() => newTask()}><Plus size={15} />New task</GlassButton>}
           />

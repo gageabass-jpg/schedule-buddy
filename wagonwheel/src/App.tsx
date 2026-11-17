@@ -17,6 +17,7 @@ import { Inbox } from "@/views/Inbox";
 import { Services } from "@/views/Services";
 import { DayView } from "@/views/DayView";
 import { TimelineView } from "@/views/TimelineView";
+import { Board } from "@/views/Board";
 
 export function App() {
   return (
@@ -60,6 +61,7 @@ function Main() {
     case "projects": return <Projects />;
     case "project": return <ProjectDetail key={view.id} id={view.id} tab={view.tab} />;
     case "tasks": return <Tasks />;
+    case "board": return <Board />;
     case "timeline": return <TimelineView />;
     case "inbox": return <Inbox />;
     case "services": return <Services />;
@@ -120,6 +122,7 @@ function useMenuCommands() {
         case "go-dashboard": ui.go({ name: "dashboard" }); break;
         case "go-projects": ui.go({ name: "projects" }); break;
         case "go-tasks": ui.go({ name: "tasks" }); break;
+        case "go-board": ui.go({ name: "board" }); break;
         case "go-timeline": ui.go({ name: "timeline" }); break;
         case "go-inbox": ui.go({ name: "inbox" }); break;
         case "go-services": ui.go({ name: "services" }); break;

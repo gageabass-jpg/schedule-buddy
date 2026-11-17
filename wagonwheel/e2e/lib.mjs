@@ -55,6 +55,12 @@ export async function steady(app, page, { width = 1440, height = 900 } = {}) {
     const w = BrowserWindow.getAllWindows()[0];
     w.setContentSize(size.width, size.height);
   }, { width, height });
+  // A real screen can be shorter than the window asked for (a laptop with the Dock showing), and the window is then
+  // clamped to fit it. The page is told its size anyway, so the picture is the same size on every machine. Where the
+  // window did come out right (the CI's virtual display) nothing is overridden.
+  await page.waitForTimeout(200);
+  const [w, h] = await page.evaluate(() => [window.innerWidth, window.innerHeight]);
+  if (w !== width || h !== height) await page.setViewportSize({ width, height });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.mouse.move(width - 2, height - 2);
   await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());

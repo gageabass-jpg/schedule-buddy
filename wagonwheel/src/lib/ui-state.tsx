@@ -11,6 +11,7 @@ export type View =
   | { name: "projects" }
   | { name: "project"; id: string; tab?: ProjectTab }
   | { name: "tasks" }
+  | { name: "board" }
   | { name: "timeline" }
   | { name: "inbox" }
   | { name: "services" }

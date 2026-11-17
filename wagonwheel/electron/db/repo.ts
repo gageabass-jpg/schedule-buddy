@@ -1,14 +1,17 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import {
-  PRIORITIES, PROJECT_STATUSES, SERVICE_KINDS, SERVICE_PROVIDERS, SERVICE_PROVIDER_LABEL, SERVICE_STATUSES, TASK_STATUSES,
+  PRIORITIES, PROJECT_KEY_MAX, PROJECT_KEY_MIN, PROJECT_STATUSES, SERVICE_KINDS, SERVICE_PROVIDERS, SERVICE_PROVIDER_LABEL, SERVICE_STATUSES,
+  STATUS_LINE_MAX, TASK_STATUSES,
   type Change, type ChargeInput, type ChargeSource, type Milestone, type MilestoneInput, type MilestonePatch, type Note, type NoteInput,
   type Priority, type Project, type ProjectInput, type ProjectPatch, type ProjectStatus,
   type Service, type ServiceCharge, type ServiceInput, type ServiceKind, type ServicePatch, type ServiceProvider, type ServiceStatus,
   type Settings, type Snapshot, type Task, type TaskInput, type TaskPatch, type TaskStatus,
 } from "../../shared/types.js";
+import { isValidKey, suggestProjectKey } from "../../shared/project-key.js";
 import { beginImmediate } from "./busy.js";
 import { invalid, notFound } from "./errors.js";
+import { allocateTaskNumber } from "./identifiers.js";
 
 // All the SQL for the workspace. The renderer never sees it.
 // Every change runs in one transaction and hands back the whole workspace.
@@ -56,6 +59,13 @@ function githubRef(value: string | null | undefined): string | null {
   const v = (value ?? "").trim();
   if (v === "") return null;
   if (v.length > 300 || /\s/.test(v)) throw invalid("The GitHub reference is not valid.");
+  return v;
+}
+
+/** One short line on where a project stands. Whitespace, line breaks included, collapses to single spaces; empty clears it. */
+function statusLine(value: string | undefined): string {
+  const v = (value ?? "").replace(/\s+/g, " ").trim();
+  if (v.length > STATUS_LINE_MAX) throw invalid(`The status line is too long (the limit is ${STATUS_LINE_MAX} characters).`);
   return v;
 }
 
@@ -119,14 +129,14 @@ const strOrNull = (v: unknown): string | null => (v == null ? null : String(v));
 
 const toProject = (r: Row): Project => ({
   id: str(r.id), name: str(r.name), description: str(r.description),
-  status: str(r.status) as ProjectStatus, color: strOrNull(r.color),
+  status: str(r.status) as ProjectStatus, statusLine: str(r.status_line), key: str(r.key), color: strOrNull(r.color),
   startDate: strOrNull(r.start_date), targetDate: strOrNull(r.target_date),
   githubRepo: strOrNull(r.github_repo),
   archivedAt: numOrNull(r.archived_at), createdAt: num(r.created_at), updatedAt: num(r.updated_at),
 });
 
 const toTask = (r: Row): Task => ({
-  id: str(r.id), projectId: strOrNull(r.project_id), parentId: strOrNull(r.parent_id),
+  id: str(r.id), projectId: strOrNull(r.project_id), parentId: strOrNull(r.parent_id), number: numOrNull(r.number),
   title: str(r.title), description: str(r.description),
   status: str(r.status) as TaskStatus, priority: str(r.priority) as Priority,
   startDate: strOrNull(r.start_date), dueDate: strOrNull(r.due_date),
@@ -199,12 +209,29 @@ export class Workspace {
     const t = this.now();
     return this.change(id, () => {
       this.repoIsFree(row.githubRepo, id);
+      const key = this.projectKey(input.key, row.name, id);
       this.run(
-        `INSERT INTO projects (id, name, description, status, color, start_date, target_date, github_repo, archived_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
-        id, row.name, row.description, row.status, row.color, row.startDate, row.targetDate, row.githubRepo, t, t,
+        `INSERT INTO projects (id, name, description, status, status_line, key, color, start_date, target_date, github_repo, archived_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        id, row.name, row.description, row.status, row.statusLine, key, row.color, row.startDate, row.targetDate, row.githubRepo, t, t,
       );
     });
+  }
+
+  /**
+   * The key a project goes by in its tasks' identifiers (RXM in RXM-4). Asked for, it must be 2 to 5 capitals or digits and
+   * not another project's; not asked for, it is made from the name. `projectId` is the project it is for, so its own key never counts against it.
+   */
+  private projectKey(requested: string | undefined, projectName: string, projectId: string): string {
+    const others = this.db.prepare("SELECT upper(key) AS key, name FROM projects WHERE key IS NOT NULL AND id <> ?").all(projectId) as { key: string; name: string }[];
+    const wanted = (requested ?? "").trim().toUpperCase();
+    if (wanted === "") return suggestProjectKey(projectName, new Set(others.map((o) => o.key)));
+    if (!isValidKey(wanted)) {
+      throw invalid(`The key must be ${PROJECT_KEY_MIN} to ${PROJECT_KEY_MAX} capital letters or digits, such as RXM.`);
+    }
+    const owner = others.find((o) => o.key === wanted);
+    if (owner) throw invalid(`${wanted} is already the key of "${owner.name}". Each project needs its own.`);
+    return wanted;
   }
 
   /** A repository can be connected to one project. Says which one has it, so the person can act on it. */
@@ -221,17 +248,19 @@ export class Workspace {
         name: patch.name ?? cur.name,
         description: patch.description ?? cur.description,
         status: patch.status ?? cur.status,
+        statusLine: patch.statusLine ?? cur.statusLine,
         color: patch.color !== undefined ? patch.color : cur.color,
         startDate: patch.startDate !== undefined ? patch.startDate : cur.startDate,
         targetDate: patch.targetDate !== undefined ? patch.targetDate : cur.targetDate,
         githubRepo: patch.githubRepo !== undefined ? patch.githubRepo : cur.githubRepo,
       });
       this.repoIsFree(row.githubRepo, id);
+      const key = this.projectKey(patch.key ?? cur.key, row.name, id);
       const archivedAt = patch.archived === undefined ? cur.archivedAt : patch.archived ? (cur.archivedAt ?? this.now()) : null;
       this.run(
-        `UPDATE projects SET name = ?, description = ?, status = ?, color = ?, start_date = ?, target_date = ?,
+        `UPDATE projects SET name = ?, description = ?, status = ?, status_line = ?, key = ?, color = ?, start_date = ?, target_date = ?,
                 github_repo = ?, archived_at = ?, updated_at = ? WHERE id = ?`,
-        row.name, row.description, row.status, row.color, row.startDate, row.targetDate, row.githubRepo, archivedAt, this.now(), id,
+        row.name, row.description, row.status, row.statusLine, key, row.color, row.startDate, row.targetDate, row.githubRepo, archivedAt, this.now(), id,
       );
     });
   }
@@ -249,6 +278,7 @@ export class Workspace {
       name: name(input.name, "The project name"),
       description: text(input.description, "The description"),
       status: oneOf(input.status ?? "active", PROJECT_STATUSES, "The status"),
+      statusLine: statusLine(input.statusLine),
       color: color(input.color),
       startDate: date(input.startDate, "The start date"),
       targetDate: date(input.targetDate, "The target date"),
@@ -283,11 +313,12 @@ export class Workspace {
         projectId = this.project(input.projectId).id;
       }
       this.assertNewGithubRef("tasks", projectId, ref);
+      const number = projectId ? allocateTaskNumber(this.db, projectId) : null;   // a task in the inbox has no project, so no key to number it under
       this.run(
-        `INSERT INTO tasks (id, project_id, parent_id, title, description, status, priority, start_date, due_date,
+        `INSERT INTO tasks (id, project_id, parent_id, number, title, description, status, priority, start_date, due_date,
                             completed_at, github_ref, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        id, projectId, parentId, title, description, status, priority, startDate, dueDate,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, projectId, parentId, number, title, description, status, priority, startDate, dueDate,
         status === "done" ? t : null, ref, t, t,
       );
       this.touchProject(projectId, t);
@@ -338,14 +369,25 @@ export class Workspace {
       }
 
       const t = this.now();
+      // Only Complete counts as finished: a Discontinued task was given up on, not done.
       const completedAt = status === "done" ? (cur.status === "done" ? cur.completedAt ?? t : t) : null;
+      // Another project means another key, so another number there (the old one stays used in the old project).
+      const moved = projectId !== cur.projectId;
+      const number = moved ? (projectId ? allocateTaskNumber(this.db, projectId) : null) : cur.number;
       this.run(
-        `UPDATE tasks SET project_id = ?, parent_id = ?, title = ?, description = ?, status = ?, priority = ?, start_date = ?,
+        `UPDATE tasks SET project_id = ?, parent_id = ?, number = ?, title = ?, description = ?, status = ?, priority = ?, start_date = ?,
                 due_date = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        projectId, parentId, title, description, status, priority, startDate, dueDate, completedAt, t, id,
+        projectId, parentId, number, title, description, status, priority, startDate, dueDate, completedAt, t, id,
       );
-      if (projectId !== cur.projectId) {
-        this.run("UPDATE tasks SET project_id = ?, updated_at = ? WHERE parent_id = ?", projectId, t, id);
+      if (moved) {
+        // Its subtasks go with it, each taking the next number there in the order they were made.
+        const subtasks = this.db.prepare("SELECT id FROM tasks WHERE parent_id = ? ORDER BY created_at, rowid").all(id) as { id: string }[];
+        for (const s of subtasks) {
+          this.run(
+            "UPDATE tasks SET project_id = ?, number = ?, updated_at = ? WHERE id = ?",
+            projectId, projectId ? allocateTaskNumber(this.db, projectId) : null, t, s.id,
+          );
+        }
         this.touchProject(cur.projectId, t);
       }
       this.touchProject(projectId, t);

@@ -12,6 +12,7 @@ import { projectColor } from "@/lib/colors";
 import { EmptyState, IconButton, PageHeader, ProgressRing, ProjectStatusChip } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
 import { Notes } from "@/components/Notes";
+import { StatusLine } from "@/components/StatusLine";
 import { TaskRow } from "@/components/TaskRow";
 import { TimelineView } from "@/views/TimelineView";
 
@@ -46,6 +47,10 @@ export function ProjectDetail({ id, tab }: { id: string; tab?: ProjectTab }) {
           <GlassButton tone="primary" onClick={() => newTask({ projectId: id })}><Plus size={15} />New task</GlassButton>
         </>}
       />
+      <div className="flex items-center gap-2.5 px-8 pb-3">
+        <span className="shrink-0 rounded border border-white/10 bg-white/[0.05] px-1.5 font-mono text-[11px] font-semibold text-ink-2" title="The project's key: the front of its task identifiers">{project.key || "—"}</span>
+        <StatusLine project={project} className="min-w-0 flex-1 text-[14px]" />
+      </div>
       {project.description && <p className="max-w-[78ch] px-8 pb-3 text-[14px] leading-relaxed text-ink-2">{project.description}</p>}
       <GithubStrip project={project} />
 

@@ -30,6 +30,12 @@ export function ProjectCard({ project }: { project: Project }) {
             <i className="size-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}88` }} />
             <h3 className="truncate text-[15.5px] font-semibold tracking-tight">{project.name}</h3>
           </div>
+          {project.statusLine && (
+            <p className="mt-1 flex items-start gap-1.5 text-[13px] font-medium leading-snug text-foreground/90" title="Status line">
+              <i aria-hidden="true" className="mt-[0.45em] size-1.5 shrink-0 rounded-full bg-crimson-text" />
+              <span className="line-clamp-2">{project.statusLine}</span>
+            </p>
+          )}
           {project.description && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-ink-2">{project.description}</p>}
         </div>
         <ProjectStatusChip status={project.status} />

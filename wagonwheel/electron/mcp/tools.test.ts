@@ -338,7 +338,7 @@ describe("get_overview", () => {
     seed();
     const { json } = await call("get_overview");
     expect(json.today).toBe("2026-06-01");
-    expect(json.counts).toEqual({ active_projects: 1, projects: 2, open_tasks: 7, overdue: 1, due_in_next_7_days: 3, in_progress: 1, inbox: 1 });
+    expect(json.counts).toEqual({ active_projects: 1, projects: 2, open_tasks: 7, overdue: 1, due_in_next_7_days: 3, in_progress: 1, stalled: 0, inbox: 1 });
     expect(json.overdue.map((t: { title: string }) => t.title)).toEqual(["Ship the beta"]);
     expect(json.overdue[0]).toMatchObject({ overdue: true, priority: "high", project: "Wagonwheel" });
     expect(json.due_in_next_7_days.map((t: { title: string }) => t.title)).toEqual(["Draft the intro", "Build the dialog", "Write the README"]);
@@ -350,7 +350,7 @@ describe("get_overview", () => {
 
   it("works on an empty workspace", async () => {
     const { json } = await call("get_overview");
-    expect(json.counts).toEqual({ active_projects: 0, projects: 0, open_tasks: 0, overdue: 0, due_in_next_7_days: 0, in_progress: 0, inbox: 0 });
+    expect(json.counts).toEqual({ active_projects: 0, projects: 0, open_tasks: 0, overdue: 0, due_in_next_7_days: 0, in_progress: 0, stalled: 0, inbox: 0 });
   });
 });
 
@@ -568,5 +568,78 @@ describe("milestones and notes", () => {
     expect((await call("add_note", { project: "House", task: ids.paint, body: "both" })).isError).toBe(true);
     expect((await call("add_note", { project: "House", body: "  " })).text).toBe("A note cannot be empty.");
     expect(ws.snapshot().notes.map((x) => x.body).sort()).toEqual(["Keep it local-first.", "Pick colours", "Two coats", "Use the orbit loader."]);
+  });
+});
+
+describe("statuses, keys and identifiers", () => {
+  const titles = (json: { tasks: { title: string }[] }) => json.tasks.map((t) => t.title);
+
+  it("shows a project's key and status line, and every task's identifier", async () => {
+    const ids = seed();
+    await call("update_project", { project: ids.wagon, status_line: "Pending App Store review" });
+    const { json } = await call("get_project", { project: "Wagonwheel" });
+    expect(json).toMatchObject({ key: "WAG", status_line: "Pending App Store review" });
+    expect(json.tasks.map((t: { identifier: string }) => t.identifier)).toEqual(expect.arrayContaining(["WAG-1", "WAG-4"]));
+    const list = await call("list_projects");
+    expect(list.json.projects.find((p: { name: string }) => p.name === "House")).toMatchObject({ key: "HOU", status_line: "" });
+    // a task in the inbox has no project, so no identifier
+    const loose = await call("get_task", { task: ids.loose });
+    expect(loose.json.identifier).toBeUndefined();
+  });
+
+  it("finds a task by its identifier, in any case, and a project by its key", async () => {
+    seed();
+    const byCode = await call("get_task", { task: "wag-4" });
+    expect(byCode.json).toMatchObject({ title: "Build the dialog", identifier: "WAG-4" });
+    const inList = await call("list_tasks", { project: "HOU" });
+    expect(titles(inList.json)).toEqual(["Paint the hall"]);
+    const unknown = await call("get_task", { task: "WAG-99" });
+    expect(unknown.isError).toBe(true);
+    expect(unknown.text).toMatch(/No task matches "WAG-99"/);
+  });
+
+  it("treats Stalled as open and shows it apart from what is under way", async () => {
+    seed();
+    const changed = await call("update_task", { task: "WAG-4", status: "stalled" });
+    expect(changed.json.updated).toMatchObject({ status: "stalled", status_label: "Stalled" });
+    const { json } = await call("get_overview");
+    expect(json.counts).toMatchObject({ open_tasks: 7, in_progress: 0, stalled: 1 });
+    expect(titles({ tasks: json.stalled })).toEqual(["Build the dialog"]);
+    expect(titles((await call("list_tasks")).json)).toContain("Build the dialog");
+  });
+
+  it("treats Discontinued as neither open nor done", async () => {
+    seed();
+    await call("update_task", { task: "WAG-3", status: "discontinued" });
+    await call("update_task", { task: "WAG-4", status: "stalled" });
+    expect(titles((await call("list_tasks")).json)).not.toContain("Plan the launch");
+    expect(titles((await call("list_tasks", { status: "discontinued" })).json)).toEqual(["Plan the launch"]);
+    expect((await call("get_overview")).json.counts.open_tasks).toBe(6);
+    const counts = (await call("list_projects")).json.projects.find((p: { name: string }) => p.name === "Wagonwheel").tasks;
+    expect(counts).toMatchObject({ total: 5, done: 1, open: 3 });
+    expect(counts.by_status).toEqual({ not_started: 2, in_progress: 0, stalled: 1, done: 1, discontinued: 1 });
+    // a cancelled task is never flagged as overdue
+    await call("update_task", { task: "WAG-1", status: "discontinued" });
+    expect((await call("get_overview")).json.overdue).toEqual([]);
+  });
+
+  it("changes the status line and key, and refuses a line that is too long or a key that is taken", async () => {
+    seed();
+    const set = await call("update_project", { project: "WAG", status_line: "Waiting on legal", key: "wgw" });
+    expect(set.json.updated).toMatchObject({ key: "WGW", status_line: "Waiting on legal" });
+    expect((await call("get_task", { task: "WGW-4" })).json.title).toBe("Build the dialog");
+    const long = await call("update_project", { project: "WGW", status_line: "x".repeat(61) });
+    expect(long.isError).toBe(true);
+    expect(long.text).toMatch(/too long/);
+    const taken = await call("update_project", { project: "WGW", key: "HOU" });
+    expect(taken.isError).toBe(true);
+    expect(taken.text).toMatch(/already the key of "House"/);
+    const cleared = await call("update_project", { project: "WGW", status_line: "" });
+    expect(cleared.json.updated.status_line).toBe("");
+  });
+
+  it("creates a project with a status line and a key", async () => {
+    const { json } = await call("create_project", { name: "Piper Locke", status_line: "Idea", key: "pl" });
+    expect(json.created).toMatchObject({ name: "Piper Locke", key: "PL", status_line: "Idea" });
   });
 });

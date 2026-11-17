@@ -1,4 +1,4 @@
-import type { Snapshot } from "../../shared/types.js";
+import { taskCode, type Snapshot } from "../../shared/types.js";
 
 // Pure functions: a Snapshot in, file text out. The dialogs and the disk are in ipc.ts.
 
@@ -20,6 +20,7 @@ function csv(header: string[], rows: unknown[][]): string {
 
 export function buildCsvFiles(s: Snapshot): Record<string, string> {
   const projectName = new Map(s.projects.map((p) => [p.id, p.name]));
+  const projectByKey = new Map(s.projects.map((p) => [p.id, p]));
   const taskTitle = new Map(s.tasks.map((t) => [t.id, t.title]));
   const serviceName = new Map(s.services.map((v) => [v.id, v.name]));
 
@@ -31,16 +32,16 @@ export function buildCsvFiles(s: Snapshot): Record<string, string> {
 
   return {
     "projects.csv": csv(
-      ["id", "name", "status", "archived", "color", "start_date", "target_date", "github_repo", "tasks_done", "tasks_total", "description", "created_at", "updated_at"],
+      ["id", "key", "name", "status", "status_line", "archived", "color", "start_date", "target_date", "github_repo", "tasks_done", "tasks_total", "description", "created_at", "updated_at"],
       s.projects.map((p) => {
         const c = counts(p.id);
-        return [p.id, p.name, p.status, p.archivedAt ? "yes" : "no", p.color, p.startDate, p.targetDate, p.githubRepo, c.done, c.total, p.description, iso(p.createdAt), iso(p.updatedAt)];
+        return [p.id, p.key, p.name, p.status, p.statusLine, p.archivedAt ? "yes" : "no", p.color, p.startDate, p.targetDate, p.githubRepo, c.done, c.total, p.description, iso(p.createdAt), iso(p.updatedAt)];
       }),
     ),
     "tasks.csv": csv(
-      ["id", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
+      ["id", "identifier", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
       s.tasks.map((t) => [
-        t.id, t.projectId ? projectName.get(t.projectId) ?? "" : "(inbox)", t.parentId ? taskTitle.get(t.parentId) ?? "" : "",
+        t.id, taskCode(t, t.projectId ? projectByKey.get(t.projectId) : undefined) ?? "", t.projectId ? projectName.get(t.projectId) ?? "" : "(inbox)", t.parentId ? taskTitle.get(t.parentId) ?? "" : "",
         t.title, t.status, t.priority, t.startDate, t.dueDate, iso(t.completedAt), t.githubRef, t.description, iso(t.createdAt), iso(t.updatedAt),
       ]),
     ),

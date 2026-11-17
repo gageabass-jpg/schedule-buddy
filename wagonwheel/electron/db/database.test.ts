@@ -165,6 +165,91 @@ describe("migrate", () => {
     db.close();
   });
 
+  it("upgrades a real version-5 workspace to add the new statuses, project keys and task numbers, keeping every task, subtask and note", () => {
+    const file = path.join(dir, "w.db");
+    const old = new DatabaseSync(file);
+    old.exec("PRAGMA foreign_keys = ON");
+    migrate(old, null, MIGRATIONS.slice(0, 5));
+    old.exec("INSERT INTO projects (id, name, created_at, updated_at) VALUES ('p1', 'RxManager', 1, 1), ('p2', 'Nucleus Manager', 2, 2)");
+    old.exec(`INSERT INTO tasks (id, project_id, parent_id, title, status, github_ref, completed_at, created_at, updated_at) VALUES
+      ('t1', 'p1', NULL, 'First', 'done', 'o/r#1', 11, 10, 10),
+      ('t2', 'p1', NULL, 'Second', 'in_progress', NULL, NULL, 20, 20),
+      ('t3', 'p1', 't2', 'A subtask', 'not_started', NULL, NULL, 30, 30),
+      ('t4', 'p2', NULL, 'Other project', 'not_started', NULL, NULL, 5, 5),
+      ('t5', NULL, NULL, 'In the inbox', 'not_started', NULL, NULL, 40, 40)`);
+    old.exec("INSERT INTO notes (id, task_id, body, created_at, updated_at) VALUES ('n1', 't2', 'a note on a task', 1, 1)");
+    old.exec("INSERT INTO notes (id, project_id, body, created_at, updated_at) VALUES ('n2', 'p1', 'a note on a project', 1, 1)");
+    expect(version(old)).toBe(5);
+    old.close();
+
+    const db = openDatabase(file);   // what the app does on launch
+    expect(version(db)).toBe(SCHEMA_VERSION);
+    // every row came across, and the notes and the subtask still point at what they pointed at
+    const snap = new Workspace(db).snapshot();
+    expect(snap.tasks.map((t) => [t.id, t.projectId, t.parentId, t.status, t.githubRef, t.completedAt])).toEqual([
+      ["t4", "p2", null, "not_started", null, null],
+      ["t1", "p1", null, "done", "o/r#1", 11],
+      ["t2", "p1", null, "in_progress", null, null],
+      ["t3", "p1", "t2", "not_started", null, null],
+      ["t5", null, null, "not_started", null, null],
+    ]);
+    expect(snap.notes.map((n) => [n.id, n.projectId, n.taskId])).toEqual([["n1", null, "t2"], ["n2", "p1", null]]);
+    expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });   // switched back on after the rebuild
+    // keys from the names, numbers oldest first, none for the inbox
+    expect(snap.projects.map((p) => [p.id, p.key, p.statusLine])).toEqual([["p1", "RXM", ""], ["p2", "NM", ""]]);
+    expect(Object.fromEntries(snap.tasks.map((t) => [t.id, t.number]))).toEqual({ t1: 1, t2: 2, t3: 3, t4: 1, t5: null });
+    expect(db.prepare("SELECT id, next_task_number AS n FROM projects ORDER BY id").all()).toEqual([{ id: "p1", n: 4 }, { id: "p2", n: 2 }]);
+    // the old file was copied aside first, still at version 5, with the old statuses only
+    const bak = new DatabaseSync(`${file}.before-v6.bak`, { readOnly: true });
+    expect(version(bak)).toBe(5);
+    bak.close();
+    // the table is what it was: cascades and the one-GitHub-item-per-project rule still hold, and the new statuses are allowed
+    expect(() => db.exec("INSERT INTO tasks (id, project_id, title, github_ref, created_at, updated_at) VALUES ('x', 'p1', 'Again', 'O/R#1', 1, 1)")).toThrow(/UNIQUE/);
+    db.exec("UPDATE tasks SET status = 'stalled' WHERE id = 't2'");
+    db.exec("UPDATE tasks SET status = 'discontinued' WHERE id = 't4'");
+    expect(() => db.exec("UPDATE tasks SET status = 'paused' WHERE id = 't2'")).toThrow(/CHECK/);
+    db.exec("DELETE FROM tasks WHERE id = 't2'");
+    expect(db.prepare("SELECT id FROM tasks WHERE id = 't3'").get()).toBeUndefined();
+    expect(db.prepare("SELECT id FROM notes WHERE id = 'n1'").get()).toBeUndefined();
+    db.close();
+  });
+
+  it("switches foreign keys off around a rebuild that asks for it, and back on, so what points at the table survives", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec("PRAGMA foreign_keys = ON");
+    const tables: Migration = {
+      version: 1, name: "tables",
+      sql: "CREATE TABLE a (id TEXT PRIMARY KEY); CREATE TABLE b (id TEXT PRIMARY KEY, a_id TEXT REFERENCES a(id) ON DELETE CASCADE)",
+    };
+    migrate(db, null, [tables]);
+    db.exec("INSERT INTO a VALUES ('a1'); INSERT INTO b VALUES ('b1', 'a1')");
+    const rebuild: Migration = {
+      version: 2, name: "rebuild a", foreignKeysOff: true,
+      sql: "CREATE TABLE a_new (id TEXT PRIMARY KEY, extra TEXT); INSERT INTO a_new (id) SELECT id FROM a; DROP TABLE a; ALTER TABLE a_new RENAME TO a",
+    };
+    migrate(db, null, [tables, rebuild]);
+    expect(db.prepare("SELECT count(*) AS n FROM b").get()).toEqual({ n: 1 });   // dropping `a` did not cascade into `b`
+    expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+    db.close();
+  });
+
+  it("refuses to commit a rebuild that leaves a row pointing at nothing, and still switches foreign keys back on", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec("PRAGMA foreign_keys = ON");
+    const tables: Migration = {
+      version: 1, name: "tables",
+      sql: "CREATE TABLE a (id TEXT PRIMARY KEY); CREATE TABLE b (id TEXT PRIMARY KEY, a_id TEXT REFERENCES a(id))",
+    };
+    migrate(db, null, [tables]);
+    const dangling: Migration = { version: 2, name: "bad rebuild", foreignKeysOff: true, sql: "INSERT INTO b VALUES ('b2', 'nobody')" };
+    expect(() => migrate(db, null, [tables, dangling])).toThrow(/version 2 \(bad rebuild\) failed.*some b rows would point at something that is not there/);
+    expect(version(db)).toBe(1);
+    expect(db.prepare("SELECT count(*) AS n FROM b").get()).toEqual({ n: 0 });
+    expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
+    db.close();
+  });
+
   it("rolls a failed migration back completely", () => {
     const db = new DatabaseSync(":memory:");
     migrate(db, null, [v1]);
