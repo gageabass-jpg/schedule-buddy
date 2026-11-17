@@ -37,7 +37,27 @@ If the database file cannot be opened, the app says why and offers *Start a new 
 
 ## Shortcuts
 
-⌘N new task · ⇧⌘N new project · ⌘L capture to the inbox · ⇧⌘G scan GitHub · ⌘, connectors · ⌘1–6 Dashboard, All Projects, All Tasks, Timeline, Inbox, Services.
+⌘N new task · ⇧⌘N new project · ⌘L capture to the inbox · ⇧⌘G scan GitHub · ⌘, connectors · ⌘1–7 Dashboard, All Projects, All Tasks, Timeline, Inbox, Services, Board.
+
+## The Board: where every task stands
+
+**Sidebar → Board** (⌘7). A table with a row for each project and a column for each status, and in each cell a small box with the task's identifier (`RXM-4`). Click a box to see the task and move it to another status; "Open task" opens the full dialog. Above the table a **tracker** counts each status and colours its column.
+
+| Status | Means | Colour |
+|---|---|---|
+| **Queued** | The task has entered planning. | grey |
+| **Started** | Work on the task is underway. | red |
+| **Stalled** | Pending some action, with an extended wait. | amber |
+| **Complete** | The task is done. | green |
+| **Discontinued** | The idea was cancelled. | dim |
+
+Complete and Discontinued are *closed*; everything else is *open*, a Stalled task included (it is waiting, not over). A Discontinued task is not counted for or against a project's progress, so cancelling an idea never holds a project below 100%, and it is never "overdue". Only Complete records a completion date.
+
+**Keeping the completed column from filling the screen.** A Complete or Discontinued cell shows only the latest three boxes, then "+N more" (click it to open that one cell, "Show fewer" to fold it again). **Show all closed** in the header opens every closed cell at once. An open cell folds after twelve. Subtasks are not boxes of their own: they count inside their task. A task in the inbox has no project, so it has no row.
+
+**Identifiers.** Each project has a **key** of 2 to 5 capital letters or digits (made from its name, or chosen in the project's Edit dialog) and each task in it a number: `RXM-4`. Numbers count up from 1 per project and are **never reused**, so a deleted task's identifier never comes to mean another task. A task that moves to another project takes the next number there (its subtasks go with it). Changing a project's key renames every identifier in it. Claude Code accepts an identifier wherever it takes a task, and a key wherever it takes a project. Projects and tasks that existed before get theirs when the app first opens the upgraded database (oldest first), and a restore from an older backup does the same.
+
+**Status line.** Each project has one short line, up to 60 characters, on where it stands right now: "Pending App Store review". Click it on the Board, on the project's page, or in Edit project to change it. It shows on the project's card and, through `get_project` / `list_projects` and `update_project`, to Claude Code, which is asked to keep it current.
 
 ## Scan GitHub for tasks
 
@@ -110,13 +130,13 @@ How it stays safe: the panel only **reads** Claude Code's list of connectors (`m
 
 | Tool | What it does |
 |---|---|
-| `get_overview` | Today's date, overdue tasks, tasks due in the next 7 days, tasks in progress, milestones within 30 days, and counts. The place to start. |
-| `list_projects`, `get_project` | Projects with progress and their connected GitHub repository; one project in full (tasks, milestones, notes). |
+| `get_overview` | Today's date, overdue tasks, tasks due in the next 7 days, tasks in progress, tasks stalled, milestones within 30 days, and counts. The place to start. |
+| `list_projects`, `get_project` | Projects with their key, status line, task counts by status and connected GitHub repository; one project in full (tasks, milestones, notes). |
 | `list_services` | What the workspace pays each month (Services screen): the total against last month's, and for each service its plan, type, usual fee, the month's amount (recorded, or the usual fee as an estimate, and which), the next bill date, and any bill notably higher than usual. Read-only, also in read-only mode. |
 | `record_service_bill` | Records what a service charged for a month, in US dollars, from a receipt, paid invoice or statement the user has confirmed (never a failed payment or an estimate). It records the same figure twice as one, and will not replace a *different* figure already there unless `replace: true`; the answer says what was replaced. Not offered in read-only mode. A service's plan, fee and billing day are changed in the app. |
 | `list_tasks`, `get_task` | Find tasks by project, inbox, status, priority, overdue, due-date range or words; one task with its subtasks and notes. |
 | `create_task`, `update_task`, `complete_task` | Add a task (to a project, the inbox, or under another task); change any field, clear dates with `null`, move it (to another project, under another task with `parent`, or back out to top level with `parent: null`; its id and notes stay); tick it done or reopen it. |
-| `create_project`, `update_project` | Start a project; change one, connect or disconnect its repository, archive it. |
+| `create_project`, `update_project` | Start a project; change one (its status line and key included), connect or disconnect its repository, archive it. |
 | `create_milestone`, `update_milestone`, `add_note` | Add or complete a milestone; add a note to a project or a task. |
 
 - **No delete tools.** Removing things is done in the app, on purpose.
@@ -161,7 +181,7 @@ shared/              the contract between main and renderer (types, API)
 src/                 renderer
   lib/               dates, dashboard and calendar maths, the Services sums (services.ts), store, UI state
   components/        sidebar, calendar, dialogs, task row, glass kit
-  views/             dashboard, projects, project, tasks, inbox, services, day, timeline
+  views/             dashboard, projects, project, tasks, board, inbox, services, day, timeline
   styles/            index.css (the theme: every colour) and glass.css (the glass layers)
 e2e/                 Playwright-driven tests of the real app, and the screenshot baseline
 build/               app icon: Wagonwheel.icon is the Liquid Glass source (light + dark), compiled into the app by scripts/afterPackIcon.cjs; icon.svg / icon-dark.svg are the flat versions, and icon.svg is the source of icon.png (the fallback)
@@ -172,7 +192,9 @@ scripts/             afterPackIcon.cjs (electron-builder afterPack hook for the 
 
 `PRAGMA user_version` holds the schema version. To change the schema, **append** a migration in `electron/db/migrations.ts`; never edit one that has shipped. A database with data in it is copied to `wagonwheel.db.before-vN.bak` before it is migrated. A database from a newer version of the app is refused, not guessed at.
 
-A project's progress is the share of its top-level tasks that are done (a subtask is part of its task). A task with no project is *unsorted*: it is in the inbox until it gets one.
+Migration 6 (the Board) is the one that rebuilds a table: SQLite cannot widen a `CHECK`, so `tasks` is made again with the two new statuses and a `number` column, and the rows are copied across. A migration with `foreignKeysOff: true` runs with foreign keys off (dropping `tasks` with them on would delete every note and subtask) and `PRAGMA foreign_key_check` must come back empty before it commits. Project keys and task numbers for what already exists are filled in by `electron/db/identifiers.ts` right after, not in SQL, because the key comes from the same rule the app uses for a new project (`shared/project-key.ts`).
+
+A project's progress is the share of its top-level tasks that are done, not counting Discontinued ones (a subtask is part of its task). A task with no project is *unsorted*: it is in the inbox until it gets one.
 
 A task dialog has a **Part of** picker: choose another task to make this one its subtask (it then lives in that task's project), or "Nothing" to lift a subtask back out as a task of its own. A task that has subtasks cannot go under another (subtasks are one level deep). To reach a subtask, open its parent and click the subtask's title. Id and notes stay through any move. Moving a task from GitHub into a project that already has that GitHub item is refused in words.
 

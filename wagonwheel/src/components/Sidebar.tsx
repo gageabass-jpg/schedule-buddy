@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArchiveRestore, ChartGantt, Check, ChevronDown, ChevronUp, CreditCard, DatabaseBackup, FileJson, FileSpreadsheet,
-  FolderKanban, FolderOpen, Inbox, LayoutDashboard, ListChecks, Plug, Plus,
+  FolderKanban, FolderOpen, Inbox, LayoutDashboard, ListChecks, Plug, Plus, Table2,
 } from "lucide-react";
 import { cn } from "@nucleus/ui/lib/utils";
 import { NucleusMark } from "@nucleus/ui/brand/nucleusMark";
@@ -65,6 +65,7 @@ function Nav() {
 
   const items: { label: string; to: View; icon: ReactNode; count?: number; hot?: boolean; match: (v: View) => boolean }[] = [
     { label: "Dashboard", to: { name: "dashboard" }, icon: <LayoutDashboard size={16} />, match: (v) => v.name === "dashboard" },
+    { label: "Board", to: { name: "board" }, icon: <Table2 size={16} />, match: (v) => v.name === "board" },
     { label: "All Projects", to: { name: "projects" }, icon: <FolderKanban size={16} />, count: counts.projects, match: (v) => v.name === "projects" || v.name === "project" },
     { label: "All Tasks", to: { name: "tasks" }, icon: <ListChecks size={16} />, count: counts.tasks, match: (v) => v.name === "tasks" },
     { label: "Timeline", to: { name: "timeline" }, icon: <ChartGantt size={16} />, match: (v) => v.name === "timeline" },

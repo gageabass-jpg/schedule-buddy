@@ -6,7 +6,7 @@ import type { Milestone, Project, Task } from "@shared/types";
 import { useData } from "@/lib/store";
 import { useUi } from "@/lib/ui-state";
 import { bridge } from "@/lib/bridge";
-import { compareTasks, isOverdue, liveProjects, projectProgress } from "@/lib/derive";
+import { compareTasks, isOpen, isOverdue, liveProjects, projectProgress } from "@/lib/derive";
 import { formatShort, parts, WEEKDAYS_3 } from "@/lib/dates";
 import { barColor, projectColor } from "@/lib/colors";
 import { EmptyState, IconButton, PageHeader } from "@/components/kit";
@@ -322,7 +322,7 @@ export function TimelineView({ projectId, embedded }: { projectId?: string; embe
                   ))}
                   {r.kind === "task" && (
                     <Bar row={r} span={r.span} ppd={ppd} xOf={xOf} drag={drag} label={r.task.title} color={projectColor(r.project.color)} pct={r.task.status === "done" ? 100 : r.task.status === "in_progress" ? 50 : 0}
-                      draggable overdue={isOverdue(r.task, today)} done={r.task.status === "done"} onDown={onBarDown} onMove={onBarMove} onUp={onBarUp} onKey={onBarKey} today={today} />
+                      draggable overdue={isOverdue(r.task, today)} done={!isOpen(r.task)} onDown={onBarDown} onMove={onBarMove} onUp={onBarUp} onKey={onBarKey} today={today} />
                   )}
                   {r.kind === "project" && !r.span && r.milestones.length === 0 && (
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] italic text-ink-3">No dates yet. Set a start and target date, or date its tasks.</span>
@@ -361,7 +361,7 @@ function Label({ row, onToggle }: { row: Row; onToggle: (id: string) => void }) 
     return (
       <div className={cn(base, "gap-2 pl-8 pr-3")} style={{ height: ROW_H }}>
         <TaskCheck task={row.task} />
-        <button type="button" onClick={() => editTask(row.task.id)} className={cn("min-w-0 flex-1 truncate text-left text-[13px]", row.task.status === "done" && "text-ink-3 line-through decoration-white/25")} title={row.task.title}>{row.task.title}</button>
+        <button type="button" onClick={() => editTask(row.task.id)} className={cn("min-w-0 flex-1 truncate text-left text-[13px]", !isOpen(row.task) && "text-ink-3 line-through decoration-white/25")} title={row.task.title}>{row.task.title}</button>
         {row.task.dueDate && <span className={cn("shrink-0 text-[11.5px]", isOverdue(row.task, today) ? "font-semibold text-danger" : "text-ink-3")}>{formatShort(row.task.dueDate, today)}</span>}
       </div>
     );

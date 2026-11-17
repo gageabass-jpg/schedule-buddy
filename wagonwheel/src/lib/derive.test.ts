@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Milestone, Project, Snapshot, Task } from "@shared/types";
-import { compareByActivity, compareTasks, dashboard, dayContents, dayMarkers, describeMarkers, inboxTasks, projectProgress, subtaskProgress, visibleTasks } from "./derive";
+import { compareByActivity, compareTasks, dashboard, dayContents, dayMarkers, describeMarkers, inboxTasks, isOpen, isOverdue, projectProgress, subtaskProgress, visibleTasks } from "./derive";
 
 const TODAY = "2026-11-09";
 const NOW = Date.UTC(2026, 10, 9, 12);
 const DAY = 86_400_000;
 
 let n = 0;
-const project = (o: Partial<Project> = {}): Project => ({ id: `p${++n}`, name: "P", description: "", status: "active", color: null, startDate: null, targetDate: null, githubRepo: null, archivedAt: null, createdAt: 1, updatedAt: 1, ...o });
-const task = (o: Partial<Task> = {}): Task => ({ id: `t${++n}`, projectId: null, parentId: null, title: "T", description: "", status: "not_started", priority: "medium", startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: n, updatedAt: NOW, ...o });
+const project = (o: Partial<Project> = {}): Project => ({ id: `p${++n}`, name: "P", description: "", status: "active", statusLine: "", key: "PRJ", color: null, startDate: null, targetDate: null, githubRepo: null, archivedAt: null, createdAt: 1, updatedAt: 1, ...o });
+const task = (o: Partial<Task> = {}): Task => ({ id: `t${++n}`, projectId: null, parentId: null, number: null, title: "T", description: "", status: "not_started", priority: "medium", startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: n, updatedAt: NOW, ...o });
 const milestone = (o: Partial<Milestone> = {}): Milestone => ({ id: `m${++n}`, projectId: "p", name: "M", description: "", targetDate: TODAY, completedAt: null, githubRef: null, createdAt: 1, updatedAt: 1, ...o });
 const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ projects: [], tasks: [], milestones: [], notes: [], services: [], serviceCharges: [], settings: {}, ...o });
 
@@ -155,5 +155,39 @@ describe("most recently active first", () => {
     for (const input of [[a, b, c, newest], [newest, c, b, a], [c, a, newest, b], [b, newest, a, c]]) {
       expect([...input].sort(compareByActivity).map((p) => p.id)).toEqual(want);
     }
+  });
+});
+
+describe("stalled and discontinued tasks", () => {
+  it("count as open and closed: Stalled is still to do, Discontinued is not", () => {
+    expect(isOpen(task({ status: "stalled" }))).toBe(true);
+    expect(isOpen(task({ status: "discontinued" }))).toBe(false);
+    expect(isOverdue(task({ status: "stalled", dueDate: "2026-11-01" }), TODAY)).toBe(true);
+    expect(isOverdue(task({ status: "discontinued", dueDate: "2026-11-01" }), TODAY)).toBe(false);
+  });
+
+  it("leave a cancelled task out of a project's progress, so cancelling an idea cannot hold it below 100%", () => {
+    const p = project();
+    const a = task({ projectId: p.id, status: "done" });
+    const b = task({ projectId: p.id, status: "discontinued" });
+    const c = task({ projectId: p.id, status: "stalled" });
+    expect(projectProgress(p.id, [a, b, c])).toEqual({ done: 1, total: 2, pct: 50 });
+    expect(projectProgress(p.id, [a, b])).toEqual({ done: 1, total: 1, pct: 100 });
+    expect(projectProgress(p.id, [b])).toEqual({ done: 0, total: 0, pct: 0 });
+  });
+
+  it("leave cancelled subtasks out of the 2/5 count", () => {
+    const parent = task();
+    const subs = [task({ parentId: parent.id, status: "done" }), task({ parentId: parent.id, status: "discontinued" }), task({ parentId: parent.id })];
+    expect(subtaskProgress(parent.id, subs)).toEqual({ done: 1, total: 2 });
+  });
+
+  it("are not flagged on the dashboard as untouched work", () => {
+    const old = NOW - 20 * DAY;
+    const stalled = task({ projectId: "p", status: "stalled", updatedAt: old });
+    const dropped = task({ projectId: "p", status: "discontinued", updatedAt: old, priority: "high" });
+    const d = dashboard(snap({ projects: [project({ id: "p" })], tasks: [stalled, dropped] }), TODAY, NOW);
+    expect(d.attention).toEqual([]);
+    expect(d.openTasks).toBe(1);
   });
 });

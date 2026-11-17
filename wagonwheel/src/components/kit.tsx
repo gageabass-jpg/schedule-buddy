@@ -5,21 +5,15 @@ import { cn } from "@nucleus/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nucleus/ui/ui/tooltip";
 import { PRIORITY_LABEL, PROJECT_STATUS_LABEL, TASK_STATUS_LABEL, type Priority, type ProjectStatus, type TaskStatus } from "@shared/types";
 import { InboxButton } from "./PageTools";
+import { TONES, type Tone } from "@/lib/tones";
+
+export type { Tone };
 
 // Small building blocks every view shares. Nothing here knows about projects or tasks
 // beyond their labels and colours, except PageHeader, which carries the inbox button.
 
 // ── Colour by meaning ───────────────────────────────────────────────────────
-
-export type Tone = "neutral" | "crimson" | "ok" | "warn" | "danger";
-
-const TONES: Record<Tone, string> = {
-  neutral: "bg-white/[0.07] text-ink-2 border-white/10",
-  crimson: "bg-crimson/20 text-[#f4b1be] border-[rgba(217,139,155,0.28)]",
-  ok: "bg-ok/15 text-ok border-ok/25",
-  warn: "bg-warn/15 text-warn border-warn/25",
-  danger: "bg-danger/15 text-danger border-danger/30",
-};
+// The tone classes themselves are in lib/tones.ts, so the Board can colour its boxes the same way a Chip is coloured.
 
 export function Chip({ tone = "neutral", children, className, title }: { tone?: Tone; children: ReactNode; className?: string; title?: string }) {
   return (
@@ -33,7 +27,8 @@ export function Chip({ tone = "neutral", children, className, title }: { tone?: 
 }
 
 export const PROJECT_STATUS_TONE: Record<ProjectStatus, Tone> = { planning: "neutral", active: "crimson", on_hold: "warn", completed: "ok" };
-export const TASK_STATUS_TONE: Record<TaskStatus, Tone> = { not_started: "neutral", in_progress: "crimson", done: "ok" };
+// The Board's colour for each status runs through the whole app: grey waiting, brand colour under way, amber held up, green finished, dim set aside.
+export const TASK_STATUS_TONE: Record<TaskStatus, Tone> = { not_started: "neutral", in_progress: "crimson", stalled: "warn", done: "ok", discontinued: "muted" };
 
 export const ProjectStatusChip = ({ status }: { status: ProjectStatus }) => <Chip tone={PROJECT_STATUS_TONE[status]}>{PROJECT_STATUS_LABEL[status]}</Chip>;
 export const TaskStatusChip = ({ status }: { status: TaskStatus }) => <Chip tone={TASK_STATUS_TONE[status]}>{TASK_STATUS_LABEL[status]}</Chip>;

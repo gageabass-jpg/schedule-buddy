@@ -6,11 +6,11 @@ import { isImported, milestoneInputFor, newProjectFor, parseRepoRef, projectForR
 const repo = { fullName: "gageabass-jpg/schedule-buddy", url: "https://github.com/gageabass-jpg/schedule-buddy", description: "Shift schedule" };
 
 const project = (over: Partial<Project>): Project => ({
-  id: "p", name: "Something", description: "", status: "active", color: null, startDate: null, targetDate: null,
+  id: "p", name: "Something", description: "", status: "active", statusLine: "", key: "SOM", color: null, startDate: null, targetDate: null,
   githubRepo: null, archivedAt: null, createdAt: 0, updatedAt: 0, ...over,
 });
 const task = (over: Partial<Task>): Task => ({
-  id: "t", projectId: "p", parentId: null, title: "T", description: "", status: "not_started", priority: "medium",
+  id: "t", projectId: "p", parentId: null, number: null, title: "T", description: "", status: "not_started", priority: "medium",
   startDate: null, dueDate: null, completedAt: null, githubRef: null, createdAt: 0, updatedAt: 0, ...over,
 });
 const milestone = (over: Partial<Milestone>): Milestone => ({

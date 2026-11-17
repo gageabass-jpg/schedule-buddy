@@ -97,7 +97,7 @@ test("projects: create, edit, archive, unarchive and delete", () => withApp(asyn
   await main(page).getByRole("button", { name: "Edit" }).click();
   let d = dialog(page, "Edit project");
   await d.getByLabel("Name").fill("Cabin plans v2");
-  await d.getByLabel("Status").selectOption({ label: "On hold" });
+  await d.getByLabel(/^Status(?! line)/).selectOption({ label: "On hold" });
   await d.getByRole("radio", { name: "Sage" }).click();
   await d.getByRole("button", { name: "Save" }).click();
   await main(page).getByRole("heading", { name: "Cabin plans v2" }).waitFor();
@@ -164,10 +164,10 @@ test("tasks: create with a project, a date and a priority, edit, complete and de
   await main(page).getByText("Buy seed potatoes").click();
   d = dialog(page, "Task");
   await d.getByLabel("Title").fill("Buy seed potatoes (Maris Piper)");
-  await d.getByLabel("Status").selectOption({ label: "In progress" });
+  await d.getByLabel("Status").selectOption({ label: "Started" });
   await d.getByLabel("Description").fill("From the market on Saturday");
   await d.getByRole("button", { name: "Save" }).click();
-  await main(page).getByText("In progress").first().waitFor();
+  await main(page).getByText("Started").first().waitFor();
   t = await taskByTitle(page, "Buy seed potatoes (Maris Piper)");
   assert.deepEqual([t.status, t.description], ["in_progress", "From the market on Saturday"]);
 
@@ -230,7 +230,7 @@ test("subtasks: the task dialog moves a task under another and lifts a subtask b
   assert.deepEqual([t.parentId, t.projectId], [house.id, bravo.id]);
 
   // A task that has subtasks cannot itself go under another.
-  await main(page).getByText("Move house").click();
+  await main(page).getByText("Move house", { exact: true }).click();   // not "in Move house", which the subtask's row says
   d = dialog(page, "Task");
   assert.equal(await d.getByLabel("Part of").isDisabled(), true);
   await d.getByText("This task has subtasks, so it cannot go under another.").waitFor();
@@ -351,11 +351,11 @@ test("page header: Scan GitHub sits with New task and New project, the inbox but
 
   // the sidebar's Main list is places only now
   const places = await side.getByRole("navigation", { name: "Main" }).getByRole("button").allInnerTexts();
-  assert.deepEqual(places.map((t) => t.replace(/\s*\d+$/, "").trim()), ["Dashboard", "All Projects", "All Tasks", "Timeline", "Services"]);
+  assert.deepEqual(places.map((t) => t.replace(/\s*\d+$/, "").trim()), ["Dashboard", "Board", "All Projects", "All Tasks", "Timeline", "Services"]);
   assert.equal(await side.getByRole("button", { name: /Scan GitHub/ }).count(), 0, "no Scan GitHub in the sidebar");
 
   // where something can be created, Scan GitHub is beside it, and the inbox is to the right of all of them
-  for (const [view, create] of [["Dashboard", "New task"], ["Dashboard", "New project"], ["All Tasks", "New task"], ["All Projects", "New project"]]) {
+  for (const [view, create] of [["Dashboard", "New task"], ["Dashboard", "New project"], ["All Tasks", "New task"], ["Board", "New task"], ["All Projects", "New project"]]) {
     await nav(page, view);
     const scan = header.getByRole("button", { name: "Scan GitHub", exact: true });
     const made = header.getByRole("button", { name: create, exact: true });
@@ -1398,4 +1398,135 @@ test("services: only a service named like Vercel can be linked to Vercel, in the
   await d.getByRole("button", { name: "Vercel", exact: true }).click();
   assert.equal(await choose.locator('option[value="vercel"]').isDisabled(), false, "a service named Vercel can");
   assert.equal(await choose.inputValue(), "vercel");
+}));
+
+// ── the board ───────────────────────────────────────────────────────────────
+
+test("board: a row for each project, a column for each status, a box with an identifier for each task, and a box's menu moves it", () => withApp(async ({ page }) => {
+  await page.evaluate(async () => {
+    const api = window.wagonwheel;
+    const tick = () => new Promise((r) => setTimeout(r, 5));   // each write its own millisecond, so "latest" has one answer
+    const p = (await api.createProject({ name: "Rx app", key: "RXM" })).id; await tick();
+    const mk = async (title, status) => { await api.createTask({ title, projectId: p, status }); await tick(); };
+    await mk("Write the welcome sheet", "not_started");   // RXM-1
+    await mk("Fix the pill organizer", "in_progress");    // RXM-2
+    await mk("Wait for App Review", "stalled");           // RXM-3
+    for (let i = 1; i <= 5; i++) await mk(`Shipped ${i}`, "done");   // RXM-4 to RXM-8
+    await mk("Android port", "discontinued");             // RXM-9
+    await api.createTask({ title: "Loose idea" });        // the inbox has no row
+  });
+  await page.reload();
+  await page.waitForSelector('[aria-label="Sidebar"]');
+  await nav(page, "Board");
+  await main(page).getByRole("heading", { name: "Board" }).waitFor();
+
+  // the tracker: one card for each status, with its count
+  const tracker = async (label) => (await main(page).getByRole("columnheader", { name: new RegExp(label) }).first().textContent()) ?? "";
+  for (const [label, count] of [["Queued", 1], ["Started", 1], ["Stalled", 1], ["Complete", 5], ["Discontinued", 1]]) {
+    assert.match(await tracker(label), new RegExp(`^${label}${count}`), `${label} counts ${count}`);
+  }
+  assert.match(await main(page).locator("header").textContent(), /9 tasks across 1 project/, "the inbox task is not on the board");
+
+  // the cells: each task is a box with its identifier, in its status's column
+  const cell = (status) => main(page).getByRole("cell", { name: `Rx app, ${status}` });
+  await cell("Queued").getByRole("button", { name: /^RXM-1:/ }).waitFor();
+  await cell("Started").getByRole("button", { name: /^RXM-2:/ }).waitFor();
+  await cell("Stalled").getByRole("button", { name: /^RXM-3:/ }).waitFor();
+  await cell("Discontinued").getByRole("button", { name: /^RXM-9:/ }).waitFor();
+
+  // a closed column keeps the latest three, then folds the rest; it opens one cell at a time, or all at once
+  const complete = cell("Complete");
+  assert.equal(await complete.getByRole("button").count(), 4, "three boxes and a +2 more");
+  assert.match(await complete.getByRole("button").first().getAttribute("aria-label"), /^RXM-8:/, "the latest first");
+  await complete.getByRole("button", { name: "+2 more" }).click();
+  assert.equal(await complete.getByRole("button").count(), 6, "five boxes and Show fewer");
+  await complete.getByRole("button", { name: "Show fewer" }).click();
+  assert.equal(await complete.getByRole("button").count(), 4);
+  await main(page).getByRole("switch", { name: "Show all closed" }).click();
+  assert.equal(await complete.getByRole("button").count(), 5, "all five, with nothing to fold");
+  await main(page).getByRole("switch", { name: "Show all closed" }).click();
+
+  // a box opens a menu: the task, and the five statuses to move it to
+  await cell("Queued").getByRole("button", { name: /^RXM-1:/ }).click();
+  const menu = page.getByRole("radiogroup", { name: "Status" });
+  await menu.waitFor();
+  assert.equal(await menu.getByRole("radio").count(), 5);
+  assert.equal(await menu.getByRole("radio", { name: /^Queued/ }).getAttribute("aria-checked"), "true");
+  await menu.getByRole("radio", { name: /^Started/ }).click();
+  await cell("Started").getByRole("button", { name: /^RXM-1:/ }).waitFor();
+  assert.equal(await cell("Queued").getByRole("button").count(), 0, "it left the Queued column");
+  assert.equal((await taskByTitle(page, "Write the welcome sheet")).status, "in_progress");
+
+  // Discontinued, from the menu, is not Complete: no completion time
+  await cell("Started").getByRole("button", { name: /^RXM-1:/ }).click();
+  await page.getByRole("radiogroup", { name: "Status" }).getByRole("radio", { name: /^Discontinued/ }).click();
+  await cell("Discontinued").getByRole("button", { name: /^RXM-1:/ }).waitFor();
+  const dropped = await taskByTitle(page, "Write the welcome sheet");
+  assert.deepEqual([dropped.status, dropped.completedAt], ["discontinued", null]);
+
+  // "Open task" opens the full dialog, which names the task by its identifier
+  await cell("Started").getByRole("button", { name: /^RXM-2:/ }).click();
+  await page.getByRole("button", { name: "Open task" }).click();
+  await dialog(page, "Task").getByText("RXM-2", { exact: false }).waitFor();
+}));
+
+test("board: a project's status line is typed on the board, kept, and shown on the project page", () => withApp(async ({ page }) => {
+  await page.evaluate(async () => { await window.wagonwheel.createProject({ name: "Rx app" }); });
+  await page.reload();
+  await page.waitForSelector('[aria-label="Sidebar"]');
+  await nav(page, "Board");
+  await main(page).getByRole("button", { name: "Add a status line" }).click();
+  const box = main(page).getByLabel("Status line for Rx app");
+  assert.equal(await box.getAttribute("maxlength"), "60", "the box stops at 60 characters");
+  await box.fill("Pending App Store review");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(async () => (await window.wagonwheel.getSnapshot()).projects[0].statusLine === "Pending App Store review");
+  await main(page).getByRole("button", { name: "Pending App Store review" }).waitFor();
+
+  // Esc puts back what was there
+  await main(page).getByRole("button", { name: "Pending App Store review" }).click();
+  await main(page).getByLabel("Status line for Rx app").fill("Something else");
+  await page.keyboard.press("Escape");
+  await main(page).getByRole("button", { name: "Pending App Store review" }).waitFor();
+  assert.equal((await projectByName(page, "Rx app")).statusLine, "Pending App Store review");
+
+  // and it is on the project's page, where it can be changed too
+  await main(page).getByRole("button", { name: /Rx app/ }).first().click();
+  await main(page).getByRole("heading", { name: "Rx app" }).waitFor();
+  await main(page).getByRole("button", { name: "Pending App Store review" }).click();
+  await main(page).getByLabel("Status line for Rx app").fill("In TestFlight");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(async () => (await window.wagonwheel.getSnapshot()).projects[0].statusLine === "In TestFlight");
+}));
+
+test("projects: the key and the status line are set in the dialog, a taken key is refused in words, and tasks get identifiers", () => withApp(async ({ page }) => {
+  await createProjectViaUi(page, { name: "Atlas" });
+  await main(page).getByRole("heading", { name: "Atlas" }).waitFor();
+  assert.equal((await projectByName(page, "Atlas")).key, "ATL", "made from the name");
+
+  // a second project cannot take the same key; the dialog says why and nothing is saved
+  await nav(page, "All Projects");
+  await main(page).getByRole("button", { name: "New project" }).first().click();
+  let d = dialog(page, "New project");
+  await d.getByLabel("Name").fill("Atlas Two");
+  await d.getByLabel("Key").fill("atl");
+  await d.getByLabel("Status line").fill("Waiting on legal");
+  await d.getByRole("button", { name: "Create project" }).click();
+  await d.getByRole("alert").waitFor();
+  assert.match(await d.getByRole("alert").textContent(), /ATL is already the key of "Atlas"/);
+  assert.equal(await projectByName(page, "Atlas Two"), undefined);
+  await d.getByLabel("Key").fill("AT2");
+  await d.getByRole("button", { name: "Create project" }).click();
+  await main(page).getByRole("heading", { name: "Atlas Two" }).waitFor();
+  const two = await projectByName(page, "Atlas Two");
+  assert.deepEqual([two.key, two.statusLine], ["AT2", "Waiting on legal"]);
+
+  // a task in it takes the next number there, and shows it
+  await main(page).getByRole("button", { name: "New task" }).first().click();
+  d = dialog(page, "New task");
+  await d.getByLabel("Title").fill("Read the lease");
+  await d.getByRole("button", { name: "Add task" }).click();
+  await main(page).getByText("Read the lease").waitFor();
+  assert.equal((await taskByTitle(page, "Read the lease")).number, 1);
+  await main(page).getByText("AT2-1").first().waitFor();
 }));

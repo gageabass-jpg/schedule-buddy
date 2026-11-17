@@ -6,6 +6,13 @@ export interface Migration {
   version: number;
   name: string;
   sql: string;
+  /**
+   * For a migration that rebuilds a table (SQLite cannot change a CHECK in place): foreign keys are switched off while it
+   * runs, because dropping the old table with them on would also delete every row that points at it (a task's notes and
+   * subtasks), and checked afterwards, before it is committed. The setting cannot change inside a transaction, so
+   * `migrate` does it around the transaction, not in the SQL.
+   */
+  foreignKeysOff?: boolean;
 }
 
 const HEX_COLOR = "#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]";
@@ -189,6 +196,56 @@ export const MIGRATIONS: Migration[] = [
       -- One GitHub item, once, per project.
       CREATE UNIQUE INDEX idx_tasks_github_ref ON tasks(coalesce(project_id, ''), lower(github_ref)) WHERE github_ref IS NOT NULL;
       CREATE UNIQUE INDEX idx_milestones_github_ref ON milestones(project_id, lower(github_ref)) WHERE github_ref IS NOT NULL;
+    `,
+  },
+  {
+    version: 6,
+    name: "task statuses stalled and discontinued, project key and status line, task numbers",
+    foreignKeysOff: true,
+    sql: `
+      -- A project's key (RXM) is the front of its tasks' identifiers (RXM-4), and a status line is one short line on where it
+      -- stands. next_task_number is the number the next task there gets: it only goes up, so a number is never reused after
+      -- a task is deleted. The keys and the numbers of what is already here are filled in by the app right after this
+      -- migration (electron/db/identifiers.ts); until then they are NULL.
+      ALTER TABLE projects ADD COLUMN key TEXT;
+      ALTER TABLE projects ADD COLUMN status_line TEXT NOT NULL DEFAULT '';
+      ALTER TABLE projects ADD COLUMN next_task_number INTEGER NOT NULL DEFAULT 1;
+      CREATE UNIQUE INDEX idx_projects_key ON projects(upper(key)) WHERE key IS NOT NULL;
+
+      -- Two more task statuses. SQLite cannot widen a CHECK, so the table is rebuilt: made again with the wider CHECK and
+      -- the new "number" column, the rows copied across in their old order, and the old table dropped. Foreign keys are
+      -- off for this (see Migration.foreignKeysOff) and are checked before the migration is committed.
+      CREATE TABLE tasks_new (
+        id           TEXT PRIMARY KEY,
+        project_id   TEXT REFERENCES projects(id) ON DELETE CASCADE,
+        parent_id    TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+        number       INTEGER,
+        title        TEXT NOT NULL CHECK (length(trim(title)) > 0),
+        description  TEXT NOT NULL DEFAULT '',
+        status       TEXT NOT NULL DEFAULT 'not_started'
+                     CHECK (status IN ('not_started', 'in_progress', 'stalled', 'done', 'discontinued')),
+        priority     TEXT NOT NULL DEFAULT 'medium'
+                     CHECK (priority IN ('low', 'medium', 'high')),
+        start_date   TEXT,
+        due_date     TEXT,
+        completed_at INTEGER,
+        github_ref   TEXT,
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL
+      );
+      INSERT INTO tasks_new (id, project_id, parent_id, title, description, status, priority, start_date, due_date, completed_at, github_ref, created_at, updated_at)
+        SELECT id, project_id, parent_id, title, description, status, priority, start_date, due_date, completed_at, github_ref, created_at, updated_at
+        FROM tasks ORDER BY rowid;
+      DROP TABLE tasks;
+      ALTER TABLE tasks_new RENAME TO tasks;
+
+      -- The indexes went with the old table.
+      CREATE INDEX idx_tasks_project ON tasks(project_id);
+      CREATE INDEX idx_tasks_parent  ON tasks(parent_id);
+      CREATE INDEX idx_tasks_due     ON tasks(due_date);
+      CREATE UNIQUE INDEX idx_tasks_github_ref ON tasks(coalesce(project_id, ''), lower(github_ref)) WHERE github_ref IS NOT NULL;
+      -- A number is used once per project.
+      CREATE UNIQUE INDEX idx_tasks_number ON tasks(project_id, number) WHERE project_id IS NOT NULL AND number IS NOT NULL;
     `,
   },
 ];

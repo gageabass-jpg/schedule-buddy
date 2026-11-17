@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { APP_BUSY_TIMEOUT_MS } from "./busy.js";
 import { AppError } from "./errors.js";
+import { backfillIdentifiers } from "./identifiers.js";
 import { MIGRATIONS, SCHEMA_VERSION, type Migration } from "./migrations.js";
 
 // node:sqlite is part of Node (and so of Electron). It is marked experimental in
@@ -26,6 +27,7 @@ export function openDatabase(file: string, busyTimeoutMs: number = APP_BUSY_TIME
     db.exec("PRAGMA synchronous = NORMAL");
     db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.trunc(busyTimeoutMs))}`);
     migrate(db, existed ? file : null);
+    backfillIdentifiers(db);
     return db;
   } catch (err) {
     try { db?.close(); } catch { /* already closed */ }
@@ -63,17 +65,29 @@ export function migrate(
   }
 
   for (const m of pending) {
-    db.exec("BEGIN IMMEDIATE");
+    // The setting cannot change inside a transaction, so it is switched around the whole of one.
+    if (m.foreignKeysOff) db.exec("PRAGMA foreign_keys = OFF");
     try {
-      db.exec(m.sql);
-      db.exec(`PRAGMA user_version = ${m.version}`);
-      db.exec("COMMIT");
-    } catch (err) {
-      db.exec("ROLLBACK");
-      throw new AppError(
-        "database",
-        `Updating the database to version ${m.version} (${m.name}) failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        db.exec(m.sql);
+        if (m.foreignKeysOff) {
+          // A rebuilt table must leave nothing pointing at what is not there. Better to stop here, with the old
+          // schema and the copy beside it, than to commit a database whose notes or subtasks have lost their parent.
+          const dangling = db.prepare("PRAGMA foreign_key_check").all() as { table: string }[];
+          if (dangling.length > 0) throw new Error(`some ${dangling[0].table} rows would point at something that is not there`);
+        }
+        db.exec(`PRAGMA user_version = ${m.version}`);
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw new AppError(
+          "database",
+          `Updating the database to version ${m.version} (${m.name}) failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    } finally {
+      if (m.foreignKeysOff) db.exec("PRAGMA foreign_keys = ON");
     }
   }
 }
@@ -192,6 +206,9 @@ export function stageRestore(source: string, staged: string): void {
         throw new Error(`the ${table} could not be read in (${err instanceof Error ? err.message : String(err)})`, { cause: err });
       }
     }
+
+    // A backup made before project keys and task numbers existed has none; the app's own rule gives them out.
+    backfillIdentifiers(fresh);
 
     const dangling = fresh.prepare("PRAGMA foreign_key_check").all() as { table: string }[];
     if (dangling.length > 0) throw new Error(`some ${dangling[0].table} rows point at things that are not in the backup`);

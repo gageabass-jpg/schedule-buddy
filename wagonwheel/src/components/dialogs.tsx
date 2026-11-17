@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { TrashIcon } from "@nucleus/ui/ui/trash";
 import {
-  PRIORITIES, PRIORITY_LABEL, PROJECT_STATUSES, PROJECT_STATUS_LABEL, TASK_STATUSES, TASK_STATUS_LABEL,
+  PRIORITIES, PRIORITY_LABEL, PROJECT_KEY_MAX, PROJECT_STATUSES, PROJECT_STATUS_LABEL, STATUS_LINE_MAX, TASK_STATUSES, TASK_STATUS_HINT, TASK_STATUS_LABEL,
+  isOpenStatus, taskCode,
   type Priority, type ProjectStatus, type TaskStatus,
 } from "@shared/types";
 import { useData } from "@/lib/store";
 import { useUi } from "@/lib/ui-state";
 import { messageOf } from "@/lib/bridge";
-import { liveProjects, subtasksOf } from "@/lib/derive";
+import { liveProjects, subtaskProgress, subtasksOf } from "@/lib/derive";
 import { PROJECT_COLORS, projectColor } from "@/lib/colors";
 import { cn } from "@nucleus/ui/lib/utils";
 import { Field, FormError, IconButton, Modal } from "./kit";
@@ -95,6 +96,7 @@ function TaskDialog() {
     return own && own.archivedAt ? [own, ...live] : live;
   }, [snapshot, existing]);
   const subtasks = existing ? subtasksOf(snapshot.tasks, existing.id) : [];
+  const code = existing ? taskCode(existing, snapshot.projects.find((p) => p.id === existing.projectId)) : null;
 
   // What the task can be moved under: any other top-level task. (Subtasks are one level deep, so a task that has
   // subtasks cannot go under another, and a subtask cannot be a parent.)
@@ -159,7 +161,7 @@ function TaskDialog() {
       open
       onOpenChange={(o) => { if (!o) closeTask(); }}
       title={existing ? (isSub ? "Subtask" : "Task") : isSub ? "New subtask" : "New task"}
-      description={parent ? `Part of "${parent.title}"` : undefined}
+      description={[code, parent ? `Part of "${parent.title}"` : null].filter(Boolean).join(" · ") || undefined}
       width={isSub ? 520 : 620}
       footer={<>
         {existing && <GlassButton tone="danger" className="mr-auto" onClick={() => void remove()}><TrashIcon size={14} />Delete</GlassButton>}
@@ -200,7 +202,7 @@ function TaskDialog() {
               {PRIORITIES.map((p) => <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>)}
             </select>
           </Field>
-          <Field label="Status">
+          <Field label="Status" hint={TASK_STATUS_HINT[status]}>
             <select value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} className="ww-field">
               {TASK_STATUSES.map((s) => <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>)}
             </select>
@@ -208,7 +210,7 @@ function TaskDialog() {
           <Field label="Start date">
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="ww-field" />
           </Field>
-          <Field label="Due date" hint={dueDate && dueDate < today && status !== "done" ? "This date has passed." : undefined}>
+          <Field label="Due date" hint={dueDate && dueDate < today && isOpenStatus(status) ? "This date has passed." : undefined}>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="ww-field" />
           </Field>
         </div>
@@ -221,7 +223,7 @@ function TaskDialog() {
 
       {existing && !isSub && (
         <section className="mt-3 border-t border-white/[0.07] pt-4" aria-label="Subtasks">
-          <h3 className="mb-2 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">Subtasks {subtasks.length ? `· ${subtasks.filter((s) => s.status === "done").length}/${subtasks.length}` : ""}</h3>
+          <h3 className="mb-2 text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">Subtasks {subtasks.length ? `· ${subtaskProgress(existing.id, snapshot.tasks).done}/${subtaskProgress(existing.id, snapshot.tasks).total}` : ""}</h3>
           <ul className="mb-2 flex flex-col">
             {subtasks.map((s) => (
               <li key={s.id} className="ww-row flex items-center gap-2.5 rounded-lg px-2 py-1.5">
@@ -231,7 +233,7 @@ function TaskDialog() {
                   type="button"
                   onClick={() => editTask(s.id)}
                   title="Open this subtask"
-                  className={cn("min-w-0 flex-1 truncate text-left text-[14px] hover:underline decoration-white/30 underline-offset-2", s.status === "done" && "text-ink-3 line-through decoration-white/25")}
+                  className={cn("min-w-0 flex-1 truncate text-left text-[14px] hover:underline decoration-white/30 underline-offset-2", !isOpenStatus(s.status) && "text-ink-3 line-through decoration-white/25")}
                 >{s.title}</button>
                 <IconButton label="Delete subtask" onClick={() => void attempt(() => act.deleteTask(s.id))}><TrashIcon size={14} /></IconButton>
               </li>
@@ -272,6 +274,8 @@ function ProjectDialog() {
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [status, setStatus] = useState<ProjectStatus>(existing?.status ?? "active");
+  const [statusLine, setStatusLine] = useState(existing?.statusLine ?? "");
+  const [key, setKey] = useState(existing?.key ?? "");
   const [color, setColor] = useState<string>(projectColor(existing?.color));
   const [startDate, setStartDate] = useState(existing?.startDate ?? "");
   const [targetDate, setTargetDate] = useState(existing?.targetDate ?? "");
@@ -285,7 +289,8 @@ function ProjectDialog() {
     setBusy(true);
     setError(null);
     try {
-      const fields = { name, description, status, color, startDate: nullIfBlank(startDate), targetDate: nullIfBlank(targetDate) };
+      // A blank key is not sent: a new project's is made from its name, and an existing one keeps what it has.
+      const fields = { name, description, status, statusLine, key: key.trim() || undefined, color, startDate: nullIfBlank(startDate), targetDate: nullIfBlank(targetDate) };
       if (existing) await act.updateProject(existing.id, fields);
       else { const id = await act.createProject(fields); go({ name: "project", id }); }
       closeProject();
@@ -344,6 +349,17 @@ function ProjectDialog() {
           </Field>
           <Field label="Start date"><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="ww-field" /></Field>
           <Field label="Target date"><input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="ww-field" /></Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Status line" className="col-span-2" hint={`Where it stands right now, in a few words. ${statusLine.length}/${STATUS_LINE_MAX}`}>
+            <input value={statusLine} onChange={(e) => setStatusLine(e.target.value)} placeholder="Pending App Store review" maxLength={STATUS_LINE_MAX} className="ww-field" />
+          </Field>
+          <Field label="Key" hint={existing ? "Changes every identifier here, such as RXM-4." : "Blank: picked for you."}>
+            <input
+              value={key} onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+              placeholder="RXM" maxLength={PROJECT_KEY_MAX} spellCheck={false} autoCapitalize="characters" className="ww-field font-mono uppercase"
+            />
+          </Field>
         </div>
         <fieldset>
           <legend className="mb-1.5 block text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink-3">Colour</legend>

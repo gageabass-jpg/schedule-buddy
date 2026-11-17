@@ -56,6 +56,7 @@ export function installMenu(): void {
         { label: "Timeline", accelerator: "CmdOrCtrl+4", click: send("go-timeline") },
         { label: "Inbox", accelerator: "CmdOrCtrl+5", click: send("go-inbox") },
         { label: "Services", accelerator: "CmdOrCtrl+6", click: send("go-services") },
+        { label: "Board", accelerator: "CmdOrCtrl+7", click: send("go-board") },
         { type: "separator" },
         { role: "reload" }, { role: "forceReload" }, { role: "toggleDevTools" },
         { type: "separator" },

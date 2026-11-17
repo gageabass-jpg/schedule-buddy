@@ -7,8 +7,14 @@
 export const PROJECT_STATUSES = ["planning", "active", "on_hold", "completed"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export const TASK_STATUSES = ["not_started", "in_progress", "done"] as const;
+// A task's status, in the order the Board lists them. The stored words are older than the names the app shows (`not_started`
+// is shown as Queued, `in_progress` as Started, `done` as Complete), and stay the same so the connector, backups and exports
+// keep their meaning. Stalled and Discontinued came with the Board (schema 6).
+export const TASK_STATUSES = ["not_started", "in_progress", "stalled", "done", "discontinued"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+/** Closed: finished, or given up on. Everything else is open, Stalled included (it is waiting, not over). */
+export const isOpenStatus = (status: TaskStatus): boolean => status !== "done" && status !== "discontinued";
 
 export const PRIORITIES = ["low", "medium", "high"] as const;
 export type Priority = (typeof PRIORITIES)[number];
@@ -21,10 +27,31 @@ export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
 };
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  not_started: "Not started",
-  in_progress: "In progress",
-  done: "Done",
+  not_started: "Queued",
+  in_progress: "Started",
+  stalled: "Stalled",
+  done: "Complete",
+  discontinued: "Discontinued",
 };
+
+/** What each status means, in a sentence: the Board's tracker and the status menus show it. */
+export const TASK_STATUS_HINT: Record<TaskStatus, string> = {
+  not_started: "The task has entered planning.",
+  in_progress: "Work on the task is underway.",
+  stalled: "Pending some action, with an extended wait.",
+  done: "The task is done.",
+  discontinued: "The idea was cancelled.",
+};
+
+// ── Project keys, task numbers and the status line ──────────────────────────
+
+/** The longest a project's status line can be ("Pending App Store review"). One short line, not a paragraph. */
+export const STATUS_LINE_MAX = 60;
+
+/** A project's key is its short name for identifiers: RXM in RXM-4. */
+export const PROJECT_KEY_MIN = 2;
+export const PROJECT_KEY_MAX = 5;
+export const PROJECT_KEY_PATTERN = /^[A-Z0-9]{2,5}$/;
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   low: "Low",
@@ -37,6 +64,10 @@ export interface Project {
   name: string;
   description: string;
   status: ProjectStatus;
+  /** One short line on where the project stands right now, such as "Pending App Store review". May be empty. */
+  statusLine: string;
+  /** 2 to 5 capital letters or digits, such as RXM: the front of each task's identifier (RXM-4). Unique across projects. */
+  key: string;
   /** Optional accent, "#RRGGBB". */
   color: string | null;
   startDate: string | null;
@@ -56,6 +87,8 @@ export interface Task {
   projectId: string | null;
   /** Set for a subtask. Subtasks are one level deep and share the parent's project. */
   parentId: string | null;
+  /** The task's number in its project (the 4 in RXM-4), counted up from 1 and never reused. Null in the inbox, which has no key. */
+  number: number | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -67,6 +100,11 @@ export interface Task {
   githubRef: string | null;
   createdAt: number;
   updatedAt: number;
+}
+
+/** "RXM-4": the short name a task goes by on the Board. Null while it has no project (and so no key) or no number. */
+export function taskCode(task: Pick<Task, "number">, project: Pick<Project, "key"> | undefined): string | null {
+  return project && project.key && task.number != null ? `${project.key}-${task.number}` : null;
 }
 
 export interface Milestone {
@@ -176,6 +214,10 @@ export interface ProjectInput {
   name: string;
   description?: string;
   status?: ProjectStatus;
+  /** Up to STATUS_LINE_MAX characters; "" clears it. */
+  statusLine?: string;
+  /** The key for task identifiers. Left out on a new project, it is made from the name. */
+  key?: string;
   color?: string | null;
   startDate?: string | null;
   targetDate?: string | null;
@@ -286,6 +328,7 @@ export type MenuCommand =
   | "go-projects"
   | "go-tasks"
   | "go-timeline"
+  | "go-board"
   | "go-inbox"
   | "go-services"
   | "scan-github"

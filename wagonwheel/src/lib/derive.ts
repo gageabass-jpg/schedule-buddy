@@ -1,11 +1,12 @@
-import type { Milestone, Project, Snapshot, Task } from "@shared/types";
+import { isOpenStatus, type Milestone, type Project, type Snapshot, type Task } from "@shared/types";
 import { addDays, diffDays, formatShort, relativeDay } from "./dates";
 
 // Everything the views compute from a Snapshot. Pure, so it is tested without a window.
 
 // ── Basics ──────────────────────────────────────────────────────────────────
 
-export const isOpen = (t: Task): boolean => t.status !== "done";
+/** Still to do: not Complete and not Discontinued. A Stalled task is open (it is waiting, not over). */
+export const isOpen = (t: Task): boolean => isOpenStatus(t.status);
 export const isOverdue = (t: Task, today: string): boolean => isOpen(t) && !!t.dueDate && t.dueDate < today;
 
 /** Most recently active first. Ties (two projects touched in the same millisecond) are settled
@@ -35,16 +36,17 @@ export const subtasksOf = (tasks: Task[], parentId: string): Task[] =>
 
 export interface Progress { done: number; total: number; pct: number }
 
-/** Share of a project's top-level tasks that are done. Subtasks are part of their task. */
+/** Share of a project's top-level tasks that are done. Subtasks are part of their task. A Discontinued task was given up on,
+ *  so it is not counted either way: cancelling an idea must not hold a project below 100%. */
 export function projectProgress(projectId: string, tasks: Task[]): Progress {
-  const mine = tasks.filter((t) => t.projectId === projectId && !t.parentId);
+  const mine = tasks.filter((t) => t.projectId === projectId && !t.parentId && t.status !== "discontinued");
   const done = mine.filter((t) => t.status === "done").length;
   return { done, total: mine.length, pct: mine.length ? Math.round((done / mine.length) * 100) : 0 };
 }
 
-/** Subtask counts for the "2/5" chip on a task row. */
+/** Subtask counts for the "2/5" chip on a task row. Discontinued subtasks are left out, as in projectProgress. */
 export function subtaskProgress(parentId: string, tasks: Task[]): { done: number; total: number } {
-  const subs = tasks.filter((t) => t.parentId === parentId);
+  const subs = tasks.filter((t) => t.parentId === parentId && t.status !== "discontinued");
   return { done: subs.filter((t) => t.status === "done").length, total: subs.length };
 }
 
