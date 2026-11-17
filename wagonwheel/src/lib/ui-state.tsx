@@ -13,6 +13,7 @@ export type View =
   | { name: "tasks" }
   | { name: "timeline" }
   | { name: "inbox" }
+  | { name: "services" }
   | { name: "day"; date: string };
 
 export interface TaskDefaults {
@@ -23,6 +24,12 @@ export interface TaskDefaults {
 export type TaskDialogState = { id: string; defaults?: undefined } | { id: null; defaults: TaskDefaults };
 export type ProjectDialogState = { id: string | null };
 export type MilestoneDialogState = { id: string | null; projectId: string };
+export type ServiceDialogState = { id: string | null };
+/** How the GitHub dialog opens: scan any repositories, connect one to a project, or scan the one a project is connected to. */
+export type GithubDialogState =
+  | { mode: "scan" }
+  | { mode: "connect"; projectId: string }
+  | { mode: "scan-project"; projectId: string };
 
 export interface ConfirmOptions {
   title: string;
@@ -54,6 +61,21 @@ interface UiValue {
   editMilestone(id: string, projectId: string): void;
   closeMilestone(): void;
 
+  serviceDialog: ServiceDialogState | null;
+  newService(): void;
+  editService(id: string): void;
+  closeService(): void;
+
+  /** The GitHub dialog (scan for tasks, or connect a repository to a project). */
+  githubDialog: GithubDialogState | null;
+  openGithub(state?: GithubDialogState): void;
+  closeGithub(): void;
+
+  /** The Connectors panel (Claude Code, GitHub, iCloud Mail). */
+  connectorsDialog: boolean;
+  openConnectors(): void;
+  closeConnectors(): void;
+
   confirm(options: ConfirmOptions): Promise<boolean>;
   confirming: (ConfirmOptions & { resolve: (ok: boolean) => void }) | null;
 
@@ -74,6 +96,9 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [taskDialog, setTaskDialog] = useState<TaskDialogState | null>(null);
   const [projectDialog, setProjectDialog] = useState<ProjectDialogState | null>(null);
   const [milestoneDialog, setMilestoneDialog] = useState<MilestoneDialogState | null>(null);
+  const [serviceDialog, setServiceDialog] = useState<ServiceDialogState | null>(null);
+  const [githubDialog, setGithubDialog] = useState<GithubDialogState | null>(null);
+  const [connectorsDialog, setConnectorsDialog] = useState(false);
   const [confirming, setConfirming] = useState<UiValue["confirming"]>(null);
   const [captureTick, setCaptureTick] = useState(0);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -107,11 +132,21 @@ export function UiProvider({ children }: { children: ReactNode }) {
     newMilestone: (projectId) => setMilestoneDialog({ id: null, projectId }),
     editMilestone: (id, projectId) => setMilestoneDialog({ id, projectId }),
     closeMilestone: () => setMilestoneDialog(null),
+    serviceDialog,
+    newService: () => setServiceDialog({ id: null }),
+    editService: (id) => setServiceDialog({ id }),
+    closeService: () => setServiceDialog(null),
+    githubDialog,
+    openGithub: (state = { mode: "scan" }) => setGithubDialog(state),
+    closeGithub: () => setGithubDialog(null),
+    connectorsDialog,
+    openConnectors: () => setConnectorsDialog(true),
+    closeConnectors: () => setConnectorsDialog(false),
     confirm, confirming,
     captureTick,
     focusCapture: () => { setInboxOpen(true); setCaptureTick((n) => n + 1); },
     inboxOpen, setInboxOpen,
-  }), [view, go, selectedDate, selectDate, taskDialog, projectDialog, milestoneDialog, confirm, confirming, captureTick, inboxOpen]);
+  }), [view, go, selectedDate, selectDate, taskDialog, projectDialog, milestoneDialog, serviceDialog, githubDialog, connectorsDialog, confirm, confirming, captureTick, inboxOpen]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

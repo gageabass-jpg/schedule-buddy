@@ -8,6 +8,7 @@ import { compareTasks, isOpen, isOverdue, liveProjects, visibleTasks } from "@/l
 import { addDays } from "@/lib/dates";
 import { EmptyState, PageHeader, Section } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
+import { ScanGithubButton } from "@/components/PageTools";
 import { TaskRow } from "@/components/TaskRow";
 
 type Show = "open" | "done" | "all";
@@ -50,7 +51,10 @@ export function Tasks() {
       <PageHeader
         title="All Tasks"
         subtitle={`${groups.total} ${groups.total === 1 ? "task" : "tasks"}${filtered ? " match" : ""}`}
-        actions={<GlassButton tone="primary" onClick={() => newTask()}><Plus size={15} />New task</GlassButton>}
+        actions={<>
+          <ScanGithubButton />
+          <GlassButton tone="primary" onClick={() => newTask()}><Plus size={15} />New task</GlassButton>
+        </>}
       />
       <div className="flex flex-wrap items-center gap-3 px-8 pb-3">
         <Tabs value={show} onValueChange={(v) => setShow(v as Show)}>

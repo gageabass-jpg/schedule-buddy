@@ -1,9 +1,15 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, safeStorage, shell } from "electron";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
+import { ConnectorsService, defaultClaudeCandidates } from "./connectors/service.js";
 import { DataService } from "./data-service.js";
+import { CredentialStore } from "./github/credentials.js";
+import { GithubService } from "./github/service.js";
 import { registerIpc } from "./ipc.js";
 import { installMenu } from "./menu.js";
+import { ServiceTokenStore } from "./services/credentials.js";
+import { ServicesService } from "./services/service.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === "development";
@@ -72,7 +78,42 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     data = new DataService(path.join(app.getPath("userData"), "wagonwheel.db"), () => mainWindow);
-    registerIpc(data);
+    // The GitHub sign-in lives in its own file, encrypted by the keychain, apart from the database.
+    const github = new GithubService({
+      fetch,
+      store: new CredentialStore(path.join(app.getPath("userData"), "github.json"), {
+        isAvailable: () => safeStorage.isEncryptionAvailable(),
+        encrypt: (plain) => safeStorage.encryptString(plain),
+        decrypt: (data) => safeStorage.decryptString(data),
+      }),
+      openExternal: (target) => { void shell.openExternal(target); },
+    });
+    // The Connectors panel: how Claude Code is set up to use this app's connector and the iCloud Mail one.
+    // The tests (which set WAGONWHEEL_DATA_DIR) point it at stand-ins, so they never touch the real setup.
+    const test = !!process.env.WAGONWHEEL_DATA_DIR;
+    const home = os.homedir();
+    const connectors = new ConnectorsService({
+      exe: process.execPath,
+      serverPath: path.join(app.getAppPath(), "dist-electron", "electron", "mcp", "server.js"),
+      packaged: app.isPackaged || test,
+      configFile: (test && process.env.WAGONWHEEL_CLAUDE_CONFIG) || path.join(home, ".claude.json"),
+      icloudDir: (test && process.env.WAGONWHEEL_ICLOUD_DIR) || path.join(home, ".claude", "connectors", "icloud-mail"),
+      claudeCandidates: test && process.env.WAGONWHEEL_CLAUDE_BIN ? [process.env.WAGONWHEEL_CLAUDE_BIN] : defaultClaudeCandidates(home),
+      securityBin: (test && process.env.WAGONWHEEL_SECURITY_BIN) || "/usr/bin/security",
+    });
+    // Tokens that read a service's bill (Vercel) live in their own file too, encrypted by the keychain.
+    const services = new ServicesService({
+      fetch,
+      store: new ServiceTokenStore(path.join(app.getPath("userData"), "service-tokens.json"), {
+        isAvailable: () => safeStorage.isEncryptionAvailable(),
+        encrypt: (plain) => safeStorage.encryptString(plain),
+        decrypt: (data) => safeStorage.decryptString(data),
+      }),
+      workspace: () => (data as DataService).ws(),
+    });
+    registerIpc(data, github, connectors, services);
+    // Claude Code can change the workspace through the connector while the app is open: tell the window to reload.
+    data.watchOtherWriters(() => mainWindow?.webContents.send("ww:external-change"));
     installMenu();
     createWindow();
     app.on("activate", () => {

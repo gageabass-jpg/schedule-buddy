@@ -23,7 +23,7 @@ const code = (fn: () => unknown): string | undefined => {
 
 describe("projects", () => {
   it("starts empty", () => {
-    expect(ws.snapshot()).toEqual({ projects: [], tasks: [], milestones: [], notes: [], settings: {} });
+    expect(ws.snapshot()).toEqual({ projects: [], tasks: [], milestones: [], notes: [], services: [], serviceCharges: [], settings: {} });
   });
 
   it("creates a project and cleans the input", () => {
@@ -45,6 +45,45 @@ describe("projects", () => {
     const { id } = ws.createProject({ name: "A", description: "d", startDate: "2026-11-01", targetDate: "2026-12-01" });
     const { snapshot } = ws.updateProject(id, { name: "B", targetDate: null });
     expect(snapshot.projects[0]).toMatchObject({ name: "B", description: "d", startDate: "2026-11-01", targetDate: null });
+  });
+
+  describe("a connected GitHub repository", () => {
+    it("starts unconnected, is set on create or update, and null disconnects", () => {
+      const { id } = ws.createProject({ name: "A" });
+      expect(ws.snapshot().projects[0].githubRepo).toBeNull();
+      expect(ws.updateProject(id, { githubRepo: " gageabass-jpg/schedule-buddy " }).snapshot.projects[0].githubRepo).toBe("gageabass-jpg/schedule-buddy");
+      expect(ws.updateProject(id, { name: "A2" }).snapshot.projects[0].githubRepo).toBe("gageabass-jpg/schedule-buddy");   // other edits leave it alone
+      expect(ws.updateProject(id, { githubRepo: null }).snapshot.projects[0].githubRepo).toBeNull();
+      const made = ws.createProject({ name: "B", githubRepo: "o/r" }).snapshot.projects.find((p) => p.name === "B");
+      expect(made?.githubRepo).toBe("o/r");
+    });
+
+    it("refuses something that is not owner/name", () => {
+      const { id } = ws.createProject({ name: "A" });
+      for (const bad of ["just-a-name", "a/b/c", "https://github.com/o/r", "o/r?x=1", "o /r", "/r", "o/"]) {
+        expect(code(() => ws.updateProject(id, { githubRepo: bad }))).toBe("validation: The GitHub repository must look like owner/name.");
+      }
+      expect(ws.snapshot().projects[0].githubRepo).toBeNull();
+    });
+
+    it("lets a repository belong to one project only, and says which has it", () => {
+      const { id: a } = ws.createProject({ name: "First", githubRepo: "Gage/Repo" });
+      const { id: b } = ws.createProject({ name: "Second" });
+      expect(code(() => ws.updateProject(b, { githubRepo: "gage/repo" }))).toBe('validation: gage/repo is already connected to the project "First". A repository can belong to one project.');
+      expect(code(() => ws.createProject({ name: "Third", githubRepo: "GAGE/REPO" }))).toContain('already connected to the project "First"');
+      expect(ws.snapshot().projects.map((p) => p.githubRepo)).toEqual(["Gage/Repo", null]);
+      // the same project can be saved again with its own repository, and a freed repository can move
+      expect(ws.updateProject(a, { githubRepo: "Gage/Repo", name: "First!" }).snapshot.projects[0].name).toBe("First!");
+      ws.updateProject(a, { githubRepo: null });
+      expect(ws.updateProject(b, { githubRepo: "gage/repo" }).snapshot.projects[1].githubRepo).toBe("gage/repo");
+    });
+
+    it("is kept when the project is archived and goes when it is deleted", () => {
+      const { id } = ws.createProject({ name: "A", githubRepo: "o/r" });
+      expect(ws.updateProject(id, { archived: true }).snapshot.projects[0].githubRepo).toBe("o/r");
+      ws.deleteProject(id);
+      expect(ws.createProject({ name: "Again", githubRepo: "o/r" }).snapshot.projects[0].githubRepo).toBe("o/r");
+    });
   });
 
   it("archives and unarchives, keeping the first archive time", () => {
@@ -218,6 +257,136 @@ describe("settings", () => {
     expect(code(() => ws.setSetting("workspaceName", "  "))).toBe("validation: The workspace name cannot be empty.");
     expect(code(() => ws.setSetting("workspaceName", "x".repeat(61)))).toContain("too long");
     expect(code(() => ws.setSetting("bad key!", "x"))).toBe("validation: That setting name is not allowed.");
+  });
+});
+
+describe("services", () => {
+  it("creates a service and cleans the input", () => {
+    const { id, snapshot } = ws.createService({ name: "  Vercel ", plan: " Pro ", kind: "usage", provider: "vercel", amountCents: 2000, billingDay: 5, billingUrl: " https://vercel.com/account/billing ", notes: " n " });
+    expect(snapshot.services.find((s) => s.id === id)).toMatchObject({
+      name: "Vercel", plan: "Pro", kind: "usage", provider: "vercel", amountCents: 2000, billingDay: 5,
+      billingUrl: "https://vercel.com/account/billing", notes: "n", status: "active", lastSyncedAt: null,
+    });
+  });
+
+  it("has sensible defaults", () => {
+    const s = ws.createService({ name: "GitHub" }).snapshot.services[0];
+    expect(s).toMatchObject({ plan: "", kind: "flat", provider: null, amountCents: 0, billingDay: null, billingUrl: null, status: "active" });
+  });
+
+  it("refuses bad input with a message a person can act on", () => {
+    expect(code(() => ws.createService({ name: "  " }))).toBe("validation: The service name cannot be empty.");
+    expect(code(() => ws.createService({ name: "x", amountCents: -1 }))).toContain("not less than zero");
+    expect(code(() => ws.createService({ name: "x", amountCents: 12.5 }))).toContain("not less than zero");
+    expect(code(() => ws.createService({ name: "x", amountCents: 100_000_001 }))).toContain("too large");
+    expect(code(() => ws.createService({ name: "x", billingDay: 0 }))).toContain("1 to 31");
+    expect(code(() => ws.createService({ name: "x", billingDay: 32 }))).toContain("1 to 31");
+    expect(code(() => ws.createService({ name: "x", kind: "free" as never }))).toContain("The type is not one of");
+    expect(code(() => ws.createService({ name: "x", provider: "stripe" as never }))).toContain("The automatic source is not one of");
+    expect(code(() => ws.createService({ name: "x", plan: "p".repeat(121) }))).toContain("The plan is too long");
+    expect(ws.snapshot().services).toHaveLength(0);
+  });
+
+  it("keeps only https billing pages, so a link can never run a script or open a file", () => {
+    for (const bad of ["javascript:alert(1)", "file:///etc/passwd", "http://insecure.example.com", "not a url", "data:text/html,x"]) {
+      expect(code(() => ws.createService({ name: "x", billingUrl: bad }))).toMatch(/^validation: The billing page must be/);
+    }
+    expect(ws.createService({ name: "x", billingUrl: "" }).snapshot.services[0].billingUrl).toBeNull();
+  });
+
+  it("updates only what the patch names; null clears a field", () => {
+    const { id } = ws.createService({ name: "A", plan: "Pro", amountCents: 2500, billingDay: 3, billingUrl: "https://a.example.com/" });
+    const s = ws.updateService(id, { amountCents: 3000, billingDay: null, billingUrl: null }).snapshot.services[0];
+    expect(s).toMatchObject({ name: "A", plan: "Pro", amountCents: 3000, billingDay: null, billingUrl: null });
+    expect(ws.updateService(id, { status: "cancelled" }).snapshot.services[0].status).toBe("cancelled");
+    expect(code(() => ws.updateService(id, { name: "" }))).toContain("cannot be empty");
+    expect(code(() => ws.updateService("nope", { name: "x" }))).toBe("not_found: That service no longer exists.");
+  });
+
+  it("records one charge per service per month, and a new figure replaces the old", () => {
+    const sid = ws.createService({ name: "A" }).id;
+    const first = ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 2500 });
+    expect(first.snapshot.serviceCharges).toHaveLength(1);
+    const again = ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 3100 });
+    expect(again.snapshot.serviceCharges).toHaveLength(1);
+    expect(again.snapshot.serviceCharges[0]).toMatchObject({ id: first.id, month: "2026-11", amountCents: 3100, source: "manual" });
+    expect(again.id).toBe(first.id);   // the row that changed
+    ws.setCharge({ serviceId: sid, month: "2026-10", amountCents: 100 });
+    expect(ws.snapshot().serviceCharges.map((c) => c.month)).toEqual(["2026-10", "2026-11"]);   // oldest first
+  });
+
+  it("refuses a bad month, a bad amount, and a service that is gone", () => {
+    const sid = ws.createService({ name: "A" }).id;
+    expect(code(() => ws.setCharge({ serviceId: sid, month: "2026-13", amountCents: 1 }))).toContain("must look like 2026-11");
+    expect(code(() => ws.setCharge({ serviceId: sid, month: "Nov 2026", amountCents: 1 }))).toContain("must look like 2026-11");
+    expect(code(() => ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: -5 }))).toContain("not less than zero");
+    expect(code(() => ws.setCharge({ serviceId: "nope", month: "2026-11", amountCents: 1 }))).toBe("not_found: That service no longer exists.");
+    expect(ws.snapshot().serviceCharges).toHaveLength(0);
+  });
+
+  it("records a bill as paid by default, and as unpaid when told; typing again sets it afresh", () => {
+    const sid = ws.createService({ name: "A" }).id;
+    expect(ws.setCharge({ serviceId: sid, month: "2026-10", amountCents: 2500 }).snapshot.serviceCharges[0].paid).toBe(true);
+    const unpaid = ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 3465, paid: false });
+    expect(unpaid.snapshot.serviceCharges.find((c) => c.month === "2026-11")).toMatchObject({ amountCents: 3465, paid: false });
+    // marking it paid later is the same call with paid true (the amount is unchanged)
+    const paid = ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 3465, paid: true });
+    expect(paid.id).toBe(unpaid.id);
+    expect(paid.snapshot.serviceCharges.find((c) => c.month === "2026-11")?.paid).toBe(true);
+    // a new figure typed with no word on it is paid: typing a bill in means it happened
+    ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 100, paid: false });
+    expect(ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 200 }).snapshot.serviceCharges.find((c) => c.month === "2026-11")).toMatchObject({ amountCents: 200, paid: true });
+  });
+
+  it("refuses a paid value that is not true or false", () => {
+    const sid = ws.createService({ name: "A" }).id;
+    expect(code(() => ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 100, paid: "no" as never }))).toBe("validation: Paid must be true or false.");
+    expect(ws.snapshot().serviceCharges).toHaveLength(0);
+  });
+
+  it("deletes a charge, and a service takes its charges with it", () => {
+    const sid = ws.createService({ name: "A" }).id;
+    const cid = ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 100 }).id;
+    expect(ws.deleteCharge(cid).serviceCharges).toHaveLength(0);
+    expect(code(() => ws.deleteCharge(cid))).toBe("not_found: That charge no longer exists.");
+    ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 100 });
+    const after = ws.deleteService(sid);
+    expect(after.services).toHaveLength(0);
+    expect(after.serviceCharges).toHaveLength(0);
+  });
+
+  it("refuses to link a service to a provider it is not named for, so one service cannot be given another's usage", () => {
+    expect(code(() => ws.createService({ name: "Supabase", provider: "vercel" }))).toBe(
+      'validation: Only a service named like Vercel can check its usage on Vercel. "Supabase" would be given Vercel\'s usage, which is not its own.',
+    );
+    expect(ws.snapshot().services).toHaveLength(0);
+    // a name that contains the provider's name is fine, in any case
+    expect(ws.createService({ name: "My VERCEL hosting", provider: "vercel" }).snapshot.services[0].provider).toBe("vercel");
+    // the same rule on an edit: linking an existing service, or renaming a linked one away from its provider's name
+    const sb = ws.createService({ name: "Supabase" }).id;
+    expect(code(() => ws.updateService(sb, { provider: "vercel" }))).toContain("Only a service named like Vercel can check its usage");
+    const vc = ws.snapshot().services.find((s) => s.provider === "vercel")!.id;
+    expect(code(() => ws.updateService(vc, { name: "Hosting" }))).toContain("Only a service named like Vercel can check its usage");
+    expect(ws.updateService(vc, { name: "Vercel Pro" }).snapshot.services.find((s) => s.id === vc)?.name).toBe("Vercel Pro");
+    expect(ws.updateService(vc, { provider: null }).snapshot.services.find((s) => s.id === vc)?.provider).toBeNull();
+  });
+
+  it("notes that a provider was checked without touching a single bill", () => {
+    const sid = ws.createService({ name: "Vercel", provider: "vercel" }).id;
+    ws.setCharge({ serviceId: sid, month: "2026-10", amountCents: 2120 });
+    ws.setCharge({ serviceId: sid, month: "2026-11", amountCents: 2120, paid: false });
+    const before = ws.snapshot().serviceCharges;
+    expect(ws.snapshot().services[0].lastSyncedAt).toBeNull();
+    const snap = ws.markChecked(sid);
+    expect(snap.services[0].lastSyncedAt).toBeGreaterThan(0);
+    expect(snap.serviceCharges).toEqual(before);   // every bill, its amount, who wrote it and whether it is paid: exactly as it was
+    expect(code(() => ws.markChecked("nope"))).toBe("not_found: That service no longer exists.");
+  });
+
+  it("reads a service back by id", () => {
+    const sid = ws.createService({ name: "Vercel", provider: "vercel" }).id;
+    expect(ws.getService(sid).provider).toBe("vercel");
+    expect(code(() => ws.getService("nope"))).toContain("not_found");
   });
 });
 

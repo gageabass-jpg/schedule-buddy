@@ -11,6 +11,7 @@ import { projectColor } from "@/lib/colors";
 import { timeAgo } from "@/lib/time";
 import { EmptyState, PageHeader, ProgressBar, Section } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
+import { ScanGithubButton } from "@/components/PageTools";
 import { ProjectCard } from "@/components/ProjectCard";
 import { TaskRow } from "@/components/TaskRow";
 
@@ -34,6 +35,7 @@ export function Dashboard() {
         title="Dashboard"
         subtitle={bits.join(" · ")}
         actions={<>
+          <ScanGithubButton />
           <GlassButton onClick={() => newTask()}><Plus size={15} />New task</GlassButton>
           <GlassButton tone="primary" onClick={newProject}><Plus size={15} />New project</GlassButton>
         </>}

@@ -6,6 +6,7 @@ import { useUi } from "@/lib/ui-state";
 import { compareByActivity } from "@/lib/derive";
 import { EmptyState, PageHeader } from "@/components/kit";
 import { GlassButton } from "@/components/GlassButton";
+import { ScanGithubButton } from "@/components/PageTools";
 import { ProjectCard } from "@/components/ProjectCard";
 
 type Filter = "active" | "all" | "archived";
@@ -31,7 +32,10 @@ export function Projects() {
       <PageHeader
         title="All Projects"
         subtitle={`${groups.all.length} ${groups.all.length === 1 ? "project" : "projects"}${groups.archived.length ? ` · ${groups.archived.length} archived` : ""}`}
-        actions={<GlassButton tone="primary" onClick={newProject}><Plus size={15} />New project</GlassButton>}
+        actions={<>
+          <ScanGithubButton />
+          <GlassButton tone="primary" onClick={newProject}><Plus size={15} />New project</GlassButton>
+        </>}
       />
       <div className="px-8 pb-3">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>

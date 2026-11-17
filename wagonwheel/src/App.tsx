@@ -14,6 +14,7 @@ import { Projects } from "@/views/Projects";
 import { ProjectDetail } from "@/views/ProjectDetail";
 import { Tasks } from "@/views/Tasks";
 import { Inbox } from "@/views/Inbox";
+import { Services } from "@/views/Services";
 import { DayView } from "@/views/DayView";
 import { TimelineView } from "@/views/TimelineView";
 
@@ -30,6 +31,7 @@ export function App() {
 /** The window: the title strip, then a floating sidebar and one large pane, over the glass ground. */
 function Shell() {
   useMenuCommands();
+  useExternalChanges();
   return (
     <div className="relative flex h-full flex-col">
       <div className="ww-backdrop" />
@@ -60,6 +62,7 @@ function Main() {
     case "tasks": return <Tasks />;
     case "timeline": return <TimelineView />;
     case "inbox": return <Inbox />;
+    case "services": return <Services />;
     case "day": return <DayView date={view.date} />;
   }
 }
@@ -92,6 +95,17 @@ function DatabaseProblem() {
   );
 }
 
+/** Claude Code can change the workspace through the connector while the app is open. When it does, take the
+ *  new workspace quietly: a hiccup in reading it must not throw the person onto an error screen. */
+function useExternalChanges() {
+  const { adopt } = useData();
+  useEffect(() => {
+    const api = window.wagonwheel;
+    if (!api) return;
+    return api.onExternalChange(() => { void api.getSnapshot().then(adopt).catch(() => undefined); });
+  }, [adopt]);
+}
+
 /** Menu items (File, View) arrive from the main process as commands. */
 function useMenuCommands() {
   const ui = useUi();
@@ -108,6 +122,9 @@ function useMenuCommands() {
         case "go-tasks": ui.go({ name: "tasks" }); break;
         case "go-timeline": ui.go({ name: "timeline" }); break;
         case "go-inbox": ui.go({ name: "inbox" }); break;
+        case "go-services": ui.go({ name: "services" }); break;
+        case "scan-github": ui.openGithub(); break;
+        case "open-connectors": ui.openConnectors(); break;
         case "focus-capture": ui.focusCapture(); break;
         case "backup": void backupDatabase(); break;
         case "export-json": void exportJson(); break;

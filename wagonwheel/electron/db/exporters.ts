@@ -21,6 +21,7 @@ function csv(header: string[], rows: unknown[][]): string {
 export function buildCsvFiles(s: Snapshot): Record<string, string> {
   const projectName = new Map(s.projects.map((p) => [p.id, p.name]));
   const taskTitle = new Map(s.tasks.map((t) => [t.id, t.title]));
+  const serviceName = new Map(s.services.map((v) => [v.id, v.name]));
 
   const topLevel = s.tasks.filter((t) => !t.parentId);
   const counts = (projectId: string) => {
@@ -30,22 +31,22 @@ export function buildCsvFiles(s: Snapshot): Record<string, string> {
 
   return {
     "projects.csv": csv(
-      ["id", "name", "status", "archived", "color", "start_date", "target_date", "tasks_done", "tasks_total", "description", "created_at", "updated_at"],
+      ["id", "name", "status", "archived", "color", "start_date", "target_date", "github_repo", "tasks_done", "tasks_total", "description", "created_at", "updated_at"],
       s.projects.map((p) => {
         const c = counts(p.id);
-        return [p.id, p.name, p.status, p.archivedAt ? "yes" : "no", p.color, p.startDate, p.targetDate, c.done, c.total, p.description, iso(p.createdAt), iso(p.updatedAt)];
+        return [p.id, p.name, p.status, p.archivedAt ? "yes" : "no", p.color, p.startDate, p.targetDate, p.githubRepo, c.done, c.total, p.description, iso(p.createdAt), iso(p.updatedAt)];
       }),
     ),
     "tasks.csv": csv(
-      ["id", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "description", "created_at", "updated_at"],
+      ["id", "project", "parent_task", "title", "status", "priority", "start_date", "due_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
       s.tasks.map((t) => [
         t.id, t.projectId ? projectName.get(t.projectId) ?? "" : "(inbox)", t.parentId ? taskTitle.get(t.parentId) ?? "" : "",
-        t.title, t.status, t.priority, t.startDate, t.dueDate, iso(t.completedAt), t.description, iso(t.createdAt), iso(t.updatedAt),
+        t.title, t.status, t.priority, t.startDate, t.dueDate, iso(t.completedAt), t.githubRef, t.description, iso(t.createdAt), iso(t.updatedAt),
       ]),
     ),
     "milestones.csv": csv(
-      ["id", "project", "name", "target_date", "completed_at", "description", "created_at", "updated_at"],
-      s.milestones.map((m) => [m.id, projectName.get(m.projectId) ?? "", m.name, m.targetDate, iso(m.completedAt), m.description, iso(m.createdAt), iso(m.updatedAt)]),
+      ["id", "project", "name", "target_date", "completed_at", "github_ref", "description", "created_at", "updated_at"],
+      s.milestones.map((m) => [m.id, projectName.get(m.projectId) ?? "", m.name, m.targetDate, iso(m.completedAt), m.githubRef, m.description, iso(m.createdAt), iso(m.updatedAt)]),
     ),
     "notes.csv": csv(
       ["id", "project", "task", "body", "created_at", "updated_at"],
@@ -53,6 +54,17 @@ export function buildCsvFiles(s: Snapshot): Record<string, string> {
         n.id, n.projectId ? projectName.get(n.projectId) ?? "" : "", n.taskId ? taskTitle.get(n.taskId) ?? "" : "",
         n.body, iso(n.createdAt), iso(n.updatedAt),
       ]),
+    ),
+    "services.csv": csv(
+      ["id", "name", "plan", "type", "status", "usual_monthly_usd", "billing_day", "billing_url", "automatic_source", "notes", "last_synced_at", "created_at", "updated_at"],
+      s.services.map((v) => [
+        v.id, v.name, v.plan, v.kind, v.status, (v.amountCents / 100).toFixed(2), v.billingDay, v.billingUrl, v.provider,
+        v.notes, iso(v.lastSyncedAt), iso(v.createdAt), iso(v.updatedAt),
+      ]),
+    ),
+    "service_charges.csv": csv(
+      ["id", "service", "month", "amount_usd", "paid", "source", "created_at", "updated_at"],
+      s.serviceCharges.map((c) => [c.id, serviceName.get(c.serviceId) ?? "", c.month, (c.amountCents / 100).toFixed(2), c.paid ? "yes" : "no", c.source, iso(c.createdAt), iso(c.updatedAt)]),
     ),
   };
 }
@@ -69,6 +81,8 @@ export function buildJsonExport(s: Snapshot, schemaVersion: number, exportedAt: 
       tasks: s.tasks,
       milestones: s.milestones,
       notes: s.notes,
+      services: s.services,
+      serviceCharges: s.serviceCharges,
     },
     null,
     2,
